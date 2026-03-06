@@ -77,6 +77,7 @@ CC::FX_DRY_MIX,
     // Glide / global
     CC::GLIDE_ENABLE, CC::GLIDE_TIME,
     CC::AMP_MOD_FIXED_LEVEL,
+    CC::POLY_MODE, CC::UNISON_DETUNE,
 
     // Ring / DC
     CC::RING1_MIX, CC::RING2_MIX,

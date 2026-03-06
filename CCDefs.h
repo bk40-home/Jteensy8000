@@ -179,7 +179,73 @@ namespace CC {
     static constexpr uint8_t LFO2_TIMING_MODE    = 121;  // 0-11 (TimingMode enum)
     static constexpr uint8_t DELAY_TIMING_MODE   = 122;  // 0-11 (TimingMode enum)
 
-    // -------------------------------------------------------------------------
+ 
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: LFO1 per-destination depth amounts (JP-8000 style)
+    // Each destination can be non-zero simultaneously for multi-target mod.
+    // Final mixer gain = masterDepth * perDestDepth.
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t LFO1_PITCH_DEPTH  = 33;  // LFO1 → pitch depth 0-127
+    static constexpr uint8_t LFO1_FILTER_DEPTH = 34;  // LFO1 → filter cutoff depth
+    static constexpr uint8_t LFO1_PWM_DEPTH    = 35;  // LFO1 → shape/PWM depth
+    static constexpr uint8_t LFO1_AMP_DEPTH    = 36;  // LFO1 → amplitude depth
+    static constexpr uint8_t LFO1_DELAY        = 37;  // LFO1 fade-in after noteOn (ms)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: LFO2 per-destination depth amounts
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t LFO2_PITCH_DEPTH  = 38;
+    static constexpr uint8_t LFO2_FILTER_DEPTH = 39;
+    static constexpr uint8_t LFO2_PWM_DEPTH    = 40;
+    static constexpr uint8_t LFO2_AMP_DEPTH    = 57;  // 40 taken by LFO2_PWM
+    static constexpr uint8_t LFO2_DELAY        = 64;  // 65-69 used for pitch env below
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Pitch envelope
+    // DEPTH is bipolar: CC 64 = 0 semitones, 0 = -24, 127 = +24 semitones.
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t PITCH_ENV_ATTACK   = 65;
+    static constexpr uint8_t PITCH_ENV_DECAY    = 66;
+    static constexpr uint8_t PITCH_ENV_SUSTAIN  = 67;
+    static constexpr uint8_t PITCH_ENV_RELEASE  = 68;
+    static constexpr uint8_t PITCH_ENV_DEPTH    = 69;  // bipolar, 64 = zero
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NEW: Velocity sensitivity — three targets matching JP-8000
+    // 0 = velocity has no effect on target; 127 = full velocity control.
+    // Applied on every noteOn — does not affect stored base parameter values.
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t VELOCITY_AMP_SENS    = 10;   // velocity → VCA level
+    static constexpr uint8_t VELOCITY_FILTER_SENS = 11;   // velocity → filter cutoff offset
+    static constexpr uint8_t VELOCITY_ENV_SENS    = 12;   // velocity → filter env depth
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PITCH BEND RANGE
+    // ─────────────────────────────────────────────────────────────────────────
+    // Sets the pitch wheel throw in semitones (both up and down).
+    // CC value 0..127 maps to 0..24 semitones range.
+    // Default (CC=12): ±2 semitones — standard MIDI keyboard range.
+    // CC=127:  ±24 semitones (2 octaves each way).
+    //
+    // This is a global (synth-level) setting, stored in SynthEngine::_pitchBendRange.
+    // Using CC rather than RPN 0 for simplicity — easier to set from a MIDI controller.
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t PITCH_BEND_RANGE = 127; // CC 127: 0-127 → 0-24 semitones range
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // POLY MODE — voice allocation / stacking mode
+    //   CC 0..42   = POLY   — 8-voice polyphony (default)
+    //   CC 43..84  = MONO   — single voice, last-note priority, full glide
+    //   CC 85..127 = UNISON — all 8 voices stacked on one note, detuned
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t POLY_MODE     = 128;
+
+    // Unison detune spread — active only when POLY_MODE = UNISON.
+    // 0 = all in tune;  127 = ±0.5 semitone spread across 8 voices.
+    static constexpr uint8_t UNISON_DETUNE = 129;
+
+   // -------------------------------------------------------------------------
     // Utility: return human-readable name for a CC
     // -------------------------------------------------------------------------
     inline const char* name(uint8_t cc) {
@@ -297,61 +363,11 @@ namespace CC {
             case LFO1_TIMING_MODE:    return "LFO1 Sync";
             case LFO2_TIMING_MODE:    return "LFO2 Sync";
             case DELAY_TIMING_MODE:   return "Dly Sync";
+            case POLY_MODE:           return "Poly Mode";
+            case UNISON_DETUNE:       return "Uni Detune";
 
             default:                  return nullptr;
         }
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // NEW: LFO1 per-destination depth amounts (JP-8000 style)
-    // Each destination can be non-zero simultaneously for multi-target mod.
-    // Final mixer gain = masterDepth * perDestDepth.
-    // ─────────────────────────────────────────────────────────────────────────
-    static constexpr uint8_t LFO1_PITCH_DEPTH  = 33;  // LFO1 → pitch depth 0-127
-    static constexpr uint8_t LFO1_FILTER_DEPTH = 34;  // LFO1 → filter cutoff depth
-    static constexpr uint8_t LFO1_PWM_DEPTH    = 35;  // LFO1 → shape/PWM depth
-    static constexpr uint8_t LFO1_AMP_DEPTH    = 36;  // LFO1 → amplitude depth
-    static constexpr uint8_t LFO1_DELAY        = 37;  // LFO1 fade-in after noteOn (ms)
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // NEW: LFO2 per-destination depth amounts
-    // ─────────────────────────────────────────────────────────────────────────
-    static constexpr uint8_t LFO2_PITCH_DEPTH  = 38;
-    static constexpr uint8_t LFO2_FILTER_DEPTH = 39;
-    static constexpr uint8_t LFO2_PWM_DEPTH    = 40;
-    static constexpr uint8_t LFO2_AMP_DEPTH    = 57;  // 40 taken by LFO2_PWM
-    static constexpr uint8_t LFO2_DELAY        = 64;  // 65-69 used for pitch env below
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // NEW: Pitch envelope
-    // DEPTH is bipolar: CC 64 = 0 semitones, 0 = -24, 127 = +24 semitones.
-    // ─────────────────────────────────────────────────────────────────────────
-    static constexpr uint8_t PITCH_ENV_ATTACK   = 65;
-    static constexpr uint8_t PITCH_ENV_DECAY    = 66;
-    static constexpr uint8_t PITCH_ENV_SUSTAIN  = 67;
-    static constexpr uint8_t PITCH_ENV_RELEASE  = 68;
-    static constexpr uint8_t PITCH_ENV_DEPTH    = 69;  // bipolar, 64 = zero
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // NEW: Velocity sensitivity — three targets matching JP-8000
-    // 0 = velocity has no effect on target; 127 = full velocity control.
-    // Applied on every noteOn — does not affect stored base parameter values.
-    // ─────────────────────────────────────────────────────────────────────────
-    static constexpr uint8_t VELOCITY_AMP_SENS    = 10;   // velocity → VCA level
-    static constexpr uint8_t VELOCITY_FILTER_SENS = 11;   // velocity → filter cutoff offset
-    static constexpr uint8_t VELOCITY_ENV_SENS    = 12;   // velocity → filter env depth
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // PITCH BEND RANGE
-    // ─────────────────────────────────────────────────────────────────────────
-    // Sets the pitch wheel throw in semitones (both up and down).
-    // CC value 0..127 maps to 0..24 semitones range.
-    // Default (CC=12): ±2 semitones — standard MIDI keyboard range.
-    // CC=127:  ±24 semitones (2 octaves each way).
-    //
-    // This is a global (synth-level) setting, stored in SynthEngine::_pitchBendRange.
-    // Using CC rather than RPN 0 for simplicity — easier to set from a MIDI controller.
-    // ─────────────────────────────────────────────────────────────────────────
-    static constexpr uint8_t PITCH_BEND_RANGE = 127; // CC 127: 0-127 → 0-24 semitones range
 
 } // namespace CC

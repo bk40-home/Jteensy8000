@@ -44,6 +44,8 @@ HomeScreen::HomeScreen()
 
     // Zero previous-waveform buffer (used for erase-before-redraw)
     memset(_prevWave, 0, sizeof(_prevWave));
+    // All voices start inactive — LED strip will draw as dark on first frame
+    memset(_prevVoiceActive, 0, sizeof(_prevVoiceActive));
 }
 
 // =============================================================================
@@ -86,6 +88,7 @@ void HomeScreen::draw(SynthEngine& synth) {
         _display->fillScreen(COLOUR_BACKGROUND);
         _drawHeader(synth, true);
         _drawScope();
+        _drawVoiceBar(synth);
         _drawAllTiles();
         _drawFooter();
         _fullRedraw = false;
@@ -95,6 +98,9 @@ void HomeScreen::draw(SynthEngine& synth) {
 
     // Scope redraws every frame (live waveform)
     _drawScope();
+
+    // Voice activity bar — every frame (cheap: only redraws changed LEDs)
+    _drawVoiceBar(synth);
 
     // Header CPU% — rate-limited to avoid excess SPI
     const uint32_t now = millis();
@@ -151,15 +157,17 @@ bool HomeScreen::isScopeTapped() {
 
 void HomeScreen::markFullRedraw() {
     _fullRedraw = true;
-    memset(_prevWave, 0, sizeof(_prevWave)); // force erase on next draw
+    memset(_prevWave, 0, sizeof(_prevWave));
+    // Force all LEDs to repaint on next frame
+    memset(_prevVoiceActive, 0xFF, sizeof(_prevVoiceActive)); // 0xFF = all true → all redraw
 }
 
 // =============================================================================
-// _drawHeader()  — product name + CPU%
-//   fullRepaint=true: draw background + name (done on full redraws only).
-//   fullRepaint=false: update CPU% text region only.
+// _drawHeader()  — product name + poly mode badge + CPU%
+//   fullRepaint=true: draw background + static name (done on full redraws only).
+//   fullRepaint=false: update badge + CPU% only (cheap, no background fill).
 // =============================================================================
-void HomeScreen::_drawHeader(SynthEngine& /*synth*/, bool fullRepaint) {
+void HomeScreen::_drawHeader(SynthEngine& synth, bool fullRepaint) {
     if (fullRepaint) {
         _display->fillRect(0, 0, SW, HEADER_H, COLOUR_HEADER_BG);
         _display->drawFastHLine(0, HEADER_H - 1, SW, COLOUR_BORDER);
@@ -167,20 +175,82 @@ void HomeScreen::_drawHeader(SynthEngine& /*synth*/, bool fullRepaint) {
         _display->setTextSize(1);
         _display->setTextColor(COLOUR_SYSTEXT, COLOUR_HEADER_BG);
         _display->setCursor(4, 7);
-        _display->print("JT.4000");
+        _display->print("JT.8000");
     }
 
-    // CPU% — erase previous text region then redraw
-    // Region: rightmost 60 px of header (enough for "CPU:100%")
+    // ---- Poly mode badge: "POLY" / "MONO" / "UNI" ----
+    // Sits immediately right of the product name (x≈52).
+    // Colour-coded: POLY=dim grey, MONO=orange, UNISON=amber.
+    {
+        const char* modeStr;
+        uint16_t    modeCol;
+        switch (synth.getPolyMode()) {
+            case PolyMode::MONO:
+                modeStr = "MONO"; modeCol = COLOUR_LFO;    break;
+            case PolyMode::UNISON:
+                modeStr = "UNI";  modeCol = COLOUR_FILTER; break;
+            default:
+                modeStr = "POLY"; modeCol = COLOUR_TEXT_DIM; break;
+        }
+        // Clear badge region (4 chars × 6px = 24px wide; x starts at 52)
+        _display->fillRect(52, 2, 28, HEADER_H - 4, COLOUR_HEADER_BG);
+        _display->setTextColor(modeCol, COLOUR_HEADER_BG);
+        _display->setCursor(52, 7);
+        _display->print(modeStr);
+    }
+
+    // ---- CPU% — right-justified ----
     const int16_t cpuX = SW - 64;
     _display->fillRect(cpuX, 2, 62, HEADER_H - 4, COLOUR_HEADER_BG);
-
     char buf[12];
     snprintf(buf, sizeof(buf), "CPU:%d%%", (int)AudioProcessorUsageMax());
     _display->setTextSize(1);
     _display->setTextColor(COLOUR_TEXT_DIM, COLOUR_HEADER_BG);
     _display->setCursor(cpuX, 7);
     _display->print(buf);
+}
+
+// =============================================================================
+// _drawVoiceBar()  — 8-voice activity LED strip
+//
+// Draws one small coloured dot per voice in a thin horizontal band between
+// the oscilloscope and the section tiles.  Only redraws dots that changed
+// state since the last frame — typically 0-2 redraws per frame, very cheap.
+//
+// Colours:
+//   Active voice   : COLOUR_OSC  (cyan)  — in UNISON mode: COLOUR_FILTER (amber)
+//   Inactive voice : dark background slot
+//
+// Layout: 8 dots × LED_W px wide with LED_GAP spacing, centred in the strip.
+// =============================================================================
+void HomeScreen::_drawVoiceBar(SynthEngine& synth) {
+    static constexpr int16_t LED_W   = 16;   // LED dot width (px)
+    static constexpr int16_t LED_H   = 6;    // LED dot height (px)
+    static constexpr int16_t LED_GAP = 4;    // gap between dots
+    static constexpr int16_t TOTAL_W = 8 * LED_W + 7 * LED_GAP;   // = 156px
+    static constexpr int16_t START_X = (SW - TOTAL_W) / 2;         // centred
+
+    const bool isUnison = (synth.getPolyMode() == PolyMode::UNISON);
+    const uint16_t activeCol = isUnison ? COLOUR_FILTER : COLOUR_OSC;
+
+    for (int v = 0; v < 8; ++v) {
+        const bool active = synth.isVoiceActive((uint8_t)v);
+
+        // Skip redraw if nothing changed — saves SPI bandwidth
+        if (active == _prevVoiceActive[v]) continue;
+        _prevVoiceActive[v] = active;
+
+        const int16_t lx = START_X + v * (LED_W + LED_GAP);
+        const int16_t ly = VOICE_BAR_Y + 1;   // 1px inset from strip top
+
+        if (active) {
+            // Filled dot with a 1px darker border for depth
+            _display->fillRect(lx, ly, LED_W, LED_H, activeCol);
+        } else {
+            // Dark slot — shows the LED is present but off
+            _display->fillRect(lx, ly, LED_W, LED_H, COLOUR_BORDER);
+        }
+    }
 }
 
 // =============================================================================

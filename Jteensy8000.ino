@@ -270,6 +270,11 @@ void setup() {
     // -------------------------------------------------------------------------
     AudioMemory(200);
 
+    // CRITICAL: Create all internal AudioConnections NOW — after AudioMemory().
+    // SynthEngine is a global object so its constructor ran before setup().
+    // Any AudioConnection built before AudioMemory() is silently broken.
+    synth.begin();
+
     // -------------------------------------------------------------------------
     // STEP 3: USB Host MIDI  (keyboard on host port)
     // -------------------------------------------------------------------------

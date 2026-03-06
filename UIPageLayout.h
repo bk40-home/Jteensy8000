@@ -172,8 +172,8 @@ static constexpr uint8_t ccMap[NUM_PAGES][PARAMS_PER_PAGE] = {
     // GLOBAL  (pages 23-24)
     // =========================================================================
 
-    // Page 23: Performance — glide, amp modulation fixed level
-    { CC::GLIDE_ENABLE, CC::GLIDE_TIME, CC::AMP_MOD_FIXED_LEVEL, 255 },
+    // Page 23: Performance — glide, amp modulation fixed level, poly/mono/unison mode
+    { CC::GLIDE_ENABLE, CC::GLIDE_TIME, CC::POLY_MODE, CC::UNISON_DETUNE },
 
     // Page 24: Arbitrary waveform (AKWF) bank and table index for both oscs
     { CC::OSC1_ARB_BANK, CC::OSC1_ARB_INDEX, CC::OSC2_ARB_BANK, CC::OSC2_ARB_INDEX },
@@ -282,7 +282,7 @@ static constexpr const char* ccNames[NUM_PAGES][PARAMS_PER_PAGE] = {
     { "Dry Mix",   "JPFX Mix",   "Rev Mix",    "---"       },
 
     // Page 23 — Global / Performance
-    { "Glide On",  "Glide Time", "Amp Mod",    "---"       },
+    { "Glide On",  "Glide Time", "Poly Mode",  "Uni Det"   },
 
     // Page 24 — Arbitrary waveforms
     { "OSC1 Bank", "OSC1 Wave#", "OSC2 Bank",  "OSC2 Wave#"},

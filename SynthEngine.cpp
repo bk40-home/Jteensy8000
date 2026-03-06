@@ -22,151 +22,185 @@ SynthEngine::SynthEngine()
     : _lfo1(), _lfo2(), _fxChain()
 {
     // =========================================================================
-    // INITIALIZE VOICE STATE
+    // CONSTRUCTOR: C++ member initialisation ONLY.
+    // No AudioConnection objects are created here.
+    //
+    // REASON: SynthEngine is a global object — its constructor runs before
+    // setup(), which means before AudioMemory() is called.  The Teensy Audio
+    // Library requires AudioMemory() to be allocated before any AudioConnection
+    // is created; connections built before that point are silently broken and
+    // produce no audio.
+    //
+    // All AudioConnection creation is deferred to begin(), which must be called
+    // from setup() AFTER AudioMemory().
     // =========================================================================
+
+    // Voice bookkeeping
     for (int i = 0; i < MAX_VOICES; i++) {
-        _activeNotes[i] = false;
+        _activeNotes[i]    = false;
         _noteTimestamps[i] = 0;
     }
     for (int i = 0; i < 128; i++) {
         _noteToVoice[i] = VOICE_NONE;
     }
 
+    // Null all patch cord pointers so begin() can detect double-init
+    for (int i = 0; i < MAX_VOICES; i++) {
+        _voicePatch[i]                  = nullptr;
+        _voicePatchLFO1ShapeOsc1[i]     = nullptr;
+        _voicePatchLFO1ShapeOsc2[i]     = nullptr;
+        _voicePatchLFO1FrequencyOsc1[i] = nullptr;
+        _voicePatchLFO1FrequencyOsc2[i] = nullptr;
+        _voicePatchLFO1Filter[i]        = nullptr;
+        _voicePatchLFO2ShapeOsc1[i]     = nullptr;
+        _voicePatchLFO2ShapeOsc2[i]     = nullptr;
+        _voicePatchLFO2FrequencyOsc1[i] = nullptr;
+        _voicePatchLFO2FrequencyOsc2[i] = nullptr;
+        _voicePatchLFO2Filter[i]        = nullptr;
+    }
+    _patchMixerAToFinal            = nullptr;
+    _patchMixerBToFinal            = nullptr;
+    _patchAmpModFixedDcToAmpModMixer = nullptr;
+    _patchLFO1ToAmpModMixer        = nullptr;
+    _patchLFO2ToAmpModMixer        = nullptr;
+    _patchAmpModMixerToAmpMultiply = nullptr;
+    _patchVoiceMixerToAmpMultiply  = nullptr;
+    _fxPatchInL  = nullptr;
+    _fxPatchInR  = nullptr;
+    _fxPatchDryL = nullptr;
+    _fxPatchDryR = nullptr;
+}
+
+// =============================================================================
+// begin() — call from setup() AFTER AudioMemory()
+//
+// Creates every AudioConnection in the engine graph.  This is separated from
+// the constructor because SynthEngine is a global object and its constructor
+// runs before AudioMemory() is called in setup().  Any AudioConnection built
+// before AudioMemory() is silently broken and passes no audio.
+// =============================================================================
+void SynthEngine::begin()
+{
     // =========================================================================
-    // SETUP AMP MODULATION DC SOURCES
+    // MIXER GAINS
+    // Must be set before audio starts, but safe to do in begin() since they
+    // are simple register writes with no memory dependency.
     // =========================================================================
+
+    // Amp mod DC level and limiter
     _ampModFixedDc.amplitude(_ampModFixedLevel);
     _ampModLimitFixedDc.amplitude(1.0f);
-    
-    // Amp mod mixer: Fixed DC + LFO1 + LFO2 → multiply with voice mixer
-    _ampModMixer.gain(0, 1.0f);  // Fixed DC
-    _ampModMixer.gain(1, 0.0f);  // LFO1 (amount controlled by setLFO1Amount)
-    _ampModMixer.gain(2, 0.0f);  // LFO2 (amount controlled by setLFO2Amount)
-    _ampModMixer.gain(3, 0.0f);  // Unused
-    
-    _ampModLimiterMixer.gain(0, 1.0f);  // Amp mod output
-    _ampModLimiterMixer.gain(1, 0.0f);  // Limiter (unused)
-    _ampModLimiterMixer.gain(2, 0.0f);  // Unused
-    _ampModLimiterMixer.gain(3, 0.0f);  // Unused
 
-    // =========================================================================
-    // SETUP 8-VOICE MIXER ARCHITECTURE
-    // =========================================================================
-    
-    // Sub-mixer A (voices 0-3) - gain 0.5 prevents clipping
+    // Amp mod signal mixer: slot 0 = fixed DC, 1/2 = LFO tremolo, 3 = unused
+    _ampModMixer.gain(0, 1.0f);
+    _ampModMixer.gain(1, 0.0f);
+    _ampModMixer.gain(2, 0.0f);
+    _ampModMixer.gain(3, 0.0f);
+
+    _ampModLimiterMixer.gain(0, 1.0f);
+    _ampModLimiterMixer.gain(1, 0.0f);
+    _ampModLimiterMixer.gain(2, 0.0f);
+    _ampModLimiterMixer.gain(3, 0.0f);
+
+    // Voice sub-mixer gains — 8 voices across two AudioMixer4 objects
+    // Each sub-mixer receives 4 voices; final mixer combines both.
+    // Gain 1.0 per voice: clipping is prevented by MAX_VOICE_VELOCITY clamping
+    // and the 0.1 final-mixer attenuation below.
     for (int i = 0; i < 4; i++) {
         _voiceMixerA.gain(i, 1.0f);
-    }
-    
-    // Sub-mixer B (voices 4-7) - gain 0.5 prevents clipping
-    for (int i = 0; i < 4; i++) {
         _voiceMixerB.gain(i, 1.0f);
     }
-    
-    // Final mixer (combines A and B) - gain 0.5 prevents clipping
-    _voiceMixerFinal.gain(0, 0.1f);  // Sub-mixer A
-    _voiceMixerFinal.gain(1, 0.1f);  // Sub-mixer B
+
+    // Final mixer: 0.1 per sub-mixer = −20 dB, giving 8-voice headroom before
+    // the amp-multiply stage.  Raise if output is too quiet.
+    _voiceMixerFinal.gain(0, 0.1f);  // Sub-mixer A (voices 0–3)
+    _voiceMixerFinal.gain(1, 0.1f);  // Sub-mixer B (voices 4–7)
     _voiceMixerFinal.gain(2, 0.0f);  // Unused
     _voiceMixerFinal.gain(3, 0.0f);  // Unused
 
     // =========================================================================
-    // CREATE AUDIO CONNECTIONS - VOICES TO MIXERS
+    // AUDIO CONNECTIONS — VOICES → MIXERS
     // =========================================================================
-    
-    // Connect voices 0-3 to sub-mixer A
+
     for (int i = 0; i < 4; i++) {
         _voicePatch[i] = new AudioConnection(_voices[i].output(), 0, _voiceMixerA, i);
     }
-    
-    // Connect voices 4-7 to sub-mixer B  
-    for (int i = 4; i < 8; i++) {
+    for (int i = 4; i < MAX_VOICES; i++) {
         _voicePatch[i] = new AudioConnection(_voices[i].output(), 0, _voiceMixerB, i - 4);
     }
-    
-    // Connect sub-mixers to final mixer
+
     _patchMixerAToFinal = new AudioConnection(_voiceMixerA, 0, _voiceMixerFinal, 0);
     _patchMixerBToFinal = new AudioConnection(_voiceMixerB, 0, _voiceMixerFinal, 1);
 
     // =========================================================================
-    // CREATE AUDIO CONNECTIONS - LFO TO VOICES (8 VOICES)
+    // AUDIO CONNECTIONS — LFO → ALL VOICES
     // =========================================================================
-    
+
     for (int i = 0; i < MAX_VOICES; i++) {
-        // LFO1 connections - use your actual VoiceBlock method names
-        _voicePatchLFO1ShapeOsc1[i]     = new AudioConnection(_lfo1.output(), 0, _voices[i].shapeModMixerOsc1(), 1);
-        _voicePatchLFO1ShapeOsc2[i]     = new AudioConnection(_lfo1.output(), 0, _voices[i].shapeModMixerOsc2(), 1);
+        // LFO1: shape mod (PWM), frequency mod (vibrato), filter mod (wah)
+        _voicePatchLFO1ShapeOsc1[i]     = new AudioConnection(_lfo1.output(), 0, _voices[i].shapeModMixerOsc1(),     1);
+        _voicePatchLFO1ShapeOsc2[i]     = new AudioConnection(_lfo1.output(), 0, _voices[i].shapeModMixerOsc2(),     1);
         _voicePatchLFO1FrequencyOsc1[i] = new AudioConnection(_lfo1.output(), 0, _voices[i].frequencyModMixerOsc1(), 1);
         _voicePatchLFO1FrequencyOsc2[i] = new AudioConnection(_lfo1.output(), 0, _voices[i].frequencyModMixerOsc2(), 1);
-        _voicePatchLFO1Filter[i]        = new AudioConnection(_lfo1.output(), 0, _voices[i].filterModMixer(), 2);
-        
-        // LFO2 connections - use your actual VoiceBlock method names
-        _voicePatchLFO2ShapeOsc1[i]     = new AudioConnection(_lfo2.output(), 0, _voices[i].shapeModMixerOsc1(), 2);
-        _voicePatchLFO2ShapeOsc2[i]     = new AudioConnection(_lfo2.output(), 0, _voices[i].shapeModMixerOsc2(), 2);
+        _voicePatchLFO1Filter[i]        = new AudioConnection(_lfo1.output(), 0, _voices[i].filterModMixer(),         2);
+
+        // LFO2: same destinations, separate depth control
+        _voicePatchLFO2ShapeOsc1[i]     = new AudioConnection(_lfo2.output(), 0, _voices[i].shapeModMixerOsc1(),     2);
+        _voicePatchLFO2ShapeOsc2[i]     = new AudioConnection(_lfo2.output(), 0, _voices[i].shapeModMixerOsc2(),     2);
         _voicePatchLFO2FrequencyOsc1[i] = new AudioConnection(_lfo2.output(), 0, _voices[i].frequencyModMixerOsc1(), 2);
         _voicePatchLFO2FrequencyOsc2[i] = new AudioConnection(_lfo2.output(), 0, _voices[i].frequencyModMixerOsc2(), 2);
-        _voicePatchLFO2Filter[i]        = new AudioConnection(_lfo2.output(), 0, _voices[i].filterModMixer(), 3);
+        _voicePatchLFO2Filter[i]        = new AudioConnection(_lfo2.output(), 0, _voices[i].filterModMixer(),         3);
     }
 
     // =========================================================================
-    // CREATE AUDIO CONNECTIONS - AMP MODULATION
+    // AUDIO CONNECTIONS — PITCH ENVELOPE → FM MIXERS
+    //
+    // frequencyModMixer slot allocation (per OscillatorBlock internal wiring):
+    //   0 = _frequencyDc   (internal DC, wired inside OscillatorBlock — DO NOT use)
+    //   1 = LFO1           (wired above)
+    //   2 = LFO2           (wired above)
+    //   3 = Pitch envelope (this section)
+    //
+    // Depth is encoded in _pitchEnvDc amplitude as semitones/12 so that
+    // FM_SEMITONE_SCALE produces the correct Hz shift.  Mixer gain stays 1.0.
     // =========================================================================
-    
-    // ---- Pitch envelope audio connections ----
-    // frequencyModMixer input slot allocation (DO NOT change without checking OscillatorBlock):
-    //   0 = _frequencyDc   — wired inside OscillatorBlock constructor, must NOT be touched
-    //   1 = LFO1           — wired above
-    //   2 = LFO2           — wired above
-    //   3 = Pitch envelope — the only free slot
-    // Connecting to slot 0 would REPLACE the _frequencyDc connection and detune all voices.
-    // frequencyModMixer gain(3) is fixed at 1/10 because frequencyModulation(10).
-    // Depth and direction are encoded in _pitchEnvDc amplitude (set by setPitchEnvDepth).
-    // At amplitude ±1.0 and gain 0.1: FM shift = 2^(±1 × 0.1 × 10) = ±1 octave.
-    // With depth ±12 semitones: amplitude = ±12/12 = ±1.0 → ±1 octave. Correct.
-    // -------------------------------------------------------------------------
-    // PITCH ENVELOPE → FM MIXER WIRING
-    // -------------------------------------------------------------------------
-    // Slot allocation in frequencyModMixer (must not conflict with existing wires):
-    //   0 = _frequencyDc   — wired inside OscillatorBlock (internal DC offset)
-    //   1 = LFO1           — wired above
-    //   2 = LFO2           — wired above
-    //   3 = Pitch envelope — wired here (the only remaining free slot)
-    //
-    // The FM mixer gain for slot 3 is 1.0 (full pass-through).
-    // All depth scaling is encoded in the _pitchEnvDc amplitude via
-    // VoiceBlock::setPitchEnvDepth() which applies FM_SEMITONE_SCALE.
-    //
-    // Signal flow per voice:
-    //   _pitchEnvDc (amplitude=depth×FM_SEMITONE_SCALE)
-    //     → EnvelopeBlock (ADSR shaping)
-    //       → frequencyModMixerOsc1/2 slot 3 (gain=1.0)
-    //         → _mainOsc FM input → pitch shift in Hz
-    // -------------------------------------------------------------------------
+
     for (int i = 0; i < MAX_VOICES; ++i) {
-        // Wire pitch envelope output into both oscillator FM mixers at slot 3.
         _voices[i]._pitchEnvPatch1 = new AudioConnection(
             _voices[i].pitchEnvOutput(), 0, _voices[i].frequencyModMixerOsc1(), 3);
         _voices[i]._pitchEnvPatch2 = new AudioConnection(
             _voices[i].pitchEnvOutput(), 0, _voices[i].frequencyModMixerOsc2(), 3);
 
-        // Gain = 1.0: depth is already encoded in _pitchEnvDc amplitude.
-        // DO NOT reduce this gain here — it would silently scale depth down.
         _voices[i].frequencyModMixerOsc1().gain(3, 1.0f);
         _voices[i].frequencyModMixerOsc2().gain(3, 1.0f);
     }
 
-    _patchAmpModFixedDcToAmpModMixer = new AudioConnection(_ampModFixedDc, 0, _ampModMixer, 0);
-    _patchLFO1ToAmpModMixer          = new AudioConnection(_lfo1.output(), 0, _ampModMixer, 1);
-    _patchLFO2ToAmpModMixer          = new AudioConnection(_lfo2.output(), 0, _ampModMixer, 2);
-    _patchAmpModMixerToAmpMultiply   = new AudioConnection(_ampModMixer, 0, _ampMultiply, 0);
-    _patchVoiceMixerToAmpMultiply    = new AudioConnection(_voiceMixerFinal, 0, _ampMultiply, 1);
+    // =========================================================================
+    // AUDIO CONNECTIONS — AMP MOD MULTIPLY → FX CHAIN
+    //
+    // Signal flow:
+    //   _ampModMixer (DC + LFO tremolo)
+    //     ↘
+    //      _ampMultiply  ← _voiceMixerFinal (all voices summed)
+    //     ↓
+    //   _fxChain (reverb/chorus/delay)
+    //     ↓
+    //   getFXOutL() / getFXOutR()  → I2S DAC
+    // =========================================================================
 
-// Connect amp to JPFX (stereo)
-_fxPatchInL = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(), 0);
-_fxPatchInR = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(), 1);
+    _patchAmpModFixedDcToAmpModMixer = new AudioConnection(_ampModFixedDc,    0, _ampModMixer,   0);
+    _patchLFO1ToAmpModMixer          = new AudioConnection(_lfo1.output(),    0, _ampModMixer,   1);
+    _patchLFO2ToAmpModMixer          = new AudioConnection(_lfo2.output(),    0, _ampModMixer,   2);
+    _patchAmpModMixerToAmpMultiply   = new AudioConnection(_ampModMixer,      0, _ampMultiply,   0);
+    _patchVoiceMixerToAmpMultiply    = new AudioConnection(_voiceMixerFinal,  0, _ampMultiply,   1);
 
-// Connect amp dry to mixer (channel 0)
-_fxPatchDryL = new AudioConnection(_ampMultiply, 0, _fxChain.getOutputLeft(), 0);
-_fxPatchDryR = new AudioConnection(_ampMultiply, 0, _fxChain.getOutputRight(), 0);
+    // Wet path: amp → JPFX stereo input
+    _fxPatchInL  = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(),   0);
+    _fxPatchInR  = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(),   1);
+
+    // Dry path: amp → output mixers directly (bypass FX)
+    _fxPatchDryL = new AudioConnection(_ampMultiply, 0, _fxChain.getOutputLeft(),  0);
+    _fxPatchDryR = new AudioConnection(_ampMultiply, 0, _fxChain.getOutputRight(), 0);
 }
 
 static inline float CCtoTime(uint8_t cc) { return JT8000Map::cc_to_time_ms(cc); }
@@ -283,18 +317,63 @@ void SynthEngine::noteOn(byte note, float velocity) {
     if (_lfo2DelayMs > 0.0f) { _lfo2NoteOnMs = millis(); _lfo2Ramping = true; _lfo2CurrentAmp = 0.0f; }
 
     // Limit per-voice amplitude to 0.95 — leaves headroom when multiple
-    // voices sound simultaneously.  With 8 voices all at 1.0 the summed
-    // signal would clip the final mixer; 0.95 keeps worst-case < full scale.
+    // voices sound simultaneously.
     static constexpr float MAX_VOICE_VELOCITY = 0.95f;
     if (velocity > MAX_VOICE_VELOCITY) velocity = MAX_VOICE_VELOCITY;
 
+    // =========================================================================
+    // MONO mode — single voice, last-note priority, glide always on
+    // =========================================================================
+    if (_polyMode == PolyMode::MONO) {
+        // Use voice 0 exclusively.  Any currently-sounding note is released
+        // and the new one starts via glide from the previous frequency.
+        if (_noteToVoice[note] == VOICE_NONE) {
+            // Release any previously mapped note from the books
+            for (int n = 0; n < 128; ++n) {
+                if (_noteToVoice[n] != VOICE_NONE) { _noteToVoice[n] = VOICE_NONE; }
+            }
+            _noteToVoice[note] = 0;
+        }
+        _voices[0].noteOn(freq, velocity);
+        _activeNotes[0] = true;
+        _noteTimestamps[0] = _clock++;
+        return;
+    }
+
+    // =========================================================================
+    // UNISON mode — all 8 voices play the same note, detuned
+    // =========================================================================
+    if (_polyMode == PolyMode::UNISON) {
+        // Release the previous unison note if a different note comes in
+        if (_unisonNote >= 0 && _unisonNote != (int)note) {
+            for (int i = 0; i < MAX_VOICES; ++i) {
+                _voices[i].noteOff();
+                _activeNotes[i] = false;
+            }
+            _noteToVoice[_unisonNote] = VOICE_NONE;
+        }
+        _unisonNote = (int)note;
+        _noteToVoice[note] = 0;  // Sentinel: voice 0 represents the note
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            _voices[i].noteOn(freq, velocity);
+            _activeNotes[i] = true;
+            _noteTimestamps[i] = _clock++;
+        }
+        return;
+    }
+
+    // =========================================================================
+    // POLY mode — standard 8-voice last-note-priority polyphony
+    // =========================================================================
+
+    // Retrigger: same note already playing on a voice
     if (_noteToVoice[note] != VOICE_NONE) {
         int v = _noteToVoice[note];
         _voices[v].noteOn(freq, velocity);
         _noteTimestamps[v] = _clock++;
         return;
     }
-    // free voice
+    // Free voice available
     for (int i = 0; i < MAX_VOICES; ++i) {
         if (!_activeNotes[i]) {
             _voices[i].noteOn(freq, velocity);
@@ -304,13 +383,13 @@ void SynthEngine::noteOn(byte note, float velocity) {
             return;
         }
     }
-    // steal oldest
+    // Voice steal — take the oldest note
     int oldest = 0;
     for (int i = 1; i < MAX_VOICES; ++i)
         if (_noteTimestamps[i] < _noteTimestamps[oldest]) oldest = i;
 
     for (int n = 0; n < 128; ++n)
-        if (_noteToVoice[n] == oldest) { _noteToVoice[n] = 255; break; }
+        if (_noteToVoice[n] == oldest) { _noteToVoice[n] = VOICE_NONE; break; }
 
     _voices[oldest].noteOn(freq, velocity);
     _activeNotes[oldest] = true;
@@ -319,12 +398,26 @@ void SynthEngine::noteOn(byte note, float velocity) {
 }
 
 void SynthEngine::noteOff(byte note) {
-    if (_noteToVoice[note] != 255) {
-        int v = _noteToVoice[note];
-        _voices[v].noteOff();
-        _activeNotes[v] = false;
-        _noteToVoice[note] = 255;
+    if (_noteToVoice[note] == VOICE_NONE) return;
+
+    if (_polyMode == PolyMode::UNISON) {
+        // Release all voices when the held unison note lifts
+        if ((int)note == _unisonNote) {
+            for (int i = 0; i < MAX_VOICES; ++i) {
+                _voices[i].noteOff();
+                _activeNotes[i] = false;
+            }
+            _noteToVoice[note] = VOICE_NONE;
+            _unisonNote = -1;
+        }
+        return;
     }
+
+    // POLY and MONO: release the single assigned voice
+    int v = _noteToVoice[note];
+    _voices[v].noteOff();
+    _activeNotes[v] = false;
+    _noteToVoice[note] = VOICE_NONE;
 }
 
 void SynthEngine::update() {
@@ -462,6 +555,53 @@ void SynthEngine::setPitchBendRange(float semitones) {
     for (int i = 0; i < MAX_VOICES; ++i) {
         _voices[i].setOsc1PitchBend(_pitchBendSemis);
         _voices[i].setOsc2PitchBend(_pitchBendSemis);
+    }
+}
+
+// =============================================================================
+// POLY MODE
+// =============================================================================
+
+void SynthEngine::setPolyMode(PolyMode mode) {
+    if (_polyMode == mode) return;
+    _polyMode = mode;
+
+    // Kill all active voices when switching modes to prevent stuck notes.
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        _voices[i].noteOff();
+        _activeNotes[i] = false;
+    }
+    for (int n = 0; n < 128; ++n) _noteToVoice[n] = VOICE_NONE;
+    _unisonNote = -1;
+
+    // In UNISON mode, apply spread detune across voices immediately.
+    if (mode == PolyMode::UNISON) _applyUnisonDetune();
+
+    JT_LOGF("[SynthEngine] PolyMode → %s\n",
+        mode == PolyMode::POLY   ? "POLY" :
+        mode == PolyMode::MONO   ? "MONO" : "UNISON");
+}
+
+void SynthEngine::setUnisonDetune(float amount) {
+    if (amount < 0.0f) amount = 0.0f;
+    if (amount > 1.0f) amount = 1.0f;
+    _unisonDetune = amount;
+    if (_polyMode == PolyMode::UNISON) _applyUnisonDetune();
+}
+
+// _applyUnisonDetune() — spread voices evenly across ±spread/2 semitones.
+// Voice 0 gets the most negative offset, voice N-1 the most positive.
+// With 8 voices and spread=1.0 semitone: offsets = -0.5, -0.357, ..., +0.5 semi.
+void SynthEngine::_applyUnisonDetune() {
+    const float spread = _unisonDetune * UNISON_MAX_SPREAD_SEMITONES;
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        // Linear spacing from -spread/2 to +spread/2 across MAX_VOICES.
+        // With 1 voice: offset = 0 (avoids divide by zero via the guard).
+        const float offset = (MAX_VOICES > 1)
+            ? (-spread * 0.5f + spread * (float)i / (float)(MAX_VOICES - 1))
+            : 0.0f;
+        _voices[i].setOsc1Detune(offset);
+        _voices[i].setOsc2Detune(offset);
     }
 }
 
@@ -708,7 +848,6 @@ void SynthEngine::_applyLFO1Gains() {
     // -------------------------------------------------------------------------
     const float pitchScale = LFO_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;  // = 7/120 ≈ 0.0583
     const float pitchG  = eff1 * _lfo1PitchDepth * pitchScale;
-    
 
     // Filter, PWM and amp gains are already dimensionless (0..1 into their respective
     // mod mixers) — no additional scale needed for those paths.
@@ -839,7 +978,7 @@ void SynthEngine::setPitchEnvDepth(float semitones) {
     _pitchEnvDepth = semitones;
     // VoiceBlock::setPitchEnvDepth writes amplitude = semitones / 12.0 to _pitchEnvDc.
     // Range: -1.0 (full down) to +1.0 (full up), 0 = no pitch shift.
-    // freqModMixer gain(3) is fixed at 1/10 set at construction — do NOT change it here.
+    // freqModMixer gain(3) = 1.0. Depth is encoded in the _pitchEnvDc amplitude — do not change here.
     for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setPitchEnvDepth(semitones);
 }
 
@@ -1190,8 +1329,8 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         } break;
 
         // ------------------- Detune / Fine -------------------
-        case CC::OSC1_DETUNE:    { float d = norm * 2.0f - 1.0f;     setOsc1Detune(d);      JT_LOGF("[CC %u:%s] OSC1 Detune = %.3f\n",        control, ccName, d); } break;
-        case CC::OSC2_DETUNE:    { float d = norm * 2.0f - 1.0f;     setOsc2Detune(d);      JT_LOGF("[CC %u:%s] OSC2 Detune = %.3f\n",        control, ccName, d); } break;
+        case CC::OSC1_DETUNE:    { float d = (norm * 2.0f - 1.0f) * 12.0f; setOsc1Detune(d);   JT_LOGF("[CC %u:%s] OSC1 Detune = %.2f semi\n",     control, ccName, d); } break;
+        case CC::OSC2_DETUNE:    { float d = (norm * 2.0f - 1.0f) * 12.0f; setOsc2Detune(d);   JT_LOGF("[CC %u:%s] OSC2 Detune = %.2f semi\n",     control, ccName, d); } break;
         case CC::OSC1_FINE_TUNE: { float c = norm * 200.0f - 100.0f; setOsc1FineTune(c);    JT_LOGF("[CC %u:%s] OSC1 Fine = %.1f cents\n",    control, ccName, c); } break;
         case CC::OSC2_FINE_TUNE: { float c = norm * 200.0f - 100.0f; setOsc2FineTune(c);    JT_LOGF("[CC %u:%s] OSC2 Fine = %.1f cents\n",    control, ccName, c); } break;
 
@@ -1658,6 +1797,21 @@ case CC::DELAY_TIMING_MODE: {
             const float rangeSemis = norm * PITCH_BEND_MAX_SEMITONES;
             setPitchBendRange(rangeSemis);
             JT_LOGF("[CC %u:%s] Bend range = ±%.1f semitones\n", control, ccName, rangeSemis);
+        } break;
+
+        // ------------------- Poly / Mono / Unison -------------------
+        // CC 0..42   = POLY,  43..84 = MONO,  85..127 = UNISON
+        case CC::POLY_MODE: {
+            PolyMode pm = (value <= 42) ? PolyMode::POLY :
+                          (value <= 84) ? PolyMode::MONO : PolyMode::UNISON;
+            setPolyMode(pm);
+            JT_LOGF("[CC %u:%s] → %s\n", control, ccName,
+                pm == PolyMode::POLY ? "POLY" : pm == PolyMode::MONO ? "MONO" : "UNISON");
+        } break;
+
+        case CC::UNISON_DETUNE: {
+            setUnisonDetune(norm);
+            JT_LOGF("[CC %u:%s] Unison detune = %.3f\n", control, ccName, norm);
         } break;
 
         // ------------------- Fallback -------------------

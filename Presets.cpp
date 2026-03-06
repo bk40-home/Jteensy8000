@@ -137,6 +137,8 @@ sendCC(synth, CC::FX_DRY_MIX, 127);      // Full dry (effects off)
     sendCC(synth, CC::GLIDE_ENABLE, 0);
     sendCC(synth, CC::GLIDE_TIME,   0);
     sendCC(synth, CC::AMP_MOD_FIXED_LEVEL, 127);
+    sendCC(synth, CC::POLY_MODE,    0);    // 0 = POLY mode
+    sendCC(synth, CC::UNISON_DETUNE, 64);  // 64 = mid-range detune spread
 
     AudioInterrupts();
 }

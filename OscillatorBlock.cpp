@@ -67,8 +67,11 @@ OscillatorBlock::OscillatorBlock(bool enableSupersaw)
     // =========================================================================
     _mainOsc.begin(_currentType);
     _mainOsc.amplitude(1.0f);
-    _mainOsc.frequencyModulation(FM_OCTAVE_RANGE);  // ±1.0 on FM = ±10 octaves
-    _mainOsc.phaseModulation(175);
+    // frequencyModulation(N) puts the oscillator in FM mode.
+    // ±1.0 on the FM input shifts pitch by ±N octaves.
+    // MUST be called LAST — phaseModulation() would override this and switch
+    // to PM mode, making all DC pitch sources produce inaudible phase offsets.
+   // _mainOsc.frequencyModulation(FM_OCTAVE_RANGE);
 
     // =========================================================================
     // OUTPUT MIXER — DUAL PATH
@@ -329,7 +332,6 @@ void OscillatorBlock::noteOff() {
 void OscillatorBlock::update() {
     // Early exit if no glide active — zero CPU cost for static notes
     if (!_glideActive) return;
-    //return;
 
     // Exponential glide toward target frequency
     const float delta = _glideTargetHz - _glideCurrentHz;

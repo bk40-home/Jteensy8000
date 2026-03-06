@@ -90,12 +90,35 @@ static constexpr float PITCH_ENV_MAX_SEMITONES = 24.0f;
 static constexpr float PITCH_BEND_DEFAULT_SEMITONES = 2.0f;
 static constexpr float PITCH_BEND_MAX_SEMITONES     = 24.0f;
 
+// =============================================================================
+// PolyMode — voice allocation and stacking mode
+//
+// POLY:   Standard 8-voice polyphony, last-note stealing.
+// MONO:   Single voice, last-note priority. Glide always active (uses
+//         VoiceBlock glide regardless of GLIDE_ENABLE CC).
+// UNISON: All 8 voices triggered simultaneously on each note, detuned
+//         by _unisonDetuneSemis spread evenly across voices.
+//         Produces a fat stacked sound at the cost of all polyphony.
+// =============================================================================
+enum class PolyMode : uint8_t {
+    POLY   = 0,
+    MONO   = 1,
+    UNISON = 2,
+};
+
+// Maximum unison detune spread (semitones total, ± this / 2 per voice).
+static constexpr float UNISON_MAX_SPREAD_SEMITONES = 1.0f;
+
 class SynthEngine {
 public:
     // =========================================================================
     // Lifecycle
     // =========================================================================
     SynthEngine();
+    // Must be called from setup() AFTER AudioMemory() — creates all AudioConnections.
+    // Calling this before AudioMemory() results in silent/broken audio graph.
+    void begin();
+
     void noteOn(byte note, float velocity);
     void noteOff(byte note);
     void update();
@@ -147,6 +170,17 @@ public:
 
     float getPitchBendRange()  const { return _pitchBendRange; }
     float getPitchBendSemis()  const { return _pitchBendSemis; }
+
+    // -------------------------------------------------------------------------
+    // POLY MODE — voice allocation mode (poly / mono / unison)
+    // -------------------------------------------------------------------------
+    void     setPolyMode(PolyMode mode);
+    PolyMode getPolyMode()         const { return _polyMode; }
+
+    // Unison detune spread — only audible in UNISON mode.
+    // 0.0 = all voices in perfect unison;  1.0 = full UNISON_MAX_SPREAD_SEMITONES.
+    void  setUnisonDetune(float amount);     // 0..1 normalised
+    float getUnisonDetune() const           { return _unisonDetune; }
 
     void setOscMix(float osc1Level, float osc2Level);
     void setOsc1Mix(float oscLevel);
@@ -523,6 +557,12 @@ private:
     float _ring1Mix = 0.0f, _ring2Mix = 0.0f;
     float _supersawDetune[2] = {0.0f, 0.0f};
     float _supersawMix[2]    = {0.0f, 0.0f};
+
+    // ---- Poly mode ----
+    PolyMode _polyMode     = PolyMode::POLY;
+    float    _unisonDetune = 0.0f;    // 0..1 normalised spread amount
+    // In UNISON mode, all voices track the same note. _unisonNote stores which.
+    int      _unisonNote   = -1;      // -1 = no note held
     float _osc1FreqDc = 0.0f,  _osc2FreqDc = 0.0f;
     float _osc1ShapeDc = 0.0f, _osc2ShapeDc = 0.0f;
     float _osc1FeedbackAmount = 0.0f, _osc2FeedbackAmount = 0.0f;
@@ -627,5 +667,6 @@ private:
     // NEW: Private helpers
     void _applyLFO1Gains();     // Recompute all LFO1 destination mixer gains
     void _applyLFO2Gains();     // Recompute all LFO2 destination mixer gains
+    void _applyUnisonDetune();  // Spread detune offsets across voices (UNISON mode)
     void _updateLFODelay();     // Called from update(): handle delay ramps
 };

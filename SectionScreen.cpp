@@ -412,6 +412,7 @@ void SectionScreen::_openEnumEntry(uint8_t cc, const char* title) {
     static const char* kClkSrc[]  = { "Internal","External" };
     static const char* kOnOff[]   = { "Off","On" };
     static const char* kBypass[]  = { "Active","Bypass" };
+    static const char* kPolyMode[]= { "Poly","Mono","Unison" };
 
     const char* const* opts = kOnOff;
     int                count = 2;
@@ -435,22 +436,33 @@ void SectionScreen::_openEnumEntry(uint8_t cc, const char* title) {
         case CC::DELAY_TIMING_MODE: opts = kSync;   count = 12; break;
         case CC::BPM_CLOCK_SOURCE: opts = kClkSrc;  count = 2;  break;
         case CC::FX_REVERB_BYPASS: opts = kBypass;  count = 2;  break;
+        case CC::POLY_MODE:        opts = kPolyMode; count = 3;  break;
         default:                   opts = kOnOff;   count = 2;  break;
     }
 
-    // Find the correct current index.
-    // For OSC waves we must search waveformListAll[] to find which entry the
-    // current CC decodes to — a simple linear scale would mismatch because the
-    // waveform indices are not evenly distributed across 0..127.
+    // Determine current selected index.
+    // OSC waves use waveformFromCC() for exact round-trip mapping.
+    // POLY_MODE maps the 3-zone CC encoding used by the engine (0-42/43-84/85-127).
+    // Boolean CCs (On/Off, Active/Bypass) store 0=off, 1=on — do not use division.
+    // All other enums: linear scale across 0..127.
     int curIdx;
+    const uint8_t rawVal = _synth->getCC(cc);
     if (isOscWave) {
-        WaveformType wt = waveformFromCC(_synth->getCC(cc));
+        // Waveform CCs use a non-linear lookup — must search the table
+        WaveformType wt = waveformFromCC(rawVal);
         curIdx = 0;
         for (int i = 0; i < (int)numWaveformsAll; ++i) {
             if (waveformListAll[i] == wt) { curIdx = i; break; }
         }
+    } else if (cc == CC::POLY_MODE) {
+        // Engine encodes poly mode in three equal zones across 0..127
+        curIdx = (rawVal <= 42) ? 0 : (rawVal <= 84) ? 1 : 2;
+    } else if (count == 2) {
+        // Boolean CCs: engine stores 0=off, 1=on — division would misread value=1 as 0
+        curIdx = (rawVal != 0) ? 1 : 0;
     } else {
-        curIdx = (int)_synth->getCC(cc) * count / 128;
+        // General multi-option enum: linear scale
+        curIdx = (int)rawVal * count / 128;
     }
 
     _pendingCC    = cc;
@@ -468,8 +480,13 @@ void SectionScreen::_openEnumEntry(uint8_t cc, const char* title) {
                 } else {
                     ccVal = 0;
                 }
+            } else if (s->_pendingCC == CC::POLY_MODE) {
+                // Map list index 0/1/2 to zone midpoints (Poly=21, Mono=63, Unison=106)
+                // Engine reads: 0-42=Poly, 43-84=Mono, 85-127=Unison
+                static const uint8_t kPolyMidpoints[] = { 21, 63, 106 };
+                ccVal = (idx >= 0 && idx < 3) ? kPolyMidpoints[idx] : 0;
             } else {
-                // General enum: map index to CC midpoint
+                // General enum: map index to CC midpoint of its zone
                 ccVal = (uint8_t)
                     ((idx * 128 + (128 / s->_pendingCount) / 2) / s->_pendingCount);
             }
@@ -497,10 +514,11 @@ void SectionScreen::_openNumericEntry(uint8_t cc, const char* title) {
             break;
         case CC::AMP_ATTACK:    case CC::AMP_DECAY:    case CC::AMP_RELEASE:
         case CC::FILTER_ENV_ATTACK: case CC::FILTER_ENV_DECAY: case CC::FILTER_ENV_RELEASE:
+        case CC::PITCH_ENV_ATTACK:  case CC::PITCH_ENV_DECAY:  case CC::PITCH_ENV_RELEASE:
             unit = "ms";  minV = 1;    maxV = 11880;
             curV = (int)cc_to_time_ms(_synth->getCC(cc));
             break;
-        case CC::AMP_SUSTAIN:   case CC::FILTER_ENV_SUSTAIN:
+        case CC::AMP_SUSTAIN:   case CC::FILTER_ENV_SUSTAIN:  case CC::PITCH_ENV_SUSTAIN:
             unit = "%";   minV = 0;    maxV = 100;
             curV = (int)(_synth->getCC(cc) * 100 / 127);
             break;
@@ -524,6 +542,16 @@ void SectionScreen::_openNumericEntry(uint8_t cc, const char* title) {
             unit = "ct";  minV = -100; maxV = 100;
             curV = (int)(_synth->getCC(cc) * 200 / 127 - 100);
             break;
+        case CC::PITCH_ENV_DEPTH:
+            // Bipolar ±12 semitones. CC 64 = zero (centre).
+            unit = "st";  minV = -12;  maxV = 12;
+            curV = (int)((_synth->getCC(cc) - 64) * 12 / 63);
+            break;
+        case CC::PITCH_BEND_RANGE:
+            // 0..127 → 0..24 semitones. No midpoint — always unipolar positive.
+            unit = "st";  minV = 0;    maxV = 24;
+            curV = (int)(_synth->getCC(cc) * 24 / 127);
+            break;
         default:
             break;
     }
@@ -543,8 +571,9 @@ void SectionScreen::_openNumericEntry(uint8_t cc, const char* title) {
                     ccVal = obxa_cutoff_hz_to_cc((float)humanVal);          break;
                 case CC::AMP_ATTACK:    case CC::AMP_DECAY:    case CC::AMP_RELEASE:
                 case CC::FILTER_ENV_ATTACK: case CC::FILTER_ENV_DECAY: case CC::FILTER_ENV_RELEASE:
+                case CC::PITCH_ENV_ATTACK:  case CC::PITCH_ENV_DECAY:  case CC::PITCH_ENV_RELEASE:
                     ccVal = time_ms_to_cc((float)humanVal);                 break;
-                case CC::AMP_SUSTAIN:   case CC::FILTER_ENV_SUSTAIN:
+                case CC::AMP_SUSTAIN:   case CC::FILTER_ENV_SUSTAIN:  case CC::PITCH_ENV_SUSTAIN:
                     ccVal = (uint8_t)(humanVal * 127 / 100);                break;
                 case CC::LFO1_FREQ:     case CC::LFO2_FREQ:
                     ccVal = lfo_hz_to_cc((float)humanVal);                  break;
@@ -556,6 +585,11 @@ void SectionScreen::_openNumericEntry(uint8_t cc, const char* title) {
                     ccVal = (uint8_t)((humanVal + 24) * 127 / 48);         break;
                 case CC::OSC1_FINE_TUNE:    case CC::OSC2_FINE_TUNE:
                     ccVal = (uint8_t)((humanVal + 100) * 127 / 200);       break;
+                case CC::PITCH_ENV_DEPTH:
+                    // Bipolar: 0 semitones → CC 64. ±12st maps to 0..127.
+                    ccVal = (uint8_t)constrain(64 + humanVal * 63 / 12, 0, 127); break;
+                case CC::PITCH_BEND_RANGE:
+                    ccVal = (uint8_t)(humanVal * 127 / 24);                break;
                 default:
                     ccVal = (uint8_t)constrain(humanVal, 0, 127);           break;
             }
@@ -579,6 +613,11 @@ const char* SectionScreen::_enumText(uint8_t cc) const {
         case CC::LFO1_DESTINATION:   return _synth->getLFO1DestinationName();
         case CC::LFO2_DESTINATION:   return _synth->getLFO2DestinationName();
         case CC::GLIDE_ENABLE:       return _synth->getGlideEnabled() ? "On" : "Off";
+        case CC::POLY_MODE: {
+            // Read the stored CC value and decode the same three zones the engine uses
+            const uint8_t v = _synth->getCC(CC::POLY_MODE);
+            return (v <= 42) ? "Poly" : (v <= 84) ? "Mono" : "Unison";
+        }
         case CC::FX_REVERB_BYPASS:   return _synth->getFXReverbBypass() ? "Bypass" : "Active";
         case CC::FILTER_OBXA_TWO_POLE: return _synth->getFilterTwoPole() ? "On" : "Off";
         default:                     return nullptr;
@@ -602,6 +641,7 @@ const char* SectionScreen::_ccName(uint8_t cc) const {
             cc == CC::LFO1_TIMING_MODE      || cc == CC::LFO2_TIMING_MODE       ||
             cc == CC::DELAY_TIMING_MODE     || cc == CC::BPM_CLOCK_SOURCE       ||
             cc == CC::GLIDE_ENABLE          || cc == CC::FX_REVERB_BYPASS       ||
+            cc == CC::POLY_MODE             ||
             cc == CC::FILTER_OBXA_TWO_POLE  ||
             cc == CC::FILTER_OBXA_BP_BLEND_2_POLE ||
             cc == CC::FILTER_OBXA_PUSH_2_POLE     ||

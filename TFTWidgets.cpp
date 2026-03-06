@@ -345,59 +345,68 @@ bool TFTParamRow::onTouch(int16_t x, int16_t y) {
 void TFTParamRow::doDraw() {
     if (!_display) return;
 
-    static constexpr int16_t PAD   = 5;    // left/right inner padding
-    static constexpr int16_t BAR_Height = 12;   // value bar height (px) — usable on touch
-    const int16_t contentH = _h - 1;       // 1 px gap between rows
+    // ---- Layout geometry ----
+    static constexpr int16_t PAD      = 4;   // left/right inner padding
+    static constexpr int16_t BAR_H    = 4;   // value bar height (px) — thin accent line
+    static constexpr int16_t NAME_Y   = 5;   // name text baseline offset from row top
+    static constexpr int16_t VAL_Y    = 5;   // value text baseline — same row as name
+    const int16_t contentH = _h - 1;         // 1 px gap between rows (bottom separator)
 
-    // Background and bottom separator
-    const uint16_t bgCol = _selected ? _colour : COLOUR_HEADER_BG;
+    // Background: amber when selected, dark panel otherwise
+    const uint16_t bgCol   = _selected ? gTheme.selectedBg : gTheme.headerBg;
+    const uint16_t textCol = _selected ? gTheme.textOnSelect : gTheme.textNormal;
+    const uint16_t dimCol  = _selected ? gTheme.textOnSelect : gTheme.textDim;
+    // Bar/value colour: always use the accent unless selected (inverted)
+    const uint16_t barCol  = _selected ? gTheme.textOnSelect : _colour;
+
+    // Row background + bottom separator line
     _display->fillRect(_x, _y, _w, contentH, bgCol);
-    _display->drawFastHLine(_x, _y + contentH, _w, COLOUR_BORDER);
+    _display->drawFastHLine(_x, _y + contentH, _w, gTheme.border);
 
-    // Empty slot — just a dash
+    // Empty slot — just a centred dash, no bar
     if (_cc == 255) {
         _display->setTextSize(1);
-        // 2-arg setTextColor: spaces render as bgCol, not as COLOUR_BACKGROUND
-        _display->setTextColor(COLOUR_TEXT_DIM, bgCol);
-        _display->setCursor(_x + PAD, _y + (contentH - 8) / 2);
+        _display->setTextColor(dimCol, bgCol);
+        _display->setCursor(_x + PAD, _y + NAME_Y);
         _display->print("---");
         return;
     }
 
-    const uint16_t textCol = _selected ? COLOUR_BACKGROUND : COLOUR_TEXT;
-    const uint16_t dimCol  = _selected ? COLOUR_BACKGROUND : COLOUR_TEXT_DIM;
-    const uint16_t barCol  = _selected ? COLOUR_BACKGROUND : _colour;
-
-    // Parameter name — 2-arg setTextColor so spaces erase over bgCol
+    // ---- Parameter name (left-aligned) ----
     _display->setTextSize(1);
     _display->setTextColor(textCol, bgCol);
-    _display->setCursor(_x + PAD, _y + 6);
+    _display->setCursor(_x + PAD, _y + NAME_Y);
     _display->print(_name);
 
-    // Value text (right-aligned) — also 2-arg for correct space background
+    // ---- Value text (right-aligned, coloured) ----
+    // Nudge right-align: leave space for the ">" edit arrow (6px) + PAD
     if (_valText[0]) {
-        const int16_t valW = (int16_t)(strlen(_valText) * 6);
-        _display->setTextColor(_selected ? COLOUR_BACKGROUND : _colour, bgCol);
-        _display->setCursor(_x + _w - PAD - valW - 8, _y + 6);
+        const int16_t valW  = (int16_t)(strlen(_valText) * 6);
+        const int16_t valX  = _x + _w - PAD - 8 - valW;
+        _display->setTextColor(barCol, bgCol);
+        _display->setCursor(valX, _y + VAL_Y);
         _display->print(_valText);
     }
 
-    // Edit arrow (far right, dim)
+    // ---- Edit indicator arrow (far right, dim) ----
     _display->setTextColor(dimCol, bgCol);
-    _display->setCursor(_x + _w - PAD - 6, _y + 6);
+    _display->setCursor(_x + _w - PAD - 6, _y + VAL_Y);
     _display->print(">");
 
-    // Value bar (bottom of row)
-    const int16_t barY    = _y + contentH - BAR_Height - 2;
+    // ---- Value bar — bottom of content area ----
+    // Track is the full inner width.  Fill is proportional to rawValue (0..127).
+    // Bar sits 2 px above the separator line.
+    const int16_t barY    = _y + contentH - BAR_H - 2;
     const int16_t barMaxW = _w - 2 * PAD;
-    // Multiply before dividing to keep precision on integer arithmetic
     const int16_t barFill = (int16_t)((int32_t)barMaxW * _rawValue / 127);
 
-    _display->drawFastHLine(_x + PAD, barY, barMaxW, COLOUR_BORDER);
+    // Draw track first (full width, dark), then overlay fill (coloured)
+    _display->fillRect(_x + PAD, barY, barMaxW, BAR_H, gTheme.barTrack);
     if (barFill > 0) {
-        _display->fillRect(_x + PAD, barY, barFill, BAR_Height, barCol);
+        _display->fillRect(_x + PAD, barY, barFill, BAR_H, barCol);
     }
 }
+
 
 
 // =============================================================================
@@ -431,36 +440,40 @@ void TFTSectionTile::onTouchRelease(int16_t x, int16_t y) {
 void TFTSectionTile::doDraw() {
     if (!_display) return;
 
-    // Background: slightly lighter navy tint when pressed, dark panel normally.
-    // 0x20A2 = BGR565 very dark navy (matches COLOUR_HEADER_BG family)
-    const uint16_t bgCol = _pressed
-        ? COLOUR_HEADER_BG   // pressed: use header colour for feedback
-        : (uint16_t)0x20A2;  // normal: very dark navy (BGR565)
+    // ---- Background ----
+    // Pressed: section colour at low brightness (flash feedback)
+    // Normal: very dark navy to contrast against the accent bar
+    const uint16_t bgCol = _pressed ? (uint16_t)0x2124 : (uint16_t)0x10A3;
 
     _display->fillRect(_x, _y, _w, _h, bgCol);
 
-    // Outer border — section colour when pressed, border otherwise
-    _display->drawRect(_x, _y, _w, _h, _pressed ? _section.colour : COLOUR_BORDER);
+    // ---- Accent bar — 3 px thick at top, full section colour ----
+    // Makes sections instantly colour-identifiable at a glance
+    _display->fillRect(_x, _y, _w, 3, _section.colour);
 
-    // 2 px accent bar along the top
-    _display->drawFastHLine(_x + 1, _y + 1, _w - 2, _section.colour);
-    _display->drawFastHLine(_x + 1, _y + 2, _w - 2, _section.colour);
+    // ---- Outer border — section colour if pressed, dim border otherwise ----
+    _display->drawRect(_x, _y, _w, _h, _pressed ? _section.colour : gTheme.border);
 
-    // Section label — centred, section colour; 2-arg so spaces use bgCol
+    // ---- Section label — centred vertically in the space below the bar ----
     _display->setTextSize(1);
     _display->setTextColor(_section.colour, bgCol);
     const int16_t labelW = (int16_t)(strlen(_section.label) * 6);
-    _display->setCursor(_x + (_w - labelW) / 2, _y + (_h / 2) - 8);
+    // Centre label in lower portion (below the 3px accent bar)
+    const int16_t labelY = _y + 3 + (_h - 3 - 16) / 2;
+    _display->setCursor(_x + (_w - labelW) / 2, labelY);
     _display->print(_section.label);
 
-    // Page-count hint — centred, dim; 2-arg so spaces use bgCol
-    char hint[6];
-    snprintf(hint, sizeof(hint), "%dp", _section.pageCount);
-    const int16_t hintW = (int16_t)(strlen(hint) * 6);
-    _display->setTextColor(COLOUR_TEXT_DIM, bgCol);
-    _display->setCursor(_x + (_w - hintW) / 2, _y + (_h / 2) + 2);
-    _display->print(hint);
+    // ---- Page count hint — small, dim, below label ----
+    if (_section.pageCount > 0) {
+        char hint[5];
+        snprintf(hint, sizeof(hint), "%dp", _section.pageCount);
+        const int16_t hintW = (int16_t)(strlen(hint) * 6);
+        _display->setTextColor(gTheme.textDim, bgCol);
+        _display->setCursor(_x + (_w - hintW) / 2, labelY + 10);
+        _display->print(hint);
+    }
 }
+
 
 
 // =============================================================================

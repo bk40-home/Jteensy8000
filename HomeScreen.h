@@ -40,10 +40,12 @@ public:
     static constexpr int16_t SW              = 320;
     static constexpr int16_t SH              = 240;
     static constexpr int16_t HEADER_H        = 22;
-    static constexpr int16_t SCOPE_H         = 88;
+    static constexpr int16_t SCOPE_H         = 80;   // reduced 8px to fit voice LEDs
+    static constexpr int16_t VOICE_BAR_H     = 8;    // voice activity LED strip height
     static constexpr int16_t FOOTER_H        = 6;
     static constexpr int16_t SCOPE_Y         = HEADER_H;
-    static constexpr int16_t TILE_Y          = HEADER_H + SCOPE_H;
+    static constexpr int16_t VOICE_BAR_Y     = HEADER_H + SCOPE_H;  // y=102
+    static constexpr int16_t TILE_Y          = VOICE_BAR_Y + VOICE_BAR_H; // y=110
     static constexpr int16_t TILE_H          = SH - TILE_Y - FOOTER_H;
     static constexpr int16_t ROW_H           = TILE_H / 2;
     static constexpr int16_t TILE_W          = 78;
@@ -91,6 +93,7 @@ private:
 
     void _drawHeader(SynthEngine& synth, bool fullRepaint);
     void _drawScope();
+    void _drawVoiceBar(SynthEngine& synth);   // 8-voice activity LED strip
     void _drawAllTiles();
     void _drawFooter();
 
@@ -107,8 +110,10 @@ private:
     uint32_t  _lastHeaderMs;    // timestamp of last CPU% redraw
 
     // Previous waveform Y positions for pixel-erase (no-flicker technique)
-    // One entry per waveform column pixel.
     int16_t   _prevWave[WAVE_COLS];
+
+    // Previous voice active state — only redraw LEDs that changed
+    bool      _prevVoiceActive[8];
 
     // Section tiles — one per kSections[] entry
     TFTSectionTile _t0, _t1, _t2, _t3;   // top row
