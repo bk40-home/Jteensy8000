@@ -134,7 +134,22 @@ public:
 
     // Returns the last raw CC value received (0-127), or 0 if never set.
     inline uint8_t getCC(uint8_t cc) const {
-        return _ccState[cc];
+        // POLY_MODE and UNISON_DETUNE live above the MIDI range and use
+        // dedicated backing fields — _ccState is not written for these.
+        if (cc == CC::POLY_MODE) {
+            // Encode current poly mode back into a representative CC value
+            switch (_polyMode) {
+                case PolyMode::POLY:   return 21;   // midpoint of zone 0-42
+                case PolyMode::MONO:   return 63;   // midpoint of zone 43-84
+                case PolyMode::UNISON: return 106;  // midpoint of zone 85-127
+                default:               return 0;
+            }
+        }
+        if (cc == CC::UNISON_DETUNE) {
+            // Encode normalised float back to 0-127 for the UI
+            return (uint8_t)constrain((int)(_unisonDetune * 127.0f), 0, 127);
+        }
+        return _ccState[cc];  // covers 0-127 (MIDI) and 130+ (internal)
     }
 
     // Dispatches a CC as if received from MIDI. Also updates _ccState.
@@ -626,7 +641,10 @@ private:
     //   getCC(cc) reads from here; avoids needing per-parameter typed getters
     //   in the UI layer. Zero-initialized; only valid after first CC receive.
     // =========================================================================
-    uint8_t _ccState[128] = {};
+    // Size 160: MIDI CCs are 0-127; internal CCs (FX_DRIVE=130) live above.
+    // POLY_MODE(128) & UNISON_DETUNE(129) use dedicated backing fields, not _ccState.
+    static_assert(CC::FX_DRIVE < 160, "FX_DRIVE CC index exceeds _ccState size - expand array");
+    uint8_t _ccState[160] = {};
 
     // =========================================================================
     // BPM / timing

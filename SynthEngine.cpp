@@ -1814,15 +1814,26 @@ case CC::DELAY_TIMING_MODE: {
             JT_LOGF("[CC %u:%s] Unison detune = %.3f\n", control, ccName, norm);
         } break;
 
+        // ------------------- Drive / Saturation -------------------
+        // Maps 0-127 to drive amount. 0=bypass, 1-63=soft clip, 64-127=hard clip.
+        // Passed directly to AudioEffectJPFX which interprets the mode internally.
+        case CC::FX_DRIVE: {
+            const float driveNorm = norm;  // 0..1
+            _fxChain.setDrive(driveNorm);
+            JT_LOGF("[CC %u:%s] Drive = %.3f\n", control, ccName, driveNorm);
+        } break;
+
         // ------------------- Fallback -------------------
         default:
             JT_LOGF("[CC %u:%s] Unmapped value=%u\n", control, ccName, value);
             break;
     }
 
-    // Keep raw CC cache in sync — lets the UI read back any value via getCC()
-    // without needing a typed getter for every parameter.
-    if (control < 128) {
+    // Keep raw CC cache in sync — lets the UI read back any value via getCC().
+    // POLY_MODE(128) and UNISON_DETUNE(129) are handled by dedicated backing
+    // fields; getCC() encodes them on demand. Do not write _ccState for those.
+    // FX_DRIVE(130) and future internal CCs above 127 use _ccState directly.
+    if (control < 128 || (control >= 130 && control < 160)) {
         _ccState[control] = value;
     }
 }

@@ -552,6 +552,11 @@ void SectionScreen::_openNumericEntry(uint8_t cc, const char* title) {
             unit = "st";  minV = 0;    maxV = 24;
             curV = (int)(_synth->getCC(cc) * 24 / 127);
             break;
+        case CC::FX_DRIVE:
+            // 0=bypass, 1-50=soft clip, 51-100=hard clip (displayed as 0-100%)
+            unit = "%";   minV = 0;    maxV = 100;
+            curV = (int)(_synth->getCC(cc) * 100 / 127);
+            break;
         default:
             break;
     }
@@ -590,6 +595,8 @@ void SectionScreen::_openNumericEntry(uint8_t cc, const char* title) {
                     ccVal = (uint8_t)constrain(64 + humanVal * 63 / 12, 0, 127); break;
                 case CC::PITCH_BEND_RANGE:
                     ccVal = (uint8_t)(humanVal * 127 / 24);                break;
+                case CC::FX_DRIVE:
+                    ccVal = (uint8_t)(humanVal * 127 / 100);               break;
                 default:
                     ccVal = (uint8_t)constrain(humanVal, 0, 127);           break;
             }

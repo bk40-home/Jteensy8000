@@ -80,6 +80,13 @@ public:
     void setBassGain(float dB);    // ±12 dB range, default 0
     void setTrebleGain(float dB);  // ±12 dB range, default 0
 
+    // ----- Drive / saturation interface -----
+    // norm: 0.0        = bypass (no processing, zero CPU)
+    //       0.001-0.499 = soft clip  — tanh waveshaper, adds warm 2nd/3rd harmonics
+    //       0.5-1.0     = hard clip  — asymmetric clipping with pre/post filtering
+    void setSaturation(float norm);
+    float getSaturation() const { return _satDrive; }
+
     // ----- Modulation effect interface -----
     void setModEffect(ModEffectType type);
     void setModMix(float mix);          // 0.0..1.0, default 0.5
@@ -128,6 +135,25 @@ private:
 
     void computeShelfCoeffs(ShelfFilter &filt, float cornerHz, float gainDB, bool high);
     inline void applyTone(float &l, float &r);
+
+    // ----- Saturation / drive internals -----
+    // All saturation state is block-rate; no per-sample memory required.
+    float _satDrive;          // normalised 0..1 from setSaturation()
+    float _satInputGain;      // pre-clip gain (1..8x), computed on parameter change
+    float _satOutputGain;     // post-clip makeup gain, keeps perceived loudness stable
+    bool  _satIsSoft;         // true=tanh soft clip, false=asymmetric hard clip
+    bool  _satDirty;          // recompute gains on next update()
+    float _hpState;           // hard-clip pre-emphasis HP filter state (DC block)
+
+    void  computeSatParams();              // recompute gains from _satDrive
+    inline float applySaturation(float x); // process single sample — inlined for CPU
+
+    // ----- Output brick-wall limiter internals -----
+    // Block-rate peak follower prevents digital clipping without per-sample sqrt.
+    // Attack: ~1 ms (catches transients), Release: ~100 ms (transparent decay).
+    float _limGain;           // current limiter gain (1.0 = no attenuation)
+    static constexpr float kLimAttack  = 0.001f;   // gain reduction rate per block
+    static constexpr float kLimRelease = 0.0001f;  // gain recovery rate per block
 
     // ----- Modulation effect internals -----
     typedef struct {

@@ -165,8 +165,8 @@ static constexpr uint8_t ccMap[NUM_PAGES][PARAMS_PER_PAGE] = {
     // Page 21: Reverb parameters and bypass toggle
     { CC::FX_REVERB_SIZE, CC::FX_REVERB_DAMP, CC::FX_REVERB_LODAMP, CC::FX_REVERB_BYPASS },
 
-    // Page 22: Output mix levels — dry / JPFX wet / reverb wet
-    { CC::FX_DRY_MIX, CC::FX_JPFX_MIX, CC::FX_REVERB_MIX, 255 },
+    // Page 22: Output mix levels — dry / JPFX wet / reverb wet / drive
+    { CC::FX_DRY_MIX, CC::FX_JPFX_MIX, CC::FX_REVERB_MIX, CC::FX_DRIVE },
 
     // =========================================================================
     // GLOBAL  (pages 23-24)
@@ -279,7 +279,7 @@ static constexpr const char* ccNames[NUM_PAGES][PARAMS_PER_PAGE] = {
     { "Rev Size",  "Rev Damp",   "Rev LoDamp", "Rev Bypass"},
 
     // Page 22 — Output mix
-    { "Dry Mix",   "JPFX Mix",   "Rev Mix",    "---"       },
+    { "Dry Mix",   "JPFX Mix",   "Rev Mix",    "Drive"     },
 
     // Page 23 — Global / Performance
     { "Glide On",  "Glide Time", "Poly Mode",  "Uni Det"   },

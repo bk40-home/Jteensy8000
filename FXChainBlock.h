@@ -46,6 +46,11 @@ public:
     float getBassGain() const;
     float getTrebleGain() const;
 
+    // Drive / saturation — pre-tone stage inside JPFX
+    // norm: 0.0=bypass, 0.0-0.5=soft clip (tanh), 0.5-1.0=hard clip
+    void setDrive(float norm);
+    float getDrive() const;
+
     // Modulation effects (11 variations)
     void setModEffect(int8_t variation);     // -1=off, 0-10=preset
     void setModMix(float mix);               // 0..1 (wet amount)
@@ -147,7 +152,8 @@ private:
     // =========================================================================
     
     // JPFX tone parameters
-    float _bassGain = 0.0f;     // Bass gain in dB
+    float _drive     = 0.0f;     // Normalised 0..1 (0=bypass, 0.5+=hard clip)
+    float _bassGain  = 0.0f;     // Bass gain in dB
     float _trebleGain = 0.0f;   // Treble gain in dB
     
     // JPFX modulation parameters

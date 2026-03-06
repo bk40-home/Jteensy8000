@@ -160,6 +160,12 @@ namespace CC {
     static constexpr uint8_t OSC2_ARB_INDEX = 85;   // OSC2 waveform index
 
     // -------------------------------------------------------------------------
+    // Drive / Saturation (above standard MIDI range — internal CC only)
+    // CC 130: 0=bypass, 1-63=soft clip (tanh warm), 64-127=hard clip (aggressive)
+    // -------------------------------------------------------------------------
+    static constexpr uint8_t FX_DRIVE = 130;
+
+    // -------------------------------------------------------------------------
     // OBXa filter extended controls
     // -------------------------------------------------------------------------
     static constexpr uint8_t FILTER_OBXA_MULTIMODE = 111;
@@ -331,6 +337,7 @@ namespace CC {
             // FX - JPFX Tone
             case FX_BASS_GAIN:        return "Bass";
             case FX_TREBLE_GAIN:      return "Treble";
+            case FX_DRIVE:            return "Drive";
 
             // FX - JPFX Modulation
             case FX_MOD_EFFECT:       return "Mod FX";

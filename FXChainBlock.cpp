@@ -97,6 +97,7 @@ FXChainBlock::FXChainBlock()
     // -------------------------------------------------------------------------
     // Initialize JPFX (all effects off by default)
     // -------------------------------------------------------------------------
+    _jpfx.setSaturation(0.0f);  // Drive off by default
     _jpfx.setBassGain(0.0f);
     _jpfx.setTrebleGain(0.0f);
     _jpfx.setModEffect(AudioEffectJPFX::JPFX_MOD_OFF);
@@ -135,6 +136,12 @@ void FXChainBlock::setTrebleGain(float dB) {
 
 float FXChainBlock::getBassGain() const { return _bassGain; }
 float FXChainBlock::getTrebleGain() const { return _trebleGain; }
+
+void FXChainBlock::setDrive(float norm) {
+    _drive = constrain(norm, 0.0f, 1.0f);
+    _jpfx.setSaturation(_drive);
+}
+float FXChainBlock::getDrive() const { return _drive; }
 
 // ============================================================================
 // JPFX MODULATION EFFECTS (Chorus, Flanger, Phaser)
