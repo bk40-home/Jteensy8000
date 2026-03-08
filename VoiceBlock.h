@@ -14,7 +14,7 @@
 #include "synth_pinknoise.h"
 #include "effect_multiply.h"
 
-#include <Audio.h>
+#include "Audio.h"
 #include "OscillatorBlock.h"
 #include "EnvelopeBlock.h"
 #include "FilterBlock.h"

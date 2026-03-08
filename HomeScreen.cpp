@@ -26,9 +26,12 @@ HomeScreen* HomeScreen::_instance = nullptr;
 // =============================================================================
 HomeScreen::HomeScreen()
     : _display(nullptr), _scopeTap(nullptr), _onSection(nullptr)
-    , _highlighted(0), _fullRedraw(true), _tilesDirty(true), _scopeTapped(false)
+    , _highlighted(0), _redrawStep(1), _tilesDirty(true), _scopeTapped(false)
     , _peakSmooth(0.0f)
     , _lastHeaderMs(0)
+    , _lastMeterFill(-1)          // -1 forces meter redraw on first frame
+    , _lastPolyMode(PolyMode::POLY)
+    , _lastCpuPct(-1)             // -1 forces CPU% redraw on first frame
     // Tile positions computed from layout constants
     , _t0(1 + 0*(TILE_W+TILE_GAP), TILE_Y+2, TILE_W, ROW_H-3, kSections[0])
     , _t1(1 + 1*(TILE_W+TILE_GAP), TILE_Y+2, TILE_W, ROW_H-3, kSections[1])
@@ -79,37 +82,59 @@ void HomeScreen::_fire(int idx) {
 
 // =============================================================================
 // draw()  — called every display frame (~30 fps)
+//
+// Full repaint is split across 5 consecutive calls so MIDI reads can run
+// between each step.  See SectionScreen::draw() for the design rationale.
+//
+//   Step 1 = fillScreen
+//   Step 2 = _drawHeader (full)
+//   Step 3 = _drawScope + _drawVoiceBar
+//   Step 4 = _drawAllTiles
+//   Step 5 = _drawFooter -> idle
 // =============================================================================
 void HomeScreen::draw(SynthEngine& synth) {
     if (!_display) return;
 
-    if (_fullRedraw) {
-        // Repaint everything from scratch
-        _display->fillScreen(COLOUR_BACKGROUND);
-        _drawHeader(synth, true);
-        _drawScope();
-        _drawVoiceBar(synth);
-        _drawAllTiles();
-        _drawFooter();
-        _fullRedraw = false;
-        _tilesDirty = false;
-        return;
+    // ---- Phased full-screen redraw ----
+    if (_redrawStep > 0) {
+        switch (_redrawStep) {
+            case 1:
+                _display->fillScreen(COLOUR_BACKGROUND);
+                break;
+            case 2:
+                _drawHeader(synth, true);
+                break;
+            case 3:
+                _drawScope();
+                _drawVoiceBar(synth);
+                break;
+            case 4:
+                _drawAllTiles();
+                break;
+            case 5:
+                _drawFooter();
+                _redrawStep = 0;
+                _tilesDirty = false;
+                return;
+        }
+        _redrawStep++;
+        return;  // yield — MIDI reads run before next step
     }
 
-    // Scope redraws every frame (live waveform)
-    _drawScope();
+    // ---- Idle path: incremental updates ----
 
-    // Voice activity bar — every frame (cheap: only redraws changed LEDs)
+    // Scope and voice bar run every frame (live data, cheap pixel-diff)
+    _drawScope();
     _drawVoiceBar(synth);
 
-    // Header CPU% — rate-limited to avoid excess SPI
+    // Header: only when values change, rate-limited to HEADER_REDRAW_MS
     const uint32_t now = millis();
     if ((now - _lastHeaderMs) >= HEADER_REDRAW_MS) {
         _drawHeader(synth, false);
         _lastHeaderMs = now;
     }
 
-    // Tiles only on events
+    // Tiles only on touch/encoder events
     if (_tilesDirty) {
         for (int i = 0; i < SECTION_COUNT; ++i) _tiles[i]->draw();
         _tilesDirty = false;
@@ -156,16 +181,23 @@ bool HomeScreen::isScopeTapped() {
 }
 
 void HomeScreen::markFullRedraw() {
-    _fullRedraw = true;
+    _redrawStep = 1;
     memset(_prevWave, 0, sizeof(_prevWave));
     // Force all LEDs to repaint on next frame
-    memset(_prevVoiceActive, 0xFF, sizeof(_prevVoiceActive)); // 0xFF = all true → all redraw
+    memset(_prevVoiceActive, 0xFF, sizeof(_prevVoiceActive));
+    // Invalidate caches so header and meter fully repaint
+    _lastMeterFill = -1;
+    _lastCpuPct    = -1;
 }
 
 // =============================================================================
 // _drawHeader()  — product name + poly mode badge + CPU%
 //   fullRepaint=true: draw background + static name (done on full redraws only).
-//   fullRepaint=false: update badge + CPU% only (cheap, no background fill).
+//   fullRepaint=false: update badge + CPU% only when their values have changed.
+//
+// PERFORMANCE: fillRect + print is ~300 µs per call over SPI.  Caching the
+// last-drawn values means we skip the write when nothing changed — at 30 Hz
+// with a static poly mode and steady CPU this costs zero SPI bandwidth.
 // =============================================================================
 void HomeScreen::_drawHeader(SynthEngine& synth, bool fullRepaint) {
     if (fullRepaint) {
@@ -176,38 +208,51 @@ void HomeScreen::_drawHeader(SynthEngine& synth, bool fullRepaint) {
         _display->setTextColor(COLOUR_SYSTEXT, COLOUR_HEADER_BG);
         _display->setCursor(4, 7);
         _display->print("JT.8000");
+
+        // Invalidate caches so the badge and CPU% paint on this frame
+        _lastPolyMode = (PolyMode)255;  // invalid sentinel
+        _lastCpuPct   = -1;
     }
 
     // ---- Poly mode badge: "POLY" / "MONO" / "UNI" ----
-    // Sits immediately right of the product name (x≈52).
-    // Colour-coded: POLY=dim grey, MONO=orange, UNISON=amber.
+    // Only repaint if the mode has changed since the last draw.
     {
-        const char* modeStr;
-        uint16_t    modeCol;
-        switch (synth.getPolyMode()) {
-            case PolyMode::MONO:
-                modeStr = "MONO"; modeCol = COLOUR_LFO;    break;
-            case PolyMode::UNISON:
-                modeStr = "UNI";  modeCol = COLOUR_FILTER; break;
-            default:
-                modeStr = "POLY"; modeCol = COLOUR_TEXT_DIM; break;
+        const PolyMode mode = synth.getPolyMode();
+        if (mode != _lastPolyMode) {
+            _lastPolyMode = mode;
+            const char* modeStr;
+            uint16_t    modeCol;
+            switch (mode) {
+                case PolyMode::MONO:
+                    modeStr = "MONO"; modeCol = COLOUR_LFO;      break;
+                case PolyMode::UNISON:
+                    modeStr = "UNI";  modeCol = COLOUR_FILTER;   break;
+                default:
+                    modeStr = "POLY"; modeCol = COLOUR_TEXT_DIM; break;
+            }
+            // Clear badge region then redraw text
+            _display->fillRect(52, 2, 28, HEADER_H - 4, COLOUR_HEADER_BG);
+            _display->setTextColor(modeCol, COLOUR_HEADER_BG);
+            _display->setCursor(52, 7);
+            _display->print(modeStr);
         }
-        // Clear badge region (4 chars × 6px = 24px wide; x starts at 52)
-        _display->fillRect(52, 2, 28, HEADER_H - 4, COLOUR_HEADER_BG);
-        _display->setTextColor(modeCol, COLOUR_HEADER_BG);
-        _display->setCursor(52, 7);
-        _display->print(modeStr);
     }
 
-    // ---- CPU% — right-justified ----
-    const int16_t cpuX = SW - 64;
-    _display->fillRect(cpuX, 2, 62, HEADER_H - 4, COLOUR_HEADER_BG);
-    char buf[12];
-    snprintf(buf, sizeof(buf), "CPU:%d%%", (int)AudioProcessorUsageMax());
-    _display->setTextSize(1);
-    _display->setTextColor(COLOUR_TEXT_DIM, COLOUR_HEADER_BG);
-    _display->setCursor(cpuX, 7);
-    _display->print(buf);
+    // ---- CPU% — right-justified, only repaint when value changes ----
+    {
+        const int cpuNow = (int)AudioProcessorUsageMax();
+        if (cpuNow != _lastCpuPct) {
+            _lastCpuPct = cpuNow;
+            const int16_t cpuX = SW - 64;
+            _display->fillRect(cpuX, 2, 62, HEADER_H - 4, COLOUR_HEADER_BG);
+            char buf[12];
+            snprintf(buf, sizeof(buf), "CPU:%d%%", cpuNow);
+            _display->setTextSize(1);
+            _display->setTextColor(COLOUR_TEXT_DIM, COLOUR_HEADER_BG);
+            _display->setCursor(cpuX, 7);
+            _display->print(buf);
+        }
+    }
 }
 
 // =============================================================================
@@ -254,47 +299,36 @@ void HomeScreen::_drawVoiceBar(SynthEngine& synth) {
 }
 
 // =============================================================================
-// _drawScope()  — oscilloscope waveform + peak meter
+// _drawScope()  -- oscilloscope waveform + peak meter
 //
 // Flicker prevention:
-//   Each column's previous Y coordinate is stored in _prevWave[].
-//   Before drawing the new waveform, the previous pixel is erased by drawing
-//   a vertical 1-px line in COLOUR_SCOPE_BG at the old position.  This avoids
-//   clearing the entire scope band with fillRect() every frame.
+//   Each column's previous Y is stored in _prevWave[].  The old pixel is
+//   erased in COLOUR_SCOPE_BG before the new one is drawn -- avoids fillRect().
 //
-// Peak meter smoothing:
-//   Raw peak is blended with an exponential decay (_peakSmooth) so the meter
-//   falls gradually rather than snapping.  Attack is instant; decay ~12 frames.
+// Peak meter caching (_lastMeterFill):
+//   The meter bar (3x fillRect) is only redrawn when the fill height changes.
+//   At steady audio level this saves ~900 us of SPI per frame.
+//   dB scale labels sit just outside the waveform/meter area and are redrawn
+//   alongside the meter when it updates (they'd be cleared by the fillRect).
 // =============================================================================
 void HomeScreen::_drawScope() {
     if (!_scopeTap) return;
 
     const int16_t midY = SCOPE_Y + SCOPE_H / 2;
 
-    // ---- Capture audio snapshot ----
-    // 512 samples @ 44100 Hz = 11.6 ms window.
-    // After the trigger offset (n/4 = 128 samples) we have 384 samples
-    // available for 288 columns at spp=1, filling the full scope width.
-    // Old value of 256 only gave 192 usable columns — right ~30% was blank.
+    // ---- Capture audio snapshot (512 samples = 11.6 ms @ 44.1 kHz) ----
     static int16_t buf[512];
     const uint16_t n = _scopeTap->snapshot(buf, 512);
 
-    // Draw scope border once per full repaint; here just clear inner area top/bot
-    // (border persists; we only erase the waveform band)
-
     if (n >= 64) {
-        // ---- Rising zero-crossing trigger ----
-        // Search the first quarter of the buffer to allow a full period to display.
-        // If no crossing found, use n/4 as a fallback (stable enough for synth tones).
+        // Rising zero-crossing trigger -- search first quarter of buffer
         int trig = n / 4;
         for (int i = 4; i < (int)n / 2; ++i) {
             if (buf[i - 1] <= 0 && buf[i] > 0) { trig = i; break; }
         }
 
-        // Samples per display column (integer downsampling, no aliasing for synth)
         const int spp = ((int)n > WAVE_W) ? (n / WAVE_W) : 1;
 
-        // ---- Erase previous waveform + draw new ----
         for (int col = 0; col < WAVE_W - 2; ++col) {
             const int base = trig + col * spp;
             if (base >= (int)n) break;
@@ -306,24 +340,16 @@ void HomeScreen::_drawScope() {
             }
             const int16_t samp = cnt ? (int16_t)(acc / cnt) : 0;
 
-            // ---- Map sample to screen Y ----
-            // SCOPE_GAIN amplifies the display — does not affect audio.
-            // × 10 (+20 dB): a typical synth patch at -12 dBFS (amplitude ≈ 0.25)
-            // maps to 0.25 × 10 = 2.5 × half-height → fills and clips visibly.
-            // This makes quiet signals large and loud signals clearly clip at the border.
-            // Adjust if your patches are much louder or quieter than -12 dBFS.
+            // Map amplitude to screen Y.
+            // SCOPE_GAIN=10 (+20 dB): -12 dBFS patch fills scope visibly.
             static constexpr float SCOPE_GAIN = 10.0f;
             int cy = midY - (int)((float)samp * (float)(SCOPE_H / 2 - 2) * SCOPE_GAIN / 32767.0f);
             cy = constrain(cy, SCOPE_Y + 2, SCOPE_Y + SCOPE_H - 2);
 
-            const int16_t px = col + 1; // screen X within scope area
+            const int16_t px = col + 1;
 
-            // ---- Erase previous stroke, draw new stroke (3 px tall) ----
-            // Drawing a 3-pixel vertical line per column gives a much more visible
-            // waveform than single drawPixel, especially at high frequencies where
-            // adjacent columns can be many pixels apart vertically.
-            // We erase the OLD 3-px stroke before drawing the new one to avoid
-            // accumulation of green pixels drifting across the scope band.
+            // Erase 3-px old stroke, draw 3-px new stroke.
+            // 3-px line is more visible than drawPixel at high frequencies.
             if (_prevWave[col] != 0) {
                 _display->drawFastVLine(px, _prevWave[col] - 1, 3, COLOUR_SCOPE_BG);
             }
@@ -331,12 +357,11 @@ void HomeScreen::_drawScope() {
             _prevWave[col] = (int16_t)cy;
         }
 
-        // Zero-reference line (always present — just overwrite once per frame;
-        // individual waveform pixels will overdraw it correctly)
+        // Zero-reference line -- cheap single HLine drawn after waveform
         _display->drawFastHLine(1, midY, WAVE_W - 2, COLOUR_SCOPE_ZERO);
 
     } else {
-        // Not enough data yet — clear wave buffer and show hint
+        // Not enough data -- clear and show hint
         memset(_prevWave, 0, sizeof(_prevWave));
         _display->fillRect(1, SCOPE_Y + 2, WAVE_W - 2, SCOPE_H - 4, COLOUR_SCOPE_BG);
         _display->setTextSize(1);
@@ -346,41 +371,45 @@ void HomeScreen::_drawScope() {
     }
 
     // ---- Peak meter ----
-    // Exponential decay: new = max(raw, prev * decay)
-    // Attack: instant (raw peak dominates); Decay: ~0.85^n frames → ~12-frame fall
-    const float rawPeak   = _scopeTap->readPeakAndClear();
+    // Attack instant, decay ~12 frames @ 30 Hz (~400 ms)
+    const float rawPeak = _scopeTap->readPeakAndClear();
     _peakSmooth = (rawPeak > _peakSmooth) ? rawPeak : (_peakSmooth * PEAK_DECAY);
 
-    const int16_t mx  = WAVE_W + 4;
-    const int16_t mh  = SCOPE_H - 6;
+    const int16_t mx = WAVE_W + 4;
+    const int16_t mh = SCOPE_H - 6;
 
-    // dBFS conversion — floor at -60 dB
-    const float db  = (_peakSmooth > 0.001f) ? 20.0f * log10f(_peakSmooth) : -60.0f;
-    const float dbc = constrain(db, -60.0f, 0.0f);
-    const int16_t fill = (int16_t)(((dbc + 60.0f) / 60.0f) * (float)mh);
+    // dBFS -- floor at -60 dB
+    const float db   = (_peakSmooth > 0.001f) ? 20.0f * log10f(_peakSmooth) : -60.0f;
+    const int16_t fill = (int16_t)((constrain(db, -60.0f, 0.0f) + 60.0f) / 60.0f * (float)mh);
 
-    // Clear and redraw meter bar
-    _display->fillRect(mx, SCOPE_Y + 3, METER_W - 2, mh, 0x0000);
-    _display->drawRect(mx, SCOPE_Y + 3, METER_W - 2, mh, COLOUR_BORDER);
+    // Only repaint when fill height changes -- eliminates ~900 us SPI per frame
+    // when audio level is steady.
+    if (fill != _lastMeterFill) {
+        _lastMeterFill = fill;
 
-    if (fill > 0) {
-        // Thresholds: -18 dB = green→yellow, -6 dB = yellow→red
-        const int16_t g18 = (int16_t)((float)mh * 42.0f / 60.0f);
-        const int16_t g6  = (int16_t)((float)mh * 54.0f / 60.0f);
-        const int16_t gf  = min(fill, g18);
-        const int16_t yf  = max((int16_t)0, (int16_t)(min(fill, g6)  - g18));
-        const int16_t rf  = max((int16_t)0, (int16_t)(fill - g6));
+        _display->fillRect(mx, SCOPE_Y + 3, METER_W - 2, mh, 0x0000);
+        _display->drawRect(mx, SCOPE_Y + 3, METER_W - 2, mh, COLOUR_BORDER);
 
-        if (gf > 0) _display->fillRect(mx+2, SCOPE_Y+3+mh-gf,         METER_W-4, gf, COLOUR_METER_GREEN);
-        if (yf > 0) _display->fillRect(mx+2, SCOPE_Y+3+mh-g18-yf,     METER_W-4, yf, COLOUR_METER_YELLOW);
-        if (rf > 0) _display->fillRect(mx+2, SCOPE_Y+3+mh-g18-yf-rf,  METER_W-4, rf, COLOUR_METER_RED);
+        if (fill > 0) {
+            // -18 dB = green->yellow, -6 dB = yellow->red
+            const int16_t g18 = (int16_t)((float)mh * 42.0f / 60.0f);
+            const int16_t g6  = (int16_t)((float)mh * 54.0f / 60.0f);
+            const int16_t gf  = min(fill, g18);
+            const int16_t yf  = max((int16_t)0, (int16_t)(min(fill, g6)  - g18));
+            const int16_t rf  = max((int16_t)0, (int16_t)(fill - g6));
+
+            if (gf > 0) _display->fillRect(mx+2, SCOPE_Y+3+mh-gf,         METER_W-4, gf, COLOUR_METER_GREEN);
+            if (yf > 0) _display->fillRect(mx+2, SCOPE_Y+3+mh-g18-yf,     METER_W-4, yf, COLOUR_METER_YELLOW);
+            if (rf > 0) _display->fillRect(mx+2, SCOPE_Y+3+mh-g18-yf-rf,  METER_W-4, rf, COLOUR_METER_RED);
+        }
+
+        // dB scale labels -- redrawn here because fillRect above clears them.
+        // They live just right of the meter bar, outside the waveform area.
+        _display->setTextSize(1);
+        _display->setTextColor(COLOUR_TEXT_DIM, COLOUR_BACKGROUND);
+        _display->setCursor(mx + METER_W, SCOPE_Y + 3);          _display->print("0");
+        _display->setCursor(mx + METER_W, SCOPE_Y + 3 + mh / 2); _display->print("-30");
     }
-
-    // dB scale labels (right of meter, static positions)
-    _display->setTextSize(1);
-    _display->setTextColor(COLOUR_TEXT_DIM, COLOUR_BACKGROUND);
-    _display->setCursor(mx + METER_W, SCOPE_Y + 3);          _display->print("0");
-    _display->setCursor(mx + METER_W, SCOPE_Y + 3 + mh / 2); _display->print("-30");
 }
 
 // =============================================================================

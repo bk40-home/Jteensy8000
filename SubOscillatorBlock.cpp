@@ -1,4 +1,7 @@
-#include "synth_waveform.h"
+// Audio.h (sketch-local override) includes Synth_Waveform.h first, satisfying
+// the synth_waveform_h_ guard so the library version is skipped.
+// Do NOT include "synth_waveform.h" directly here — it would bypass that guard
+// and load the library's declarations instead of the JT fork.
 #include "SubOscillatorBlock.h"
 
 // --- Lifecycle

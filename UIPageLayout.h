@@ -353,4 +353,75 @@ static constexpr const char* pageTitle[NUM_PAGES] = {
 
 };
 
+// ---------------------------------------------------------------------------
+// Layout type — controls which widget style SectionScreen uses for a page.
+//
+//   LAYOUT_ROWS4   : 4 TFTParamRow text rows (enum/mode pages, mixed pages)
+//   LAYOUT_KNOBS4  : 4 TFTKnob in a single row (standard 4-param pages)
+//   LAYOUT_KNOBS8  : 8 TFTKnob in 2 rows of 4 (when showing full section at once)
+//   LAYOUT_SLIDERS4: 4 TFTSlider full-width (ADSR and similar grouped params)
+// ---------------------------------------------------------------------------
+enum class LayoutType : uint8_t {
+    LAYOUT_ROWS4    = 0,   // text row list (enum, mode, mixed)
+    LAYOUT_KNOBS4   = 1,   // 4 knobs in one row
+    LAYOUT_SLIDERS4 = 2,   // 4 full-width horizontal sliders
+};
+
+static constexpr LayoutType layoutMap[NUM_PAGES] = {
+    // OSC 1
+    LayoutType::LAYOUT_ROWS4,      //  0 OSC1 Core     — waveform is an enum, rows suit it
+    LayoutType::LAYOUT_KNOBS4,     //  1 OSC1 Mix+Saw  — continuous levels
+    LayoutType::LAYOUT_KNOBS4,     //  2 OSC1 DC+Ring  — continuous levels
+    LayoutType::LAYOUT_KNOBS4,     //  3 OSC1 Feedback — continuous levels
+
+    // OSC 2
+    LayoutType::LAYOUT_ROWS4,      //  4 OSC2 Core     — waveform enum
+    LayoutType::LAYOUT_KNOBS4,     //  5 OSC2 Mix+Saw
+    LayoutType::LAYOUT_KNOBS4,     //  6 OSC2 DC+Ring
+    LayoutType::LAYOUT_KNOBS4,     //  7 OSC2 Feedback
+
+    // Sources
+    LayoutType::LAYOUT_KNOBS4,     //  8 Sources
+
+    // Filter
+    LayoutType::LAYOUT_KNOBS4,     //  9 Filter main
+    LayoutType::LAYOUT_KNOBS4,     // 10 Filter mod
+    LayoutType::LAYOUT_ROWS4,      // 11 Filter 2-pole  — boolean toggles
+    LayoutType::LAYOUT_ROWS4,      // 12 Filter Xpander — enum mode
+
+    // Envelopes — sliders so all 4 ADSR are comparable at a glance
+    LayoutType::LAYOUT_SLIDERS4,   // 13 Amp ADSR
+    LayoutType::LAYOUT_SLIDERS4,   // 14 Filter ADSR
+
+    // LFOs
+    LayoutType::LAYOUT_ROWS4,      // 15 LFO1 — waveform + destination enums
+    LayoutType::LAYOUT_ROWS4,      // 16 LFO2
+    LayoutType::LAYOUT_ROWS4,      // 17 LFO sync — enum modes
+
+    // FX
+    LayoutType::LAYOUT_KNOBS4,     // 18 JPFX Tone+Mod
+    LayoutType::LAYOUT_KNOBS4,     // 19 Mod params+delay
+    LayoutType::LAYOUT_KNOBS4,     // 20 Delay params
+    LayoutType::LAYOUT_KNOBS4,     // 21 Reverb
+    LayoutType::LAYOUT_KNOBS4,     // 22 FX Mix
+
+    // Global
+    LayoutType::LAYOUT_ROWS4,      // 23 Performance   — glide on/off, poly mode (enums)
+    LayoutType::LAYOUT_ROWS4,      // 24 Arb waveforms
+    LayoutType::LAYOUT_ROWS4,      // 25 BPM clock     — enum + numeric
+
+    // LFO depths
+    LayoutType::LAYOUT_KNOBS4,     // 26 LFO1 depths
+    LayoutType::LAYOUT_KNOBS4,     // 27 LFO1 delay+refs
+    LayoutType::LAYOUT_KNOBS4,     // 28 LFO2 depths
+    LayoutType::LAYOUT_KNOBS4,     // 29 LFO2 delay+refs
+
+    // Pitch envelope
+    LayoutType::LAYOUT_SLIDERS4,   // 30 Pitch Env ADSR
+    LayoutType::LAYOUT_KNOBS4,     // 31 PE Depth + velocity
+
+    // Global 2
+    LayoutType::LAYOUT_ROWS4,      // 32 Pitch bend range
+};
+
 } // namespace UIPage

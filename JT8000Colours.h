@@ -25,12 +25,12 @@
 #define COLOUR_TEXT_DIM     0x7BF1  // #787D8C  steel grey
 #define COLOUR_SELECTED     0xFD00  // #FFA000  amber (selected row background)
 #define COLOUR_ACCENT       0xF8E3  // #FF1C18  red
-#define COLOUR_OSC          0x065F  // #00CBFF  bright cyan
-#define COLOUR_FILTER       0xFDA5  // #FFB428  warm amber-yellow
-#define COLOUR_ENV          0xD994  // #DC32A0  magenta-pink
-#define COLOUR_LFO          0xFB60  // #FF6C00  orange
-#define COLOUR_FX           0x06FF  // #00DCFF  light cyan
-#define COLOUR_GLOBAL       0x8412  // #828291  neutral grey
+#define COLOUR_OSC          0x065F  // #FFA000  bright cyan
+#define COLOUR_FILTER       0xFDA5  // #FFA000  warm amber-yellow
+#define COLOUR_ENV          0xD994  // #FFA000  magenta-pink
+#define COLOUR_LFO          0xFB60  // #FFA000  orange
+#define COLOUR_FX           0x06FF  // #FFA000  light cyan
+#define COLOUR_GLOBAL       0x8412  // #FFA000  neutral grey
 #define COLOUR_HEADER_BG    0x1907  // #19233C  dark navy panel
 #define COLOUR_BORDER       0x29AA  // #2D3750  blue-grey
 

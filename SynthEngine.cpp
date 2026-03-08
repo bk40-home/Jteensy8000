@@ -433,9 +433,13 @@ void SynthEngine::update() {
     _lfo1.update();
     _lfo2.update();
 
-    // Update all voices
+    // Update only voices that are actively sounding.
+    // IMPORTANT: do NOT add a "|| v == 0" exception here — that forces voice 0
+    // to run its oscillator/glide update on every loop even when silent, which
+    // costs the equivalent of one full voice of CPU at idle.  In MONO mode the
+    // voice-0-only path is handled correctly by _activeNotes[0] being set.
     for (uint8_t v = 0; v < MAX_VOICES; v++) {
-        if (_activeNotes[v] || v == 0) {
+        if (_activeNotes[v]) {
             _voices[v].update();
         }
     }
@@ -533,7 +537,7 @@ void SynthEngine::setOsc2PitchOffset(float semis) { _osc2PitchSemi = semis; for 
 // MIDI pitch bend uses a 14-bit value (0..16383, centre = 8192).
 // Converted to ±_pitchBendRange semitones and routed to every voice via
 // OscillatorBlock::setPitchBend(), which writes a DC value into the FM
-// pre-mixer. The AudioSynthWaveformModulated handles the actual pitch shift
+// pre-mixer. The AudioSynthWaveformJT handles the actual pitch shift
 // via its frequency modulation input — no software pitch calculation needed.
 //
 // This gives exact semitone accuracy at ALL base frequencies because the
@@ -901,22 +905,48 @@ void SynthEngine::setLFO2AmpDepth(float d)    { _lfo2AmpDepth    = d; _applyLFO2
 void SynthEngine::setLFO2Delay(float ms)      { _lfo2DelayMs     = ms; }
 
 // ============================================================================
-// NEW: LFO DELAY RAMP — called from update() every Arduino loop iteration
-// Linear fade-in from 0 → target amplitude over the delay period.
+// LFO DELAY RAMP — called from update() every Arduino loop iteration.
+//
+// JP-8000 LFO delay: modulation fades in linearly from 0 to the target
+// depth over the user-set delay time after each note-on.
+//
+// TWO things must be ramped in parallel:
+//   1. The FM/filter/PWM/amp MIXER GAINS — these scale how much of the LFO
+//      waveform reaches each destination.
+//   2. The LFO OSCILLATOR AMPLITUDE — this is what the LFO audio block
+//      actually outputs.  Without ramping this, the waveform is full
+//      amplitude from the start and the gain ramp has no effect because
+//      the mixer gain is zeroed by _applyLFO1Gains at startup.
+//
+// Bug that was here before: when the ramp completed (_lfo1Ramping = false)
+// the final gain values were never written because the if-block was exited
+// before the for-loop.  This left gains at the last intermediate step
+// rather than fully applied, meaning the LFO never reached its target depth.
+// Fix: write gains first, clear _lfoRamping afterwards, then hand off to
+// _applyLFO1Gains for the final fully-applied state.
 // ============================================================================
 void SynthEngine::_updateLFODelay() {
     const uint32_t now = millis();
 
+    // -------------------------------------------------------------------------
     // LFO1 delay ramp
+    // -------------------------------------------------------------------------
     if (_lfo1Ramping && _lfo1DelayMs > 0.0f) {
         const float elapsed = (float)(now - _lfo1NoteOnMs);
+
+        // t: normalised ramp position 0..1.  Clamp to 1 at end of delay window.
         const float t = (elapsed >= _lfo1DelayMs) ? 1.0f : (elapsed / _lfo1DelayMs);
         _lfo1CurrentAmp = _lfo1Amount * t;
-        if (t >= 1.0f) _lfo1Ramping = false;
 
-        // Apply ramped amplitude — pitch gains use the same FM_SEMITONE_SCALE as _applyLFO1Gains
-        const float pitchScale1 = LFO_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;
-        const float pitchG  = _lfo1CurrentAmp * _lfo1PitchDepth * pitchScale1;
+        // Ramp the LFO oscillator amplitude so the waveform itself fades in.
+        // Without this, the audio block outputs full amplitude from note-on and
+        // only the gain ramp is effective — the intended fade-in still works but
+        // the LFO oscillator wastes CPU running at full amplitude from the start.
+        _lfo1.setAmplitude(_lfo1CurrentAmp);
+
+        // Apply ramped mixer gains — same formula as _applyLFO1Gains.
+        const float pitchScale = LFO_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;
+        const float pitchG  = _lfo1CurrentAmp * _lfo1PitchDepth * pitchScale;
         const float filterG = _lfo1CurrentAmp * _lfo1FilterDepth;
         const float pwmG    = _lfo1CurrentAmp * _lfo1PWMDepth;
         const float ampG    = _lfo1CurrentAmp * _lfo1AmpDepth;
@@ -928,17 +958,27 @@ void SynthEngine::_updateLFODelay() {
             _voices[i].shapeModMixerOsc2().gain(1, pwmG);
         }
         _ampModMixer.gain(1, ampG);
+
+        // End of ramp: clear flag AFTER writing gains so the final t=1 step
+        // is always applied.  _applyLFO1Gains() will now own the gain state.
+        if (t >= 1.0f) {
+            _lfo1Ramping = false;
+            _applyLFO1Gains();  // Snap to final fully-accurate values
+        }
     }
 
-    // LFO2 delay ramp
+    // -------------------------------------------------------------------------
+    // LFO2 delay ramp (same logic as LFO1)
+    // -------------------------------------------------------------------------
     if (_lfo2Ramping && _lfo2DelayMs > 0.0f) {
         const float elapsed = (float)(now - _lfo2NoteOnMs);
         const float t = (elapsed >= _lfo2DelayMs) ? 1.0f : (elapsed / _lfo2DelayMs);
         _lfo2CurrentAmp = _lfo2Amount * t;
-        if (t >= 1.0f) _lfo2Ramping = false;
 
-        const float pitchScale2 = LFO_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;
-        const float pitchG  = _lfo2CurrentAmp * _lfo2PitchDepth * pitchScale2;
+        _lfo2.setAmplitude(_lfo2CurrentAmp);
+
+        const float pitchScale = LFO_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;
+        const float pitchG  = _lfo2CurrentAmp * _lfo2PitchDepth * pitchScale;
         const float filterG = _lfo2CurrentAmp * _lfo2FilterDepth;
         const float pwmG    = _lfo2CurrentAmp * _lfo2PWMDepth;
         const float ampG    = _lfo2CurrentAmp * _lfo2AmpDepth;
@@ -950,6 +990,11 @@ void SynthEngine::_updateLFODelay() {
             _voices[i].shapeModMixerOsc2().gain(2, pwmG);
         }
         _ampModMixer.gain(2, ampG);
+
+        if (t >= 1.0f) {
+            _lfo2Ramping = false;
+            _applyLFO2Gains();
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <Audio.h>
+#include "Audio.h"
 #include "Waveforms.h"  // ✅ use the same waveform IDs & names as main osc
 #include "BPMClockManager.h"  // For tempo sync
 

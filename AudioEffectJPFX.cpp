@@ -1,110 +1,154 @@
 /*
- * AudioEffectJPFX.cpp (OPTIMIZED VERSION with Continuous Processing)
+ * AudioEffectJPFX.cpp — JP-8000 Effects Engine Implementation
  *
- * KEY IMPROVEMENTS:
- * 1. Continuous processing even without input (maintains LFO phase, effect tails)
- * 2. CPU optimization: skips expensive calculations when effects disabled
- * 3. Smart bypass: only processes enabled effects
- * 4. Maintains reverb input even with no note playing (effect tails)
+ * See AudioEffectJPFX.h for full change log and architecture notes.
  *
- * CRITICAL BUG FIXES FROM PREVIOUS VERSION:
- * 1. Constructor uses 1 input, not 2 (AudioStream limitation)
- * 2. Separated modulation and delay buffers (were sharing, causing conflicts)
- * 3. Fixed update() to handle mono input with internal stereo
- * 4. Fixed transmit() to use single output channel
- * 5. Added proper NULL checks for buffer allocation
- * 6. Fixed bypass logic when effects are off
- * 7. Added destructor to free buffers
- * 8. Fixed write index management (was advancing twice per sample)
+ * SIGNAL CHAIN (per sample):
+ *   Mono input → Saturation → Tone EQ → Modulation → Delay → Limiter → Stereo out
+ *
+ * PERFORMANCE SUMMARY:
+ *   - Tone EQ:      ~6 multiplies per sample when active, zero when bypass
+ *   - Saturation:    1 tanhf or branch per sample, zero when bypass
+ *   - Modulation:    2 interpolated reads (standard) or 6 reads (Super Chorus)
+ *   - Delay:         2 interpolated reads per sample
+ *   - Limiter:       runs once per 128-sample block (negligible)
+ *   - All parameter recomputation is block-rate or on-change, never per-sample
  */
 
 #include "AudioEffectJPFX.h"
 #include "DebugTrace.h"
 #include <math.h>
-#include "BPMClockManager.h"
+#include <string.h>
 
 #ifdef __arm__
 #include <arm_math.h>
 #endif
 
-//-----------------------------------------------------------------------------
-// Modulation presets (unchanged)
-//-----------------------------------------------------------------------------
-const AudioEffectJPFX::ModParams AudioEffectJPFX::modParams[JPFX_NUM_MOD_VARIATIONS] = {
-    /* JPFX_CHORUS1 */     {15.0f, 15.0f,  2.0f,  4.0f, 0.25f, 0.0f, 0.5f, false, false},
-    /* JPFX_CHORUS2 */     {20.0f, 20.0f,  3.0f,  5.0f, 0.80f, 0.0f, 0.6f, false, false},
-    /* JPFX_CHORUS3 */     {25.0f, 25.0f,  4.0f,  6.0f, 0.40f, 0.0f, 0.7f, false, false},
-    /* JPFX_FLANGER1 */    { 3.0f,  3.0f,  2.0f,  2.0f, 0.50f, 0.5f, 0.5f, false, true },
-    /* JPFX_FLANGER2 */    { 5.0f,  5.0f,  2.5f,  2.5f, 0.35f, 0.7f, 0.5f, false, true },
-    /* JPFX_FLANGER3 */    { 2.0f,  2.0f,  1.0f,  1.0f, 1.50f, 0.3f, 0.4f, false, true },
-    /* JPFX_PHASER1 */     { 0.0f,  0.0f,  4.0f,  4.0f, 0.25f, 0.6f, 0.5f, true, false},
-    /* JPFX_PHASER2 */     { 0.0f,  0.0f,  5.0f,  5.0f, 0.50f, 0.7f, 0.5f, true, false},
-    /* JPFX_PHASER3 */     { 0.0f,  0.0f,  6.0f,  6.0f, 0.10f, 0.8f, 0.5f, true, false},
-    /* JPFX_PHASER4 */     { 0.0f,  0.0f,  3.0f,  3.0f, 1.20f, 0.5f, 0.6f, true, false},
-    /* JPFX_CHORUS_DEEP */ {30.0f, 30.0f, 10.0f, 12.0f, 0.20f, 0.0f, 0.7f, false, false}
+// ---------------------------------------------------------------------------
+// Compile-time constants used throughout the DSP
+// ---------------------------------------------------------------------------
+static constexpr float kPi    = 3.14159265f;
+static constexpr float kTwoPi = 6.28318530f;
+
+
+// ===========================================================================
+// Modulation presets — JP-8000 chorus / flanger / phaser variations
+//
+// FORMAT: { baseL, baseR, depthL, depthR, rate, fb, mix, taps, triLfo }
+//
+// CHORUS base delays: 5-12 ms (proper chorus range — previous 15-25 ms
+//   values were in doubling/slapback territory and sounded thin).
+//
+// Mix field set to 1.0 for all presets.  The user's Level knob (modMix)
+//   is the sole wet/dry control, matching the JP-8000's single Level pot.
+//   Previous double-multiply (modMix * presetMix) over-attenuated the wet
+//   signal, making chorus sound weak.
+//
+// Chorus presets use triangle LFO (linear delay sweep, BBD characteristic).
+// Flanger/phaser presets use sine LFO (smoother at short delays).
+//
+// PHASER NOTE: These use delay-line modulation, not cascaded all-pass
+//   stages.  The effect approximates a phaser sweep but lacks the true
+//   notch/peak comb structure.  See header for documentation.
+// ===========================================================================
+const AudioEffectJPFX::ModParams AudioEffectJPFX::modPresets[JPFX_NUM_MOD_VARIATIONS] = {
+    //                  baseL  baseR  dpthL dpthR  rate    fb   mix  taps tri
+    /* CHORUS1       */ { 5.0f,  5.0f, 1.5f, 2.0f, 0.80f, 0.00f, 1.0f, 1, true  },
+    /* CHORUS2       */ { 8.0f,  8.0f, 2.5f, 3.0f, 0.50f, 0.00f, 1.0f, 1, true  },
+    /* CHORUS3       */ {12.0f, 12.0f, 3.5f, 4.5f, 0.30f, 0.00f, 1.0f, 1, true  },
+    /* FLANGER1      */ { 1.5f,  1.5f, 1.5f, 1.5f, 0.30f, 0.60f, 1.0f, 1, false },
+    /* FLANGER2      */ { 2.0f,  2.0f, 2.0f, 2.0f, 0.15f, 0.75f, 1.0f, 1, false },
+    /* DEEP_FLANGER  */ { 3.0f,  3.0f, 3.0f, 3.0f, 0.08f, 0.85f, 1.0f, 1, false },
+    /* PHASER1       */ { 1.0f,  1.0f, 4.0f, 4.0f, 0.25f, 0.60f, 1.0f, 1, false },
+    /* PHASER2       */ { 1.0f,  1.0f, 5.0f, 5.0f, 0.50f, 0.70f, 1.0f, 1, false },
+    /* PHASER3       */ { 1.0f,  1.0f, 6.0f, 6.0f, 0.10f, 0.80f, 1.0f, 1, false },
+    /* PHASER4       */ { 1.0f,  1.0f, 3.0f, 3.0f, 1.20f, 0.50f, 1.0f, 1, false },
+    /* SUPER_CHORUS  */ { 8.0f,  8.0f, 3.0f, 4.0f, 0.50f, 0.00f, 1.0f, 3, true  },
 };
 
-//-----------------------------------------------------------------------------
-// Delay presets (unchanged)
-//-----------------------------------------------------------------------------
-const AudioEffectJPFX::DelayParams AudioEffectJPFX::delayParams[JPFX_NUM_DELAY_VARIATIONS] = {
-    /* JPFX_DELAY_SHORT */     {150.0f, 150.0f, 0.30f, 0.5f},
-    /* JPFX_DELAY_LONG */      {500.0f, 500.0f, 0.40f, 0.5f},
-    /* JPFX_DELAY_PINGPONG1 */ {300.0f, 600.0f, 0.40f, 0.6f},
-    /* JPFX_DELAY_PINGPONG2 */ {150.0f, 300.0f, 0.50f, 0.6f},
-    /* JPFX_DELAY_PINGPONG3 */ {400.0f, 200.0f, 0.40f, 0.6f}
+// ===========================================================================
+// Delay presets — JP-8000 delay types
+//
+// FORMAT: { delayL, delayR, feedback, mix }
+//
+// JP-8000 manual (confirmed by SoS review):
+//   "three panning delays plus short and long mono delays"
+//   "delay time maximum 1250 ms"
+//
+// Mono presets use identical L/R times.
+// Panning presets use offset L/R times for stereo imaging.
+// ===========================================================================
+const AudioEffectJPFX::DelayParams AudioEffectJPFX::delayPresets[JPFX_NUM_DELAY_VARIATIONS] = {
+    //                      delayL   delayR    fb    mix
+    /* MONO_SHORT  */     {  80.0f,   80.0f, 0.25f, 0.40f },
+    /* MONO_LONG   */     { 500.0f,  500.0f, 0.35f, 0.40f },
+    /* PAN_LR      */     { 120.0f,  250.0f, 0.35f, 0.50f },
+    /* PAN_RL      */     { 250.0f,  120.0f, 0.35f, 0.50f },
+    /* PAN_STEREO  */     { 200.0f,  400.0f, 0.40f, 0.50f },
 };
 
-//-----------------------------------------------------------------------------
-// Constructor - Initialize all state
-//-----------------------------------------------------------------------------
+
+// ===========================================================================
+// Constructor
+// ===========================================================================
 AudioEffectJPFX::AudioEffectJPFX()
-    : AudioStream(1, inputQueueArray)  // mono input to the block
+    : AudioStream(1, inputQueueArray)
 {
-    // Initialize tone filters
-    auto initShelf = [&](ShelfFilter &f) {
-        f.b0 = 1.0f; f.b1 = 0.0f; f.a1 = 0.0f;
-        f.in1 = 0.0f; f.out1 = 0.0f;
-    };
-    initShelf(bassFilterL);
-    initShelf(bassFilterR);
-    initShelf(trebleFilterL);
-    initShelf(trebleFilterR);
-    targetBassGain = 0.0f;
-    targetTrebleGain = 0.0f;
-    toneDirty = true;
+    // --- Tone control ---
+    // Compute crossover LP coefficients once (fixed, depends only on sample rate)
+    const float fs = AUDIO_SAMPLE_RATE_EXACT;
+    _toneXoverBassAlpha = kTwoPi * 200.0f  / (kTwoPi * 200.0f  + fs);
+    _toneXoverTrebAlpha = kTwoPi * 3000.0f / (kTwoPi * 3000.0f + fs);
 
-    // Initialize modulation state
-    modType = JPFX_MOD_OFF;
-    modMix = 0.5f;
-    modRateOverride = -1.0f;
-    modFeedbackOverride = -1.0f;
-    lfoPhaseL = 0.0f;
-    lfoPhaseR = 0.5f;
-    lfoIncL = 0.0f;
-    lfoIncR = 0.0f;
+    // Zero all filter states
+    _toneBassLpStateL = 0.0f;
+    _toneBassLpStateR = 0.0f;
+    _toneTrebLpStateL = 0.0f;
+    _toneTrebLpStateR = 0.0f;
+    _toneBassGainDelta = 0.0f;
+    _toneTrebGainDelta = 0.0f;
+    _targetBassGainDb   = 0.0f;
+    _targetTrebleGainDb = 0.0f;
+    _toneActive = false;
+    _toneDirty  = false;
 
-    // Initialize delay state
-    delayType = JPFX_DELAY_OFF;
-    delayMix = 0.5f;
-    delayFeedbackOverride = -1.0f;
-    delayTimeOverride = -1.0f;
+    // --- Modulation ---
+    _modType             = JPFX_MOD_OFF;
+    _modMix              = 0.5f;
+    _modRateOverride     = -1.0f;
+    _modFeedbackOverride = -1.0f;
+    _lfoPhaseL = 0.0f;
+    _lfoPhaseR = 0.5f;      // Stereo offset for spatial width
+    _lfoIncL   = 0.0f;
+    _lfoIncR   = 0.0f;
 
-    // Initialize BPM timing state (NEW)
-    _delayTimingMode = TIMING_FREE;       // Default: free-running ms
-    _freeRunningDelayTime = 250.0f;       // Default delay time
+    // --- Delay ---
+    _delayType             = JPFX_DELAY_OFF;
+    _delayMix              = 0.5f;
+    _delayFeedbackOverride = -1.0f;
+    _delayTimeOverride     = -1.0f;
+    _delayTimingMode       = TIMING_FREE;
+    _freeRunningDelayTime  = 250.0f;
 
-    // Initialize all buffer pointers to NULL
-    modBufL = nullptr;
-    modBufR = nullptr;
-    delayBufL = nullptr;
-    delayBufR = nullptr;
-    modBufSize = 0;
-    delayBufSize = 0;
-    modWriteIndex = 0;
-    delayWriteIndex = 0;
+    // --- Delay cache ---
+    _delaySampLCached  = 0.0f;
+    _delaySampRCached  = 0.0f;
+    _delayFbCached     = 0.0f;
+    _delayWetCached    = 0.0f;
+    _delayDryCached    = 1.0f;
+    _delayInvertCached = false;
 
-    // Initialise saturation — bypass by default (zero CPU when drive=0)
+    // --- Buffers ---
+    _modBufL   = nullptr;
+    _modBufR   = nullptr;
+    _delayBufL = nullptr;
+    _delayBufR = nullptr;
+    _modBufSize   = 0;
+    _delayBufSize = 0;
+    _modWriteIdx  = 0;
+    _delayWriteIdx = 0;
+
+    // --- Saturation (bypass by default — zero CPU when drive=0) ---
     _satDrive      = 0.0f;
     _satInputGain  = 1.0f;
     _satOutputGain = 1.0f;
@@ -112,210 +156,205 @@ AudioEffectJPFX::AudioEffectJPFX()
     _satDirty      = false;
     _hpState       = 0.0f;
 
-    // Initialise output limiter — unity gain (no attenuation)
+    // --- Output limiter (unity gain = no attenuation) ---
     _limGain = 1.0f;
 
-    // Allocate buffers (will use PSRAM if available)
+    // Allocate circular buffers (PSRAM if available, then RAM)
     allocateDelayBuffers();
 }
 
-//-----------------------------------------------------------------------------
-// Destructor - Free allocated buffers
-//-----------------------------------------------------------------------------
+
+// ===========================================================================
+// Destructor
+// ===========================================================================
 AudioEffectJPFX::~AudioEffectJPFX()
 {
-    if (modBufL) free(modBufL);
-    if (modBufR) free(modBufR);
-    if (delayBufL) free(delayBufL);
-    if (delayBufR) free(delayBufR);
+    if (_modBufL)   free(_modBufL);
+    if (_modBufR)   free(_modBufR);
+    if (_delayBufL) free(_delayBufL);
+    if (_delayBufR) free(_delayBufR);
 }
 
-//-----------------------------------------------------------------------------
-// allocateDelayBuffers - Allocate separate buffers for mod and delay
-// Uses PSRAM (extmem_malloc) if available, otherwise regular RAM
-//-----------------------------------------------------------------------------
+
+// ===========================================================================
+// allocateDelayBuffers — separate buffers for modulation and delay
+//
+// Uses PSRAM (extmem_malloc) on Teensy 4.x if available, otherwise RAM.
+// Buffer sizes are determined by the maximum delay/modulation times.
+// ===========================================================================
 void AudioEffectJPFX::allocateDelayBuffers()
 {
-    const float sr = AUDIO_SAMPLE_RATE_EXACT;
-    
-    // Calculate delay buffer size (for delay effects)
-    float maxDelaySeconds = JPFX_MAX_DELAY_MS * 0.001f;
-    uint32_t delaySamples = (uint32_t)ceilf((maxDelaySeconds * sr) + 2.0f);
-    delayBufSize = delaySamples;
-    delayWriteIndex = 0;
-    
-    // Calculate modulation buffer size (for chorus/flanger/phaser)
-    // These need much less buffer (max ~30ms base + depth)
-    float maxModSeconds = 0.050f;  // 50ms is plenty for modulation effects
-    uint32_t modSamples = (uint32_t)ceilf((maxModSeconds * sr) + 2.0f);
-    modBufSize = modSamples;
-    modWriteIndex = 0;
-    
-    uint32_t delayBytes = sizeof(float) * delayBufSize;
-    uint32_t modBytes = sizeof(float) * modBufSize;
-    uint32_t totalBytes = (delayBytes + modBytes) * 2;  // *2 for stereo
-    
+    const float fs = AUDIO_SAMPLE_RATE_EXACT;
+
+    // Delay buffer: sized for maximum delay time plus 2-sample interpolation guard
+    _delayBufSize = (uint32_t)ceilf(JPFX_MAX_DELAY_MS * 0.001f * fs) + 2;
+    _delayWriteIdx = 0;
+
+    // Modulation buffer: sized for maximum modulation time
+    _modBufSize = (uint32_t)ceilf(JPFX_MAX_MOD_MS * 0.001f * fs) + 2;
+    _modWriteIdx = 0;
+
+    const uint32_t delayBytes = sizeof(float) * _delayBufSize;
+    const uint32_t modBytes   = sizeof(float) * _modBufSize;
+    const uint32_t totalBytes = (delayBytes + modBytes) * 2;  // ×2 for stereo
+
     JT_LOGF("[JPFX] Alloc: Delay=%uKB Mod=%uKB Total=%uKB\n",
             (unsigned)((delayBytes * 2) / 1024),
             (unsigned)((modBytes * 2) / 1024),
             (unsigned)(totalBytes / 1024));
-    
-    // Try PSRAM first (Teensy 4.x), then fall back to regular RAM
-    #if defined(__IMXRT1062__)  // Teensy 4.x
-        delayBufL = (float *)extmem_malloc(delayBytes);
-        delayBufR = (float *)extmem_malloc(delayBytes);
-        modBufL = (float *)extmem_malloc(modBytes);
-        modBufR = (float *)extmem_malloc(modBytes);
-        
-        if (delayBufL && delayBufR && modBufL && modBufR) {
+
+    // Try PSRAM first (Teensy 4.x), fall back to regular RAM
+    #if defined(__IMXRT1062__)
+        _delayBufL = (float *)extmem_malloc(delayBytes);
+        _delayBufR = (float *)extmem_malloc(delayBytes);
+        _modBufL   = (float *)extmem_malloc(modBytes);
+        _modBufR   = (float *)extmem_malloc(modBytes);
+
+        if (_delayBufL && _delayBufR && _modBufL && _modBufR) {
             JT_LOGF("[JPFX] Using PSRAM for all buffers");
         } else {
-            // PSRAM failed, try regular malloc
-            if (delayBufL) free(delayBufL);
-            if (delayBufR) free(delayBufR);
-            if (modBufL) free(modBufL);
-            if (modBufR) free(modBufR);
-            
+            // PSRAM failed — free any partial allocations and try regular RAM
+            if (_delayBufL) free(_delayBufL);
+            if (_delayBufR) free(_delayBufR);
+            if (_modBufL)   free(_modBufL);
+            if (_modBufR)   free(_modBufR);
+
             JT_LOGF("[JPFX] PSRAM unavailable, trying regular RAM");
-            delayBufL = (float *)malloc(delayBytes);
-            delayBufR = (float *)malloc(delayBytes);
-            modBufL = (float *)malloc(modBytes);
-            modBufR = (float *)malloc(modBytes);
+            _delayBufL = (float *)malloc(delayBytes);
+            _delayBufR = (float *)malloc(delayBytes);
+            _modBufL   = (float *)malloc(modBytes);
+            _modBufR   = (float *)malloc(modBytes);
         }
     #else
-        delayBufL = (float *)malloc(delayBytes);
-        delayBufR = (float *)malloc(delayBytes);
-        modBufL = (float *)malloc(modBytes);
-        modBufR = (float *)malloc(modBytes);
+        _delayBufL = (float *)malloc(delayBytes);
+        _delayBufR = (float *)malloc(delayBytes);
+        _modBufL   = (float *)malloc(modBytes);
+        _modBufR   = (float *)malloc(modBytes);
     #endif
-    
+
     // Check for allocation failure
-    if (!delayBufL || !delayBufR || !modBufL || !modBufR) {
+    if (!_delayBufL || !_delayBufR || !_modBufL || !_modBufR) {
         JT_LOGF("[JPFX] ERROR: Buffer allocation failed!");
-        if (delayBufL) { free(delayBufL); delayBufL = nullptr; }
-        if (delayBufR) { free(delayBufR); delayBufR = nullptr; }
-        if (modBufL) { free(modBufL); modBufL = nullptr; }
-        if (modBufR) { free(modBufR); modBufR = nullptr; }
+        if (_delayBufL) { free(_delayBufL); _delayBufL = nullptr; }
+        if (_delayBufR) { free(_delayBufR); _delayBufR = nullptr; }
+        if (_modBufL)   { free(_modBufL);   _modBufL   = nullptr; }
+        if (_modBufR)   { free(_modBufR);   _modBufR   = nullptr; }
         return;
     }
-    
-    // Clear buffers
-    for (uint32_t i = 0; i < delayBufSize; ++i) {
-        delayBufL[i] = 0.0f;
-        delayBufR[i] = 0.0f;
-    }
-    for (uint32_t i = 0; i < modBufSize; ++i) {
-        modBufL[i] = 0.0f;
-        modBufR[i] = 0.0f;
-    }
-    
+
+    // Clear buffers — memset to 0 is valid for IEEE 754 floats (+0.0f = all zero bits)
+    // and is DMA-accelerated on Cortex-M7
+    memset(_delayBufL, 0, delayBytes);
+    memset(_delayBufR, 0, delayBytes);
+    memset(_modBufL,   0, modBytes);
+    memset(_modBufR,   0, modBytes);
+
     JT_LOGF("[JPFX] Buffers allocated OK");
 }
 
-// ADD new method implementations:
-void AudioEffectJPFX::setDelayTimingMode(TimingMode mode) {
+
+// ===========================================================================
+// BPM timing
+// ===========================================================================
+
+void AudioEffectJPFX::setDelayTimingMode(TimingMode mode)
+{
     _delayTimingMode = mode;
-    
+
     if (mode == TIMING_FREE) {
         // Restore free-running delay time
         setDelayTime(_freeRunningDelayTime);
     }
-    // When switching to BPM mode, time will be updated by
-    // updateFromBPMClock() call from FXChainBlock
+    // In BPM mode, time is updated by updateFromBPMClock() from FXChainBlock
 }
 
-void AudioEffectJPFX::updateFromBPMClock(const BPMClockManager& bpmClock) {
-    // Only update if in BPM-synced mode
+void AudioEffectJPFX::updateFromBPMClock(const BPMClockManager& bpmClock)
+{
+    // Only update delay time when synced to BPM
     if (_delayTimingMode == TIMING_FREE) return;
-    if (delayType == JPFX_DELAY_OFF) return;  // No delay active
-    
-    // Get time for current timing mode
+    if (_delayType == JPFX_DELAY_OFF)    return;
+
     float syncedTimeMs = bpmClock.getTimeForMode(_delayTimingMode);
     if (syncedTimeMs > 0.0f) {
-        // Apply directly to delay parameters, bypass setDelayTime()
-        delayTimeOverride = syncedTimeMs;
+        _delayTimeOverride = syncedTimeMs;
     }
 }
 
-//-----------------------------------------------------------------------------
-// computeShelfCoeffs - Calculate biquad coefficients for shelving filters
-// Frequency in Hz, gain in dB, highShelf=true for treble
-//-----------------------------------------------------------------------------
-void AudioEffectJPFX::computeShelfCoeffs(ShelfFilter &f, float freqHz, float gaindB, bool highShelf)
+
+// ===========================================================================
+// Tone control — crossover EQ
+// ===========================================================================
+
+// Recompute linear gains from dB values.  Called once per block when dirty.
+void AudioEffectJPFX::computeToneParams()
 {
-    const float fs = AUDIO_SAMPLE_RATE_EXACT;
-    const float A = powf(10.0f, gaindB / 40.0f);
-    const float w0 = 2.0f * M_PI * freqHz / fs;
-    const float sinW0 = sinf(w0);
-    const float cosW0 = cosf(w0);
-    const float alpha = sinW0 / (2.0f * 0.707f);  // Q=0.707 for smooth response
-    
-    if (highShelf) {
-        // High-shelf: boost/cut high frequencies
-        const float a0 = (A+1.0f) - (A-1.0f)*cosW0 + 2.0f*sqrtf(A)*alpha;
-        f.b0 = (A*((A+1.0f) + (A-1.0f)*cosW0 + 2.0f*sqrtf(A)*alpha)) / a0;
-        f.b1 = (-2.0f*A*((A-1.0f) + (A+1.0f)*cosW0)) / a0;
-        f.a1 = (-((A+1.0f) - (A-1.0f)*cosW0 - 2.0f*sqrtf(A)*alpha)) / a0;
-    } else {
-        // Low-shelf: boost/cut low frequencies
-        const float a0 = (A+1.0f) + (A-1.0f)*cosW0 + 2.0f*sqrtf(A)*alpha;
-        f.b0 = (A*((A+1.0f) - (A-1.0f)*cosW0 + 2.0f*sqrtf(A)*alpha)) / a0;
-        f.b1 = (2.0f*A*((A-1.0f) - (A+1.0f)*cosW0)) / a0;
-        f.a1 = (-((A+1.0f) + (A-1.0f)*cosW0 - 2.0f*sqrtf(A)*alpha)) / a0;
-    }
+    _toneDirty = false;
+
+    // Convert dB to linear gain
+    float bassLin  = powf(10.0f, _targetBassGainDb   / 20.0f);
+    float trebLin  = powf(10.0f, _targetTrebleGainDb  / 20.0f);
+
+    // Snap to unity when within ±0.1 dB — prevents residual filtering
+    // from CC midpoint values that map to ~0.094 dB instead of exactly 0.0
+    if (fabsf(_targetBassGainDb)   < 0.1f) bassLin = 1.0f;
+    if (fabsf(_targetTrebleGainDb) < 0.1f) trebLin = 1.0f;
+
+    // Store deltas: when delta is zero, the multiply-add is a no-op
+    _toneBassGainDelta = bassLin - 1.0f;
+    _toneTrebGainDelta = trebLin - 1.0f;
+
+    // Active flag: bypass entire tone stage when both bands are at unity
+    _toneActive = (fabsf(_toneBassGainDelta) > 0.0001f ||
+                   fabsf(_toneTrebGainDelta) > 0.0001f);
 }
 
-//-----------------------------------------------------------------------------
-// applyTone - Apply bass and treble shelving filters
-// Only processes if tone controls are non-zero for CPU optimization
-//-----------------------------------------------------------------------------
-inline void AudioEffectJPFX::applyTone(float &l, float &r)
+// Per-sample tone EQ.  Splits the signal into bass and treble bands via
+// one-pole LPs, applies gain delta to each, and sums back.  When both
+// deltas are zero, the additions are exactly zero → transparent.
+inline void AudioEffectJPFX::applyTone(float &sampleL, float &sampleR)
 {
-    // CPU OPTIMIZATION: Skip if both tone controls are at 0dB (bypass)
-    if (targetBassGain == 0.0f && targetTrebleGain == 0.0f) {
-        return;  // No tone adjustment needed
-    }
-    
-    // Apply bass (low-shelf) left channel
-    if (targetBassGain != 0.0f) {
-        float x0 = l;
-        float y0 = bassFilterL.b0 * x0 + bassFilterL.b1 * bassFilterL.in1 - bassFilterL.a1 * bassFilterL.out1;
-        bassFilterL.in1 = x0;
-        bassFilterL.out1 = y0;
-        l = y0;
-    }
-    
-    // Apply bass (low-shelf) right channel
-    if (targetBassGain != 0.0f) {
-        float x0 = r;
-        float y0 = bassFilterR.b0 * x0 + bassFilterR.b1 * bassFilterR.in1 - bassFilterR.a1 * bassFilterR.out1;
-        bassFilterR.in1 = x0;
-        bassFilterR.out1 = y0;
-        r = y0;
-    }
-    
-    // Apply treble (high-shelf) left channel
-    if (targetTrebleGain != 0.0f) {
-        float x0 = l;
-        float y0 = trebleFilterL.b0 * x0 + trebleFilterL.b1 * trebleFilterL.in1 - trebleFilterL.a1 * trebleFilterL.out1;
-        trebleFilterL.in1 = x0;
-        trebleFilterL.out1 = y0;
-        l = y0;
-    }
-    
-    // Apply treble (high-shelf) right channel
-    if (targetTrebleGain != 0.0f) {
-        float x0 = r;
-        float y0 = trebleFilterR.b0 * x0 + trebleFilterR.b1 * trebleFilterR.in1 - trebleFilterR.a1 * trebleFilterR.out1;
-        trebleFilterR.in1 = x0;
-        trebleFilterR.out1 = y0;
-        r = y0;
+    if (!_toneActive) return;
+
+    // Extract bass component via one-pole LP at ~200 Hz
+    _toneBassLpStateL += _toneXoverBassAlpha * (sampleL - _toneBassLpStateL);
+    _toneBassLpStateR += _toneXoverBassAlpha * (sampleR - _toneBassLpStateR);
+
+    // Extract treble component = input minus one-pole LP at ~3 kHz
+    _toneTrebLpStateL += _toneXoverTrebAlpha * (sampleL - _toneTrebLpStateL);
+    _toneTrebLpStateR += _toneXoverTrebAlpha * (sampleR - _toneTrebLpStateR);
+    const float trebleL = sampleL - _toneTrebLpStateL;
+    const float trebleR = sampleR - _toneTrebLpStateR;
+
+    // Apply: output = input + (bassGain-1)*bass + (trebleGain-1)*treble
+    // At unity gain both delta terms are zero → output = input exactly.
+    sampleL += _toneBassGainDelta * _toneBassLpStateL
+             + _toneTrebGainDelta * trebleL;
+    sampleR += _toneBassGainDelta * _toneBassLpStateR
+             + _toneTrebGainDelta * trebleR;
+}
+
+void AudioEffectJPFX::setBassGain(float dB)
+{
+    dB = constrain(dB, -12.0f, 12.0f);
+    if (dB != _targetBassGainDb) {
+        _targetBassGainDb = dB;
+        _toneDirty = true;
     }
 }
 
-//-----------------------------------------------------------------------------
-// Parameter Setters
-//-----------------------------------------------------------------------------
+void AudioEffectJPFX::setTrebleGain(float dB)
+{
+    dB = constrain(dB, -12.0f, 12.0f);
+    if (dB != _targetTrebleGainDb) {
+        _targetTrebleGainDb = dB;
+        _toneDirty = true;
+    }
+}
+
+
+// ===========================================================================
+// Saturation / drive — unchanged from previous version
+// ===========================================================================
 
 void AudioEffectJPFX::setSaturation(float norm)
 {
@@ -326,423 +365,542 @@ void AudioEffectJPFX::setSaturation(float norm)
     }
 }
 
-// Recompute saturation gain staging whenever drive changes.
-// Called once per update() when _satDirty is set — never per-sample.
+// Recompute saturation gain staging.  Called once per block when dirty.
 void AudioEffectJPFX::computeSatParams()
 {
     _satDirty = false;
+
+    // Below threshold: bypass (gains stay at 1.0, applySaturation early-exits)
     if (_satDrive < 0.001f) {
-        // Bypass: leave gains at 1.0, flag handled by early-exit in applySaturation
         _satInputGain  = 1.0f;
         _satOutputGain = 1.0f;
         return;
     }
 
     if (_satDrive < 0.5f) {
-        // ----- Soft clip (tanh) -----
-        // Input gain 1..4x as drive goes 0..0.5, output compensates so
-        // a sine wave at 50% amplitude stays roughly the same loudness.
-        _satIsSoft    = true;
-        _satInputGain  = 1.0f + (_satDrive / 0.5f) * 3.0f;  // 1..4x
-        // tanhf(1.0) ≈ 0.762, tanhf(4.0) ≈ 0.999; makeup ≈ 1/tanh(gain*0.5)
+        // Soft clip (tanh) — warm 2nd/3rd harmonics
+        // Input gain: 1..4× as drive goes 0..0.5
+        _satIsSoft     = true;
+        _satInputGain  = 1.0f + (_satDrive / 0.5f) * 3.0f;
+        // Makeup gain: compensate for tanh compression
         const float testOut = tanhf(_satInputGain * 0.5f);
         _satOutputGain = (testOut > 0.0f) ? (0.5f / testOut) : 1.0f;
     } else {
-        // ----- Hard clip (asymmetric) -----
-        // Drive 0.5..1.0 → input gain 4..8x, clipped at ±0.7 / +0.5 (asymmetric).
-        // Asymmetry mimics the diode-like character of the JP output stage.
-        _satIsSoft    = false;
-        _satInputGain  = 4.0f + ((_satDrive - 0.5f) / 0.5f) * 4.0f;  // 4..8x
-        _satOutputGain = 1.0f / 0.7f;  // normalise to clipping ceiling
+        // Hard clip (asymmetric) — even-order harmonics, JP output stage
+        // Input gain: 4..8× as drive goes 0.5..1.0
+        _satIsSoft     = false;
+        _satInputGain  = 4.0f + ((_satDrive - 0.5f) / 0.5f) * 4.0f;
+        _satOutputGain = 1.0f / 0.7f;   // normalise to positive clipping ceiling
     }
 }
 
-// Per-sample saturation — inlined; called 128x per update().
-// Early return when drive=0 keeps zero overhead in bypass mode.
-inline float AudioEffectJPFX::applySaturation(float x)
+// Per-sample saturation — inlined.  Early return when drive=0 for zero bypass cost.
+inline float AudioEffectJPFX::applySaturation(float sample)
 {
-    if (_satDrive < 0.001f) return x;
+    if (_satDrive < 0.001f) return sample;
 
-    const float driven = x * _satInputGain;
-
+    const float driven = sample * _satInputGain;
     float shaped;
+
     if (_satIsSoft) {
-        // tanhf is FPU-accelerated on Cortex-M7 — fast enough per-sample
+        // tanhf is FPU-accelerated on Cortex-M7
         shaped = tanhf(driven);
     } else {
-        // Asymmetric hard clip: positive peak at +0.7, negative at -1.0
-        // Asymmetry adds even-order harmonics (2nd harmonic dominance = warmth)
-        // Pre-emphasis HP (1-pole, fc~20 Hz) removes any DC offset buildup
-        const float hpAlpha = 0.9997f;  // 1 - (2π × 20 / 44100)
+        // Asymmetric hard clip: +0.7 positive, -1.0 negative
+        // Pre-emphasis HP removes DC offset from asymmetry
+        const float hpAlpha = 0.9997f;     // 1 - (2π × 20 / 44100)
         const float hpOut   = driven - _hpState;
         _hpState = _hpState * hpAlpha + driven * (1.0f - hpAlpha);
 
-        if (hpOut > 0.7f)        shaped =  0.7f;
-        else if (hpOut < -1.0f)  shaped = -1.0f;
-        else                     shaped =  hpOut;
+        if      (hpOut >  0.7f) shaped =  0.7f;
+        else if (hpOut < -1.0f) shaped = -1.0f;
+        else                    shaped =  hpOut;
     }
     return shaped * _satOutputGain;
 }
 
-void AudioEffectJPFX::setBassGain(float dB)
-{
-    if (dB != targetBassGain) {
-        targetBassGain = dB;
-        toneDirty = true;
-    }
-}
 
-void AudioEffectJPFX::setTrebleGain(float dB)
-{
-    if (dB != targetTrebleGain) {
-        targetTrebleGain = dB;
-        toneDirty = true;
-    }
-}
+// ===========================================================================
+// Modulation parameter setters
+// ===========================================================================
 
 void AudioEffectJPFX::setModEffect(ModEffectType type)
 {
-    if (type != modType) {
-        modType = type;
-        lfoPhaseL = 0.0f;
-        lfoPhaseR = 0.5f;
+    if (type != _modType) {
+        _modType = type;
+        _lfoPhaseL = 0.0f;
+        _lfoPhaseR = 0.5f;
         updateLfoIncrements();
     }
 }
 
 void AudioEffectJPFX::setModMix(float mix)
 {
-    modMix = constrain(mix, 0.0f, 1.0f);
+    _modMix = constrain(mix, 0.0f, 1.0f);
 }
 
-void AudioEffectJPFX::setModRate(float rate)
+void AudioEffectJPFX::setModRate(float rateHz)
 {
-    if (rate < 0.0f) return;
-    modRateOverride = (rate == 0.0f) ? -1.0f : rate;
+    if (rateHz < 0.0f) return;
+    _modRateOverride = (rateHz == 0.0f) ? -1.0f : rateHz;
     updateLfoIncrements();
 }
 
 void AudioEffectJPFX::setModFeedback(float fb)
 {
-    if (fb < 0.0f) {
-        modFeedbackOverride = -1.0f;
-    } else {
-        modFeedbackOverride = constrain(fb, 0.0f, 0.99f);
-    }
+    _modFeedbackOverride = (fb < 0.0f) ? -1.0f : constrain(fb, 0.0f, 0.99f);
 }
+
+
+// ===========================================================================
+// Delay parameter setters
+// ===========================================================================
 
 void AudioEffectJPFX::setDelayEffect(DelayEffectType type)
 {
-    if (type != delayType) {
-        delayType = type;
-        delayWriteIndex = 0;
-        
-        // Clear delay buffers when changing effect type
-        if (delayBufL && delayBufR) {
-            for (uint32_t i = 0; i < delayBufSize; ++i) {
-                delayBufL[i] = 0.0f;
-                delayBufR[i] = 0.0f;
-            }
+    if (type != _delayType) {
+        _delayType = type;
+        _delayWriteIdx = 0;
+
+        // Clear delay buffers on type change to prevent stale audio bleed
+        if (_delayBufL && _delayBufR) {
+            memset(_delayBufL, 0, sizeof(float) * _delayBufSize);
+            memset(_delayBufR, 0, sizeof(float) * _delayBufSize);
         }
     }
 }
 
 void AudioEffectJPFX::setDelayMix(float mix)
 {
-    delayMix = constrain(mix, -1.0f, 1.0f);
+    _delayMix = constrain(mix, -1.0f, 1.0f);
 }
 
 void AudioEffectJPFX::setDelayFeedback(float fb)
 {
-    if (fb < 0.0f) {
-        delayFeedbackOverride = -1.0f;
-    } else {
-        delayFeedbackOverride = constrain(fb, 0.0f, 0.99f);
+    _delayFeedbackOverride = (fb < 0.0f) ? -1.0f : constrain(fb, 0.0f, 0.99f);
+}
+
+void AudioEffectJPFX::setDelayTime(float ms)
+{
+    _freeRunningDelayTime = ms;
+
+    // Only apply when in free-running mode (BPM mode is managed by clock)
+    if (_delayTimingMode == TIMING_FREE) {
+        _delayTimeOverride = ms;
     }
 }
 
-void AudioEffectJPFX::setDelayTime(float ms) {
-    _freeRunningDelayTime = ms;  // Always store for mode switching
-    
-    // Only apply if in free-running mode
-    if (_delayTimingMode == TIMING_FREE) {
-        delayTimeOverride = ms;
-        //Serial.printf("Delay setDelayTime %.1f ms (FREE)\n", ms);
-    } 
-    // else {
-    //     Serial.println("Delay in sync mode, time managed by BPM clock");
-    // }
-}
 
-//-----------------------------------------------------------------------------
-// updateLfoIncrements - Calculate LFO phase increment per sample
-// Called when modulation effect or rate changes
-//-----------------------------------------------------------------------------
+// ===========================================================================
+// updateLfoIncrements — compute LFO phase increment per sample
+//
+// Called when modulation effect type or rate override changes.
+// Right channel gets a 1% rate offset for natural stereo decorrelation.
+// ===========================================================================
 void AudioEffectJPFX::updateLfoIncrements()
 {
-    // CPU OPTIMIZATION: If modulation is off, set increments to 0
-    if (modType == JPFX_MOD_OFF) {
-        lfoIncL = lfoIncR = 0.0f;
+    if (_modType == JPFX_MOD_OFF) {
+        _lfoIncL = _lfoIncR = 0.0f;
         return;
     }
-    
-    // Get rate from preset or override
-    float rate = modParams[modType].rate;
-    if (modRateOverride > 0.0f) {
-        rate = modRateOverride;
+
+    // Use override rate if set, otherwise preset rate
+    float rateHz = modPresets[_modType].rateHz;
+    if (_modRateOverride > 0.0f) {
+        rateHz = _modRateOverride;
     }
-    
-    // Calculate phase increment (radians per sample)
-    const float fs = AUDIO_SAMPLE_RATE_EXACT;
-    const float twoPi = 2.0f * 3.14159265358979323846f;
-    float phaseInc = twoPi * rate / fs;
-    lfoIncL = phaseInc;
-    lfoIncR = phaseInc * 1.01f;  // Slight offset for stereo width
+
+    // Phase increment = 2π × rate / sampleRate  (radians per sample)
+    const float inc = kTwoPi * rateHz / AUDIO_SAMPLE_RATE_EXACT;
+    _lfoIncL = inc;
+    _lfoIncR = inc * 1.01f;    // Slight stereo offset
 }
 
-//-----------------------------------------------------------------------------
-// processModulation - Chorus, flanger, phaser effects
-// CPU OPTIMIZATION: Bypasses completely if effect is disabled
-//-----------------------------------------------------------------------------
-inline void AudioEffectJPFX::processModulation(float inL, float inR, float &outL, float &outR)
+
+// ===========================================================================
+// processModulation — chorus / flanger / phaser per-sample processing
+//
+// Standard presets (tapCount=1): single delay tap per channel.
+// Super Chorus (tapCount=3): three delay taps at 120° LFO phase offsets,
+//   averaged together.  Recreates the BBD ensemble effect (Roland JC-120
+//   / Boss CE-5).  The 120° spacing ensures the three taps never align,
+//   producing constant chorus density without amplitude pulsing.
+//
+// LFO waveform is selectable per preset:
+//   Triangle: linear delay sweep (BBD bucket-passing characteristic).
+//             Used by chorus presets.  Cheaper than sine (branch + fmadd).
+//   Sine:     smoother modulation.  Used by flanger/phaser presets where
+//             short delays make linear sweeps more audible as stepping.
+//             Uses Bhaskara I fast approximation (< 0.002% error).
+// ===========================================================================
+inline void AudioEffectJPFX::processModulation(float inL, float inR,
+                                                float &outL, float &outR)
 {
-    // CPU OPTIMIZATION: Early bypass if modulation disabled or no buffer
-    if (modType == JPFX_MOD_OFF || !modBufL || !modBufR) {
+    // Early bypass: zero CPU when modulation is off or buffer missing
+    if (_modType == JPFX_MOD_OFF || !_modBufL || !_modBufR) {
         outL = inL;
         outR = inR;
         return;
     }
-    
-    const ModParams &params = modParams[modType];
-    const float baseDelayL = params.baseDelayL;
-    const float baseDelayR = params.baseDelayR;
-    const float depthL = params.depthL;
-    const float depthR = params.depthR;
-    const float feedback = (modFeedbackOverride >= 0.0f) ? modFeedbackOverride : params.feedback;
-    const float presetMix = params.mix;
-    const float wetMix = modMix * presetMix;
+
+    const ModParams &p = modPresets[_modType];
+
+    // Resolve feedback: user override or preset value
+    const float feedback = (_modFeedbackOverride >= 0.0f)
+                         ? _modFeedbackOverride
+                         : p.feedback;
+
+    // Wet/dry mix: user Level knob × preset mix (preset mix is 1.0 for all
+    // current presets, so effectively the Level knob is the sole control)
+    const float wetMix = _modMix * p.mix;
     const float dryMix = 1.0f - wetMix;
-    
-    // Fast LFO sin approximation (Bhaskara I, < 0.002% error over 0..2π).
-    // Avoids sinf() transcendental call — saves ~15% CPU on this block.
-    // Formula: sin(x) ≈ 16x(π-x) / (5π² - 4x(π-x))  for x in [0, π]
-    // Mapped to full cycle by folding the phase.
-    auto fastSin = [](float phase) -> float {
-        // Fold phase into [0, π]
-        const float pi  = 3.14159265f;
-        const float twoPi = 6.28318530f;
-        if (phase < 0.0f) phase += twoPi;
-        float x = phase;
-        float sign = 1.0f;
-        if (x > pi) { x -= pi; sign = -1.0f; }
-        const float xpi = x * (pi - x);
-        return sign * (16.0f * xpi) / (5.0f * pi * pi - 4.0f * xpi);
+
+    // --- LFO function selection ---
+    // Triangle LFO: phase ∈ [0, 2π) → output ∈ [-1, +1]
+    // Linear ramp — cheaper than sine, smoother for chorus
+    auto triangleLfo = [](float phase) -> float {
+        const float norm = phase * (1.0f / kTwoPi);   // [0, 1)
+        return (norm < 0.5f) ? (-1.0f + 4.0f * norm)
+                             : ( 3.0f - 4.0f * norm);
     };
 
-    const float lfoValL = fastSin(lfoPhaseL);
-    const float lfoValR = fastSin(lfoPhaseR);
-    lfoPhaseL += lfoIncL;
-    if (lfoPhaseL > 6.283185307179586f) lfoPhaseL -= 6.283185307179586f;
-    lfoPhaseR += lfoIncR;
-    if (lfoPhaseR > 6.283185307179586f) lfoPhaseR -= 6.283185307179586f;
-    
-    // Convert delay times to samples
-    const float fs = AUDIO_SAMPLE_RATE_EXACT;
-    float delaySamplesL = (baseDelayL + depthL * lfoValL) * 0.001f * fs;
-    float delaySamplesR = (baseDelayR + depthR * lfoValR) * 0.001f * fs;
-    
-    // Clamp within buffer bounds
-    delaySamplesL = constrain(delaySamplesL, 0.0f, (float)(modBufSize - 2));
-    delaySamplesR = constrain(delaySamplesR, 0.0f, (float)(modBufSize - 2));
-    
-    // Read with linear interpolation - LEFT
-    float readIndexL = (float)modWriteIndex - delaySamplesL;
-    if (readIndexL < 0.0f) readIndexL += (float)modBufSize;
-    uint32_t idxL0 = (uint32_t)readIndexL;
-    uint32_t idxL1 = (idxL0 + 1) % modBufSize;
-    float fracL = readIndexL - (float)idxL0;
-    float delayedL = modBufL[idxL0] + (modBufL[idxL1] - modBufL[idxL0]) * fracL;
-    
-    // Read with linear interpolation - RIGHT
-    float readIndexR = (float)modWriteIndex - delaySamplesR;
-    if (readIndexR < 0.0f) readIndexR += (float)modBufSize;
-    uint32_t idxR0 = (uint32_t)readIndexR;
-    uint32_t idxR1 = (idxR0 + 1) % modBufSize;
-    float fracR = readIndexR - (float)idxR0;
-    float delayedR = modBufR[idxR0] + (modBufR[idxR1] - modBufR[idxR0]) * fracR;
-    
-    // Write with feedback
-    modBufL[modWriteIndex] = inL + delayedL * feedback;
-    modBufR[modWriteIndex] = inR + delayedR * feedback;
-    
-    // Advance write pointer
-    modWriteIndex = (modWriteIndex + 1) % modBufSize;
-    
-    // Mix dry and wet
+    // Bhaskara I fast sine: phase ∈ [0, 2π) → output ∈ [-1, +1]
+    // < 0.002% error over full cycle, avoids transcendental sinf()
+    static constexpr float k5PiSq = 5.0f * kPi * kPi;
+    auto fastSin = [](float phase) -> float {
+        float x    = phase;
+        float sign = 1.0f;
+        if (x > kPi) { x -= kPi; sign = -1.0f; }
+        const float xpi = x * (kPi - x);
+        return sign * (16.0f * xpi) / (k5PiSq - 4.0f * xpi);
+    };
+
+    // Precompute ms-to-samples factor (constant for the block)
+    const float msToSamples = 0.001f * AUDIO_SAMPLE_RATE_EXACT;
+    const float maxIdx      = (float)(_modBufSize - 2);
+
+    // Compute primary LFO values using the selected waveform
+    float lfoL, lfoR;
+    if (p.useTriangleLfo) {
+        lfoL = triangleLfo(_lfoPhaseL);
+        lfoR = triangleLfo(_lfoPhaseR);
+    } else {
+        lfoL = fastSin(_lfoPhaseL);
+        lfoR = fastSin(_lfoPhaseR);
+    }
+
+    // Advance LFO phases (must happen every sample to keep phase continuous)
+    _lfoPhaseL += _lfoIncL;
+    if (_lfoPhaseL >= kTwoPi) _lfoPhaseL -= kTwoPi;
+    _lfoPhaseR += _lfoIncR;
+    if (_lfoPhaseR >= kTwoPi) _lfoPhaseR -= kTwoPi;
+
+    // --- Helper: interpolated circular buffer read ---
+    auto readInterp = [](const float *buf, uint32_t bufSize,
+                         uint32_t writeIdx, float delaySamples) -> float
+    {
+        float readIdx = (float)writeIdx - delaySamples;
+        if (readIdx < 0.0f) readIdx += (float)bufSize;
+        const uint32_t i0   = (uint32_t)readIdx;
+        const uint32_t i1   = (i0 + 1) % bufSize;
+        const float    frac = readIdx - (float)i0;
+        return buf[i0] + (buf[i1] - buf[i0]) * frac;
+    };
+
+    float delayedL, delayedR;
+
+    if (p.tapCount >= 3) {
+        // ---- Super Chorus: 3-tap BBD ensemble ----
+        // Three delay taps at 120° LFO phase offsets, averaged.
+        // Slight depth variation per tap simulates BBD component tolerance.
+        static constexpr float kOffset1 = kTwoPi / 3.0f;        // 120°
+        static constexpr float kOffset2 = kTwoPi * 2.0f / 3.0f; // 240°
+
+        // Compute additional LFO values for taps 1 and 2
+        float phase1L = _lfoPhaseL + kOffset1;
+        if (phase1L >= kTwoPi) phase1L -= kTwoPi;
+        float phase2L = _lfoPhaseL + kOffset2;
+        if (phase2L >= kTwoPi) phase2L -= kTwoPi;
+
+        float phase1R = _lfoPhaseR + kOffset1;
+        if (phase1R >= kTwoPi) phase1R -= kTwoPi;
+        float phase2R = _lfoPhaseR + kOffset2;
+        if (phase2R >= kTwoPi) phase2R -= kTwoPi;
+
+        float lfo1L, lfo2L, lfo1R, lfo2R;
+        if (p.useTriangleLfo) {
+            lfo1L = triangleLfo(phase1L);
+            lfo2L = triangleLfo(phase2L);
+            lfo1R = triangleLfo(phase1R);
+            lfo2R = triangleLfo(phase2R);
+        } else {
+            lfo1L = fastSin(phase1L);
+            lfo2L = fastSin(phase2L);
+            lfo1R = fastSin(phase1R);
+            lfo2R = fastSin(phase2R);
+        }
+
+        // Compute delay times for each tap (slight depth scaling for organic feel)
+        float dL0 = (p.baseDelayMsL + p.depthMsL * 1.00f * lfoL ) * msToSamples;
+        float dL1 = (p.baseDelayMsL + p.depthMsL * 0.90f * lfo1L) * msToSamples;
+        float dL2 = (p.baseDelayMsL + p.depthMsL * 1.10f * lfo2L) * msToSamples;
+        float dR0 = (p.baseDelayMsR + p.depthMsR * 1.00f * lfoR ) * msToSamples;
+        float dR1 = (p.baseDelayMsR + p.depthMsR * 0.90f * lfo1R) * msToSamples;
+        float dR2 = (p.baseDelayMsR + p.depthMsR * 1.10f * lfo2R) * msToSamples;
+
+        // Clamp all taps within buffer bounds
+        dL0 = constrain(dL0, 0.0f, maxIdx);
+        dL1 = constrain(dL1, 0.0f, maxIdx);
+        dL2 = constrain(dL2, 0.0f, maxIdx);
+        dR0 = constrain(dR0, 0.0f, maxIdx);
+        dR1 = constrain(dR1, 0.0f, maxIdx);
+        dR2 = constrain(dR2, 0.0f, maxIdx);
+
+        // Read 3 taps per channel and average
+        float tap0L = readInterp(_modBufL, _modBufSize, _modWriteIdx, dL0);
+        float tap1L = readInterp(_modBufL, _modBufSize, _modWriteIdx, dL1);
+        float tap2L = readInterp(_modBufL, _modBufSize, _modWriteIdx, dL2);
+        delayedL = (tap0L + tap1L + tap2L) * (1.0f / 3.0f);
+
+        float tap0R = readInterp(_modBufR, _modBufSize, _modWriteIdx, dR0);
+        float tap1R = readInterp(_modBufR, _modBufSize, _modWriteIdx, dR1);
+        float tap2R = readInterp(_modBufR, _modBufSize, _modWriteIdx, dR2);
+        delayedR = (tap0R + tap1R + tap2R) * (1.0f / 3.0f);
+
+    } else {
+        // ---- Standard: single-tap chorus/flanger/phaser ----
+        float dSampL = (p.baseDelayMsL + p.depthMsL * lfoL) * msToSamples;
+        float dSampR = (p.baseDelayMsR + p.depthMsR * lfoR) * msToSamples;
+        dSampL = constrain(dSampL, 0.0f, maxIdx);
+        dSampR = constrain(dSampR, 0.0f, maxIdx);
+
+        delayedL = readInterp(_modBufL, _modBufSize, _modWriteIdx, dSampL);
+        delayedR = readInterp(_modBufR, _modBufSize, _modWriteIdx, dSampR);
+    }
+
+    // Write input + feedback into circular buffer, advance write pointer
+    _modBufL[_modWriteIdx] = inL + delayedL * feedback;
+    _modBufR[_modWriteIdx] = inR + delayedR * feedback;
+    _modWriteIdx = (_modWriteIdx + 1) % _modBufSize;
+
+    // Blend dry and wet
     outL = dryMix * inL + wetMix * delayedL;
     outR = dryMix * inR + wetMix * delayedR;
 }
 
-//-----------------------------------------------------------------------------
-// processDelay - Delay and ping-pong delay effects
-// CPU OPTIMIZATION: Bypasses if disabled, but continues to decay buffer
-//-----------------------------------------------------------------------------
-inline void AudioEffectJPFX::processDelay(float inL, float inR, float &outL, float &outR)
+
+// ===========================================================================
+// prepareDelay — compute block-constant delay parameters
+//
+// Called once per update() block.  Caches delay time (in samples), feedback,
+// wet/dry levels, and phase inversion flag.  processDelay() reads these
+// cached values rather than recomputing for each of the 128 samples.
+// ===========================================================================
+void AudioEffectJPFX::prepareDelay()
 {
-    // CPU OPTIMIZATION: If delay disabled or no buffer, bypass
-    // BUT still advance write pointer to decay the buffer naturally
-    if (delayType == JPFX_DELAY_OFF || !delayBufL || !delayBufR) {
+    if (_delayType == JPFX_DELAY_OFF || !_delayBufL || !_delayBufR) {
+        _delaySampLCached  = 0.0f;
+        _delaySampRCached  = 0.0f;
+        _delayFbCached     = 0.0f;
+        _delayWetCached    = 0.0f;
+        _delayDryCached    = 1.0f;
+        _delayInvertCached = false;
+        return;
+    }
+
+    const DelayParams &p = delayPresets[_delayType];
+
+    // Resolve delay times: user override applies to both channels equally
+    float timeMsL = p.delayMsL;
+    float timeMsR = p.delayMsR;
+    if (_delayTimeOverride >= 0.0f) {
+        timeMsL = _delayTimeOverride;
+        timeMsR = _delayTimeOverride;
+    }
+
+    // Convert ms to samples, clamp within buffer bounds
+    const float msToSamp = 0.001f * AUDIO_SAMPLE_RATE_EXACT;
+    const float maxSamp  = (float)(_delayBufSize - 2);
+
+    float dSampL = timeMsL * msToSamp;
+    float dSampR = timeMsR * msToSamp;
+    dSampL = constrain(dSampL, 0.0f, maxSamp);
+    dSampR = constrain(dSampR, 0.0f, maxSamp);
+
+    // Resolve wet/dry from user mix (negative = phase inversion)
+    float wet = _delayMix;
+    _delayInvertCached = (wet < 0.0f);
+    wet = fabsf(wet);
+
+    // Cache all block-constant values
+    _delaySampLCached = dSampL;
+    _delaySampRCached = dSampR;
+    _delayFbCached    = (_delayFeedbackOverride >= 0.0f)
+                      ? _delayFeedbackOverride
+                      : p.feedback;
+    _delayWetCached   = wet;
+    _delayDryCached   = 1.0f - wet;
+}
+
+
+// ===========================================================================
+// processDelay — delay / panning delay per-sample processing
+//
+// Uses block-constant cache from prepareDelay().  The interpolated read
+// index advances by 1 per sample (matching the write pointer) so the
+// delay tap stays sample-accurate.
+//
+// When delay is off, stored buffer samples are decayed at 0.95/sample
+// (~1 second tail fade) to prevent stale audio when the effect is
+// re-enabled.
+// ===========================================================================
+inline void AudioEffectJPFX::processDelay(float inL, float inR,
+                                           float &outL, float &outR)
+{
+    // Bypass path: decay any residual buffer content gracefully
+    if (_delayType == JPFX_DELAY_OFF || !_delayBufL || !_delayBufR) {
         outL = inL;
         outR = inR;
-        
-        // Continue to let delay buffer decay (write silence with feedback)
-        if (delayBufL && delayBufR) {
-            delayBufL[delayWriteIndex] = delayBufL[delayWriteIndex] * 0.95f;  // Decay
-            delayBufR[delayWriteIndex] = delayBufR[delayWriteIndex] * 0.95f;
-            delayWriteIndex = (delayWriteIndex + 1) % delayBufSize;
+        if (_delayBufL && _delayBufR) {
+            _delayBufL[_delayWriteIdx] *= 0.95f;
+            _delayBufR[_delayWriteIdx] *= 0.95f;
+            _delayWriteIdx = (_delayWriteIdx + 1) % _delayBufSize;
         }
         return;
     }
-    
-    const DelayParams &params = delayParams[delayType];
-    float delayTimeL = params.delayL;
-    float delayTimeR = params.delayR;
-    const float feedback = (delayFeedbackOverride >= 0.0f) ? delayFeedbackOverride : params.feedback;
-    float wetMix = delayMix;
-    const float dryMix = 1.0f - fabsf(wetMix);
-    const bool invertWet = (wetMix < 0.0f);
-    wetMix = fabsf(wetMix);
-    
-    // Apply time override if set
-    if (delayTimeOverride >= 0.0f) {
-        delayTimeL = delayTimeOverride;
-        delayTimeR = delayTimeOverride;
-    }
-    
-    // Convert to samples
-    const float fs = AUDIO_SAMPLE_RATE_EXACT;
-    float delaySamplesL = delayTimeL * 0.001f * fs;
-    float delaySamplesR = delayTimeR * 0.001f * fs;
-    
-    // Clamp within buffer bounds
-    delaySamplesL = constrain(delaySamplesL, 0.0f, (float)(delayBufSize - 2));
-    delaySamplesR = constrain(delaySamplesR, 0.0f, (float)(delayBufSize - 2));
-    
-    // Read with linear interpolation - LEFT
-    float readIndexL = (float)delayWriteIndex - delaySamplesL;
-    if (readIndexL < 0.0f) readIndexL += (float)delayBufSize;
-    uint32_t idxL0 = (uint32_t)readIndexL;
-    uint32_t idxL1 = (idxL0 + 1) % delayBufSize;
-    float fracL = readIndexL - (float)idxL0;
-    float delayedL = delayBufL[idxL0] + (delayBufL[idxL1] - delayBufL[idxL0]) * fracL;
-    
-    // Read with linear interpolation - RIGHT
-    float readIndexR = (float)delayWriteIndex - delaySamplesR;
-    if (readIndexR < 0.0f) readIndexR += (float)delayBufSize;
-    uint32_t idxR0 = (uint32_t)readIndexR;
-    uint32_t idxR1 = (idxR0 + 1) % delayBufSize;
-    float fracR = readIndexR - (float)idxR0;
-    float delayedR = delayBufR[idxR0] + (delayBufR[idxR1] - delayBufR[idxR0]) * fracR;
-    
-    // Write with feedback
-    delayBufL[delayWriteIndex] = inL + delayedL * feedback;
-    delayBufR[delayWriteIndex] = inR + delayedR * feedback;
-    
-    // Advance write pointer
-    delayWriteIndex = (delayWriteIndex + 1) % delayBufSize;
-    
-    // Mix dry and wet (with optional inversion for phase tricks)
-    float wetL = invertWet ? -delayedL : delayedL;
-    float wetR = invertWet ? -delayedR : delayedR;
-    outL = dryMix * inL + wetMix * wetL;
-    outR = dryMix * inR + wetMix * wetR;
+
+    // Read cached block-constant parameters
+    const float feedback  = _delayFbCached;
+    const float wetLevel  = _delayWetCached;
+    const float dryLevel  = _delayDryCached;
+    const bool  invertWet = _delayInvertCached;
+    const float dSampL    = _delaySampLCached;
+    const float dSampR    = _delaySampRCached;
+
+    // Interpolated read — LEFT channel
+    float readIdxL = (float)_delayWriteIdx - dSampL;
+    if (readIdxL < 0.0f) readIdxL += (float)_delayBufSize;
+    const uint32_t iL0    = (uint32_t)readIdxL;
+    const uint32_t iL1    = (iL0 + 1) % _delayBufSize;
+    const float    fracL  = readIdxL - (float)iL0;
+    const float    delayL = _delayBufL[iL0] + (_delayBufL[iL1] - _delayBufL[iL0]) * fracL;
+
+    // Interpolated read — RIGHT channel
+    float readIdxR = (float)_delayWriteIdx - dSampR;
+    if (readIdxR < 0.0f) readIdxR += (float)_delayBufSize;
+    const uint32_t iR0    = (uint32_t)readIdxR;
+    const uint32_t iR1    = (iR0 + 1) % _delayBufSize;
+    const float    fracR  = readIdxR - (float)iR0;
+    const float    delayR = _delayBufR[iR0] + (_delayBufR[iR1] - _delayBufR[iR0]) * fracR;
+
+    // Write input + feedback into circular buffer, advance write pointer
+    _delayBufL[_delayWriteIdx] = inL + delayL * feedback;
+    _delayBufR[_delayWriteIdx] = inR + delayR * feedback;
+    _delayWriteIdx = (_delayWriteIdx + 1) % _delayBufSize;
+
+    // Blend dry and wet (with optional phase inversion for creative use)
+    const float wetL = invertWet ? -delayL : delayL;
+    const float wetR = invertWet ? -delayR : delayR;
+    outL = dryLevel * inL + wetLevel * wetL;
+    outR = dryLevel * inR + wetLevel * wetR;
 }
 
+
+// ===========================================================================
+// update() — main AudioStream processing callback
+//
+// Called by the Teensy Audio Library every 128 samples (~2.9 ms at 44.1 kHz).
+//
+// Processing order:
+//   1. Block-rate parameter updates (tone, saturation, delay cache)
+//   2. Per-sample loop: Saturation → Tone → Modulation → Delay → Limiter
+//   3. Block-rate limiter gain adjustment
+//   4. Transmit stereo output, release all blocks
+// ===========================================================================
 void AudioEffectJPFX::update(void)
 {
-    // Receive mono input
+    // Receive mono input (may be nullptr when no audio is connected —
+    // processing continues to maintain LFO phase and effect tails)
     audio_block_t *in = receiveReadOnly(0);
-    
-    // Allocate TWO output blocks for stereo
-    audio_block_t *outL = allocate();
-    audio_block_t *outR = allocate();
-    
-    // Check allocation
-    if (!outL || !outR) {
-        if (outL) release(outL);
-        if (outR) release(outR);
+
+    // Allocate two output blocks for stereo
+    audio_block_t *outBlockL = allocate();
+    audio_block_t *outBlockR = allocate();
+
+    if (!outBlockL || !outBlockR) {
+        if (outBlockL) release(outBlockL);
+        if (outBlockR) release(outBlockR);
         if (in) release(in);
         return;
     }
-    
-    // Block-rate parameter updates (computed once, not per-sample)
-    if (toneDirty) {
-        // JP-8000 reference corners: bass=80 Hz, treble=8 kHz
-        computeShelfCoeffs(bassFilterL,   80.0f,   targetBassGain,   false);
-        computeShelfCoeffs(bassFilterR,   80.0f,   targetBassGain,   false);
-        computeShelfCoeffs(trebleFilterL, 8000.0f, targetTrebleGain, true);
-        computeShelfCoeffs(trebleFilterR, 8000.0f, targetTrebleGain, true);
-        toneDirty = false;
+
+    // --- Block-rate parameter updates (once per block, not per-sample) ---
+    if (_toneDirty) {
+        computeToneParams();
     }
     if (_satDirty) {
-        computeSatParams();  // recompute drive input/output gains
+        computeSatParams();
     }
+    prepareDelay();
 
-    // Track block peak for the limiter — updated after the sample loop
+    // Track block peak magnitude for the limiter
     float blockPeak = 0.0f;
 
-    // Signal chain per sample:
-    //   Input → Saturation → Tone EQ → Modulation → Delay → Limiter → Output
-    // Saturation first matches the JP-8000 VCA→output-stage-drive topology.
+    // --- Per-sample processing loop ---
     for (int i = 0; i < AUDIO_BLOCK_SAMPLES; ++i) {
-        // Get mono input sample (0 if no connection — keeps effect tails running)
-        float input = in ? ((float)in->data[i] * (1.0f / 32768.0f)) : 0.0f;
 
-        // Stage 1: Saturation — bypass is zero-cost when drive = 0
-        float l = applySaturation(input);
-        float r = l;  // fan mono→stereo for the remaining stages
+        // Read mono input (0.0 when no connection — keeps effect tails alive)
+        float sample = in ? ((float)in->data[i] * (1.0f / 32768.0f)) : 0.0f;
 
-        // Stage 2: Tone EQ (bass/treble shelving)
-        applyTone(l, r);
+        // Stage 1: Saturation (bypass is zero-cost when drive = 0)
+        float sampleL = applySaturation(sample);
+        float sampleR = sampleL;     // Fan mono → stereo for remaining stages
+
+        // Stage 2: Tone EQ (crossover bass/treble shelving)
+        applyTone(sampleL, sampleR);
 
         // Stage 3: Modulation (chorus / flanger / phaser)
         float modL, modR;
-        processModulation(l, r, modL, modR);
+        processModulation(sampleL, sampleR, modL, modR);
 
-        // Stage 4: Delay (standard / ping-pong)
+        // Stage 4: Delay (mono / panning)
         float delL, delR;
         processDelay(modL, modR, delL, delR);
 
-        // Track peak magnitude for block-rate limiter below
+        // Track peak for block-rate limiter
         const float peakL = fabsf(delL);
         const float peakR = fabsf(delR);
         if (peakL > blockPeak) blockPeak = peakL;
         if (peakR > blockPeak) blockPeak = peakR;
 
-        // Write output with current limiter gain applied
-        outL->data[i] = (int16_t)constrain(delL * _limGain * 32767.0f, -32767.0f, 32767.0f);
-        outR->data[i] = (int16_t)constrain(delR * _limGain * 32767.0f, -32767.0f, 32767.0f);
+        // Apply current limiter gain and convert to int16
+        outBlockL->data[i] = (int16_t)constrain(
+            delL * _limGain * 32767.0f, -32767.0f, 32767.0f);
+        outBlockR->data[i] = (int16_t)constrain(
+            delR * _limGain * 32767.0f, -32767.0f, 32767.0f);
     }
 
-    // Stage 5: Block-rate brick-wall limiter (runs once per 128-sample block).
-    // Fast attack prevents digital clipping; slow release avoids pumping artefacts.
-    // Ceiling at 0.97 (≈ -0.26 dBFS) leaves just enough headroom.
-    const float kCeiling = 0.97f;
+    // --- Stage 5: Block-rate brick-wall limiter ---
+    // Fast attack (1-block) prevents digital clipping.
+    // Slow release (~100 ms) avoids pumping artefacts.
+    // Ceiling at 0.97 (≈ -0.26 dBFS) leaves headroom for DAC reconstruction.
+    static constexpr float kCeiling = 0.97f;
+
     if (blockPeak * _limGain > kCeiling) {
-        // Overload — snap gain down to bring peak to ceiling (1-block attack)
+        // Overload — snap gain down to bring peak to ceiling
         _limGain = kCeiling / blockPeak;
     } else {
-        // No overload — recover gain slowly toward unity (release ~100 ms)
+        // No overload — recover gain slowly toward unity
         _limGain += kLimRelease;
         if (_limGain > 1.0f) _limGain = 1.0f;
     }
-    
-    // Transmit both channels
-    transmit(outL, 0);  // Output 0 = Left
-    transmit(outR, 1);  // Output 1 = Right
-    
-    // Release all blocks
-    release(outL);
-    release(outR);
+
+    // Transmit stereo output
+    transmit(outBlockL, 0);     // Channel 0 = Left
+    transmit(outBlockR, 1);     // Channel 1 = Right
+
+    // Release all audio blocks
+    release(outBlockL);
+    release(outBlockR);
     if (in) release(in);
 }

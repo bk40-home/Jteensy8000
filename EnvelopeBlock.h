@@ -1,6 +1,6 @@
 #include "effect_envelope.h"
 #pragma once
-#include <Audio.h>  // Assume for now
+#include "Audio.h" // Assume for now
 
 // EnvelopeBlock handles ADSR envelope generation
 class EnvelopeBlock {

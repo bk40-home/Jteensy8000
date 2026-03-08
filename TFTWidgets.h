@@ -274,6 +274,121 @@ private:
 
 
 // =============================================================================
+// TFTKnob — circular rotary knob widget
+//
+// Draws a filled arc indicator (270° sweep, -135° to +135°) around a circle.
+// Label text below the knob circle; value text below the label.
+// Touch anywhere in the bounding rect opens the entry overlay via callback.
+//
+// Visual (52px knob on ~70×80px bounding rect):
+//   ┌──────────┐
+//   │  ╭───╮   │
+//   │  │ ● │   │  ← arc sweeps from 7 o'clock to 5 o'clock
+//   │  ╰───╯   │
+//   │  Label   │
+//   │  Value   │
+//   └──────────┘
+// =============================================================================
+class TFTKnob : public TFTWidget {
+public:
+    using TapCallback = void (*)(uint8_t cc);
+
+    static constexpr int16_t KNOB_D   = 44;   // knob circle diameter (px)
+    static constexpr int16_t KNOB_R   = KNOB_D / 2;
+    static constexpr int16_t ARC_W    = 3;    // arc stroke width (px)
+
+    // cc 255 = empty slot
+    TFTKnob(int16_t x, int16_t y, int16_t w, int16_t h,
+            uint8_t cc, const char* name, uint16_t colour);
+
+    void setCallback(TapCallback cb);
+
+    // Update value; repaints only when changed
+    void setValue(uint8_t rawValue, const char* text);
+
+    // Reconfigure for a different CC without reconstruction
+    void configure(uint8_t cc, const char* name, uint16_t colour);
+
+    void    setSelected(bool sel);
+    bool    isSelected() const;
+    uint8_t getCC()      const;
+
+    bool onTouch(int16_t x, int16_t y) override;
+
+protected:
+    void doDraw() override;
+
+private:
+    void _drawArc(int16_t cx, int16_t cy, float angleDeg, uint16_t col);
+
+    uint8_t     _cc;
+    uint16_t    _colour;
+    bool        _selected;
+    uint8_t     _rawValue;
+    char        _name[PROW_NAME_LEN];
+    char        _valText[PROW_VAL_LEN];
+    TapCallback _onTap;
+};
+
+
+// =============================================================================
+// TFTSlider — horizontal slider widget
+//
+// Full-width horizontal bar with a draggable thumb. Suited to ADSR time/level
+// parameters where 4 in a group should be comparable side-by-side.
+//
+// Layout (full screen width, ~44px tall):
+//   │ Label  [████████░░░░░░░] Value │
+//   y centred on track
+//
+// Touch on the track area adjusts value directly (touch-to-set).
+// Tap on label area opens the numeric entry overlay.
+// =============================================================================
+class TFTSlider : public TFTWidget {
+public:
+    using TapCallback = void (*)(uint8_t cc);
+
+    static constexpr int16_t LABEL_W  = 52;   // label column width (px)
+    static constexpr int16_t VAL_W    = 52;   // value text column width (px)
+    static constexpr int16_t TRACK_H  = 8;    // slider track height (px)
+    static constexpr int16_t THUMB_W  = 6;    // thumb width (px)
+    static constexpr int16_t THUMB_H  = 20;   // thumb height (px)
+
+    TFTSlider(int16_t x, int16_t y, int16_t w, int16_t h,
+              uint8_t cc, const char* name, uint16_t colour);
+
+    void setCallback(TapCallback cb);
+
+    void setValue(uint8_t rawValue, const char* text);
+    void configure(uint8_t cc, const char* name, uint16_t colour);
+
+    void    setSelected(bool sel);
+    bool    isSelected() const;
+    uint8_t getCC()      const;
+
+    // Returns new rawValue if touch was on the track (0-127), -1 otherwise
+    int16_t trackTouchValue(int16_t tx) const;
+
+    bool onTouch(int16_t x, int16_t y) override;
+
+protected:
+    void doDraw() override;
+
+private:
+    int16_t _trackX() const;  // left edge of track region
+    int16_t _trackW() const;  // width of track region
+
+    uint8_t     _cc;
+    uint16_t    _colour;
+    bool        _selected;
+    uint8_t     _rawValue;
+    char        _name[PROW_NAME_LEN];
+    char        _valText[PROW_VAL_LEN];
+    TapCallback _onTap;
+};
+
+
+// =============================================================================
 // TFTSectionTile — home-screen section tile
 //
 // Visual:

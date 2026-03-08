@@ -9,7 +9,7 @@
 // -----------------------------------------------------------------------------
 
 #include <Arduino.h>
-#include <Audio.h>
+#include "Audio.h"
 
 // Teensy canonical IDs for reference (already provided by Audio.h):
 // 0  SINE

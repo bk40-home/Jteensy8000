@@ -3,7 +3,9 @@
 // See VoiceBlock.h for architecture notes.
 // =============================================================================
 
-#include "synth_waveform.h"
+// Do NOT include "synth_waveform.h" directly — that loads the library version
+// and bypasses the JT fork guard in Audio.h.  VoiceBlock.h already pulls in
+// Audio.h which includes the local Synth_Waveform.h fork first.
 #include "VoiceBlock.h"
 
 VoiceBlock::VoiceBlock()
@@ -18,7 +20,7 @@ VoiceBlock::VoiceBlock()
     _patchCables[2]  = new AudioConnection(_osc1.output(), 0, _ring1, 0);
     _patchCables[3]  = new AudioConnection(_osc2.output(), 0, _ring1, 1);
     _patchCables[4]  = new AudioConnection(_osc1.output(), 0, _ring2, 0);
-    _patchCables[5]  = new AudioConnection(_osc2.output(), 0, _ring2, 0);
+    _patchCables[5]  = new AudioConnection(_osc2.output(), 0, _ring2, 1);
     _patchCables[6]  = new AudioConnection(_ring1, 0, _oscMixer, 2);
     _patchCables[7]  = new AudioConnection(_ring2, 0, _oscMixer, 3);
     _patchCables[8]  = new AudioConnection(_oscMixer, 0, _voiceMixer, 0);
@@ -43,7 +45,7 @@ VoiceBlock::VoiceBlock()
 
     _voiceMixer.gain(0, _kMaxMixerGain);  // Osc mixer
     _voiceMixer.gain(1, 0.0f);            // Unused
-    _voiceMixer.gain(2, 0.0f);            // Sub osc
+    _voiceMixer.gain(2, _kMaxMixerGain);            // Sub osc
     _voiceMixer.gain(3, 0.0f);            // Noise
 
     // =========================================================================
@@ -165,7 +167,7 @@ void VoiceBlock::setRing2Mix(float level) {
 void VoiceBlock::setSubMix(float level) {
     _subMix = level;
     _subOsc.setAmplitude(_subMix);
-    _voiceMixer.gain(2, _clampedLevel(_subMix));
+    //_voiceMixer.gain(2, _clampedLevel(_subMix));
 }
 
 void VoiceBlock::setNoiseMix(float level) {

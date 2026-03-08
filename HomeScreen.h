@@ -102,12 +102,19 @@ private:
     SectionSelectedCallback _onSection;
 
     int       _highlighted;     // keyboard-navigation cursor index
-    bool      _fullRedraw;
+    // Phased full-screen redraw (see draw() in HomeScreen.cpp for step map)
+    // 0 = idle, 1-5 = successive steps, each completing in one draw() call
+    int       _redrawStep;
     bool      _tilesDirty;
     bool      _scopeTapped;     // one-shot tap flag
 
     float     _peakSmooth;      // exponentially-smoothed peak level (0..1)
-    uint32_t  _lastHeaderMs;    // timestamp of last CPU% redraw
+    uint32_t  _lastHeaderMs;    // timestamp of last header redraw
+
+    // ---- Cached values — skip SPI writes when nothing changed ----
+    int16_t   _lastMeterFill;   // last meter bar height drawn (px); -1 = force redraw
+    PolyMode  _lastPolyMode;    // last poly mode drawn in badge
+    int       _lastCpuPct;      // last CPU% value drawn in header
 
     // Previous waveform Y positions for pixel-erase (no-flicker technique)
     int16_t   _prevWave[WAVE_COLS];

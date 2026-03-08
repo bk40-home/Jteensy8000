@@ -45,7 +45,7 @@
  *   HardwareInterface_MicroDexed uses polled Gray-code decode instead.
  */
 
-#include <Audio.h>
+#include "Audio.h"
 #include <Wire.h>
 #include <MIDI.h>              // Teensy/FortySevenEffects MIDI Library
 #include <usb_midi.h>

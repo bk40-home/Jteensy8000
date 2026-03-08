@@ -1,103 +1,93 @@
 /*
- * FXChainBlock.cpp - OPTIMIZED HYBRID VERSION (JPFX + hexefx Reverb)
+ * FXChainBlock.cpp
+ * ================
+ * See FXChainBlock.h for signal-flow diagram and design notes.
  *
- * KEY IMPROVEMENTS:
- * 1. Smart reverb bypass: Reverb disabled when mix = 0 (saves ~10-15% CPU)
- * 2. Flexible routing: JPFX can feed or bypass reverb
- * 3. Better documentation
- * 4. Manual bypass override support
- *
- * SIGNAL FLOW:
- *   Amp Out → JPFX (tone/mod/delay) → [optionally] → PlateReverb
- *                                   ↓                      ↓
- *   Dry Signal ───────────────────→ Mixer (3-channel) ← Reverb Wet
  *                JPFX Direct ───────↗
  *
  * MIXER CHANNELS:
  *   Channel 0: Dry (from amp, pre-JPFX)
  *   Channel 1: JPFX wet output (can bypass reverb)
- *   Channel 2: Reverb wet output (processes JPFX output)
- *   Channel 3: Unused (available for future expansion)
- *
- * CPU OPTIMIZATION:
- *   Reverb automatically bypasses when mix=0 on both channels
- *   Saves ~10-15% CPU when reverb not needed
+ * Parameter clamping is done once at the setter boundary so the audio
+ * update path never sees out-of-range values.  All constexpr name tables
+ * live here in the translation unit; the header only declares the interface.
  */
 
 #include "FXChainBlock.h"
 
-// ============================================================================
-// EFFECT NAME ARRAYS
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Effect name tables — must stay in sync with AudioEffectJPFX enum order.
+// Stored in flash (PROGMEM would need F() wrappers everywhere, so plain
+// const char* in .rodata is the pragmatic choice for Teensy 4.1).
+// ---------------------------------------------------------------------------
 
-static const char* modEffectNames[] = {
-    "Chorus 1", "Chorus 2", "Chorus 3",           // 0-2: Chorus variations
-    "Flanger 1", "Flanger 2", "Flanger 3",        // 3-5: Flanger variations
-    "Phaser 1", "Phaser 2", "Phaser 3", "Phaser 4",  // 6-9: Phaser variations
-    "Chorus Deep"                                  // 10: Deep chorus
+// 11 modulation presets (index 0..10)
+static const char* const MOD_EFFECT_NAMES[11] = {
+    "Chorus 1",     // 0
+    "Chorus 2",     // 1
+    "Chorus 3",     // 2
+    "Flanger 1",    // 3
+    "Flanger 2",    // 4
+    "Deep Flanger", // 5
+    "Phaser 1",     // 6
+    "Phaser 2",     // 7
+    "Phaser 3",     // 8
+    "Phaser 4",     // 9
+    "Super Chorus", // 10
 };
 
-static const char* delayEffectNames[] = {
-    "Short",                    // 0: Short delay
-    "Long",                     // 1: Long delay
-    "PingPong 1",              // 2: Ping-pong variation 1
-    "PingPong 2",              // 3: Ping-pong variation 2
-    "PingPong 3"               // 4: Ping-pong variation 3
+// 5 delay presets (index 0..4)
+static const char* const DELAY_EFFECT_NAMES[5] = {
+    "Mono Short",   // 0
+    "Mono Long",    // 1
+    "Pan L>R",      // 2
+    "Pan R>L",      // 3
+    "Pan Stereo",   // 4
 };
 
-// ============================================================================
-// CONSTRUCTOR - Initialize FX chain and audio connections
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Constructor
+// ---------------------------------------------------------------------------
 
 FXChainBlock::FXChainBlock()
     : _jpfx(), _plateReverb()
 {
-    // -------------------------------------------------------------------------
-    // Initialize Reverb (start with bypass enabled for CPU efficiency)
-    // -------------------------------------------------------------------------
-    _plateReverb.bypass_set(true);  // ✅ Start bypassed (saves CPU)
-    _plateReverb.mix(1.0f);         // Fully wet (dry handled by mixer)
+    // --- Reverb defaults ---
+    // Start bypassed so the expensive reverb DSP is off until the user
+    // raises the reverb mix.  updateReverbBypass() manages this thereafter.
+    _plateReverb.bypass_set(true);
+    _plateReverb.mix(1.0f);             // Fully wet; dry is handled by _mixerOutL/R
     _plateReverb.size(_reverbRoomSize);
     _plateReverb.hidamp(_reverbHiDamp);
     _plateReverb.lodamp(_reverbLoDamp);
 
-    // -------------------------------------------------------------------------
-    // Create Audio Connections
-    // -------------------------------------------------------------------------
-    
-    // Connect JPFX → Reverb (reverb processes JPFX output)
+    // --- Wire audio graph ---
+    // JPFX stereo out → reverb stereo in
     _patchJPFXtoReverbL = new AudioConnection(_jpfx, 0, _plateReverb, 0);
     _patchJPFXtoReverbR = new AudioConnection(_jpfx, 1, _plateReverb, 1);
 
-    // Connect JPFX → Output Mixer (channel 1 = JPFX direct, bypasses reverb)
-    _patchJPFXtoMixerL = new AudioConnection(_jpfx, 0, _mixerOutL, 1);
-    _patchJPFXtoMixerR = new AudioConnection(_jpfx, 1, _mixerOutR, 1);
+    // JPFX stereo out → output mixer ch1 (JPFX direct / pre-reverb wet)
+    _patchJPFXtoMixerL  = new AudioConnection(_jpfx, 0, _mixerOutL, 1);
+    _patchJPFXtoMixerR  = new AudioConnection(_jpfx, 1, _mixerOutR, 1);
 
-    // Connect Reverb → Output Mixer (channel 2 = reverb wet)
+    // Reverb stereo out → output mixer ch2 (reverb wet)
     _patchReverbToMixerL = new AudioConnection(_plateReverb, 0, _mixerOutL, 2);
     _patchReverbToMixerR = new AudioConnection(_plateReverb, 1, _mixerOutR, 2);
 
-    // -------------------------------------------------------------------------
-    // Set Default Mixer Gains
-    // -------------------------------------------------------------------------
-    // Channel 0 (dry) is connected from SynthEngine amp output
-    
-    // Left mixer
-    _mixerOutL.gain(0, 1.0f);   // Ch 0: Dry - default ON
-    _mixerOutL.gain(1, 0.0f);   // Ch 1: JPFX direct - default OFF
-    _mixerOutL.gain(2, 0.0f);   // Ch 2: Reverb wet - default OFF
-    _mixerOutL.gain(3, 0.0f);   // Ch 3: Unused
-    
-    // Right mixer
-    _mixerOutR.gain(0, 1.0f);   // Ch 0: Dry - default ON
-    _mixerOutR.gain(1, 0.0f);   // Ch 1: JPFX direct - default OFF
-    _mixerOutR.gain(2, 0.0f);   // Ch 2: Reverb wet - default OFF
-    _mixerOutR.gain(3, 0.0f);   // Ch 3: Unused
+    // --- Output mixer defaults ---
+    // Ch0 (dry) gain is 1.0; it is wired from SynthEngine, not here.
+    _mixerOutL.gain(0, 1.0f);   // dry
+    _mixerOutL.gain(1, 0.0f);   // JPFX wet (off until user enables FX)
+    _mixerOutL.gain(2, 0.0f);   // reverb wet
+    _mixerOutL.gain(3, 0.0f);   // spare
 
-    // -------------------------------------------------------------------------
-    // Initialize JPFX (all effects off by default)
-    // -------------------------------------------------------------------------
-    _jpfx.setSaturation(0.0f);  // Drive off by default
+    _mixerOutR.gain(0, 1.0f);
+    _mixerOutR.gain(1, 0.0f);
+    _mixerOutR.gain(2, 0.0f);
+    _mixerOutR.gain(3, 0.0f);
+
+    // --- JPFX defaults (all effects off) ---
+    _jpfx.setSaturation(0.0f);
     _jpfx.setBassGain(0.0f);
     _jpfx.setTrebleGain(0.0f);
     _jpfx.setModEffect(AudioEffectJPFX::JPFX_MOD_OFF);
@@ -106,23 +96,23 @@ FXChainBlock::FXChainBlock()
     _jpfx.setDelayMix(0.5f);
 }
 
-// ============================================================================
-// DESTRUCTOR - Clean up audio connections
-// ============================================================================
+// ---------------------------------------------------------------------------
+// Destructor — release audio patch cords
+// ---------------------------------------------------------------------------
 
 FXChainBlock::~FXChainBlock()
 {
-    if (_patchJPFXtoReverbL) delete _patchJPFXtoReverbL;
-    if (_patchJPFXtoReverbR) delete _patchJPFXtoReverbR;
-    if (_patchJPFXtoMixerL) delete _patchJPFXtoMixerL;
-    if (_patchJPFXtoMixerR) delete _patchJPFXtoMixerR;
-    if (_patchReverbToMixerL) delete _patchReverbToMixerL;
-    if (_patchReverbToMixerR) delete _patchReverbToMixerR;
+    delete _patchJPFXtoReverbL;
+    delete _patchJPFXtoReverbR;
+    delete _patchJPFXtoMixerL;
+    delete _patchJPFXtoMixerR;
+    delete _patchReverbToMixerL;
+    delete _patchReverbToMixerR;
 }
 
-// ============================================================================
-// JPFX TONE CONTROL
-// ============================================================================
+// ===========================================================================
+// TONE CONTROL
+// ===========================================================================
 
 void FXChainBlock::setBassGain(float dB) {
     _bassGain = dB;
@@ -134,96 +124,116 @@ void FXChainBlock::setTrebleGain(float dB) {
     _jpfx.setTrebleGain(dB);
 }
 
-float FXChainBlock::getBassGain() const { return _bassGain; }
+float FXChainBlock::getBassGain()   const { return _bassGain;   }
 float FXChainBlock::getTrebleGain() const { return _trebleGain; }
 
 void FXChainBlock::setDrive(float norm) {
-    _drive = constrain(norm, 0.0f, 1.0f);
-    _jpfx.setSaturation(_drive);
+    // Clamp once here; AudioEffectJPFX trusts its inputs.
+    if (norm < 0.0f) norm = 0.0f;
+    if (norm > 1.0f) norm = 1.0f;
+    _drive = norm;
+    _jpfx.setSaturation(norm);
 }
+
 float FXChainBlock::getDrive() const { return _drive; }
 
-// ============================================================================
-// JPFX MODULATION EFFECTS (Chorus, Flanger, Phaser)
-// ============================================================================
+// ===========================================================================
+// MODULATION EFFECTS
+// ===========================================================================
 
 void FXChainBlock::setModEffect(int8_t variation) {
+    // Clamp to valid range: -1=off, 0..10=preset
+    if (variation < -1) variation = -1;
+    if (variation > 10) variation = 10;
     _modEffect = variation;
-    
-    // Convert to JPFX enum type with bounds checking
-    AudioEffectJPFX::ModEffectType type = (variation < 0) ? 
-        AudioEffectJPFX::JPFX_MOD_OFF : 
-        (AudioEffectJPFX::ModEffectType)(variation > 10 ? 10 : variation);
-    
-    _jpfx.setModEffect(type);
+
+    if (variation < 0) {
+        _jpfx.setModEffect(AudioEffectJPFX::JPFX_MOD_OFF);
+    } else {
+        _jpfx.setModEffect(static_cast<AudioEffectJPFX::ModEffectType>(variation));
+    }
 }
 
 void FXChainBlock::setModMix(float mix) {
+    if (mix < 0.0f) mix = 0.0f;
+    if (mix > 1.0f) mix = 1.0f;
     _modMix = mix;
     _jpfx.setModMix(mix);
 }
 
 void FXChainBlock::setModRate(float hz) {
+    if (hz < 0.0f)  hz = 0.0f;
+    if (hz > 20.0f) hz = 20.0f;   // Cap prevents metallic/aliasing artefacts
     _modRate = hz;
     _jpfx.setModRate(hz);
 }
 
 void FXChainBlock::setModFeedback(float fb) {
+    if (fb < -1.0f) fb = -1.0f;
+    if (fb > 0.99f) fb = 0.99f;
     _modFeedback = fb;
     _jpfx.setModFeedback(fb);
 }
 
-int8_t FXChainBlock::getModEffect() const { return _modEffect; }
-float FXChainBlock::getModMix() const { return _modMix; }
-float FXChainBlock::getModRate() const { return _modRate; }
-float FXChainBlock::getModFeedback() const { return _modFeedback; }
+int8_t      FXChainBlock::getModEffect()   const { return _modEffect;   }
+float       FXChainBlock::getModMix()      const { return _modMix;      }
+float       FXChainBlock::getModRate()     const { return _modRate;      }
+float       FXChainBlock::getModFeedback() const { return _modFeedback;  }
 
 const char* FXChainBlock::getModEffectName() const {
-    if (_modEffect < 0) return "Off";
-    if (_modEffect > 10) return "Unknown";
-    return modEffectNames[_modEffect];
+    if (_modEffect < 0 || _modEffect > 10) return "Off";
+    return MOD_EFFECT_NAMES[_modEffect];
 }
 
-// ============================================================================
-// JPFX DELAY EFFECTS
-// ============================================================================
+// ===========================================================================
+// DELAY EFFECTS
+// ===========================================================================
 
 void FXChainBlock::setDelayEffect(int8_t variation) {
+    // Clamp to valid range: -1=off, 0..4=preset
+    if (variation < -1) variation = -1;
+    if (variation > 4)  variation = 4;
     _delayEffect = variation;
-    
-    // Convert to JPFX enum type with bounds checking
-    AudioEffectJPFX::DelayEffectType type = (variation < 0) ? 
-        AudioEffectJPFX::JPFX_DELAY_OFF : 
-        (AudioEffectJPFX::DelayEffectType)(variation > 4 ? 4 : variation);
-    
-    _jpfx.setDelayEffect(type);
+
+    if (variation < 0) {
+        _jpfx.setDelayEffect(AudioEffectJPFX::JPFX_DELAY_OFF);
+    } else {
+        _jpfx.setDelayEffect(static_cast<AudioEffectJPFX::DelayEffectType>(variation));
+    }
 }
 
 void FXChainBlock::setDelayMix(float mix) {
+    if (mix < 0.0f) mix = 0.0f;
+    if (mix > 1.0f) mix = 1.0f;
     _delayMix = mix;
     _jpfx.setDelayMix(mix);
 }
 
 void FXChainBlock::setDelayFeedback(float fb) {
+    if (fb < -1.0f) fb = -1.0f;
+    if (fb > 0.99f) fb = 0.99f;
     _delayFeedback = fb;
     _jpfx.setDelayFeedback(fb);
 }
 
 void FXChainBlock::setDelayTime(float ms) {
+    if (ms < 0.0f)    ms = 0.0f;
+    if (ms > 1500.0f) ms = 1500.0f;
     _delayTime = ms;
     _jpfx.setDelayTime(ms);
 }
 
-int8_t FXChainBlock::getDelayEffect() const { return _delayEffect; }
-float FXChainBlock::getDelayMix() const { return _delayMix; }
-float FXChainBlock::getDelayFeedback() const { return _delayFeedback; }
-float FXChainBlock::getDelayTime() const { return _delayTime; }
+int8_t      FXChainBlock::getDelayEffect()   const { return _delayEffect;   }
+float       FXChainBlock::getDelayMix()      const { return _delayMix;      }
+float       FXChainBlock::getDelayFeedback() const { return _delayFeedback;  }
+float       FXChainBlock::getDelayTime()     const { return _delayTime;      }
 
 const char* FXChainBlock::getDelayEffectName() const {
-    if (_delayEffect < 0) return "Off";
-    if (_delayEffect > 4) return "Unknown";
-    return delayEffectNames[_delayEffect];
+    if (_delayEffect < 0 || _delayEffect > 4) return "Off";
+    return DELAY_EFFECT_NAMES[_delayEffect];
 }
+
+// BPM-sync helpers — forward directly to JPFX
 void FXChainBlock::updateFromBPMClock(const BPMClockManager& bpmClock) {
     _jpfx.updateFromBPMClock(bpmClock);
 }
@@ -236,59 +246,49 @@ TimingMode FXChainBlock::getDelayTimingMode() const {
     return _jpfx.getDelayTimingMode();
 }
 
-// ============================================================================
-// HEXEFX REVERB CONTROLS
-// ============================================================================
+// ===========================================================================
+// REVERB
+// ===========================================================================
 
 void FXChainBlock::setReverbRoomSize(float size) {
-    // Clamp to valid range
     if (size < 0.0f) size = 0.0f;
     if (size > 1.0f) size = 1.0f;
-    
     _reverbRoomSize = size;
     _plateReverb.size(size);
 }
 
 void FXChainBlock::setReverbHiDamping(float damp) {
-    // Clamp to valid range
     if (damp < 0.0f) damp = 0.0f;
     if (damp > 1.0f) damp = 1.0f;
-    
     _reverbHiDamp = damp;
     _plateReverb.hidamp(damp);
 }
 
 void FXChainBlock::setReverbLoDamping(float damp) {
-    // Clamp to valid range
     if (damp < 0.0f) damp = 0.0f;
     if (damp > 1.0f) damp = 1.0f;
-    
     _reverbLoDamp = damp;
     _plateReverb.lodamp(damp);
 }
 
-float FXChainBlock::getReverbRoomSize() const { return _reverbRoomSize; }
-float FXChainBlock::getReverbHiDamping() const { return _reverbHiDamp; }
-float FXChainBlock::getReverbLoDamping() const { return _reverbLoDamp; }
+float FXChainBlock::getReverbRoomSize()  const { return _reverbRoomSize; }
+float FXChainBlock::getReverbHiDamping() const { return _reverbHiDamp;   }
+float FXChainBlock::getReverbLoDamping() const { return _reverbLoDamp;   }
 
 void FXChainBlock::setReverbBypass(bool bypass) {
     _reverbManualBypass = bypass;
     updateReverbBypass();
 }
 
-bool FXChainBlock::getReverbBypass() const {
-    return _reverbManualBypass;
-}
+bool FXChainBlock::getReverbBypass() const { return _reverbManualBypass; }
 
-// ============================================================================
-// MIX CONTROLS
-// ============================================================================
+// ===========================================================================
+// OUTPUT MIX LEVELS
+// ===========================================================================
 
 void FXChainBlock::setDryMix(float left, float right) {
     _dryMixL = left;
     _dryMixR = right;
-    
-    // Update mixer gains (channel 0 = dry)
     _mixerOutL.gain(0, left);
     _mixerOutR.gain(0, right);
 }
@@ -296,8 +296,6 @@ void FXChainBlock::setDryMix(float left, float right) {
 void FXChainBlock::setJPFXMix(float left, float right) {
     _jpfxMixL = left;
     _jpfxMixR = right;
-    
-    // Update mixer gains (channel 1 = JPFX direct)
     _mixerOutL.gain(1, left);
     _mixerOutR.gain(1, right);
 }
@@ -305,55 +303,40 @@ void FXChainBlock::setJPFXMix(float left, float right) {
 void FXChainBlock::setReverbMix(float left, float right) {
     _reverbMixL = left;
     _reverbMixR = right;
-    
-    // Update mixer gains (channel 2 = reverb wet)
     _mixerOutL.gain(2, left);
     _mixerOutR.gain(2, right);
-    
-    // CPU OPTIMIZATION: Update reverb bypass state
+    // Re-evaluate bypass: saving ~10% CPU when both channels are 0
     updateReverbBypass();
 }
 
-float FXChainBlock::getDryMixL() const { return _dryMixL; }
-float FXChainBlock::getDryMixR() const { return _dryMixR; }
-float FXChainBlock::getJPFXMixL() const { return _jpfxMixL; }
-float FXChainBlock::getJPFXMixR() const { return _jpfxMixR; }
+float FXChainBlock::getDryMixL()    const { return _dryMixL;    }
+float FXChainBlock::getDryMixR()    const { return _dryMixR;    }
+float FXChainBlock::getJPFXMixL()   const { return _jpfxMixL;   }
+float FXChainBlock::getJPFXMixR()   const { return _jpfxMixR;   }
 float FXChainBlock::getReverbMixL() const { return _reverbMixL; }
 float FXChainBlock::getReverbMixR() const { return _reverbMixR; }
 
-// ============================================================================
-// PRIVATE HELPER METHODS
-// ============================================================================
+// ===========================================================================
+// PRIVATE — reverb bypass decision
+// ===========================================================================
 
 /*
- * updateReverbBypass - Intelligently bypass reverb to save CPU
- * 
- * CPU OPTIMIZATION STRATEGY:
- * Reverb processing is expensive (~10-15% CPU). We can bypass it when:
- * 1. User has manually bypassed it (_reverbManualBypass = true)
- * 2. Reverb mix is 0 on BOTH channels (no output anyway)
- * 
- * IMPORTANT: We DO NOT bypass based on input activity because:
- * - Reverb needs to continue processing to maintain tail decay
- * - JPFX may have delay/modulation even without new notes
- * - Input activity detection adds CPU cost (defeating the purpose)
- * 
- * RESULT: ~10-15% CPU saved when reverb mix = 0, but effect tails preserved
+ * updateReverbBypass()
+ *
+ * Bypasses the PlateReverb when it would produce no output, saving ~10% CPU.
+ *
+ * Rules:
+ *   bypass = _reverbManualBypass  OR  (L mix < threshold AND R mix < threshold)
+ *
+ * Why we don't gate on note activity:
+ *   Reverb must keep running through the tail after note-off; gating on audio
+ *   level would cut the tail abruptly.  Gating on mix=0 is safe because setting
+ *   mix to 0 means the user explicitly wants no reverb — there is no tail to
+ *   preserve.
  */
 void FXChainBlock::updateReverbBypass() {
-    // Check if reverb is needed
-    bool reverbNeeded = !_reverbManualBypass &&          // Not manually bypassed
-                       (_reverbMixL > 0.001f ||          // Left mix > 0
-                        _reverbMixR > 0.001f);           // Right mix > 0
-    
-    // Set bypass state (bypass = !needed)
-    _plateReverb.bypass_set(!reverbNeeded);
-    
-    // Optional: Debug logging (comment out in production)
-    // static uint32_t lastLog = 0;
-    // if (millis() - lastLog > 1000) {
-    //     Serial.print("[FXChain] Reverb ");
-    //     Serial.println(reverbNeeded ? "ACTIVE" : "BYPASSED");
-    //     lastLog = millis();
-    // }
+    const bool reverbWanted = !_reverbManualBypass &&
+                              (_reverbMixL > REVERB_MIX_THRESHOLD ||
+                               _reverbMixR > REVERB_MIX_THRESHOLD);
+    _plateReverb.bypass_set(!reverbWanted);
 }

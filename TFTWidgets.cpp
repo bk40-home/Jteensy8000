@@ -1028,3 +1028,304 @@ void TFTScreenManager::update(bool newTouch, int16_t tx, int16_t ty,
     if (newTouch)   top->onTouch(tx, ty);
     if (newRelease) top->onTouchRelease(rx, ry);
 }
+
+
+// =============================================================================
+// TFTKnob
+// =============================================================================
+
+TFTKnob::TFTKnob(int16_t x, int16_t y, int16_t w, int16_t h,
+                 uint8_t cc, const char* name, uint16_t colour)
+    : TFTWidget(x, y, w, h)
+    , _cc(cc)
+    , _colour(colour)
+    , _selected(false)
+    , _rawValue(0)
+    , _onTap(nullptr)
+{
+    strncpy(_name, name ? name : "---", PROW_NAME_LEN - 1);
+    _name[PROW_NAME_LEN - 1] = '\0';
+    _valText[0] = '\0';
+}
+
+void TFTKnob::setCallback(TapCallback cb) { _onTap = cb; }
+
+void TFTKnob::setValue(uint8_t rawValue, const char* text) {
+    bool changed = (rawValue != _rawValue);
+    _rawValue = rawValue;
+
+    char newText[PROW_VAL_LEN];
+    if (text && text[0]) {
+        strncpy(newText, text, PROW_VAL_LEN - 1);
+        newText[PROW_VAL_LEN - 1] = '\0';
+    } else {
+        snprintf(newText, PROW_VAL_LEN, "%d", (int)rawValue);
+    }
+    if (strncmp(newText, _valText, PROW_VAL_LEN) != 0) {
+        strncpy(_valText, newText, PROW_VAL_LEN - 1);
+        _valText[PROW_VAL_LEN - 1] = '\0';
+        changed = true;
+    }
+    if (changed) markDirty();
+}
+
+void TFTKnob::configure(uint8_t cc, const char* name, uint16_t colour) {
+    bool changed = false;
+    if (_cc != cc)         { _cc = cc;         changed = true; }
+    if (_colour != colour) { _colour = colour; changed = true; }
+    char newName[PROW_NAME_LEN];
+    strncpy(newName, name ? name : "---", PROW_NAME_LEN - 1);
+    newName[PROW_NAME_LEN - 1] = '\0';
+    if (strncmp(newName, _name, PROW_NAME_LEN) != 0) {
+        strncpy(_name, newName, PROW_NAME_LEN);
+        changed = true;
+    }
+    if (changed) markDirty();
+}
+
+void TFTKnob::setSelected(bool sel) {
+    if (sel != _selected) { _selected = sel; markDirty(); }
+}
+bool    TFTKnob::isSelected() const { return _selected; }
+uint8_t TFTKnob::getCC()      const { return _cc; }
+
+bool TFTKnob::onTouch(int16_t x, int16_t y) {
+    if (!hitTest(x, y) || _cc == 255) return false;
+    if (_onTap) _onTap(_cc);
+    return true;
+}
+
+// Draw a thick arc segment as a series of filled circles along a circular path.
+// angleDeg is the fill angle measured clockwise from the 7-o'clock start (−135°).
+// The arc sweeps 270° total (−135° to +135° in standard math coords).
+void TFTKnob::_drawArc(int16_t cx, int16_t cy, float fillAngle, uint16_t col) {
+    // Arc spans from startDeg to startDeg+fillAngle, measured in screen coords
+    // (y-axis points down, so clockwise is positive in screen space).
+    // We approximate the arc with small filled circles spaced 3° apart.
+    const float startDeg = -225.0f;  // 7 o'clock in math coords (CCW from +x)
+    const float stepDeg  = 3.0f;
+    const float endDeg   = startDeg + fillAngle;
+    const float r        = (float)(KNOB_R - ARC_W);
+    const float pi180    = 3.14159265f / 180.0f;
+
+    for (float a = startDeg; a <= endDeg; a += stepDeg) {
+        const float rad = a * pi180;
+        const int16_t px = cx + (int16_t)(r * cosf(rad));
+        const int16_t py = cy - (int16_t)(r * sinf(rad));  // y-axis flip for screen
+        _display->fillCircle(px, py, ARC_W, col);
+    }
+}
+
+void TFTKnob::doDraw() {
+    if (!_display) return;
+
+    // Layout: knob centred horizontally, pushed toward top of bounding rect
+    const int16_t cx   = _x + _w / 2;
+    const int16_t cy   = _y + 6 + KNOB_R;   // 6px top padding
+
+    // Colours
+    const uint16_t bgCol   = gTheme.bg;
+    const uint16_t arcCol  = _selected ? gTheme.selectedBg : _colour;
+    const uint16_t textCol = _selected ? _colour : gTheme.textNormal;
+    const uint16_t dimCol  = gTheme.textDim;
+
+    // Clear bounding rect
+    _display->fillRect(_x, _y, _w, _h, bgCol);
+
+    if (_cc == 255) {
+        // Empty slot — draw a dim dash
+        _display->setTextSize(1);
+        _display->setTextColor(dimCol, bgCol);
+        _display->setCursor(cx - 3, cy);
+        _display->print("-");
+        return;
+    }
+
+    // ---- Knob body ----
+    // Outer ring (border)
+    _display->drawCircle(cx, cy, KNOB_R,       gTheme.border);
+    // Inner fill (dark)
+    _display->fillCircle(cx, cy, KNOB_R - 1,   gTheme.headerBg);
+
+    // ---- Arc track (full 270°, dark) ----
+    _drawArc(cx, cy, 270.0f, gTheme.barTrack);
+
+    // ---- Arc fill (proportional to value) ----
+    if (_rawValue > 0) {
+        const float fillAngle = (_rawValue / 127.0f) * 270.0f;
+        _drawArc(cx, cy, fillAngle, arcCol);
+    }
+
+    // ---- Pointer dot — small filled circle at the arc end position ----
+    {
+        const float pointerAngle = -225.0f + (_rawValue / 127.0f) * 270.0f;
+        const float rad  = pointerAngle * (3.14159265f / 180.0f);
+        const float pr   = (float)(KNOB_R - ARC_W);
+        const int16_t px = cx + (int16_t)(pr * cosf(rad));
+        const int16_t py = cy - (int16_t)(pr * sinf(rad));
+        _display->fillCircle(px, py, ARC_W + 1, arcCol);
+    }
+
+    // ---- Label (centred below knob) ----
+    const int16_t labelY = cy + KNOB_R + 3;
+    _display->setTextSize(1);
+    _display->setTextColor(textCol, bgCol);
+    const int16_t nameW = (int16_t)(strlen(_name) * 6);
+    _display->setCursor(cx - nameW / 2, labelY);
+    _display->print(_name);
+
+    // ---- Value text (centred below label) ----
+    if (_valText[0]) {
+        const int16_t valY = labelY + 10;
+        _display->setTextSize(1);
+        _display->setTextColor(arcCol, bgCol);
+        const int16_t valW = (int16_t)(strlen(_valText) * 6);
+        _display->setCursor(cx - valW / 2, valY);
+        _display->print(_valText);
+    }
+
+    // ---- Selection ring ----
+    if (_selected) {
+        _display->drawRect(_x + 1, _y + 1, _w - 2, _h - 2, gTheme.selectedBg);
+    }
+}
+
+
+// =============================================================================
+// TFTSlider
+// =============================================================================
+
+TFTSlider::TFTSlider(int16_t x, int16_t y, int16_t w, int16_t h,
+                     uint8_t cc, const char* name, uint16_t colour)
+    : TFTWidget(x, y, w, h)
+    , _cc(cc)
+    , _colour(colour)
+    , _selected(false)
+    , _rawValue(0)
+    , _onTap(nullptr)
+{
+    strncpy(_name, name ? name : "---", PROW_NAME_LEN - 1);
+    _name[PROW_NAME_LEN - 1] = '\0';
+    _valText[0] = '\0';
+}
+
+void TFTSlider::setCallback(TapCallback cb) { _onTap = cb; }
+
+void TFTSlider::setValue(uint8_t rawValue, const char* text) {
+    bool changed = (rawValue != _rawValue);
+    _rawValue = rawValue;
+
+    char newText[PROW_VAL_LEN];
+    if (text && text[0]) {
+        strncpy(newText, text, PROW_VAL_LEN - 1);
+        newText[PROW_VAL_LEN - 1] = '\0';
+    } else {
+        snprintf(newText, PROW_VAL_LEN, "%d", (int)rawValue);
+    }
+    if (strncmp(newText, _valText, PROW_VAL_LEN) != 0) {
+        strncpy(_valText, newText, PROW_VAL_LEN - 1);
+        _valText[PROW_VAL_LEN - 1] = '\0';
+        changed = true;
+    }
+    if (changed) markDirty();
+}
+
+void TFTSlider::configure(uint8_t cc, const char* name, uint16_t colour) {
+    bool changed = false;
+    if (_cc != cc)         { _cc = cc;         changed = true; }
+    if (_colour != colour) { _colour = colour; changed = true; }
+    char newName[PROW_NAME_LEN];
+    strncpy(newName, name ? name : "---", PROW_NAME_LEN - 1);
+    newName[PROW_NAME_LEN - 1] = '\0';
+    if (strncmp(newName, _name, PROW_NAME_LEN) != 0) {
+        strncpy(_name, newName, PROW_NAME_LEN);
+        changed = true;
+    }
+    if (changed) markDirty();
+}
+
+void TFTSlider::setSelected(bool sel) {
+    if (sel != _selected) { _selected = sel; markDirty(); }
+}
+bool    TFTSlider::isSelected() const { return _selected; }
+uint8_t TFTSlider::getCC()      const { return _cc; }
+
+int16_t TFTSlider::_trackX() const { return _x + LABEL_W + 4; }
+int16_t TFTSlider::_trackW() const { return _w - LABEL_W - VAL_W - 8; }
+
+int16_t TFTSlider::trackTouchValue(int16_t tx) const {
+    const int16_t tX = _trackX();
+    const int16_t tW = _trackW();
+    if (tx < tX || tx >= tX + tW) return -1;
+    const int16_t clamped = tx - tX;
+    return (int16_t)((int32_t)clamped * 127 / tW);
+}
+
+bool TFTSlider::onTouch(int16_t x, int16_t y) {
+    if (!hitTest(x, y) || _cc == 255) return false;
+    // Touch on track = direct value set; touch elsewhere = open entry overlay
+    const int16_t tv = trackTouchValue(x);
+    if (tv >= 0) {
+        // Direct track touch — caller (SectionScreen) reads trackTouchValue
+        // We still fire the tap callback so SectionScreen knows which CC changed
+        if (_onTap) _onTap(_cc);
+    } else {
+        if (_onTap) _onTap(_cc);
+    }
+    return true;
+}
+
+void TFTSlider::doDraw() {
+    if (!_display) return;
+
+    const int16_t tX  = _trackX();
+    const int16_t tW  = _trackW();
+    const int16_t midY = _y + _h / 2;
+
+    const uint16_t bgCol   = _selected ? gTheme.selectedBg : gTheme.bg;
+    const uint16_t textCol = _selected ? gTheme.textOnSelect : gTheme.textNormal;
+    const uint16_t fillCol = _selected ? gTheme.textOnSelect : _colour;
+    const uint16_t dimCol  = _selected ? gTheme.textOnSelect : gTheme.textDim;
+
+    // Background + bottom separator
+    _display->fillRect(_x, _y, _w, _h - 1, bgCol);
+    _display->drawFastHLine(_x, _y + _h - 1, _w, gTheme.border);
+
+    if (_cc == 255) {
+        _display->setTextSize(1);
+        _display->setTextColor(dimCol, bgCol);
+        _display->setCursor(_x + 4, midY - 4);
+        _display->print("---");
+        return;
+    }
+
+    // ---- Label (left column, vertically centred) ----
+    _display->setTextSize(1);
+    _display->setTextColor(textCol, bgCol);
+    _display->setCursor(_x + 4, midY - 4);
+    _display->print(_name);
+
+    // ---- Track (full background, then coloured fill) ----
+    const int16_t trackY = midY - TRACK_H / 2;
+    _display->fillRect(tX, trackY, tW, TRACK_H, gTheme.barTrack);
+
+    const int16_t fillW = (int16_t)((int32_t)_rawValue * tW / 127);
+    if (fillW > 0) {
+        _display->fillRect(tX, trackY, fillW, TRACK_H, fillCol);
+    }
+
+    // ---- Thumb (vertical bar at fill position) ----
+    const int16_t thumbX = tX + fillW - THUMB_W / 2;
+    const int16_t thumbY = midY - THUMB_H / 2;
+    _display->fillRect(thumbX, thumbY, THUMB_W, THUMB_H, fillCol);
+    _display->drawRect(thumbX, thumbY, THUMB_W, THUMB_H, gTheme.textNormal);
+
+    // ---- Value text (right column, vertically centred) ----
+    if (_valText[0]) {
+        const int16_t valX = tX + tW + 4;
+        _display->setTextSize(1);
+        _display->setTextColor(fillCol, bgCol);
+        _display->setCursor(valX, midY - 4);
+        _display->print(_valText);
+    }
+}

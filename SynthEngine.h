@@ -20,7 +20,7 @@ using namespace JT8000Map;
 // ============================================================================
 //
 // OscillatorBlock wires a 4-channel AudioMixer4 into the FM input of every
-// AudioSynthWaveformModulated oscillator.  The call:
+// AudioSynthWaveformJT oscillator.  The call:
 //
 //     _mainOsc.frequencyModulation(FM_OCTAVE_RANGE)   // = 10
 //

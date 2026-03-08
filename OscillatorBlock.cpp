@@ -1,98 +1,97 @@
-// OscillatorBlock.cpp — JT-8000 oscillator implementation
 // =============================================================================
-// See OscillatorBlock.h for architecture documentation.
+// OscillatorBlock.cpp — JT-8000 oscillator implementation
+//
+// See OscillatorBlock.h for architecture and FM scaling documentation.
 //
 // KEY DESIGN PRINCIPLES:
-//   1. Base frequency is set ONCE via _mainOsc.frequency() on noteOn().
-//   2. ALL pitch modulation flows through the FM input as DC signals.
-//   3. The only periodic work is glide DC ramping (when active).
-//   4. No powf() anywhere in this file — all math is addition/multiplication.
+//   1. Base frequency set ONCE via _mainOsc.frequency() on noteOn().
+//   2. ALL pitch modulation (LFO, pitch env, bend, coarse, fine, detune)
+//      flows through the AudioSynthWaveformJT FM input.
+//   3. Pitch DC sources (offset + bend + external) are summed in software
+//      and written to a single AudioSynthWaveformDc.  No AudioMixer4 pre-stage.
+//   4. Glide slides the base frequency via direct .frequency() calls — the
+//      combined DC does not change while gliding.
+//   5. No powf() in this file — all arithmetic is addition / multiplication.
 // =============================================================================
 
 #include "OscillatorBlock.h"
 #include "AKWF_All.h"
 
 // =============================================================================
-// CONSTRUCTOR — Build the dual signal path (normal + feedback)
+// CONSTRUCTOR — build audio graph for one oscillator
 // =============================================================================
+
 OscillatorBlock::OscillatorBlock(bool enableSupersaw)
     : _supersaw(nullptr)
     , _supersawEnabled(enableSupersaw)
     , _baseFreq(440.0f)
 {
     // =========================================================================
-    // PITCH PRE-MIXER WIRING
-    // Combines coarse/fine/detune (slot 0), bend (slot 1), glide (slot 2)
-    // into a single signal feeding FM mixer slot 0.
+    // COMBINED PITCH DC → FM MIXER
+    //
+    // A single DC source carries the software sum of:
+    //   coarse pitch offset + fine tune + detune + pitch bend + external DC.
+    // All are constant-per-block scalars, so software addition is identical
+    // to a hardware AudioMixer4 pre-stage but costs no ISR time.
     // =========================================================================
-    _patchOffsetToPre = new AudioConnection(_pitchOffsetDc, 0, _pitchPreMixer, 0);
-    _patchBendToPre   = new AudioConnection(_pitchBendDc,   0, _pitchPreMixer, 1);
-    _patchGlideToPre  = new AudioConnection(_glideDc,       0, _pitchPreMixer, 2);
-    _patchExtToPre    = new AudioConnection(_externalPitchDc, 0, _pitchPreMixer, 3);
+    _combinedPitchDc.amplitude(0.0f);
 
-    _pitchPreMixer.gain(0, 1.0f);  // Coarse + fine + detune
-    _pitchPreMixer.gain(1, 1.0f);  // Pitch bend
-    _pitchPreMixer.gain(2, 1.0f);  // Glide
-    _pitchPreMixer.gain(3, 1.0f);  // External pitch DC
-
-    // Initialise all pitch DCs to zero (no offset at startup)
-    _pitchOffsetDc.amplitude(0.0f);
-    _pitchBendDc.amplitude(0.0f);
-    _glideDc.amplitude(0.0f);
-    _externalPitchDc.amplitude(0.0f);
+    _patchPitchDcToFM    = new AudioConnection(_combinedPitchDc,    0, _frequencyModMixer, 0);
+    _patchShapeDcToShape = new AudioConnection(_shapeDc,            0, _shapeModMixer,     0);
 
     // =========================================================================
-    // MAIN FM MIXER WIRING
-    // Slot 0 = pre-mixer output, slots 1-3 wired by SynthEngine (LFO1/2, PEnv)
+    // FM MIXER SETUP
+    // Slot 0 = combined pitch DC (all static offsets + bend + external).
+    // Slots 1-3 wired by SynthEngine (LFO1 pitch, LFO2 pitch, pitch envelope).
     // =========================================================================
-    _patchPreToFM    = new AudioConnection(_pitchPreMixer,    0, _frequencyModMixer, 0);
-    _patchShapeDc    = new AudioConnection(_shapeDc,          0, _shapeModMixer, 0);
-    _patchFMToOsc    = new AudioConnection(_frequencyModMixer, 0, _mainOsc, 0);
-    _patchShapeToOsc = new AudioConnection(_shapeModMixer,    0, _mainOsc, 1);
+    _frequencyModMixer.gain(0, 1.0f);   // Combined pitch DC — unity passthrough
+    _frequencyModMixer.gain(1, 0.0f);   // LFO1 (set by SynthEngine at runtime)
+    _frequencyModMixer.gain(2, 0.0f);   // LFO2 (set by SynthEngine at runtime)
+    _frequencyModMixer.gain(3, 1.0f);   // Pitch envelope (set by SynthEngine)
 
-    _frequencyModMixer.gain(0, 1.0f);  // Pre-mixer (pitch offsets)
-    _frequencyModMixer.gain(1, 0.0f);  // LFO1 (set by SynthEngine)
-    _frequencyModMixer.gain(2, 0.0f);  // LFO2 (set by SynthEngine)
-    _frequencyModMixer.gain(3, 1.0f);  // Pitch envelope (set by SynthEngine)
-
-    _shapeModMixer.gain(0, 1.0f);      // Shape DC
-    _shapeModMixer.gain(1, 0.0f);      // LFO1 shape
-    _shapeModMixer.gain(2, 0.0f);      // LFO2 shape
-    _shapeModMixer.gain(3, 0.0f);      // Spare
-
+    // Shape mod mixer
     _shapeDc.amplitude(0.0f);
+    _shapeModMixer.gain(0, 1.0f);   // Shape DC
+    _shapeModMixer.gain(1, 0.0f);   // LFO1 shape (set by SynthEngine)
+    _shapeModMixer.gain(2, 0.0f);   // LFO2 shape (set by SynthEngine)
+    _shapeModMixer.gain(3, 0.0f);   // Spare
 
     // =========================================================================
-    // MAIN OSCILLATOR SETUP
+    // MAIN OSCILLATOR
+    //
+    // frequencyModulation(N) enables the FM input and sets ±1.0 = ±N octaves.
+    // MUST be called BEFORE any phaseModulation() call, which would switch the
+    // oscillator to PM mode and silently ignore all FM pitch sources.
     // =========================================================================
     _mainOsc.begin(_currentType);
     _mainOsc.amplitude(1.0f);
-    // frequencyModulation(N) puts the oscillator in FM mode.
-    // ±1.0 on the FM input shifts pitch by ±N octaves.
-    // MUST be called LAST — phaseModulation() would override this and switch
-    // to PM mode, making all DC pitch sources produce inaudible phase offsets.
-   // _mainOsc.frequencyModulation(FM_OCTAVE_RANGE);
+    _mainOsc.frequencyModulation(FM_OCTAVE_RANGE);  // ±1.0 = ±10 octaves on FM input
+
+    _patchFMToOsc    = new AudioConnection(_frequencyModMixer, 0, _mainOsc, 0);  // FM pitch
+    _patchShapeToOsc = new AudioConnection(_shapeModMixer,     0, _mainOsc, 1);  // Shape / PWM
 
     // =========================================================================
-    // OUTPUT MIXER — DUAL PATH
-    //   Channel 0: Main oscillator (default ON)
-    //   Channel 1: Supersaw oscillator (if enabled)
-    //   Channel 2: Feedback comb output
-    //   Channel 3: Unused
+    // OUTPUT MIXER
+    //   Slot 0: Main oscillator
+    //   Slot 1: Supersaw (OSC1 only; remains 0.0 until supersaw waveform selected)
+    //   Slot 2: Feedback comb output
+    //   Slot 3: Unused
     // =========================================================================
     _patchMainOsc = new AudioConnection(_mainOsc, 0, _outputMix, 0);
-
-    _outputMix.gain(0, 0.9f);   // Main osc output
-    _outputMix.gain(1, 0.0f);   // Supersaw (off by default)
-    _outputMix.gain(2, 0.0f);   // Feedback comb (off by default)
+    _outputMix.gain(0, 0.9f);   // Main oscillator (default active)
+    _outputMix.gain(1, 0.0f);   // Supersaw off by default
+    _outputMix.gain(2, 0.0f);   // Feedback comb off by default
     _outputMix.gain(3, 0.0f);   // Unused
 
     // =========================================================================
-    // FEEDBACK COMB NETWORK
+    // FEEDBACK COMB NETWORK (JP-8000 comb delay)
+    //   Comb mixer collects oscillator output + delayed feedback.
+    //   The delay output is also tapped into the main output mixer for the
+    //   filtered/coloured feedback signal.
     // =========================================================================
-    _combMixer.gain(0, 1.0f);   // Main osc input
-    _combMixer.gain(1, 0.0f);   // Supersaw input
-    _combMixer.gain(2, 0.0f);   // Feedback path (off until enabled)
+    _combMixer.gain(0, 1.0f);   // Main osc signal
+    _combMixer.gain(1, 0.0f);   // Supersaw (routed when active)
+    _combMixer.gain(2, 0.0f);   // Feedback return (off until enabled)
     _combMixer.gain(3, 0.0f);   // Unused
 
     _combDelay.delay(0, FEEDBACK_DELAY_MS);
@@ -101,16 +100,35 @@ OscillatorBlock::OscillatorBlock(bool enableSupersaw)
     _patchDelayToComb    = new AudioConnection(_combDelay, 0, _combMixer, 2);
     _patchCombToDelay    = new AudioConnection(_combMixer, 0, _combDelay, 0);
     _patchDelayToOut     = new AudioConnection(_combDelay, 0, _outputMix, 2);
-    _patchSupersawToComb = nullptr;
-    _patchSupersaw       = nullptr;
+
+    // Supersaw pointers null by default — assigned below if OSC1
+    _patchSupersawToComb  = nullptr;
+    _patchSupersaw        = nullptr;
+    _patchFMToSupersaw    = nullptr;
+    _patchShapeToSupersaw = nullptr;
 
     // =========================================================================
-    // SUPERSAW (conditional — OSC1 only)
+    // SUPERSAW (OSC1 only)
+    //
+    // If enabled, the supersaw gets the same FM mixer output as the main osc,
+    // so both paths respond identically to LFO / pitch-envelope modulation.
+    // OSC2 always passes enableSupersaw=false, keeping ~10 objects unallocated.
     // =========================================================================
     if (_supersawEnabled) {
         _supersaw = new AudioSynthSupersaw();
-        _patchSupersaw       = new AudioConnection(*_supersaw, 0, _outputMix, 1);
-        _patchSupersawToComb = new AudioConnection(*_supersaw, 0, _combMixer, 1);
+
+        _patchSupersaw       = new AudioConnection(*_supersaw, 0, _outputMix,  1);
+        _patchSupersawToComb = new AudioConnection(*_supersaw, 0, _combMixer,  1);
+
+        // Wire FM mixer → supersaw FM input (same source as _mainOsc FM input)
+        _patchFMToSupersaw    = new AudioConnection(_frequencyModMixer, 0, *_supersaw, 0);
+        // Wire shape mixer → supersaw phase-mod input
+        _patchShapeToSupersaw = new AudioConnection(_shapeModMixer,     0, *_supersaw, 1);
+
+        // Match FM range to main oscillator — ±1.0 = ±FM_OCTAVE_RANGE octaves
+        _supersaw->frequencyModulation(FM_OCTAVE_RANGE);
+        // Phase mod: 180° half-cycle swing at full-scale, matching AudioSynthWaveformJT
+        _supersaw->phaseModulation(180.0f);
 
         _supersaw->setOversample(false);
         _supersaw->setMixCompensation(true);
@@ -127,6 +145,7 @@ void OscillatorBlock::_applyArbWave() {
     uint16_t length = 0;
     const int16_t* table = akwf_get(_arbBank, _arbIndex, length);
     if (table && length > 0) {
+        // Nyquist limit: max frequency before aliasing = sampleRate / tableLength
         const float maxFreq = AUDIO_SAMPLE_RATE_EXACT / (float)length;
         _mainOsc.arbitraryWaveform(table, maxFreq);
     }
@@ -134,7 +153,7 @@ void OscillatorBlock::_applyArbWave() {
 
 void OscillatorBlock::setArbBank(ArbBank bank) {
     _arbBank = bank;
-    uint16_t count = akwf_bankCount(bank);
+    const uint16_t count = akwf_bankCount(bank);
     if (count > 0 && _arbIndex >= count) {
         _arbIndex = count - 1;
     }
@@ -145,7 +164,7 @@ void OscillatorBlock::setArbBank(ArbBank bank) {
 }
 
 void OscillatorBlock::setArbTableIndex(uint16_t index) {
-    uint16_t count = akwf_bankCount(_arbBank);
+    const uint16_t count = akwf_bankCount(_arbBank);
     if (count == 0) { _arbIndex = 0; return; }
     if (index >= count) index = count - 1;
     _arbIndex = index;
@@ -156,7 +175,7 @@ void OscillatorBlock::setArbTableIndex(uint16_t index) {
 }
 
 // =============================================================================
-// WAVEFORM TYPE — Clean routing (independent of feedback state)
+// WAVEFORM TYPE — routes output mixer gains, not the DC sources
 // =============================================================================
 
 void OscillatorBlock::setWaveformType(int type) {
@@ -164,7 +183,7 @@ void OscillatorBlock::setWaveformType(int type) {
 
     if (type == WAVEFORM_SUPERSAW) {
         if (_supersawEnabled && _supersaw) {
-            // Route through supersaw, mute main
+            // Supersaw active: mute main osc, route supersaw to output
             _outputMix.gain(0, 0.0f);
             _outputMix.gain(1, 0.9f);
             if (_feedbackEnabled) {
@@ -172,7 +191,7 @@ void OscillatorBlock::setWaveformType(int type) {
                 _combMixer.gain(1, 1.0f);
             }
         } else {
-            // Fallback to plain sawtooth (OSC2 has no supersaw)
+            // OSC2 fallback — no supersaw object available, use plain sawtooth
             _mainOsc.begin(WAVEFORM_SAWTOOTH);
             _outputMix.gain(0, 0.7f);
             _outputMix.gain(1, 0.0f);
@@ -199,7 +218,8 @@ void OscillatorBlock::setWaveformType(int type) {
             _combMixer.gain(1, 0.0f);
         }
     }
-    // Note: _outputMix.gain(2) is managed by feedback state, not waveform type
+    // NOTE: _outputMix.gain(2) (feedback comb) is managed by setFeedbackAmount(),
+    // not by waveform type, so it is intentionally not touched here.
 }
 
 // =============================================================================
@@ -212,90 +232,111 @@ void OscillatorBlock::setAmplitude(float amplitude) {
 }
 
 // =============================================================================
-// PITCH CONTROL — All via DC sources into FM mixer
+// PITCH CONTROL — all write through _updateCombinedPitchDc()
 // =============================================================================
 
 void OscillatorBlock::setPitchOffset(float semitones) {
-    if (_pitchOffsetSemitones == semitones) return;  // Skip if unchanged
+    if (_pitchOffsetSemitones == semitones) return;   // Skip if unchanged
     _pitchOffsetSemitones = semitones;
-    _updatePitchOffsetDc();
+    _updateStaticPitchFm();                            // Recombines offset+fine+detune → DC
 }
 
 void OscillatorBlock::setFineTune(float cents) {
     if (_fineTuneCents == cents) return;
     _fineTuneCents = cents;
-    _updatePitchOffsetDc();
+    _updateStaticPitchFm();
 }
 
 void OscillatorBlock::setDetune(float hertz) {
     if (_detuneHz == hertz) return;
     _detuneHz = hertz;
-    _updatePitchOffsetDc();
+    _updateStaticPitchFm();
 }
 
 void OscillatorBlock::setPitchBend(float semitones) {
     if (_pitchBendSemitones == semitones) return;
     _pitchBendSemitones = semitones;
-    _pitchBendDc.amplitude(semitones * FM_SEMITONE_SCALE);
+    _pitchBendFm = semitones * FM_SEMITONE_SCALE;
+    _updateCombinedPitchDc();
 }
 
 void OscillatorBlock::setExternalPitchDc(float fmScaledAmplitude) {
+    // Caller pre-scales into FM units — store and push to combined DC
     _externalPitchDcAmp = fmScaledAmplitude;
-    _externalPitchDc.amplitude(fmScaledAmplitude);
+    _updateCombinedPitchDc();
 }
 
-void OscillatorBlock::_updatePitchOffsetDc() {
-    // Combine coarse pitch, fine tune, and detune into one DC value.
-    // Fine tune: cents → semitones (divide by 100)
-    // Detune: Hz → approximate semitones at current base frequency
-    //   detuneSemis ≈ detuneHz / (baseFreq × ln(2)/12) ≈ detuneHz × 12 / (baseFreq × 0.6931)
-    //   For simplicity and CPU, use a fixed approximation at A440.
-    //   At 440 Hz, 1 Hz ≈ 0.0394 semitones. Close enough for detune spread.
-    const float fineSemitones  = _fineTuneCents / 100.0f;
-    const float detuneApproxSemitones = (_baseFreq > 20.0f)
-        ? (_detuneHz * 17.3123f / _baseFreq)  // 12/ln(2) ≈ 17.3123
+// -----------------------------------------------------------------------------
+// _updateStaticPitchFm — recalculate the FM-scaled sum of coarse + fine + detune
+//
+// Called on any change to offset, fine tune, or detune, and on noteOn() (because
+// detune Hz→semitone conversion is frequency-dependent and _baseFreq just changed).
+// -----------------------------------------------------------------------------
+void OscillatorBlock::_updateStaticPitchFm() {
+    // Fine tune: cents → semitones
+    const float fineSemitones = _fineTuneCents * 0.01f;
+
+    // Detune Hz → approximate semitones at the current base frequency.
+    // Formula: semitones = Hz × (12 / ln(2)) / baseFreq ≈ Hz × 17.3123 / baseFreq.
+    // Guard against very low base frequencies to avoid division instability.
+    const float detuneSemitones = (_baseFreq > 20.0f)
+        ? (_detuneHz * 17.3123f / _baseFreq)   // 12/ln(2) ≈ 17.3123
         : 0.0f;
 
-    const float totalSemitones = _pitchOffsetSemitones + fineSemitones + detuneApproxSemitones;
+    _staticPitchFm = (_pitchOffsetSemitones + fineSemitones + detuneSemitones)
+                     * FM_SEMITONE_SCALE;
 
-    // Clamp to safe range (±48 semitones = ±4 octaves)
-    const float clamped = (totalSemitones > 48.0f) ? 48.0f :
-                          (totalSemitones < -48.0f) ? -48.0f : totalSemitones;
+    _updateCombinedPitchDc();
+}
 
-    _pitchOffsetDc.amplitude(clamped * FM_SEMITONE_SCALE);
+// -----------------------------------------------------------------------------
+// _updateCombinedPitchDc — write the final summed DC to the audio graph.
+//
+// Sum = static offsets (coarse + fine + detune) + pitch bend + external DC.
+// Clamped to ±(48 semitones × FM_SEMITONE_SCALE) = ±0.4 to prevent runaway.
+// No audio processing here — just one .amplitude() call (safe to call anytime).
+// -----------------------------------------------------------------------------
+void OscillatorBlock::_updateCombinedPitchDc() {
+    const float combined = _staticPitchFm + _pitchBendFm + _externalPitchDcAmp;
+
+    // ±48 semitones = ±4 octaves max shift from DC sources
+    constexpr float kMaxFm = 48.0f * FM_SEMITONE_SCALE;  // ≈ 0.4
+    const float clamped = (combined >  kMaxFm) ?  kMaxFm :
+                          (combined < -kMaxFm) ? -kMaxFm : combined;
+
+    _combinedPitchDc.amplitude(clamped);
 }
 
 // =============================================================================
-// NOTE ON/OFF — Set base frequency ONCE, configure glide
+// NOTE ON / OFF
 // =============================================================================
 
 void OscillatorBlock::noteOn(float frequency, float velocity) {
-    // Velocity is already normalised 0.0–1.0 by the sketch.
-    // Do NOT divide by 127 here.
+    // velocity is already 0.0–1.0 — do NOT divide by 127 again here.
     const float amplitude = velocity;
 
     if (_glideEnabled && _glideTimeMs > 0.0f && _baseFreq > 20.0f) {
-        // Start glide from current position toward new target
+        // --- Glide: slide from previous note toward new target ---
         _glideTargetHz  = frequency;
-        _glideCurrentHz = _baseFreq;  // Slide from previous note
+        _glideCurrentHz = _baseFreq;   // Slide starts from wherever we are now
         _glideActive    = true;
 
-        // Set the oscillator to the CURRENT glide position (will slide to target)
+        // Start at the previous frequency; update() will ramp toward target
         AudioNoInterrupts();
         _mainOsc.frequency(_glideCurrentHz);
         if (_supersaw) _supersaw->setFrequency(_glideCurrentHz);
         AudioInterrupts();
 
-        // Glide DC starts at 0 (we're at _glideCurrentHz which is _baseFreq)
-        _glideDc.amplitude(0.0f);
-        _baseFreq = _glideCurrentHz;
+        // _baseFreq stays at the CURRENT glide position for detune calculations
+        // (it will be updated to the final target once glide completes).
+        // Note: _combinedPitchDc does not need updating — it holds static offsets;
+        // glide position changes are expressed via direct .frequency() calls.
     } else {
-        // No glide — jump directly to new frequency
+        // --- No glide: jump directly to new frequency ---
         _baseFreq       = frequency;
         _glideTargetHz  = frequency;
         _glideCurrentHz = frequency;
         _glideActive    = false;
-        _glideDc.amplitude(0.0f);
 
         AudioNoInterrupts();
         _mainOsc.frequency(frequency);
@@ -303,7 +344,7 @@ void OscillatorBlock::noteOn(float frequency, float velocity) {
         AudioInterrupts();
     }
 
-    // Set oscillator amplitude based on waveform type
+    // Set amplitude per waveform type (supersaw / main osc are mutually exclusive)
     AudioNoInterrupts();
     if (_currentType == WAVEFORM_SUPERSAW && _supersaw) {
         _mainOsc.amplitude(0.0f);
@@ -316,8 +357,9 @@ void OscillatorBlock::noteOn(float frequency, float velocity) {
 
     _lastVelocity = velocity;
 
-    // Recalculate detune DC (it depends on base frequency for Hz→semitone conversion)
-    _updatePitchOffsetDc();
+    // Detune conversion depends on _baseFreq — recalculate after frequency change.
+    // This only updates the static DC; bend and external remain unchanged.
+    _updateStaticPitchFm();
 }
 
 void OscillatorBlock::noteOff() {
@@ -326,42 +368,43 @@ void OscillatorBlock::noteOff() {
 }
 
 // =============================================================================
-// UPDATE — Only handles glide ramp (called from VoiceBlock::update)
+// PERIODIC UPDATE — glide ramp only
+//
+// Called from VoiceBlock::update() every audio block (~2.9 ms at 44.1 kHz).
+// Returns immediately when no glide active — zero CPU cost for static notes.
+// Glide uses direct .frequency() calls, NOT the combined DC, so LFO / bend
+// / pitch-env continue to modulate on top of the sliding base frequency.
 // =============================================================================
 
 void OscillatorBlock::update() {
-    // Early exit if no glide active — zero CPU cost for static notes
     if (!_glideActive) return;
 
-    // Exponential glide toward target frequency
     const float delta = _glideTargetHz - _glideCurrentHz;
 
     if (fabsf(delta) < 0.1f) {
-        // Close enough — snap to target and stop
+        // Close enough — snap to target, stop ramping
         _glideCurrentHz = _glideTargetHz;
-        _glideActive = false;
+        _glideActive    = false;
+        _baseFreq       = _glideTargetHz;   // Update base so detune calc is correct
 
-        // Update base frequency to final target and clear glide DC
-        _baseFreq = _glideTargetHz;
+        AudioNoInterrupts();
         _mainOsc.frequency(_glideTargetHz);
         if (_supersaw) _supersaw->setFrequency(_glideTargetHz);
-        _glideDc.amplitude(0.0f);
+        AudioInterrupts();
 
-        // Recalculate detune (depends on base freq)
-        _updatePitchOffsetDc();
+        // Recalculate detune component now that _baseFreq has changed to final target
+        _updateStaticPitchFm();
         return;
     }
 
-    // Slide toward target
+    // Exponential (constant-time-ratio) slide toward target
     _glideCurrentHz += delta * _glideRate;
 
-    // Update oscillator base frequency to current glide position
+    AudioNoInterrupts();
     _mainOsc.frequency(_glideCurrentHz);
     if (_supersaw) _supersaw->setFrequency(_glideCurrentHz);
-
-    // The glide DC is not used during active glide — we're directly setting
-    // frequency(). This avoids double-modulation artefacts. The FM mixer
-    // still applies LFO/bend/envelope on top of the sliding base.
+    AudioInterrupts();
+    // Combined DC not touched — LFO/bend/env still modulate on top
 }
 
 // =============================================================================
@@ -370,21 +413,29 @@ void OscillatorBlock::update() {
 
 void OscillatorBlock::setGlideEnabled(bool enabled) {
     _glideEnabled = enabled;
+    if (!enabled) _glideActive = false;   // Cancel any in-progress glide
 }
 
 void OscillatorBlock::setGlideTime(float milliseconds) {
     _glideTimeMs = milliseconds;
     if (milliseconds > 0.0f) {
-        // Rate = fraction of remaining distance to cover per sample
+        // Rate = fraction of remaining distance to cover per update() call.
+        // update() is called once per audio block from VoiceBlock::update().
+        // Using the per-sample count matches the JT4000 behaviour — changing this
+        // would require re-calibrating all preset glide time values.
+        // FUTURE: multiply by AUDIO_BLOCK_SAMPLES to correct the 128× implicit
+        //         slowdown (block-rate call vs per-sample divisor), but only
+        //         after all presets have been re-tuned.
         const float samples = (milliseconds / 1000.0f) * AUDIO_SAMPLE_RATE_EXACT;
         _glideRate = 1.0f / samples;
     } else {
-        _glideRate = 0.0f;
+        _glideRate   = 0.0f;
+        _glideActive = false;
     }
 }
 
 // =============================================================================
-// SUPERSAW CONTROL
+// SUPERSAW CONTROL (OSC1 only)
 // =============================================================================
 
 void OscillatorBlock::setSupersawDetune(float amount) {
@@ -398,7 +449,7 @@ void OscillatorBlock::setSupersawMix(float mix) {
 }
 
 // =============================================================================
-// SHAPE DC
+// SHAPE / PWM DC
 // =============================================================================
 
 void OscillatorBlock::setShapeDcAmp(float amplitude) {
@@ -407,15 +458,15 @@ void OscillatorBlock::setShapeDcAmp(float amplitude) {
 }
 
 // =============================================================================
-// FEEDBACK OSCILLATION
+// FEEDBACK OSCILLATION (JP-8000 comb delay)
 // =============================================================================
 
 void OscillatorBlock::setFeedbackAmount(float amount) {
-    _feedbackGain = constrain(amount, 0.0f, 0.99f);
+    _feedbackGain    = constrain(amount, 0.0f, 0.99f);
     _feedbackEnabled = (_feedbackGain > 0.0f);
 
     if (_feedbackEnabled) {
-        // Route correct oscillator to comb input
+        // Route the active oscillator path into the comb mixer
         if (_currentType == WAVEFORM_SUPERSAW && _supersaw) {
             _combMixer.gain(0, 0.0f);
             _combMixer.gain(1, 1.0f);
@@ -426,6 +477,7 @@ void OscillatorBlock::setFeedbackAmount(float amount) {
         _combMixer.gain(2, _feedbackGain);
         _outputMix.gain(2, _feedbackMixLevel);
     } else {
+        // Disable feedback — zero gain on feedback return path
         _combMixer.gain(2, 0.0f);
         _outputMix.gain(2, 0.0f);
     }
@@ -439,9 +491,9 @@ void OscillatorBlock::setFeedbackMix(float mix) {
 }
 
 // =============================================================================
-// AUDIO OUTPUTS & MIXERS
+// AUDIO OUTPUT ACCESSORS
 // =============================================================================
 
-AudioStream& OscillatorBlock::output()           { return _outputMix; }
+AudioStream& OscillatorBlock::output()            { return _outputMix; }
 AudioMixer4& OscillatorBlock::frequencyModMixer() { return _frequencyModMixer; }
 AudioMixer4& OscillatorBlock::shapeModMixer()     { return _shapeModMixer; }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Audio.h>
+#include "Audio.h"
 
 // SubOscillatorBlock provides a square wave an octave below the main oscillator
 class SubOscillatorBlock {

@@ -94,9 +94,12 @@ void UIManager_TFT::updateDisplay(SynthEngine& synth) {
             break;
 
         case Mode::SECTION:
-            // syncFromEngine(): read CC values → update rows (cheap, no draw)
-            // draw(): repaint only rows whose dirty flag is set
-            _section.syncFromEngine();
+            // syncFromEngine() reads CC values and marks changed widgets dirty.
+            // Suppress it during phased redraws — widgets are being drawn step-by-
+            // step and we don't want new dirty flags re-queuing completed steps.
+            if (!_section.isRedrawing()) {
+                _section.syncFromEngine();
+            }
             _section.draw();
             break;
 
