@@ -295,7 +295,7 @@ AudioSynthSupersaw::AudioSynthSupersaw()
 
     // By default enable mix compensation so the overall loudness stays
     // closer to the dry signal when the detuned oscillators are mixed in.
-    mixCompensationEnabled = true;
+    mixCompensationEnabled = false;
     // Maximum gain when mix=1.  1.5f was empirically found to match
     // perceived levels on the hardware: full supersaw sounds roughly
     // equivalent to a single saw with outputGain=1.0f.  You can adjust

@@ -1445,13 +1445,49 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             JT_LOGF("[CC %u:%s] Filter Octave = %.3f\n", control, ccName, o);
         } break;
 
-            case CC::FILTER_OBXA_MULTIMODE:  {setFilterMultimode((value));  JT_LOGF("[CC %u:%s] FILTER_OBXA_MULTIMODE = %.3f\n", control, ccName, value);} break;      
-            case CC::FILTER_OBXA_TWO_POLE:    {setFilterTwoPole((value));JT_LOGF("[CC %u:%s] FILTER_OBXA_TWO_POLE  = %.3f\n", control, ccName, value);} break;         
-            case CC::FILTER_OBXA_XPANDER_4_POLE: {setFilterXpander4Pole((value));JT_LOGF("[CC %u:%s] FILTER_OBXA_XPANDER_4_POLE  = %.3f\n", control, ccName, value);} break;    
-            case CC::FILTER_OBXA_XPANDER_MODE:  {setFilterXpanderMode((value));JT_LOGF("[CC %u:%s] FILTER_OBXA_XPANDER_MODE  = %.3f\n", control, ccName, value);} break;   
-            case CC::FILTER_OBXA_BP_BLEND_2_POLE: {setFilterBPBlend2Pole((value));JT_LOGF("[CC %u:%s] FILTER_OBXA_BP_BLEND_2_POLE  = %.3f\n", control, ccName, value);} break;  
-            case CC::FILTER_OBXA_PUSH_2_POLE:  {setFilterPush2Pole((value) );JT_LOGF("[CC %u:%s] FILTER_OBXA_PUSH_2_POLE  = %.3f\n", control, ccName, value);} break;      
-            case CC::FILTER_OBXA_RES_MOD_DEPTH:  {setFilterResonanceModDepth(value);JT_LOGF("[CC %u:%s] FILTER_OBXA_RES_MOD_DEPTH  = %.3f\n", control, ccName, value);} break;    
+        // --- OBXa Filter Extended Controls ---
+
+        // Multimode blend: CC 0-127 → 0.0-1.0 (LP4 → HP via pole mixing)
+        case CC::FILTER_OBXA_MULTIMODE: {
+            setFilterMultimode(norm);
+            JT_LOGF("[CC %u:%s] Multimode = %.3f\n", control, ccName, norm);
+        } break;
+
+        // Bool toggles: any non-zero CC value = true, 0 = false
+        case CC::FILTER_OBXA_TWO_POLE: {
+            setFilterTwoPole(value != 0);
+            JT_LOGF("[CC %u:%s] TwoPole = %s\n", control, ccName, value ? "On" : "Off");
+        } break;
+
+        case CC::FILTER_OBXA_XPANDER_4_POLE: {
+            setFilterXpander4Pole(value != 0);
+            JT_LOGF("[CC %u:%s] Xpander4Pole = %s\n", control, ccName, value ? "On" : "Off");
+        } break;
+
+        // Xpander mode: CC 0-127 → 15 discrete modes (0-14)
+        // Divide into 15 equal buckets: mode = value * 15 / 128
+        case CC::FILTER_OBXA_XPANDER_MODE: {
+            const uint8_t mode = (uint8_t)constrain((int)value * 15 / 128, 0, 14);
+            setFilterXpanderMode(mode);
+            JT_LOGF("[CC %u:%s] XpanderMode = %u\n", control, ccName, mode);
+        } break;
+
+        // Bool toggles: 2-pole sub-options (only active when TwoPole = On)
+        case CC::FILTER_OBXA_BP_BLEND_2_POLE: {
+            setFilterBPBlend2Pole(value != 0);
+            JT_LOGF("[CC %u:%s] BPBlend2Pole = %s\n", control, ccName, value ? "On" : "Off");
+        } break;
+
+        case CC::FILTER_OBXA_PUSH_2_POLE: {
+            setFilterPush2Pole(value != 0);
+            JT_LOGF("[CC %u:%s] Push2Pole = %s\n", control, ccName, value ? "On" : "Off");
+        } break;
+
+        // Resonance modulation depth: CC 0-127 → 0.0-1.0
+        case CC::FILTER_OBXA_RES_MOD_DEPTH: {
+            setFilterResonanceModDepth(norm);
+            JT_LOGF("[CC %u:%s] ResModDepth = %.3f\n", control, ccName, norm);
+        } break;
 
         // ------------------- LFO1 -------------------
         case CC::LFO1_FREQ:        { float hz = JT8000Map::cc_to_lfo_hz(value); setLFO1Frequency(hz); JT_LOGF("[CC %u:%s] LFO1 Freq = %.4f Hz\n", control, ccName, hz); } break;

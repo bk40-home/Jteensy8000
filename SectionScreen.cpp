@@ -582,6 +582,22 @@ void SectionScreen::_openEnumEntry(uint8_t cc, const char* title) {
         // FX effect preset lists — use fixed-midpoint CC tables (not generic formula)
         case CC::FX_MOD_EFFECT:    opts = kModFX;   count = 12; isFxMod   = true; break;
         case CC::FX_JPFX_DELAY_EFFECT:  opts = kDelayFX; count = 6;  isFxDelay = true; break;
+        // OBXa filter bool toggles (On/Off)
+        case CC::FILTER_OBXA_TWO_POLE:
+        case CC::FILTER_OBXA_BP_BLEND_2_POLE:
+        case CC::FILTER_OBXA_PUSH_2_POLE:
+        case CC::FILTER_OBXA_XPANDER_4_POLE: opts = kOnOff; count = 2; break;
+        // Xpander 15-mode topology selector
+        case CC::FILTER_OBXA_XPANDER_MODE: {
+            static const char* kXpMode[15] = {
+                "LP4", "LP3", "LP2", "LP1",
+                "HP3", "HP2", "HP1",
+                "BP4", "BP2",
+                "N2",  "PH3",
+                "HP2+LP1", "HP3+LP1", "N2+LP1", "PH3+LP1"
+            };
+            opts = kXpMode; count = 15;
+        } break;
         default:                   opts = kOnOff;   count = 2;  break;
     }
 
@@ -648,6 +664,16 @@ void SectionScreen::_openEnumEntry(uint8_t cc, const char* title) {
                 // Same approach for delay FX bucket midpoints
                 static const uint8_t kDelayFXcc[] = { 0, 13, 38, 64, 89, 114 };
                 ccVal = (idx >= 0 && idx < 6) ? kDelayFXcc[idx] : 0;
+
+            } else if (s->_pendingCC == CC::FILTER_OBXA_XPANDER_MODE) {
+                // 15 modes: CC 0-127 divided into 15 equal buckets (value * 15 / 128).
+                // Store the midpoint of each bucket so decode is unambiguous.
+                // Midpoint of bucket i = (i * 128 + 64) / 15 — but pre-computed for clarity.
+                static const uint8_t kXpModeCC[15] = {
+                    4,  13,  21,  30,  38,  47,  55,
+                   64,  72,  81,  89,  98, 106, 115, 123
+                };
+                ccVal = (idx >= 0 && idx < 15) ? kXpModeCC[idx] : 0;
 
             } else {
                 // Generic: distribute evenly across 128 CC values
@@ -789,7 +815,22 @@ const char* SectionScreen::_enumText(uint8_t cc) const {
             return (v <= 42) ? "Poly" : (v <= 84) ? "Mono" : "Unison";
         }
         case CC::FX_REVERB_BYPASS:   return _synth->getFXReverbBypass() ? "Bypass" : "Active";
-        case CC::FILTER_OBXA_TWO_POLE: return _synth->getFilterTwoPole() ? "On" : "Off";
+        case CC::FILTER_OBXA_TWO_POLE:        return _synth->getFilterTwoPole()      ? "On" : "Off";
+        case CC::FILTER_OBXA_BP_BLEND_2_POLE: return _synth->getFilterBPBlend2Pole() ? "On" : "Off";
+        case CC::FILTER_OBXA_PUSH_2_POLE:     return _synth->getFilterPush2Pole()    ? "On" : "Off";
+        case CC::FILTER_OBXA_XPANDER_4_POLE:  return _synth->getFilterXpander4Pole() ? "On" : "Off";
+        case CC::FILTER_OBXA_XPANDER_MODE: {
+            // 15 OBXa Xpander pole-mix topologies — matches poleMixFactors[] order in AudioFilterOBXa_OBXf.cpp
+            static const char* kXpanderModeNames[15] = {
+                "LP4", "LP3", "LP2", "LP1",
+                "HP3", "HP2", "HP1",
+                "BP4", "BP2",
+                "N2",  "PH3",
+                "HP2+LP1", "HP3+LP1", "N2+LP1", "PH3+LP1"
+            };
+            const uint8_t m = _synth->getFilterXpanderMode();
+            return (m < 15) ? kXpanderModeNames[m] : "?";
+        }
         // FX effect preset names — delegates to FXChainBlock name tables
         case CC::FX_MOD_EFFECT:      return _synth->getFXModEffectName();   // "Off" or "Chorus 1" … "Super Chorus"
         case CC::FX_JPFX_DELAY_EFFECT:    return _synth->getFXDelayEffectName(); // "Off" or "Mono Short" … "Pan Stereo"
@@ -816,10 +857,13 @@ const char* SectionScreen::_ccName(uint8_t cc) const {
             cc == CC::GLIDE_ENABLE          || cc == CC::FX_REVERB_BYPASS       ||
             cc == CC::POLY_MODE             ||
             cc == CC::FX_MOD_EFFECT         || cc == CC::FX_JPFX_DELAY_EFFECT        ||  // FX effect preset lists
-            cc == CC::FILTER_OBXA_TWO_POLE  ||
-            cc == CC::FILTER_OBXA_BP_BLEND_2_POLE ||
-            cc == CC::FILTER_OBXA_PUSH_2_POLE     ||
-            cc == CC::FILTER_OBXA_XPANDER_4_POLE);
+            // OBXa filter bool toggles — all map to On/Off enum
+            cc == CC::FILTER_OBXA_TWO_POLE          ||
+            cc == CC::FILTER_OBXA_BP_BLEND_2_POLE   ||
+            cc == CC::FILTER_OBXA_PUSH_2_POLE       ||
+            cc == CC::FILTER_OBXA_XPANDER_4_POLE    ||
+            // Xpander mode — 15 named filter topologies (0-14)
+            cc == CC::FILTER_OBXA_XPANDER_MODE);
 }
 
 /*static*/ uint16_t SectionScreen::_ccColour(uint8_t cc) {

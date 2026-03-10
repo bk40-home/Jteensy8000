@@ -574,14 +574,21 @@ const DEFS = {
   // ── Filter mod
   [CC.FILTER_OCTAVE_CONTROL]:      {l:'OCT CTRL',  t:'knob',slot:'s-filt-mod',fmt:fRaw},
   [CC.FILTER_OBXA_RES_MOD_DEPTH]:  {l:'RES MOD',   t:'knob',slot:'s-filt-mod',fmt:fPct},
-  [CC.FILTER_OBXA_MULTIMODE]:      {l:'MULTIMODE',  t:'knob',slot:'s-filt-mod',fmt:fRaw},
-  // ── Filter 2-pole
+  [CC.FILTER_OBXA_MULTIMODE]:      {l:'MULTIMODE',  t:'knob',slot:'s-filt-mod',fmt:fPct},
+  // ── Filter 2-pole (all bool toggles — On/Off)
   [CC.FILTER_OBXA_TWO_POLE]:       {l:'2-POLE',     t:'toggle',slot:'s-filt-2p'},
-  [CC.FILTER_OBXA_BP_BLEND_2_POLE]:{l:'BP BLEND',   t:'knob',  slot:'s-filt-2p',fmt:fPct},
-  [CC.FILTER_OBXA_PUSH_2_POLE]:    {l:'PUSH 2P',    t:'knob',  slot:'s-filt-2p',fmt:fPct},
-  // ── Filter Xpander
-  [CC.FILTER_OBXA_XPANDER_4_POLE]: {l:'XPND 4P',    t:'knob',  slot:'s-filt-xp',fmt:fRaw},
-  [CC.FILTER_OBXA_XPANDER_MODE]:   {l:'XPND MODE',  t:'knob',  slot:'s-filt-xp',fmt:fRaw},
+  [CC.FILTER_OBXA_BP_BLEND_2_POLE]:{l:'BP BLEND',   t:'toggle',slot:'s-filt-2p'},
+  [CC.FILTER_OBXA_PUSH_2_POLE]:    {l:'PUSH 2P',    t:'toggle',slot:'s-filt-2p'},
+  // ── Filter Xpander: bool enable + 15-mode topology selector
+  [CC.FILTER_OBXA_XPANDER_4_POLE]: {l:'XPND ON',    t:'toggle',slot:'s-filt-xp'},
+  [CC.FILTER_OBXA_XPANDER_MODE]:   {l:'XPND MODE',  t:'select',slot:'s-filt-xp',
+    opts:[
+      {v:4,  l:'LP4'     }, {v:13, l:'LP3'     }, {v:21, l:'LP2'     }, {v:30, l:'LP1'     },
+      {v:38, l:'HP3'     }, {v:47, l:'HP2'     }, {v:55, l:'HP1'     },
+      {v:64, l:'BP4'     }, {v:72, l:'BP2'     },
+      {v:81, l:'N2'      }, {v:89, l:'PH3'     },
+      {v:98, l:'HP2+LP1' }, {v:106,l:'HP3+LP1' }, {v:115,l:'N2+LP1'  }, {v:123,l:'PH3+LP1' }
+    ]},
 
   // ── Amp envelope
   [CC.AMP_ATTACK]:   {l:'ATTACK', t:'knob',slot:'s-ae',fmt:fMs},
