@@ -246,6 +246,8 @@ void VoiceBlock::setXpanderMode(uint8_t mode)       { _xpanderMode = mode; _filt
 void VoiceBlock::setBPBlend2Pole(bool enabled)      { _bpBlend2Pole = enabled; _filter.setBPBlend2Pole(enabled); }
 void VoiceBlock::setPush2Pole(bool enabled)         { _push2Pole = enabled; _filter.setPush2Pole(enabled); }
 void VoiceBlock::setResonanceModDepth(float depth)  { _resonanceModDepth = depth; _filter.setResonanceModDepth(depth); }
+void VoiceBlock::setFilterEngine(uint8_t engine)    { _filter.setFilterEngine(engine); }
+void VoiceBlock::setVAFilterType(VAFilterType type) { _filter.setVAFilterType(type); }
 
 // =========================================================================
 // ENVELOPES

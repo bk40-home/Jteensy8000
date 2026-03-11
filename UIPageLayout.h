@@ -120,11 +120,14 @@ static constexpr uint8_t ccMap[NUM_PAGES][PARAMS_PER_PAGE] = {
     // Page 10: Filter modulation depth and multimode blend
     { CC::FILTER_OCTAVE_CONTROL, CC::FILTER_OBXA_RES_MOD_DEPTH, CC::FILTER_OBXA_MULTIMODE, 255 },
 
-    // Page 11: OBXa 2-pole topology options
-    { CC::FILTER_OBXA_TWO_POLE, CC::FILTER_OBXA_BP_BLEND_2_POLE, CC::FILTER_OBXA_PUSH_2_POLE, 255 },
+    // Page 11: Filter engine + topology selectors
+    // FILTER_ENGINE switches between OBXa and VA bank.
+    // FILTER_MODE selects OBXa topology (only relevant when engine = OBXa).
+    // VA_FILTER_TYPE selects VA bank topology (only relevant when engine = VA).
+    { CC::FILTER_ENGINE, CC::FILTER_MODE, CC::VA_FILTER_TYPE, 255 },
 
-    // Page 12: OBXa Xpander mode (15 filter topologies)
-    { CC::FILTER_OBXA_XPANDER_4_POLE, CC::FILTER_OBXA_XPANDER_MODE, 255, 255 },
+    // Page 12: Xpander sub-mode (0..14) — only relevant when OBXa Xpander+M mode
+    { CC::FILTER_OBXA_XPANDER_MODE, 255, 255, 255 },
 
     // =========================================================================
     // ENVELOPES  (pages 13-14)
@@ -245,11 +248,11 @@ static constexpr const char* ccNames[NUM_PAGES][PARAMS_PER_PAGE] = {
     // Page 10 — Filter mod
     { "Oct Ctrl",  "Q Depth",    "Multimode",  "---"       },
 
-    // Page 11 — Filter 2-pole
-    { "2 Pole",    "Blend 2p",   "Push 2p",    "---"       },
+    // Page 11 — Filter engine / topology
+    { "Flt Engine", "Flt Mode",   "VA Type",    "---"       },
 
-    // Page 12 — Xpander
-    { "Xpander",   "Xpand Mode", "---",        "---"       },
+    // Page 12 — Xpander sub-mode (active when FilterMode == Xpander+M)
+    { "Xpand Mode","---",        "---",        "---"       },
 
     // Page 13 — Amp envelope
     { "Amp Att",   "Amp Dec",    "Amp Sus",    "Amp Rel"   },

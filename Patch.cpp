@@ -23,6 +23,28 @@ void Patch::captureFrom(SynthEngine& synth) {
         switch (cc) {
             case FILTER_CUTOFF:    cv = cutoff_hz_to_cc(synth.getFilterCutoff()); break;
             case FILTER_RESONANCE: cv = resonance_to_cc(synth.getFilterResonance()); break;
+            // Filter topology: store the mode index directly as a CC midpoint value
+            case FILTER_MODE: {
+                const uint8_t mode = synth.getFilterMode();
+                cv = (uint8_t)((mode * 128 + 64) / (int)CC::FILTER_MODE_COUNT);
+                cv = constrain(cv, 0, 127);
+            } break;
+            case FILTER_ENGINE: {
+                // 2 engines: OBXa = low half (cc=32), VA = high half (cc=96)
+                cv = (synth.getFilterEngine() == CC::FILTER_ENGINE_VA) ? 96 : 32;
+            } break;
+            case VA_FILTER_TYPE: {
+                const uint8_t vt = synth.getVAFilterType();
+                cv = (uint8_t)constrain((int)vt * 128 / (int)FILTER_COUNT, 0, 127);
+            } break;
+            case FILTER_OBXA_XPANDER_MODE: {
+                // 15 modes — pre-computed bucket midpoints (same as UI table)
+                static const uint8_t kXpModeCC[15] = {
+                    4, 13, 21, 30, 38, 47, 55, 64, 72, 81, 89, 98, 106, 115, 123
+                };
+                const uint8_t m = synth.getFilterXpanderMode();
+                cv = (m < 15) ? kXpModeCC[m] : 0;
+            } break;
 
             case AMP_ATTACK:  cv = time_ms_to_cc(synth.getAmpAttack()); break;
             case AMP_DECAY:   cv = time_ms_to_cc(synth.getAmpDecay()); break;

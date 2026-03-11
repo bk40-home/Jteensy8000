@@ -168,13 +168,67 @@ namespace CC {
     // -------------------------------------------------------------------------
     // OBXa filter extended controls
     // -------------------------------------------------------------------------
-    static constexpr uint8_t FILTER_OBXA_MULTIMODE = 111;
-    static constexpr uint8_t FILTER_OBXA_TWO_POLE = 112;
-    static constexpr uint8_t FILTER_OBXA_XPANDER_4_POLE = 113;
-    static constexpr uint8_t FILTER_OBXA_XPANDER_MODE = 114;
-    static constexpr uint8_t FILTER_OBXA_BP_BLEND_2_POLE = 115;
-    static constexpr uint8_t FILTER_OBXA_PUSH_2_POLE = 116;
+    // Multimode blend: CC 0-127 → 0.0-1.0  (LP4 → HP via pole mixing)
+    // Only active in 4-pole mode (non-Xpander).
+    static constexpr uint8_t FILTER_OBXA_MULTIMODE     = 111;
+
+    // Resonance modulation depth: CC 0-127 → 0.0-1.0
     static constexpr uint8_t FILTER_OBXA_RES_MOD_DEPTH = 117;
+
+    // ── FILTER_ENGINE (CC 113) — selects the active filter engine ───────────
+    //   0  →  OBXa  — original OB-Xa / Xpander engine (default)
+    //   1  →  VA    — ZDF VA bank (SVF, Moog, Diode, Korg35, TPT1)
+    //
+    // Switching engine resets the outgoing filter state to avoid clicks.
+    // FILTER_MODE (CC 112) and VA_FILTER_TYPE (CC 115) are independent —
+    // each engine remembers its last topology setting.
+    static constexpr uint8_t FILTER_ENGINE          = 113;
+    static constexpr uint8_t FILTER_ENGINE_OBXA     = 0;   // OBXa engine index
+    static constexpr uint8_t FILTER_ENGINE_VA       = 1;   // VA bank engine index
+    static constexpr uint8_t FILTER_ENGINE_COUNT    = 2;
+
+    // ── VA_FILTER_TYPE (CC 115) — selects topology within the VA bank ────────
+    //   CC 0-127 mapped into 13 equal buckets (FILTER_COUNT from AudioFilterVABank.h)
+    //   0  →  SVF LP2       5  →  Moog LP4     9  →  Korg35 LP
+    //   1  →  SVF HP2       6  →  Moog LP2    10  →  Korg35 HP
+    //   2  →  SVF BP2       7  →  Moog BP2    11  →  TPT1 LP
+    //   3  →  SVF NOTCH     8  →  Diode LP4   12  →  TPT1 HP
+    //   4  →  SVF AP
+    //
+    // Only active when FILTER_ENGINE == FILTER_ENGINE_VA.
+    // CC number re-used from old FILTER_OBXA_BP_BLEND_2_POLE (115).
+    static constexpr uint8_t VA_FILTER_TYPE         = 115;
+    //
+    // Encoding (7 modes, CC range divided into equal buckets):
+    //   0  →  OBXA_4POLE       — 4-pole LP (default, all bool flags off)
+    //   1  →  OBXA_2POLE       — 2-pole LP  (TwoPole = true)
+    //   2  →  OBXA_2POLE_BP    — 2-pole BP  (TwoPole + BPBlend2Pole)
+    //   3  →  OBXA_2POLE_PUSH  — 2-pole push (TwoPole + Push2Pole)
+    //   4  →  OBXA_XPANDER     — Xpander 4-pole (Xpander4Pole = true)
+    //   5  →  OBXA_XPANDER_M   — Xpander + XpanderMode (uses FILTER_OBXA_XPANDER_MODE)
+    //
+    // Rule: setting any non-2-pole mode clears all 2-pole sub-flags automatically.
+    // Setting mode 4/5 also clears TwoPole.  FILTER_OBXA_XPANDER_MODE (CC 114)
+    // is kept as a secondary CC — only used when mode == OBXA_XPANDER_M.
+    //
+    // CC number re-used from old FILTER_OBXA_TWO_POLE (112) — safe, as TWO_POLE
+    // is now encoded inside FILTER_MODE value; old patches sending CC 112 will
+    // now select mode 1 (2-pole LP) when value > 0, which is correct.
+    static constexpr uint8_t FILTER_MODE               = 112;
+
+    // Xpander mode sub-selector: CC 0-127 → 15 discrete modes (0-14).
+    // Only active when FILTER_MODE == OBXA_XPANDER_M (mode 5).
+    // CC number re-used from old FILTER_OBXA_XPANDER_MODE (114).
+    static constexpr uint8_t FILTER_OBXA_XPANDER_MODE  = 114;
+
+    // ── Filter mode index constants (used by UI and SynthEngine) ─────────────
+    static constexpr uint8_t FILTER_MODE_4POLE      = 0;   // OBXa standard 4-pole LP
+    static constexpr uint8_t FILTER_MODE_2POLE      = 1;   // OBXa 2-pole LP
+    static constexpr uint8_t FILTER_MODE_2POLE_BP   = 2;   // OBXa 2-pole BP blend
+    static constexpr uint8_t FILTER_MODE_2POLE_PUSH = 3;   // OBXa 2-pole push
+    static constexpr uint8_t FILTER_MODE_XPANDER    = 4;   // OBXa Xpander 4-pole
+    static constexpr uint8_t FILTER_MODE_XPANDER_M  = 5;   // OBXa Xpander + mode select
+    static constexpr uint8_t FILTER_MODE_COUNT      = 6;   // keep last — for bounds check
 
     // -------------------------------------------------------------------------
     // BPM Clock and Timing (NEW - 118-122)
@@ -295,12 +349,11 @@ namespace CC {
             case FILTER_ENV_AMOUNT:   return "Flt Env Amt";
             case FILTER_KEY_TRACK:    return "Key Track";
             case FILTER_OCTAVE_CONTROL: return "Oct Ctrl";
-            case FILTER_OBXA_MULTIMODE: return "Multimode";
-            case FILTER_OBXA_TWO_POLE: return "2 Pole";
-            case FILTER_OBXA_XPANDER_4_POLE: return "Xpander";
+            case FILTER_OBXA_MULTIMODE:    return "Multimode";
+            case FILTER_ENGINE:            return "Flt Engine";
+            case FILTER_MODE:              return "Flt Mode";
+            case VA_FILTER_TYPE:           return "VA Type";
             case FILTER_OBXA_XPANDER_MODE: return "Xpand Mode";
-            case FILTER_OBXA_BP_BLEND_2_POLE: return "Blend 2p";
-            case FILTER_OBXA_PUSH_2_POLE: return "Push 2p";
             case FILTER_OBXA_RES_MOD_DEPTH: return "Q Depth";
 
             // Envelopes

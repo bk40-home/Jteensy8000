@@ -115,6 +115,9 @@ public:
     void setBPBlend2Pole(bool enabled);
     void setPush2Pole(bool enabled);
     void setResonanceModDepth(float depth);
+    // Engine switching — routed to FilterBlock
+    void setFilterEngine(uint8_t engine);
+    void setVAFilterType(VAFilterType type);
 
     // =========================================================================
     // ENVELOPES

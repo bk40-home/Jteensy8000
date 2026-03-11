@@ -152,7 +152,11 @@ namespace JT8000Map {
     // Use THESE mappings for the OBXa filter block / CC mapping.
 
     // Clamp cutoff for OBXa core stability (0.24 * 44100 = 10584)
-    static constexpr float OBXA_CUTOFF_MAX_HZ = 18000.0f;
+    // Raised from 18000 to 20000 to match the general cutoff ceiling.
+    // The original 18 kHz cap caused the spectrum to roll off below Nyquist
+    // when the filter was fully open — making the sound thinner than the
+    // JP-8000 reference.  The OBXa core is stable at this higher limit.
+    static constexpr float OBXA_CUTOFF_MAX_HZ = 20000.0f;
     static constexpr float OBXA_CUTOFF_MIN_HZ = CUTOFF_MIN_HZ;
 
     inline float cc_to_obxa_cutoff_hz(uint8_t cc)

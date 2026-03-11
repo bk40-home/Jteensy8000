@@ -475,15 +475,58 @@ void SynthEngine::setFilterMultimode(float amount) {
     for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setMultimode(amount);
 }
 
-void SynthEngine::setFilterTwoPole(bool enabled) {
-    _filterUseTwoPole = enabled;
-    for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setTwoPole(enabled);
-}
+// ---------------------------------------------------------------------------
+// setFilterMode  —  single entry-point for all OBXa topology switching.
+//
+// This replaces the four individual bool setters (setFilterTwoPole,
+// setFilterXpander4Pole, setFilterBPBlend2Pole, setFilterPush2Pole).
+// Each mode resets conflicting flags so the OBXa core never sees an
+// inconsistent combination (e.g. both TwoPole and Xpander active).
+//
+// Mode constants are CC::FILTER_MODE_* defined in CCDefs.h.
+// ---------------------------------------------------------------------------
+void SynthEngine::setFilterMode(uint8_t mode) {
+    if (mode >= CC::FILTER_MODE_COUNT) mode = CC::FILTER_MODE_4POLE;
 
-void SynthEngine::setFilterXpander4Pole(bool enabled) {
-    _filterXpander4Pole = enabled;
-    for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setXpander4Pole(enabled);
+    _filterMode = mode;
 
+    // Decode into the bool flags that FilterBlock/AudioFilterOBXa consume.
+    // All flags default false; only the active mode sets its flag(s).
+    _filterUseTwoPole   = false;
+    _filterXpander4Pole = false;
+    _filterBpBlend2Pole = false;
+    _filterPush2Pole    = false;
+
+    switch (mode) {
+        case CC::FILTER_MODE_4POLE:
+            // All flags already cleared above — standard 4-pole LP
+            break;
+        case CC::FILTER_MODE_2POLE:
+            _filterUseTwoPole = true;
+            break;
+        case CC::FILTER_MODE_2POLE_BP:
+            _filterUseTwoPole   = true;
+            _filterBpBlend2Pole = true;
+            break;
+        case CC::FILTER_MODE_2POLE_PUSH:
+            _filterUseTwoPole = true;
+            _filterPush2Pole  = true;
+            break;
+        case CC::FILTER_MODE_XPANDER:
+        case CC::FILTER_MODE_XPANDER_M:
+            _filterXpander4Pole = true;
+            break;
+        default:
+            break;
+    }
+
+    // Push decoded flags to all voices
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        _voices[i].setTwoPole(_filterUseTwoPole);
+        _voices[i].setXpander4Pole(_filterXpander4Pole);
+        _voices[i].setBPBlend2Pole(_filterBpBlend2Pole);
+        _voices[i].setPush2Pole(_filterPush2Pole);
+    }
 }
 
 void SynthEngine::setFilterXpanderMode(uint8_t amount) {
@@ -491,14 +534,19 @@ void SynthEngine::setFilterXpanderMode(uint8_t amount) {
     for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setXpanderMode(amount);
 }
 
-void SynthEngine::setFilterBPBlend2Pole(bool enabled) {
-    _filterBpBlend2Pole = enabled;
-    for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setBPBlend2Pole(enabled);
+void SynthEngine::setFilterEngine(uint8_t engine) {
+    _filterEngine = engine;
+    for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setFilterEngine(engine);
+    JT_LOGF("[SE] FilterEngine = %u\n", engine);
 }
 
-void SynthEngine::setFilterPush2Pole(bool enabled) {
-    _filterPush2Pole = enabled;
-    for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setPush2Pole(enabled);
+void SynthEngine::setVAFilterType(uint8_t vaType) {
+    // Clamp to valid VAFilterType range
+    if (vaType >= (uint8_t)FILTER_COUNT) vaType = (uint8_t)FILTER_SVF_LP;
+    _vaFilterType = vaType;
+    for (int i = 0; i < MAX_VOICES; ++i)
+        _voices[i].setVAFilterType((VAFilterType)vaType);
+    JT_LOGF("[SE] VAFilterType = %u\n", vaType);
 }
 
 void SynthEngine::setFilterResonanceModDepth(float amount) {
@@ -1453,34 +1501,38 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             JT_LOGF("[CC %u:%s] Multimode = %.3f\n", control, ccName, norm);
         } break;
 
-        // Bool toggles: any non-zero CC value = true, 0 = false
-        case CC::FILTER_OBXA_TWO_POLE: {
-            setFilterTwoPole(value != 0);
-            JT_LOGF("[CC %u:%s] TwoPole = %s\n", control, ccName, value ? "On" : "Off");
+        // Single topology selector — clears conflicting flags automatically.
+        // CC value 0-127 mapped into FILTER_MODE_COUNT equal buckets.
+        case CC::FILTER_MODE: {
+            const uint8_t mode = (uint8_t)constrain(
+                (int)value * (int)CC::FILTER_MODE_COUNT / 128, 0,
+                (int)CC::FILTER_MODE_COUNT - 1);
+            setFilterMode(mode);
+            JT_LOGF("[CC %u:%s] FilterMode = %u\n", control, ccName, mode);
         } break;
 
-        case CC::FILTER_OBXA_XPANDER_4_POLE: {
-            setFilterXpander4Pole(value != 0);
-            JT_LOGF("[CC %u:%s] Xpander4Pole = %s\n", control, ccName, value ? "On" : "Off");
+        // Filter engine select: 0 = OBXa, 1 = VA bank.
+        // CC 0-63 = OBXa, CC 64-127 = VA bank (2 equal buckets).
+        case CC::FILTER_ENGINE: {
+            const uint8_t eng = (value >= 64) ? CC::FILTER_ENGINE_VA
+                                              : CC::FILTER_ENGINE_OBXA;
+            setFilterEngine(eng);
+            JT_LOGF("[CC %u:%s] FilterEngine = %u\n", control, ccName, eng);
         } break;
 
-        // Xpander mode: CC 0-127 → 15 discrete modes (0-14)
-        // Divide into 15 equal buckets: mode = value * 15 / 128
+        // VA bank topology: CC 0-127 mapped into FILTER_COUNT equal buckets.
+        case CC::VA_FILTER_TYPE: {
+            const uint8_t vt = (uint8_t)constrain(
+                (int)value * (int)FILTER_COUNT / 128, 0, (int)FILTER_COUNT - 1);
+            setVAFilterType(vt);
+            JT_LOGF("[CC %u:%s] VAFilterType = %u\n", control, ccName, vt);
+        } break;
+
+        // Xpander sub-mode (0..14): only meaningful when FilterMode == XPANDER_M
         case CC::FILTER_OBXA_XPANDER_MODE: {
             const uint8_t mode = (uint8_t)constrain((int)value * 15 / 128, 0, 14);
             setFilterXpanderMode(mode);
             JT_LOGF("[CC %u:%s] XpanderMode = %u\n", control, ccName, mode);
-        } break;
-
-        // Bool toggles: 2-pole sub-options (only active when TwoPole = On)
-        case CC::FILTER_OBXA_BP_BLEND_2_POLE: {
-            setFilterBPBlend2Pole(value != 0);
-            JT_LOGF("[CC %u:%s] BPBlend2Pole = %s\n", control, ccName, value ? "On" : "Off");
-        } break;
-
-        case CC::FILTER_OBXA_PUSH_2_POLE: {
-            setFilterPush2Pole(value != 0);
-            JT_LOGF("[CC %u:%s] Push2Pole = %s\n", control, ccName, value ? "On" : "Off");
         } break;
 
         // Resonance modulation depth: CC 0-127 → 0.0-1.0

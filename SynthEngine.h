@@ -329,12 +329,25 @@ inline bool isVoiceActive(uint8_t v) const {
     void setFilterKeyTrackAmount(float amt);
     void setFilterOctaveControl(float octaves);
     void setFilterMultimode(float multimode);
-    void setFilterTwoPole(bool enabled);
-    void setFilterXpander4Pole(bool enabled);
+
+    // Single topology selector — encodes all OBXa bool flags into one value.
+    // Mode constants defined by CC::FILTER_MODE_* in CCDefs.h.
+    // Selecting a 4-pole or Xpander mode automatically clears 2-pole sub-flags.
+    void setFilterMode(uint8_t mode);
+
+    // Xpander sub-mode (0..14): only meaningful when mode == FILTER_MODE_XPANDER_M
     void setFilterXpanderMode(uint8_t mode);
-    void setFilterBPBlend2Pole(bool enabled);
-    void setFilterPush2Pole(bool enabled);
+
     void setFilterResonanceModDepth(float depth01);
+
+    // ── Filter engine switching ───────────────────────────────────────────────
+    // 0 = OBXa (CC::FILTER_ENGINE_OBXA), 1 = VA bank (CC::FILTER_ENGINE_VA).
+    // Applies to all 8 voices simultaneously.
+    void setFilterEngine(uint8_t engine);
+
+    // VA bank topology (0..FILTER_COUNT-1).  See VAFilterType enum.
+    // Only meaningful when engine == FILTER_ENGINE_VA.
+    void setVAFilterType(uint8_t vaType);
 
     float   getFilterCutoff()          const;
     float   getFilterResonance()       const;
@@ -342,6 +355,10 @@ inline bool isVoiceActive(uint8_t v) const {
     float   getFilterKeyTrackAmount()  const;
     float   getFilterOctaveControl()   const;
     float   getFilterMultimode()       const { return _filterMultimode; }
+    uint8_t getFilterMode()            const { return _filterMode; }
+    uint8_t getFilterEngine()          const { return _filterEngine; }
+    uint8_t getVAFilterType()          const { return _vaFilterType; }
+    // Low-level bool getters kept for OBXa core and SectionScreen display
     bool    getFilterTwoPole()         const { return _filterUseTwoPole; }
     bool    getFilterXpander4Pole()    const { return _filterXpander4Pole; }
     uint8_t getFilterXpanderMode()     const { return _filterXpanderMode; }
@@ -597,6 +614,13 @@ private:
     float   _filterKeyTrack   = 0.0f;
     float   _filterOctaves    = 0.0f;
     float   _filterMultimode  = 0.0f;
+    // Topology mode — mirrors the CC::FILTER_MODE_* enum.
+    // Low-level bool flags below are derived from this and kept in sync.
+    uint8_t _filterMode         = CC::FILTER_MODE_4POLE;
+    // Active filter engine (0=OBXa, 1=VA bank)
+    uint8_t _filterEngine       = CC::FILTER_ENGINE_OBXA;
+    // VA bank topology index (VAFilterType enum)
+    uint8_t _vaFilterType       = 0;   // FILTER_SVF_LP
     bool    _filterUseTwoPole   = false;
     bool    _filterXpander4Pole = false;
     uint8_t _filterXpanderMode  = 0;

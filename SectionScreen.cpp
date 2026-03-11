@@ -582,12 +582,31 @@ void SectionScreen::_openEnumEntry(uint8_t cc, const char* title) {
         // FX effect preset lists — use fixed-midpoint CC tables (not generic formula)
         case CC::FX_MOD_EFFECT:    opts = kModFX;   count = 12; isFxMod   = true; break;
         case CC::FX_JPFX_DELAY_EFFECT:  opts = kDelayFX; count = 6;  isFxDelay = true; break;
-        // OBXa filter bool toggles (On/Off)
-        case CC::FILTER_OBXA_TWO_POLE:
-        case CC::FILTER_OBXA_BP_BLEND_2_POLE:
-        case CC::FILTER_OBXA_PUSH_2_POLE:
-        case CC::FILTER_OBXA_XPANDER_4_POLE: opts = kOnOff; count = 2; break;
-        // Xpander 15-mode topology selector
+        // Filter engine: OBXa or VA bank
+        case CC::FILTER_ENGINE: {
+            static const char* kEngineNames[CC::FILTER_ENGINE_COUNT] = {
+                "OBXa", "VA Bank"
+            };
+            opts = kEngineNames; count = CC::FILTER_ENGINE_COUNT;
+        } break;
+        // Filter topology selector — 6 named modes (OBXa engine)
+        case CC::FILTER_MODE: {
+            static const char* kFltMode[CC::FILTER_MODE_COUNT] = {
+                "4-Pole LP",    // FILTER_MODE_4POLE
+                "2-Pole LP",    // FILTER_MODE_2POLE
+                "2-Pole BP",    // FILTER_MODE_2POLE_BP
+                "2-Pole Push",  // FILTER_MODE_2POLE_PUSH
+                "Xpander",      // FILTER_MODE_XPANDER
+                "Xpander+M"     // FILTER_MODE_XPANDER_M
+            };
+            opts = kFltMode; count = CC::FILTER_MODE_COUNT;
+        } break;
+        // VA bank topology — 13 named topologies from kVAFilterNames[]
+        case CC::VA_FILTER_TYPE: {
+            // kVAFilterNames is defined in AudioFilterVABank.h
+            opts = kVAFilterNames; count = (int)FILTER_COUNT;
+        } break;
+        // Xpander 15-mode topology selector (only active when FilterMode == XPANDER_M)
         case CC::FILTER_OBXA_XPANDER_MODE: {
             static const char* kXpMode[15] = {
                 "LP4", "LP3", "LP2", "LP1",
@@ -815,10 +834,24 @@ const char* SectionScreen::_enumText(uint8_t cc) const {
             return (v <= 42) ? "Poly" : (v <= 84) ? "Mono" : "Unison";
         }
         case CC::FX_REVERB_BYPASS:   return _synth->getFXReverbBypass() ? "Bypass" : "Active";
-        case CC::FILTER_OBXA_TWO_POLE:        return _synth->getFilterTwoPole()      ? "On" : "Off";
-        case CC::FILTER_OBXA_BP_BLEND_2_POLE: return _synth->getFilterBPBlend2Pole() ? "On" : "Off";
-        case CC::FILTER_OBXA_PUSH_2_POLE:     return _synth->getFilterPush2Pole()    ? "On" : "Off";
-        case CC::FILTER_OBXA_XPANDER_4_POLE:  return _synth->getFilterXpander4Pole() ? "On" : "Off";
+        // Filter engine selector — OBXa or VA bank
+        case CC::FILTER_ENGINE: {
+            return (_synth->getFilterEngine() == CC::FILTER_ENGINE_VA) ? "VA Bank" : "OBXa";
+        }
+        // Single filter topology CC — returns the human-readable mode name
+        case CC::FILTER_MODE: {
+            static const char* kFltModeNames[CC::FILTER_MODE_COUNT] = {
+                "4-Pole LP", "2-Pole LP", "2-Pole BP",
+                "2-Pole Push", "Xpander", "Xpander+M"
+            };
+            const uint8_t m = _synth->getFilterMode();
+            return (m < CC::FILTER_MODE_COUNT) ? kFltModeNames[m] : "?";
+        }
+        // VA bank topology name — shows the active ZDF filter type
+        case CC::VA_FILTER_TYPE: {
+            const uint8_t vt = _synth->getVAFilterType();
+            return (vt < (uint8_t)FILTER_COUNT) ? kVAFilterNames[vt] : "?";
+        }
         case CC::FILTER_OBXA_XPANDER_MODE: {
             // 15 OBXa Xpander pole-mix topologies — matches poleMixFactors[] order in AudioFilterOBXa_OBXf.cpp
             static const char* kXpanderModeNames[15] = {
@@ -857,12 +890,10 @@ const char* SectionScreen::_ccName(uint8_t cc) const {
             cc == CC::GLIDE_ENABLE          || cc == CC::FX_REVERB_BYPASS       ||
             cc == CC::POLY_MODE             ||
             cc == CC::FX_MOD_EFFECT         || cc == CC::FX_JPFX_DELAY_EFFECT        ||  // FX effect preset lists
-            // OBXa filter bool toggles — all map to On/Off enum
-            cc == CC::FILTER_OBXA_TWO_POLE          ||
-            cc == CC::FILTER_OBXA_BP_BLEND_2_POLE   ||
-            cc == CC::FILTER_OBXA_PUSH_2_POLE       ||
-            cc == CC::FILTER_OBXA_XPANDER_4_POLE    ||
-            // Xpander mode — 15 named filter topologies (0-14)
+            // Filter engine / topology selectors
+            cc == CC::FILTER_ENGINE         ||
+            cc == CC::FILTER_MODE           ||
+            cc == CC::VA_FILTER_TYPE        ||
             cc == CC::FILTER_OBXA_XPANDER_MODE);
 }
 
