@@ -268,7 +268,7 @@ void setup() {
     // STEP 2: Audio memory pool.
     // 200 blocks = 51200 bytes DMAMEM.  256 was marginal under heavy SPI.
     // -------------------------------------------------------------------------
-    AudioMemory(300);
+    AudioMemory(200);
 
     // CRITICAL: Create all internal AudioConnections NOW — after AudioMemory().
     // SynthEngine is a global object so its constructor ran before setup().

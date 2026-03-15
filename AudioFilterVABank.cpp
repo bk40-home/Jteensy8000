@@ -15,6 +15,27 @@
 // =============================================================================
 
 #include "AudioFilterVABank.h"
+#include "JT8000_OptFlags.h"
+
+// ---------------------------------------------------------------------------
+// fast_pow2 for VA bank cutoff modulation — same polynomial as OBXa version.
+// Only compiled when JT_OPT_VA_BLOCKRATE_MOD is enabled.
+// ---------------------------------------------------------------------------
+#if JT_OPT_VA_BLOCKRATE_MOD
+static inline float va_fast_pow2(float x)
+{
+    if (x >  126.0f) return 67108864.0f;
+    if (x < -126.0f) return 1.49e-38f;
+    const int32_t xi = (int32_t)x;
+    const float   xf = x - (float)xi;
+    const float poly = 1.00000000f
+                     + xf * (0.69314718f
+                     + xf * (0.24022651f
+                     + xf * (0.05550411f
+                     + xf *  0.00961823f)));
+    return ldexpf(poly, xi);
+}
+#endif // JT_OPT_VA_BLOCKRATE_MOD
 
 // ---------------------------------------------------------------------------
 // Constructor
@@ -124,15 +145,18 @@ float AudioFilterVABank::mapResonance(float r, VAFilterType type) const
 __attribute__((optimize("O3")))
 void AudioFilterVABank::update(void)
 {
-    // ── Receive audio inputs ─────────────────────────────────────────────────
-    audio_block_t *in0 = receiveReadOnly(0);   // audio signal
-    audio_block_t *in1 = receiveReadOnly(1);   // cutoff mod bus
-    audio_block_t *in2 = receiveReadOnly(2);   // resonance mod bus
+    audio_block_t *in0 = receiveReadOnly(0);  // audio input
+
+    // No audio input — nothing to filter, skip all DSP
+    if (!in0) return;
+
+    audio_block_t *in1 = receiveReadOnly(1);  // cutoff mod bus
+    audio_block_t *in2 = receiveReadOnly(2);  // resonance mod bus
 
     audio_block_t *out = allocate();
     if (!out)
     {
-        if (in0) release(in0);
+        release(in0);
         if (in1) release(in1);
         if (in2) release(in2);
         return;
@@ -155,7 +179,33 @@ void AudioFilterVABank::update(void)
     const bool hasCutoffMod = (in1 != nullptr) && (_cutoffModOct > 0.0f);
     const bool hasResMod    = (in2 != nullptr) && (_resModDepth  > 0.0f);
 
+#if JT_OPT_VA_BLOCKRATE_MOD
+    // =========================================================================
+    // OPTIMISED PATH — block-rate cutoff modulation
+    //
+    // When a mod bus is wired, take the mid-block sample (index 64) as a
+    // representative value and fold it into fcBlock once.  The resulting
+    // g_block is then used for the entire 128-sample inner loop — no powf()
+    // inside the loop.
+    //
+    // Rationale: LFO and envelope modulation of filter cutoff is perceptually
+    // indistinguishable at block-rate (~344 Hz) vs sample-rate for the
+    // exponential octave conversion step.  The TPT integrator coefficient
+    // (tanf) is already computed once per block by the existing design.
+    // =========================================================================
+    float blockModOct = 0.0f;
+    if (hasCutoffMod) {
+        const float midSample = (float)in1->data[64] * (1.0f / 32768.0f);
+        blockModOct = midSample * _cutoffModOct;
+    }
+    // Fold block-rate mod into fcBlock using fast_pow2
+    const float fcBlockModded = fcBlock * va_fast_pow2(blockModOct);
+    const float fcBlockClamped = va_clamp(fcBlockModded, 5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
+    const float g_block = va_compute_g(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT);
+#else
+    // Reference path: g_block without mod (mod applied per-sample in loop)
     const float g_block = va_compute_g(fcBlock, AUDIO_SAMPLE_RATE_EXACT);
+#endif // JT_OPT_VA_BLOCKRATE_MOD
     const float k_block = _kTarget;   // already mapped in resonance()
 
     // ── Sample loop ──────────────────────────────────────────────────────────
@@ -173,10 +223,18 @@ void AudioFilterVABank::update(void)
         float g = g_block;
         if (hasCutoffMod)
         {
+#if JT_OPT_VA_BLOCKRATE_MOD
+            // Block-rate: use the pre-computed g_block directly.
+            // The mod multiplier was already folded into fcBlock above.
+            // g_block is already correct for this block — no per-sample work.
+            (void)0;  // suppress empty-if warning; g = g_block already assigned
+#else
+            // Reference path: full per-sample exponential (original behaviour)
             const float modSample = (float)in1->data[i] * (1.0f / 32768.0f);
             const float fcInst    = fcBlock * powf(2.0f, modSample * _cutoffModOct);
             const float fcClamped = va_clamp(fcInst, 5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
             g = va_compute_g(fcClamped, AUDIO_SAMPLE_RATE_EXACT);
+#endif
         }
 
         // ── Audio-rate resonance modulation ──────────────────────────────────

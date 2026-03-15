@@ -67,7 +67,7 @@ using namespace JT8000Map;
 //   The bend amount is applied to all active voices via SynthEngine::setPitchBend().
 // ============================================================================
 
-#define MAX_VOICES 8   // 8-voice polyphony
+#define MAX_VOICES 6   // 8-voice polyphony
 
 // FM_OCTAVE_RANGE and FM_SEMITONE_SCALE are defined in OscillatorBlock.h.
 // See that header for the complete FM scaling documentation.

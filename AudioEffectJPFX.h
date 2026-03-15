@@ -234,7 +234,7 @@ private:
     // -----------------------------------------------------------------------
     float _limGain;
     static constexpr float kLimAttack  = 0.001f;
-    static constexpr float kLimRelease = 0.0001f;
+    static constexpr float kLimRelease = 0.029f;
 
     // -----------------------------------------------------------------------
     // Modulation effect preset parameters

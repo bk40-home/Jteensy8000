@@ -26,6 +26,7 @@
 #include <Arduino.h>
 #include <math.h>
 #include "AudioStream.h"
+#include "JT8000_OptFlags.h"
 
 
 

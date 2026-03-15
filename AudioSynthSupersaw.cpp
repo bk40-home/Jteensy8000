@@ -1,4 +1,5 @@
 #include "AudioSynthSupersaw.h"
+#include "JT8000_OptFlags.h"
 #include <math.h>   // fminf, fmaxf, ldexpf (no longer need powf)
 
 // =============================================================================
@@ -429,6 +430,33 @@ void AudioSynthSupersaw::calculateHPF() {
 void AudioSynthSupersaw::update(void) {
     audio_block_t* outBlock = allocate();
     if (!outBlock) return;
+
+#if JT_OPT_SUPERSAW_IDLE_GATE
+    // =========================================================================
+    // IDLE GATE — skip synthesis entirely when amplitude is effectively zero.
+    //
+    // When a standard waveform (saw, sine, pulse etc.) is selected on OSC1,
+    // OscillatorBlock sets _outputMix gain for the supersaw to 0.0 so its
+    // output is discarded.  Without this guard the 7-voice synthesis loop
+    // still runs every audio interrupt, wasting ~7,168 samples of computation
+    // per interrupt across 8 voices.
+    //
+    // We release the output block (returning it to the pool), transmit a null
+    // block (silence), and return.  The audio framework treats a null transmit
+    // as silence — connected downstream objects receive an empty block.
+    //
+    // Threshold JT_SUPERSAW_IDLE_THRESHOLD (default 0.001) is larger than
+    // float rounding error but inaudible — this handles the brief ramp-down
+    // period when OscillatorBlock transitions away from supersaw.
+    // =========================================================================
+    if (amp < JT_SUPERSAW_IDLE_THRESHOLD) {
+        // Zero the block so downstream objects receive clean silence
+        memset(outBlock->data, 0, sizeof(outBlock->data));
+        transmit(outBlock);
+        release(outBlock);
+        return;
+    }
+#endif // JT_OPT_SUPERSAW_IDLE_GATE
 
     // ---- Receive optional modulation inputs ----
     // Input 0 = FM (pitch modulation), Input 1 = phase modulation.
