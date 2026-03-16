@@ -65,8 +65,9 @@ VoiceBlock::VoiceBlock()
 // =============================================================================
 
 void VoiceBlock::noteOn(float frequency, float velocity) {
-    _isActive    = true;
-    _currentFreq = frequency;
+    _isActive      = true;
+    _currentFreq   = frequency;
+    _lastVelocity  = velocity;     // Cache for mono legato return
 
     // Velocity arrives already normalised 0.0–1.0 from the sketch.
     const float velNorm = velocity;
@@ -324,6 +325,7 @@ float VoiceBlock::getOsc1Detune()         const { return _osc1.getDetune(); }
 float VoiceBlock::getOsc2Detune()         const { return _osc2.getDetune(); }
 float VoiceBlock::getOsc1FineTune()       const { return _osc1.getFineTune(); }
 float VoiceBlock::getOsc2FineTune()       const { return _osc2.getFineTune(); }
+float VoiceBlock::getLastVelocity()       const { return _lastVelocity; }
 float VoiceBlock::getOscMix1()            const { return _osc1Level; }
 float VoiceBlock::getOscMix2()            const { return _osc2Level; }
 float VoiceBlock::getSubMix()             const { return _subMix; }

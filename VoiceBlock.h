@@ -34,6 +34,11 @@ public:
     void noteOff();
     void setAmplitude(float amplitude);
 
+    // Returns the velocity of the most recent noteOn (0.0–1.0).
+    // Used by SynthEngine MONO mode to re-trigger at the same velocity
+    // when returning to a previously held note (legato return).
+    float getLastVelocity() const;
+
     // =========================================================================
     // OSCILLATOR CONFIGURATION
     // =========================================================================
@@ -256,6 +261,7 @@ private:
 
     bool _isActive = false;
     float _currentFreq = 0.0f;
+    float _lastVelocity = 1.0f;   // Cached for mono legato return
     float _subMix = 0.0f;
     float _noiseMix = 0.0f;
 

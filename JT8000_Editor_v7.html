@@ -223,13 +223,15 @@ const FLT_MODE=[{v:engMid(0),l:'4-Pole LP'},{v:engMid(1),l:'2-Pole LP'},{v:engMi
 const vaMid=i=>Math.floor(((2*i+1)*128)/(2*13));
 const VA_TYPE=[{v:vaMid(0),l:'SVF LP2'},{v:vaMid(1),l:'SVF HP2'},{v:vaMid(2),l:'SVF BP2'},{v:vaMid(3),l:'SVF Notch'},{v:vaMid(4),l:'SVF AP'},{v:vaMid(5),l:'Moog LP4'},{v:vaMid(6),l:'Moog LP2'},{v:vaMid(7),l:'Moog BP2'},{v:vaMid(8),l:'Diode LP4'},{v:vaMid(9),l:'Korg35 LP'},{v:vaMid(10),l:'Korg35 HP'},{v:vaMid(11),l:'TPT1 LP'},{v:vaMid(12),l:'TPT1 HP'}];
 const XP_MODE=[{v:4,l:'LP4'},{v:13,l:'LP3'},{v:21,l:'LP2'},{v:30,l:'LP1'},{v:38,l:'HP3'},{v:47,l:'HP2'},{v:55,l:'HP1'},{v:64,l:'BP4'},{v:72,l:'BP2'},{v:81,l:'N2'},{v:89,l:'PH3'},{v:98,l:'HP2+LP1'},{v:106,l:'HP3+LP1'},{v:115,l:'N2+LP1'},{v:123,l:'PH3+LP1'}];
+const PCH_OPTS=[{v:12,l:'-24 st'},{v:38,l:'-12 st'},{v:64,l:'0 st'},{v:90,l:'+12 st'},{v:116,l:'+24 st'}];
 
 /* === FORMATTERS === */
 const fMs=v=>{if(!v)return'0ms';const m=Math.round(Math.pow(v/127,2.5)*8000);return m<1000?m+'ms':(m/1000).toFixed(2)+'s'};
 const fHz=v=>{const h=0.03*Math.pow(1300,v/127);return h<1?h.toFixed(3)+'Hz':h.toFixed(1)+'Hz'};
 const fBpm=v=>Math.round(40+(v/127)*260)+' BPM';
 const fPch=v=>{const s=Math.round((v/127)*48-24);return(s>=0?'+':'')+s+'st'};
-const fCnt=v=>{const c=Math.round((v/127)*200-100);return(c>=0?'+':'')+c+'c'};
+const fCnt=v=>{if(v===64)return'0c';const c=Math.round((v/127)*200-100);return(c>=0?'+':'')+c+'c'};
+const fDet=v=>{if(v===64)return'0 Hz';const d=((v/127)*2-1)*12;return(d>=0?'+':'')+d.toFixed(1)+' Hz'};
 const fPDp=v=>{const s=Math.round((v/64-1)*24);return(s>=0?'+':'')+s+'st'};
 const fDB=v=>{const d=Math.round((v/127)*24-12);return(d>=0?'+':'')+d+'dB'};
 const fPct=v=>Math.round((v/127)*100)+'%';
@@ -244,9 +246,9 @@ const SECTIONS=[
 {label:'Oscillator 1',led:'var(--or)',groups:[
   {label:'Wave & Tuning',controls:[
     {cc:CC.OSC1_WAVE,l:'WAVE',t:'select',opts:WAVE_OPTS},
-    {cc:CC.OSC1_PITCH_OFFSET,l:'PITCH',t:'knob',fmt:fPch},
+    {cc:CC.OSC1_PITCH_OFFSET,l:'PITCH',t:'select',opts:PCH_OPTS},
     {cc:CC.OSC1_FINE_TUNE,l:'FINE',t:'knob',fmt:fCnt},
-    {cc:CC.OSC1_DETUNE,l:'DETUNE',t:'knob',fmt:fCnt}]},
+    {cc:CC.OSC1_DETUNE,l:'DETUNE',t:'knob',fmt:fDet}]},
   {label:'Supersaw',controls:[
     {cc:CC.SUPERSAW1_DETUNE,l:'DET',t:'knob',fmt:fPct},
     {cc:CC.SUPERSAW1_MIX,l:'MIX',t:'knob',fmt:fPct}]},
@@ -264,9 +266,9 @@ const SECTIONS=[
 {label:'Oscillator 2',led:'var(--or)',groups:[
   {label:'Wave & Tuning',controls:[
     {cc:CC.OSC2_WAVE,l:'WAVE',t:'select',opts:WAVE_OPTS},
-    {cc:CC.OSC2_PITCH_OFFSET,l:'PITCH',t:'knob',fmt:fPch},
+    {cc:CC.OSC2_PITCH_OFFSET,l:'PITCH',t:'select',opts:PCH_OPTS},
     {cc:CC.OSC2_FINE_TUNE,l:'FINE',t:'knob',fmt:fCnt},
-    {cc:CC.OSC2_DETUNE,l:'DETUNE',t:'knob',fmt:fCnt}]},
+    {cc:CC.OSC2_DETUNE,l:'DETUNE',t:'knob',fmt:fDet}]},
   {label:'Supersaw',controls:[
     {cc:CC.SUPERSAW2_DETUNE,l:'DET',t:'knob',fmt:fPct},
     {cc:CC.SUPERSAW2_MIX,l:'MIX',t:'knob',fmt:fPct}]},
@@ -420,9 +422,9 @@ const ccDefs={};// cc -> {l, t, fmt, opts, el}
 
 function initDefaults(){
   state.fill(0);
-  state[CC.OSC1_PITCH_OFFSET]=65;state[CC.OSC2_PITCH_OFFSET]=65;
+  state[CC.OSC1_PITCH_OFFSET]=64;state[CC.OSC2_PITCH_OFFSET]=64;
   state[CC.OSC1_FINE_TUNE]=64;state[CC.OSC2_FINE_TUNE]=64;
-  state[CC.OSC1_DETUNE]=65;state[CC.OSC2_DETUNE]=65;
+  state[CC.OSC1_DETUNE]=64;state[CC.OSC2_DETUNE]=64;
   state[CC.OSC1_MIX]=127;state[CC.FILTER_CUTOFF]=127;
   state[CC.FILTER_ENV_AMOUNT]=65;state[CC.FILTER_KEY_TRACK]=65;
   state[CC.AMP_SUSTAIN]=127;state[CC.FILTER_ENV_SUSTAIN]=127;

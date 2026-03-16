@@ -70,12 +70,12 @@ void loadInitTemplateByWave(SynthEngine &synth, uint8_t waveIndex) {
     sendCC(synth, CC::SUB_MIX, 0);
     sendCC(synth, CC::NOISE_MIX, 0);
 
-    sendCC(synth, CC::OSC1_PITCH_OFFSET, 65);
+    sendCC(synth, CC::OSC1_PITCH_OFFSET, 64);
     sendCC(synth, CC::OSC1_FINE_TUNE, 64);
-    sendCC(synth, CC::OSC1_DETUNE, 65);
-    sendCC(synth, CC::OSC2_PITCH_OFFSET, 65);
+    sendCC(synth, CC::OSC1_DETUNE, 64);
+    sendCC(synth, CC::OSC2_PITCH_OFFSET, 64);
     sendCC(synth, CC::OSC2_FINE_TUNE, 64);
-    sendCC(synth, CC::OSC2_DETUNE, 65);
+    sendCC(synth, CC::OSC2_DETUNE, 64);
 
     sendCC(synth, CC::FILTER_CUTOFF,    127);
     sendCC(synth, CC::FILTER_RESONANCE, 0);

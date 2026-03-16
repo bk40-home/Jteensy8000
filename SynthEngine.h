@@ -109,6 +109,47 @@ enum class PolyMode : uint8_t {
 // Maximum unison detune spread (semitones total, ± this / 2 per voice).
 static constexpr float UNISON_MAX_SPREAD_SEMITONES = 1.0f;
 
+// =============================================================================
+// MonoNoteStack — simple fixed-capacity stack for mono legato note tracking.
+//
+// Stores the MIDI note numbers of all currently-held keys so that releasing
+// the most recent key returns to the previous pitch.  Last-note priority:
+// the top of the stack is always the note that should be sounding.
+//
+// Capacity of 16 is generous — even aggressive playing rarely exceeds 10
+// simultaneous held keys.  Zero dynamic allocation, no ISR cost.
+// =============================================================================
+struct MonoNoteStack {
+    static constexpr int CAPACITY = 16;
+    byte notes[CAPACITY] = {};
+    int  count            = 0;
+
+    // Push a note onto the stack.  If already present, move it to the top.
+    void push(byte note) {
+        remove(note);                              // Deduplicate first
+        if (count < CAPACITY) notes[count++] = note;
+    }
+
+    // Remove a specific note (key released). Returns true if found.
+    bool remove(byte note) {
+        for (int i = 0; i < count; ++i) {
+            if (notes[i] == note) {
+                // Shift everything above down by one
+                for (int j = i; j < count - 1; ++j) notes[j] = notes[j + 1];
+                --count;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Peek at the most recent note (top of stack). Only valid when count > 0.
+    byte top()     const { return notes[count - 1]; }
+    bool empty()   const { return count == 0; }
+
+    void clear()         { count = 0; }
+};
+
 class SynthEngine {
 public:
     // =========================================================================
@@ -166,8 +207,8 @@ public:
     void setOsc2Waveform(int wave);
     void setOsc1PitchOffset(float semis);
     void setOsc2PitchOffset(float semis);
-    void setOsc1Detune(float semis);
-    void setOsc2Detune(float semis);
+    void setOsc1Detune(float hz);
+    void setOsc2Detune(float hz);
     void setOsc1FineTune(float cents);
     void setOsc2FineTune(float cents);
 
@@ -582,7 +623,7 @@ private:
     // Pitch bend state — shared across all voices.
     float _pitchBendRange = PITCH_BEND_DEFAULT_SEMITONES;  // ±semitones at wheel extremes
     float _pitchBendSemis = 0.0f;                          // current bend in semitones
-    float _osc1DetuneSemi = 0.0f, _osc2DetuneSemi = 0.0f;
+    float _osc1DetuneHz = 0.0f, _osc2DetuneHz = 0.0f;
     float _osc1FineCents = 0.0f,  _osc2FineCents = 0.0f;
     float _osc1Mix = 1.0f,  _osc2Mix = 1.0f;
     float _subMix = 0.0f,   _noiseMix = 0.0f;
@@ -595,6 +636,8 @@ private:
     float    _unisonDetune = 0.0f;    // 0..1 normalised spread amount
     // In UNISON mode, all voices track the same note. _unisonNote stores which.
     int      _unisonNote   = -1;      // -1 = no note held
+    // In MONO mode, tracks all held keys for legato return-to-previous behaviour.
+    MonoNoteStack _monoStack;
     float _osc1FreqDc = 0.0f,  _osc2FreqDc = 0.0f;
     float _osc1ShapeDc = 0.0f, _osc2ShapeDc = 0.0f;
     float _osc1FeedbackAmount = 0.0f, _osc2FeedbackAmount = 0.0f;

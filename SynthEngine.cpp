@@ -322,18 +322,25 @@ void SynthEngine::noteOn(byte note, float velocity) {
     if (velocity > MAX_VOICE_VELOCITY) velocity = MAX_VOICE_VELOCITY;
 
     // =========================================================================
-    // MONO mode — single voice, last-note priority, glide always on
+    // MONO mode — single voice, last-note priority with legato note stack.
+    //
+    // All held keys are tracked in _monoStack.  The top of the stack is the
+    // note that should be sounding.  When a new key is pressed it becomes
+    // the top and voice 0 glides to it.  When a key is released:
+    //   - If it was the top note AND other keys are still held, voice 0
+    //     glides back to the new top note (legato return).
+    //   - If no keys remain, voice 0 enters its release envelope.
+    // This matches classic mono synth behaviour (e.g. Minimoog, JP-8000).
     // =========================================================================
     if (_polyMode == PolyMode::MONO) {
-        // Use voice 0 exclusively.  Any currently-sounding note is released
-        // and the new one starts via glide from the previous frequency.
-        if (_noteToVoice[note] == VOICE_NONE) {
-            // Release any previously mapped note from the books
-            for (int n = 0; n < 128; ++n) {
-                if (_noteToVoice[n] != VOICE_NONE) { _noteToVoice[n] = VOICE_NONE; }
-            }
-            _noteToVoice[note] = 0;
+        _monoStack.push(note);
+
+        // Clear any stale note→voice mappings — only voice 0 is used.
+        for (int n = 0; n < 128; ++n) {
+            if (_noteToVoice[n] != VOICE_NONE) { _noteToVoice[n] = VOICE_NONE; }
         }
+        _noteToVoice[note] = 0;
+
         _voices[0].noteOn(freq, velocity);
         _activeNotes[0] = true;
         _noteTimestamps[0] = _clock++;
@@ -398,6 +405,40 @@ void SynthEngine::noteOn(byte note, float velocity) {
 }
 
 void SynthEngine::noteOff(byte note) {
+
+    // =========================================================================
+    // MONO mode — legato note-stack return.
+    //
+    // Remove the released key from the stack.  If other keys are still held,
+    // glide voice 0 to the new top note instead of releasing it.  If no keys
+    // remain, do a normal release so the amp envelope closes naturally.
+    // =========================================================================
+    if (_polyMode == PolyMode::MONO) {
+        _monoStack.remove(note);
+        _noteToVoice[note] = VOICE_NONE;
+
+        if (!_monoStack.empty()) {
+            // Return to the most recently held key that is still down.
+            byte returnNote = _monoStack.top();
+            float returnFreq = 440.0f * powf(2.0f, (returnNote - 69) / 12.0f);
+            _lastNoteFreq = returnFreq;
+
+            // Clear stale mappings, map the return note to voice 0.
+            for (int n = 0; n < 128; ++n) _noteToVoice[n] = VOICE_NONE;
+            _noteToVoice[returnNote] = 0;
+
+            // noteOn will glide from the current pitch to the return pitch
+            // because voice 0 is already active and glide is implicit in MONO.
+            _voices[0].noteOn(returnFreq, _voices[0].getLastVelocity());
+            _noteTimestamps[0] = _clock++;
+        } else {
+            // No held keys — release voice 0 normally.
+            _voices[0].noteOff();
+            _activeNotes[0] = false;
+        }
+        return;
+    }
+
     if (_noteToVoice[note] == VOICE_NONE) return;
 
     if (_polyMode == PolyMode::UNISON) {
@@ -413,7 +454,7 @@ void SynthEngine::noteOff(byte note) {
         return;
     }
 
-    // POLY and MONO: release the single assigned voice
+    // POLY: release the single assigned voice
     int v = _noteToVoice[note];
     _voices[v].noteOff();
     _activeNotes[v] = false;
@@ -625,6 +666,7 @@ void SynthEngine::setPolyMode(PolyMode mode) {
     }
     for (int n = 0; n < 128; ++n) _noteToVoice[n] = VOICE_NONE;
     _unisonNote = -1;
+    _monoStack.clear();
 
     // In UNISON mode, apply spread detune across voices immediately.
     if (mode == PolyMode::UNISON) _applyUnisonDetune();
@@ -675,8 +717,8 @@ void SynthEngine::handlePitchBend(uint8_t /*channel*/, int16_t value) {
     }
 }
 
-void SynthEngine::setOsc1Detune(float semis) { _osc1DetuneSemi = semis; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc1Detune(semis); }
-void SynthEngine::setOsc2Detune(float semis) { _osc2DetuneSemi = semis; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc2Detune(semis); }
+void SynthEngine::setOsc1Detune(float hz) { _osc1DetuneHz = hz; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc1Detune(hz); }
+void SynthEngine::setOsc2Detune(float hz) { _osc2DetuneHz = hz; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc2Detune(hz); }
 
 void SynthEngine::setOsc1FineTune(float cents) { _osc1FineCents = cents; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc1FineTune(cents); }
 void SynthEngine::setOsc2FineTune(float cents) { _osc2FineCents = cents; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc2FineTune(cents); }
@@ -1280,8 +1322,8 @@ float SynthEngine::getSupersawDetune(uint8_t osc) const { return (osc<2)?_supers
 float SynthEngine::getSupersawMix(uint8_t osc)    const { return (osc<2)?_supersawMix[osc]:0.0f; }
 float SynthEngine::getOsc1PitchOffset() const { return _osc1PitchSemi; }
 float SynthEngine::getOsc2PitchOffset() const { return _osc2PitchSemi; }
-float SynthEngine::getOsc1Detune() const { return _osc1DetuneSemi; }
-float SynthEngine::getOsc2Detune() const { return _osc2DetuneSemi; }
+float SynthEngine::getOsc1Detune() const { return _osc1DetuneHz; }
+float SynthEngine::getOsc2Detune() const { return _osc2DetuneHz; }
 float SynthEngine::getOsc1FineTune() const { return _osc1FineCents; }
 float SynthEngine::getOsc2FineTune() const { return _osc2FineCents; }
 float SynthEngine::getOscMix1() const { return _osc1Mix; }
@@ -1422,10 +1464,28 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         } break;
 
         // ------------------- Detune / Fine -------------------
-        case CC::OSC1_DETUNE:    { float d = (norm * 2.0f - 1.0f) * 12.0f; setOsc1Detune(d);   JT_LOGF("[CC %u:%s] OSC1 Detune = %.2f semi\n",     control, ccName, d); } break;
-        case CC::OSC2_DETUNE:    { float d = (norm * 2.0f - 1.0f) * 12.0f; setOsc2Detune(d);   JT_LOGF("[CC %u:%s] OSC2 Detune = %.2f semi\n",     control, ccName, d); } break;
-        case CC::OSC1_FINE_TUNE: { float c = norm * 200.0f - 100.0f; setOsc1FineTune(c);    JT_LOGF("[CC %u:%s] OSC1 Fine = %.1f cents\n",    control, ccName, c); } break;
-        case CC::OSC2_FINE_TUNE: { float c = norm * 200.0f - 100.0f; setOsc2FineTune(c);    JT_LOGF("[CC %u:%s] OSC2 Fine = %.1f cents\n",    control, ccName, c); } break;
+        // Dead-zone: CC 64 forces exact zero. Without this, the odd 0-127 range
+        // means no single CC value maps to precisely 0.0 through norm*2-1.
+        case CC::OSC1_DETUNE: {
+            float d = (value == 64) ? 0.0f : (norm * 2.0f - 1.0f) * 12.0f;
+            setOsc1Detune(d);
+            JT_LOGF("[CC %u:%s] OSC1 Detune = %.2f Hz\n", control, ccName, d);
+        } break;
+        case CC::OSC2_DETUNE: {
+            float d = (value == 64) ? 0.0f : (norm * 2.0f - 1.0f) * 12.0f;
+            setOsc2Detune(d);
+            JT_LOGF("[CC %u:%s] OSC2 Detune = %.2f Hz\n", control, ccName, d);
+        } break;
+        case CC::OSC1_FINE_TUNE: {
+            float c = (value == 64) ? 0.0f : norm * 200.0f - 100.0f;
+            setOsc1FineTune(c);
+            JT_LOGF("[CC %u:%s] OSC1 Fine = %.1f cents\n", control, ccName, c);
+        } break;
+        case CC::OSC2_FINE_TUNE: {
+            float c = (value == 64) ? 0.0f : norm * 200.0f - 100.0f;
+            setOsc2FineTune(c);
+            JT_LOGF("[CC %u:%s] OSC2 Fine = %.1f cents\n", control, ccName, c);
+        } break;
 
         // ------------------- Osc mix + taps -------------------
         case CC::OSC1_FEEDBACK_AMOUNT: {
