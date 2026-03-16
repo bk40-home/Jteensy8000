@@ -22,7 +22,11 @@ void Patch::captureFrom(SynthEngine& synth) {
         uint8_t cv = 0;
         switch (cc) {
             case FILTER_CUTOFF:    cv = cutoff_hz_to_cc(synth.getFilterCutoff()); break;
-            case FILTER_RESONANCE: cv = resonance_to_cc(synth.getFilterResonance()); break;
+            case FILTER_RESONANCE:
+                // Use engine-aware inverse so the CC round-trips correctly
+                // regardless of whether OBXa or VA is the active engine.
+                cv = resonance_to_cc(synth.getFilterResonance(), synth.getFilterEngine());
+                break;
             // Filter topology: store the mode index directly as a CC midpoint value
             case FILTER_MODE: {
                 const uint8_t mode = synth.getFilterMode();

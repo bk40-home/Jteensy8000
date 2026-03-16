@@ -1387,9 +1387,12 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         } break;
 
         case CC::FILTER_RESONANCE: {
-            float r = JT8000Map::cc_to_obxa_res01(value);
+            // Route through the engine-aware helper so the OBXa safety ceiling
+            // (OBXA_RES_MAX) is applied when the OBXa engine is active, while
+            // the VA engine receives the full 0..1 range.
+            float r = JT8000Map::cc_to_resonance(value, _filterEngine);
             setFilterResonance(r);
-            JT_LOGF("[CC %u:%s] Resonance (k) = %.4f\n", control, ccName, r);
+            JT_LOGF("[CC %u:%s] Resonance = %.4f (engine %u)\n", control, ccName, r, _filterEngine);
         } break;
 
         // ------------------- Amp envelope -------------------
