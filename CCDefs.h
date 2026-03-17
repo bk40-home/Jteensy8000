@@ -161,9 +161,9 @@ namespace CC {
 
     // -------------------------------------------------------------------------
     // Drive / Saturation (above standard MIDI range — internal CC only)
-    // CC 130: 0=bypass, 1-63=soft clip (tanh warm), 64-127=hard clip (aggressive)
+    // CC 16: 0=bypass, 1-63=soft clip (tanh warm), 64-127=hard clip (aggressive)
     // -------------------------------------------------------------------------
-    static constexpr uint8_t FX_DRIVE = 130;
+    static constexpr uint8_t FX_DRIVE = 16;
 
     // -------------------------------------------------------------------------
     // OBXa filter extended controls
@@ -299,11 +299,11 @@ namespace CC {
     //   CC 43..84  = MONO   — single voice, last-note priority, full glide
     //   CC 85..127 = UNISON — all 8 voices stacked on one note, detuned
     // ─────────────────────────────────────────────────────────────────────────
-    static constexpr uint8_t POLY_MODE     = 128;
+    static constexpr uint8_t POLY_MODE     = 14;
 
     // Unison detune spread — active only when POLY_MODE = UNISON.
     // 0 = all in tune;  127 = ±0.5 semitone spread across 8 voices.
-    static constexpr uint8_t UNISON_DETUNE = 129;
+    static constexpr uint8_t UNISON_DETUNE = 15;
 
    // -------------------------------------------------------------------------
     // Utility: return human-readable name for a CC

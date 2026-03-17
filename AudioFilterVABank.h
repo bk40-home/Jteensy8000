@@ -9,20 +9,20 @@
 // the audio graph.
 //
 // Reference: Vadim Zavalishin, "The Art of VA Filter Design" rev 2.1.2 (2018)
-//            Chapter 3 (TPT/ZDF), Chapter 4 (ladder/topology variants)
+//            Chapter 3 (TPT/ZDF), Chapter 4 (SVF), Chapter 5 (ladder/topology)
 //
 // ─── Supported filter types ────────────────────────────────────────────────
-//   FILTER_SVF_LP    – SVF 2-pole low-pass     (Zavalishin §3.9, p.77)
+//   FILTER_SVF_LP    – SVF 2-pole low-pass     (Zavalishin §4.1, p.95)
 //   FILTER_SVF_HP    – SVF 2-pole high-pass
 //   FILTER_SVF_BP    – SVF 2-pole band-pass
 //   FILTER_SVF_NOTCH – SVF notch  (LP + HP)
 //   FILTER_SVF_AP    – SVF all-pass
-//   FILTER_MOOG_LP4  – Moog ladder 4-pole LP   (Zavalishin §4.1, p.99)
+//   FILTER_MOOG_LP4  – Moog ladder 4-pole LP   (Zavalishin §5.1, p.133)
 //   FILTER_MOOG_LP2  – Moog ladder 2-pole LP   (y2 tap)
 //   FILTER_MOOG_BP2  – Moog ladder 2-pole BP   (y2 - y4)
-//   FILTER_DIODE_LP  – Roland/Diode 4-pole LP  (Zavalishin §4.3, p.107)
-//   FILTER_KORG35_LP – Korg MS-20 LP            (Zavalishin §4.5.1, p.114)
-//   FILTER_KORG35_HP – Korg MS-20 HP
+//   FILTER_DIODE_LP  – Diode ladder 4-pole LP  (Zavalishin §5.10, p.165)
+//   FILTER_KORG35_LP – Korg35/TSK LP            (Zavalishin §5.8, p.151)
+//   FILTER_KORG35_HP – Korg35/TSK HP            (Zavalishin §5.8, p.154)
 //   FILTER_TPT1_LP   – Simple 1-pole TPT LP    (Zavalishin §3.1, p.45)
 //   FILTER_TPT1_HP   – Simple 1-pole TPT HP
 //
@@ -37,6 +37,8 @@
 //   • tanf() is the most expensive operation (~20 cycles on M7).
 //   • Drive/saturation is optional (setDrive()); bypass saves 2 tanhf/sample.
 //   • The Moog LP4 closed-form solve avoids iteration entirely.
+//   • Diode ladder uses nested ZDF – exact, no iteration.
+//   • Korg35 uses exact ZDF solve for the feedback loop.
 // =============================================================================
 
 #include <Arduino.h>
@@ -82,7 +84,7 @@ static const char* const kVAFilterNames[FILTER_COUNT] = {
 };
 
 // ---------------------------------------------------------------------------
-// Output saturation modes (Zavalishin §4.5 p.113)
+// Output saturation modes (Zavalishin §6.1 p.173)
 // ---------------------------------------------------------------------------
 enum VASaturationType : uint8_t
 {

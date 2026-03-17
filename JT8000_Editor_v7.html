@@ -191,7 +191,7 @@ LFO1_FREQ:54,LFO1_DEPTH:55,LFO1_DESTINATION:56,LFO1_WAVEFORM:62,LFO1_TIMING_MODE
 LFO1_PITCH_DEPTH:33,LFO1_FILTER_DEPTH:34,LFO1_PWM_DEPTH:35,LFO1_AMP_DEPTH:36,LFO1_DELAY:37,
 LFO2_FREQ:51,LFO2_DEPTH:52,LFO2_DESTINATION:53,LFO2_WAVEFORM:63,LFO2_TIMING_MODE:121,
 LFO2_PITCH_DEPTH:38,LFO2_FILTER_DEPTH:39,LFO2_PWM_DEPTH:40,LFO2_AMP_DEPTH:57,LFO2_DELAY:64,
-FX_BASS_GAIN:99,FX_TREBLE_GAIN:100,FX_DRIVE:130,
+FX_BASS_GAIN:99,FX_TREBLE_GAIN:100,FX_DRIVE:16,
 FX_MOD_EFFECT:103,FX_MOD_MIX:104,FX_MOD_RATE:105,FX_MOD_FEEDBACK:106,
 FX_MOD_DEPTH:95,FX_MOD_BASE_DELAY:96,FX_MOD_TAP_COUNT:97,FX_MOD_LFO_SHAPE:98,
 FX_JPFX_DELAY_EFFECT:107,FX_JPFX_DELAY_MIX:108,FX_JPFX_DELAY_FEEDBACK:109,FX_JPFX_DELAY_TIME:110,
@@ -199,7 +199,7 @@ FX_REVERB_SIZE:70,FX_REVERB_DAMP:71,FX_REVERB_LODAMP:93,FX_REVERB_BYPASS:94,FX_R
 FX_DRY_MIX:74,FX_JPFX_MIX:76,
 BPM_CLOCK_SOURCE:118,BPM_INTERNAL_TEMPO:119,DELAY_TIMING_MODE:122,
 VELOCITY_AMP_SENS:10,VELOCITY_FILTER_SENS:11,VELOCITY_ENV_SENS:12,
-GLIDE_ENABLE:81,GLIDE_TIME:82,POLY_MODE:128,UNISON_DETUNE:129,PITCH_BEND_RANGE:127,AMP_MOD_FIXED_LEVEL:90
+GLIDE_ENABLE:81,GLIDE_TIME:82,POLY_MODE:14,UNISON_DETUNE:15,PITCH_BEND_RANGE:127,AMP_MOD_FIXED_LEVEL:90
 };
 
 /* === OPTION LISTS === */
@@ -322,7 +322,7 @@ const SECTIONS=[
     {cc:CC.FILTER_ENV_SUSTAIN,l:'SUS',t:'knob',fmt:fPct},
     {cc:CC.FILTER_ENV_RELEASE,l:'REL',t:'knob',fmt:fMs}]}
 ]},
-{label:'Pitch Envelope',led:'var(--pur)',badge:'NEW',groups:[
+{label:'Pitch Envelope',led:'var(--pur)',groups:[
   {label:'ADSR',controls:[
     {cc:CC.PITCH_ENV_ATTACK,l:'ATK',t:'knob',fmt:fMs},
     {cc:CC.PITCH_ENV_DECAY,l:'DEC',t:'knob',fmt:fMs},
@@ -330,7 +330,7 @@ const SECTIONS=[
     {cc:CC.PITCH_ENV_RELEASE,l:'REL',t:'knob',fmt:fMs},
     {cc:CC.PITCH_ENV_DEPTH,l:'DEPTH',t:'knob',fmt:fPDp}]}
 ]},
-{label:'LFO 1',led:'var(--or)',badge:'MULTI',groups:[
+{label:'LFO 1',led:'var(--or)',groups:[
   {label:'Core',controls:[
     {cc:CC.LFO1_WAVEFORM,l:'WAVE',t:'select',opts:LWAVE_OPTS},
     {cc:CC.LFO1_FREQ,l:'RATE',t:'knob',fmt:fHz},
@@ -345,7 +345,7 @@ const SECTIONS=[
     {cc:CC.LFO1_DESTINATION,l:'DEST',t:'select',opts:LFO_DEST},
     {cc:CC.LFO1_DELAY,l:'DELAY',t:'knob',fmt:fLDly}]}
 ]},
-{label:'LFO 2',led:'var(--or)',badge:'MULTI',groups:[
+{label:'LFO 2',led:'var(--or)',groups:[
   {label:'Core',controls:[
     {cc:CC.LFO2_WAVEFORM,l:'WAVE',t:'select',opts:LWAVE_OPTS},
     {cc:CC.LFO2_FREQ,l:'RATE',t:'knob',fmt:fHz},
@@ -390,7 +390,7 @@ const SECTIONS=[
     {cc:CC.FX_DRY_MIX,l:'DRY',t:'knob',fmt:fPct},
     {cc:CC.FX_JPFX_MIX,l:'JPFX',t:'knob',fmt:fPct}]}
 ]},
-{label:'Velocity',led:'var(--pur)',badge:'NEW',groups:[
+{label:'Velocity',led:'var(--pur)',groups:[
   {label:'Sensitivity',controls:[
     {cc:CC.VELOCITY_AMP_SENS,l:'AMP',t:'knob',fmt:fPct},
     {cc:CC.VELOCITY_FILTER_SENS,l:'FILTER',t:'knob',fmt:fPct},

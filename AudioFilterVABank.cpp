@@ -9,8 +9,8 @@
 //     TPT 1-pole          :  ~15 cycles
 //     SVF 2-pole          :  ~30 cycles
 //     Moog LP4 (closed)   :  ~50 cycles
-//     Diode LP4 (linear)  :  ~50 cycles
-//     Korg35 LP           :  ~40 cycles  (1 tanh/sample for feedback)
+//     Diode LP4 (nested)  :  ~65 cycles  (3 divisions for nested solve)
+//     Korg35 LP           :  ~45 cycles  (1 division + 1 tanh for ZDF solve)
 //   tanf() coefficient    :  ~20 cycles  (computed ONCE per block = ~0.15/sample)
 // =============================================================================
 
@@ -52,7 +52,10 @@ AudioFilterVABank::AudioFilterVABank()
 void AudioFilterVABank::setFilterType(VAFilterType type)
 {
     if (type >= FILTER_COUNT) type = FILTER_SVF_LP;
+    if (type == _type) return;   // skip reset if type unchanged
     _type = type;
+    // Re-map resonance for the new topology (same 0..1 input, different k/R)
+    _kTarget = mapResonance(_res01, _type);
     reset();
 }
 
@@ -91,17 +94,23 @@ void AudioFilterVABank::reset()
 // ---------------------------------------------------------------------------
 // mapResonance  –  map normalised [0..1] to topology-specific k or R
 //
-// Each topology has a different self-oscillation threshold.
-// Mapping ensures res01 = 0.95 is just below self-osc for all types.
+// Each topology has a different self-oscillation threshold and resonance
+// character.  The mapping ensures res01 ≈ 0.95 is just below self-osc
+// for all types, giving consistent knob feel across topologies.
 //
-// Ref: Zavalishin §3.9 p.77 (SVF R), §4.1 p.101 (Moog k=4),
-//      §4.3 p.107 (Diode ~k=17), §4.5.1 p.114 (Korg35 k=2)
+// Reference thresholds (Zavalishin):
+//   SVF:   R = 0 is self-osc (R = 1/(2Q), damping)  §4.1 p.95
+//   Moog:  k = 4 is self-osc                        §5.1 p.134
+//   Diode: k = 17 is self-osc                       §5.10 p.170
+//   Korg35: k = 2 is self-osc                       §5.8  p.151
 // ---------------------------------------------------------------------------
 float AudioFilterVABank::mapResonance(float r, VAFilterType type) const
 {
     switch (type)
     {
-        // SVF: R = 1/(2Q).  r=0 → R=1.0 (no resonance), r=1 → R=0.01 (near self-osc)
+        // SVF: R = 1/(2Q).  r=0 → R=1.0 (Butterworth, no peak).
+        //                   r=1 → R=0.01 (near self-osc).
+        // R controls damping, so higher r means LESS damping (more resonance).
         case FILTER_SVF_LP:
         case FILTER_SVF_HP:
         case FILTER_SVF_BP:
@@ -109,20 +118,25 @@ float AudioFilterVABank::mapResonance(float r, VAFilterType type) const
         case FILTER_SVF_AP:
             return 1.0f - r * 0.99f;
 
-        // Moog LP4: k=0..4; self-oscillation at k=4 (Zavalishin §4.1 p.101)
+        // Moog LP4: k=0..4; self-oscillation at k=4 (Zavalishin §5.1 p.134)
+        // r=1 → k=3.95 (just below self-osc)
         case FILTER_MOOG_LP4:
         case FILTER_MOOG_LP2:
         case FILTER_MOOG_BP2:
-            return r * 3.9f;
+            return r * 3.95f;
 
-        // Diode ladder: self-osc ~k=17 (Zavalishin §4.3)
+        // Diode ladder: self-osc at k=17 (Zavalishin §5.10 p.170)
+        // r=1 → k=16.5 (just below self-osc)
         case FILTER_DIODE_LP:
-            return r * 16.0f;
+            return r * 16.5f;
 
-        // Korg 35: self-osc at k=2 (Zavalishin §4.5.1 p.115)
+        // Korg 35 (TSK): self-osc at k=2 (Zavalishin §5.8 p.151)
+        // r=1 → k=1.95 (just below self-osc).
+        // The tanh saturation in the feedback path allows going slightly
+        // past k=2 without instability, but the resonance character changes.
         case FILTER_KORG35_LP:
         case FILTER_KORG35_HP:
-            return r * 1.9f;
+            return r * 1.95f;
 
         // 1-pole has no resonance
         case FILTER_TPT1_LP:
@@ -175,7 +189,6 @@ void AudioFilterVABank::update(void)
 
     // Pre-compute integrator gain g from block-rate cutoff.
     // tanf() is ~20 cycles — amortised over 128 samples here.
-    // Per-sample audio-rate mod multiplies fcBlock by exp2(modOct) below.
     const bool hasCutoffMod = (in1 != nullptr) && (_cutoffModOct > 0.0f);
     const bool hasResMod    = (in2 != nullptr) && (_resModDepth  > 0.0f);
 
@@ -185,51 +198,60 @@ void AudioFilterVABank::update(void)
     //
     // When a mod bus is wired, take the mid-block sample (index 64) as a
     // representative value and fold it into fcBlock once.  The resulting
-    // g_block is then used for the entire 128-sample inner loop — no powf()
-    // inside the loop.
-    //
-    // Rationale: LFO and envelope modulation of filter cutoff is perceptually
-    // indistinguishable at block-rate (~344 Hz) vs sample-rate for the
-    // exponential octave conversion step.  The TPT integrator coefficient
-    // (tanf) is already computed once per block by the existing design.
+    // g_block is then used for the entire 128-sample inner loop.
     // =========================================================================
     float blockModOct = 0.0f;
     if (hasCutoffMod) {
         const float midSample = (float)in1->data[64] * (1.0f / 32768.0f);
         blockModOct = midSample * _cutoffModOct;
     }
-    // Fold block-rate mod into fcBlock using fast_pow2
-    const float fcBlockModded = fcBlock * va_fast_pow2(blockModOct);
+    const float fcBlockModded  = fcBlock * va_fast_pow2(blockModOct);
     const float fcBlockClamped = va_clamp(fcBlockModded, 5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
     const float g_block = va_compute_g(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT);
 #else
     // Reference path: g_block without mod (mod applied per-sample in loop)
-    const float g_block = va_compute_g(fcBlock, AUDIO_SAMPLE_RATE_EXACT);
+    const float fcBlockClamped = va_clamp(fcBlock, 5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
+    const float g_block = va_compute_g(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT);
 #endif // JT_OPT_VA_BLOCKRATE_MOD
+
     const float k_block = _kTarget;   // already mapped in resonance()
+
+    // ── Moog passband gain compensation ──────────────────────────────────────
+    // The Moog ladder drops passband gain as resonance increases: H(0) = 1/(1+k)
+    // (Zavalishin §5.1 p.134).  Full compensation (1+k) is mathematically correct
+    // for a DC signal but massively amplifies the resonance peak, causing clipping.
+    //
+    // Use sqrt(1 + k) instead: recovers roughly half the passband loss in dB
+    // while keeping the resonance peak at manageable levels.
+    //   k=0:    comp=1.00  (no change)
+    //   k=2:    comp=1.73  (+4.8dB vs -9.5dB passband loss)
+    //   k=3.95: comp=2.22  (+6.9dB vs -13.9dB passband loss)
+    const bool isMoog = (_type == FILTER_MOOG_LP4 ||
+                         _type == FILTER_MOOG_LP2 ||
+                         _type == FILTER_MOOG_BP2);
+    const float moogCompensation = isMoog ? sqrtf(1.0f + k_block) : 1.0f;
+
+    // Pre-check drive (avoid per-sample branch when drive is unity)
+    const bool hasDrive = (_drive != 1.0f);
 
     // ── Sample loop ──────────────────────────────────────────────────────────
     for (int i = 0; i < AUDIO_BLOCK_SAMPLES; ++i)
     {
-        // Input sample (0 if nothing connected — supports self-oscillation)
-        float x = in0 ? ((float)in0->data[i] * (1.0f / 32768.0f)) : 0.0f;
+        // Input sample
+        float x = (float)in0->data[i] * (1.0f / 32768.0f);
 
         // Pre-filter drive (adds harmonic content before filtering)
-        if (_drive != 1.0f) x *= _drive;
+        if (hasDrive) x *= _drive;
 
         // ── Audio-rate cutoff modulation ─────────────────────────────────────
-        // Only recomputes g when the mod bus is wired AND has non-zero depth.
-        // Saves one tanf() per sample when cutoff mod is unused.
         float g = g_block;
         if (hasCutoffMod)
         {
 #if JT_OPT_VA_BLOCKRATE_MOD
-            // Block-rate: use the pre-computed g_block directly.
-            // The mod multiplier was already folded into fcBlock above.
-            // g_block is already correct for this block — no per-sample work.
-            (void)0;  // suppress empty-if warning; g = g_block already assigned
+            // Block-rate: g_block already includes mod — no per-sample work
+            (void)0;
 #else
-            // Reference path: full per-sample exponential (original behaviour)
+            // Reference path: full per-sample exponential
             const float modSample = (float)in1->data[i] * (1.0f / 32768.0f);
             const float fcInst    = fcBlock * powf(2.0f, modSample * _cutoffModOct);
             const float fcClamped = va_clamp(fcInst, 5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
@@ -251,7 +273,7 @@ void AudioFilterVABank::update(void)
 
         switch (_type)
         {
-            // ── SVF variants (Zavalishin §3.9 p.77) ──────────────────────────
+            // ── SVF variants (Zavalishin §4.1 p.95) ──────────────────────────
             // k is used as R = 1/(2Q) for SVF
             case FILTER_SVF_LP:
                 _svf.process(x, g, k);
@@ -278,31 +300,34 @@ void AudioFilterVABank::update(void)
                 y = _svf.allpass(k);   // AP = notch - 2*R*bp
                 break;
 
-            // ── Moog ladder (Zavalishin §4.1 p.99) ───────────────────────────
+            // ── Moog ladder (Zavalishin §5.1 p.133) ──────────────────────────
+            // Passband gain compensated by moogCompensation factor.
             case FILTER_MOOG_LP4:
                 _moog.process(x, g, k);
-                y = _moog.y4;
+                y = _moog.y4 * moogCompensation;
                 break;
 
             case FILTER_MOOG_LP2:
                 _moog.process(x, g, k);
-                y = _moog.y2;
+                y = _moog.y2 * moogCompensation;
                 break;
 
             case FILTER_MOOG_BP2:
                 // BP approximated as y2 - y4 from Moog cascade
-                // Zavalishin §4.1 p.104 — pole subtraction gives bandpass character
+                // (Zavalishin §5.1 p.135 – pole subtraction gives bandpass character)
                 _moog.process(x, g, k);
-                y = _moog.y2 - _moog.y4;
+                y = (_moog.y2 - _moog.y4) * moogCompensation;
                 break;
 
-            // ── Diode ladder (Zavalishin §4.3 p.107) ─────────────────────────
+            // ── Diode ladder (Zavalishin §5.10 p.165) ────────────────────────
+            // Nested ZDF solve, self-osc at k=17
             case FILTER_DIODE_LP:
                 _diode.process(x, g, k);
                 y = _diode.y4;
                 break;
 
-            // ── Korg 35 (Zavalishin §4.5.1 p.114) ────────────────────────────
+            // ── Korg 35 / TSK (Zavalishin §5.8 p.151) ───────────────────────
+            // ZDF solved feedback with tanh saturation
             case FILTER_KORG35_LP:
                 y = _k35lp.process(x, g, k);
                 break;
@@ -340,7 +365,7 @@ void AudioFilterVABank::update(void)
     // ── Transmit and release ─────────────────────────────────────────────────
     transmit(out);
     release(out);
-    if (in0) release(in0);
+    release(in0);
     if (in1) release(in1);
     if (in2) release(in2);
 }
