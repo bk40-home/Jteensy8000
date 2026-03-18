@@ -239,10 +239,29 @@ namespace CC {
     static constexpr uint8_t LFO2_TIMING_MODE    = 121;  // 0-11 (TimingMode enum)
     static constexpr uint8_t DELAY_TIMING_MODE   = 122;  // 0-11 (TimingMode enum)
 
- 
+    // ─────────────────────────────────────────────────────────────────────────
+    // STEP SEQUENCER (analogue-style CV sequencer)
+    //   Outputs a bipolar control value (−1…+1) routed to Pitch/Filter/PWM/Amp.
+    //   Step values: CC 64 = zero, below = negative, above = positive.
+    //   "Select + Value" editing: set SEQ_STEP_SELECT then SEQ_STEP_VALUE.
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t SEQ_ENABLE       = 2;    // 0-63 off, 64-127 on
+    static constexpr uint8_t SEQ_STEPS        = 3;    // 0-127 → 1-16 active steps
+    static constexpr uint8_t SEQ_GATE_LENGTH  = 4;    // 0-127 → 0-100% gate
+    static constexpr uint8_t SEQ_SLIDE        = 5;    // 0-127 → 0-100% glide
+    static constexpr uint8_t SEQ_DIRECTION    = 6;    // 0-3: Fwd/Rev/Bounce/Random
+    static constexpr uint8_t SEQ_RATE         = 7;    // 0-127 → 0.1-20 Hz (free mode)
+    static constexpr uint8_t SEQ_DEPTH        = 8;    // 0-127 → 0.0-1.0 master scale
+    static constexpr uint8_t SEQ_DESTINATION  = 9;    // 0-4: None/Pitch/Filter/PWM/Amp
+    static constexpr uint8_t SEQ_RETRIGGER    = 13;   // 0-63 off, 64-127 on
+    static constexpr uint8_t SEQ_STEP_SELECT  = 17;   // 0-15: select step to edit
+    static constexpr uint8_t SEQ_STEP_VALUE   = 18;   // 0-127: value for selected step
+    static constexpr uint8_t SEQ_TIMING_MODE  = 116;  // 0-11 (TimingMode enum)
+
+   
 
     // ─────────────────────────────────────────────────────────────────────────
-    // NEW: LFO1 per-destination depth amounts (JP-8000 style)
+    // LFO1 per-destination depth amounts (JP-8000 style)
     // Each destination can be non-zero simultaneously for multi-target mod.
     // Final mixer gain = masterDepth * perDestDepth.
     // ─────────────────────────────────────────────────────────────────────────
@@ -425,6 +444,21 @@ namespace CC {
             case DELAY_TIMING_MODE:   return "Dly Sync";
             case POLY_MODE:           return "Poly Mode";
             case UNISON_DETUNE:       return "Uni Detune";
+
+
+            // Step Sequencer
+            case SEQ_ENABLE:          return "Seq On";
+            case SEQ_STEPS:           return "Seq Steps";
+            case SEQ_GATE_LENGTH:     return "Seq Gate";
+            case SEQ_SLIDE:           return "Seq Slide";
+            case SEQ_DIRECTION:       return "Seq Dir";
+            case SEQ_RATE:            return "Seq Rate";
+            case SEQ_DEPTH:           return "Seq Depth";
+            case SEQ_DESTINATION:     return "Seq Dest";
+            case SEQ_RETRIGGER:       return "Seq Retrig";
+            case SEQ_STEP_SELECT:     return "Seq Step#";
+            case SEQ_STEP_VALUE:      return "Seq StpVal";
+            case SEQ_TIMING_MODE:     return "Seq Sync";
 
             default:                  return nullptr;
         }

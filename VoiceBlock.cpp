@@ -210,6 +210,11 @@ void VoiceBlock::setOsc2ShapeDcAmp(float amplitude) { _osc2.setShapeDcAmp(amplit
 void VoiceBlock::setOsc1FrequencyDcAmp(float amplitude) { _osc1.setExternalPitchDc(amplitude); }
 void VoiceBlock::setOsc2FrequencyDcAmp(float amplitude) { _osc2.setExternalPitchDc(amplitude); }
 
+void VoiceBlock::setSeqPitchOffset(float fmScaledOffset) {
+    _osc1.setSeqPitchOffset(fmScaledOffset);
+    _osc2.setSeqPitchOffset(fmScaledOffset);
+}
+
 // =========================================================================
 // FILTER
 // =========================================================================
@@ -241,6 +246,11 @@ void VoiceBlock::setFilterKeyTrackAmount(float amount) {
 }
 
 void VoiceBlock::setMultimode(float amount)         { _multimode = amount; _filter.setMultimode(amount); }
+
+void VoiceBlock::setSeqFilterOffset(float offset) {
+    _filter.setSeqFilterOffset(offset);
+}
+
 void VoiceBlock::setTwoPole(bool enabled)           { _useTwoPole = enabled; _filter.setTwoPole(enabled); }
 void VoiceBlock::setXpander4Pole(bool enabled)      { _xpander4Pole = enabled; _filter.setXpander4Pole(enabled); }
 void VoiceBlock::setXpanderMode(uint8_t mode)       { _xpanderMode = mode; _filter.setXpanderMode(mode); }

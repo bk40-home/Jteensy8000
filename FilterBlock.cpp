@@ -153,8 +153,16 @@ void FilterBlock::setEnvModAmount(float amount)
 void FilterBlock::setKeyTrackAmount(float amount)
 {
     _keyTrackAmount = amount;
-    _keyTrackDc.amplitude(amount);
+    // DC amplitude = key tracking + sequencer offset (both share mod bus slot 0)
+    _keyTrackDc.amplitude(constrain(_keyTrackAmount + _seqFilterOffset, -1.0f, 1.0f));
     JT_LOGF("[FLT] Key Track: %.2f\n", amount);
+}
+
+void FilterBlock::setSeqFilterOffset(float offset)
+{
+    _seqFilterOffset = offset;
+    // Re-push the combined DC — same slot, additive
+    _keyTrackDc.amplitude(constrain(_keyTrackAmount + _seqFilterOffset, -1.0f, 1.0f));
 }
 
 void FilterBlock::setResonanceModDepth(float amount)

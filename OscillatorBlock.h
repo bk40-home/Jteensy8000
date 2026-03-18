@@ -125,6 +125,13 @@ public:
      */
     void setExternalPitchDc(float fmScaledAmplitude);
 
+    /**
+     * @brief Set step sequencer pitch offset (FM-scaled).
+     *        Folds into _combinedPitchDc alongside coarse/fine/detune/bend/external.
+     *        Caller must pre-scale: semitones × FM_SEMITONE_SCALE.
+     */
+    void setSeqPitchOffset(float fmScaledOffset);
+
     // =========================================================================
     // GLIDE (PORTAMENTO)
     // =========================================================================
@@ -283,6 +290,7 @@ private:
     float _staticPitchFm  = 0.0f;   // offset + fine + detune combined, FM-scaled
     float _pitchBendFm    = 0.0f;   // bend, FM-scaled
     float _externalPitchDcAmp = 0.0f; // external DC, already FM-scaled
+    float _seqPitchOffset    = 0.0f; // step sequencer pitch, already FM-scaled
 
     // Supersaw parameters
     float _supersawDetune = 0.0f;
@@ -326,7 +334,7 @@ private:
     /**
      * @brief Push the software sum of all pitch contributions to _combinedPitchDc.
      *
-     * Combined = _staticPitchFm + _pitchBendFm + _externalPitchDcAmp.
+     * Combined = _staticPitchFm + _pitchBendFm + _externalPitchDcAmp + _seqPitchOffset.
      * Call after any individual component changes.
      * Clamped to ±48 semitones × FM_SEMITONE_SCALE to prevent runaway.
      */

@@ -54,6 +54,11 @@
 //   LFO2Dly  : 29 L2 Delay / L2 Freq / L2 Wave / -
 //   PitchEnv : 30 PE ADSR
 //   PitchV   : 31 PE Depth / Vel Amp / Vel Filter / Vel Env
+//
+//  STEP SEQUENCER (pages 33-35):
+//   SeqCtrl  : 33 Enable / Steps / Gate / Slide
+//   SeqRoute : 34 Direction / Destination / Depth / Retrigger
+//   SeqTime  : 35 Rate / Timing Mode / StepSel / StepVal
 // =============================================================================
 
 #pragma once
@@ -62,7 +67,7 @@
 
 namespace UIPage {
 
-static constexpr int NUM_PAGES       = 33;  // 0..32  (page 32 = GLOBAL params: pitch bend range)
+static constexpr int NUM_PAGES       = 36;  // 0..35  (pages 33-35 = Step Sequencer)
 static constexpr int PARAMS_PER_PAGE = 4;
 
 // ---------------------------------------------------------------------------
@@ -207,6 +212,19 @@ static constexpr uint8_t ccMap[NUM_PAGES][PARAMS_PER_PAGE] = {
     // Page 32 — GLOBAL: pitch bend range (CC 127)
     {CC::PITCH_BEND_RANGE, 255, 255, 255 },
 
+    // =========================================================================
+    // STEP SEQUENCER (pages 33-35)
+    // =========================================================================
+
+    // Page 33: Seq core — on/off, step count, gate, slide
+    { CC::SEQ_ENABLE, CC::SEQ_STEPS, CC::SEQ_GATE_LENGTH, CC::SEQ_SLIDE },
+
+    // Page 34: Seq routing — direction, destination, depth, retrigger
+    { CC::SEQ_DIRECTION, CC::SEQ_DESTINATION, CC::SEQ_DEPTH, CC::SEQ_RETRIGGER },
+
+    // Page 35: Seq timing + step editor — rate, sync, step select, step value
+    { CC::SEQ_RATE, CC::SEQ_TIMING_MODE, CC::SEQ_STEP_SELECT, CC::SEQ_STEP_VALUE },
+
 };
 
 // ---------------------------------------------------------------------------
@@ -313,6 +331,15 @@ static constexpr const char* ccNames[NUM_PAGES][PARAMS_PER_PAGE] = {
 
     // Page 32
     { "Bend Rng",  "",          "",           ""          },
+
+    // Page 33 — Seq core
+    { "Seq On",    "Seq Steps", "Seq Gate",   "Seq Slide" },
+
+    // Page 34 — Seq routing
+    { "Seq Dir",   "Seq Dest",  "Seq Depth",  "Seq Retrig"},
+
+    // Page 35 — Seq timing + step editor
+    { "Seq Rate",  "Seq Sync",  "Step Sel",   "Step Val"  },
 };
 
 // ---------------------------------------------------------------------------
@@ -353,6 +380,9 @@ static constexpr const char* pageTitle[NUM_PAGES] = {
     "Pitch Env ADSR",    // 30  tab shows "Pitch"
     "Vel+PEnv Depth",    // 31  tab shows "Vel+PEnv"
     "Global 2",          // 32  pitch bend range
+    "Seq Control",       // 33  enable, steps, gate, slide
+    "Seq Routing",       // 34  direction, dest, depth, retrigger
+    "Seq Timing",        // 35  rate, sync, step select, step value
 
 };
 
@@ -425,6 +455,11 @@ static constexpr LayoutType layoutMap[NUM_PAGES] = {
 
     // Global 2
     LayoutType::LAYOUT_ROWS4,      // 32 Pitch bend range
+
+    // Step Sequencer
+    LayoutType::LAYOUT_ROWS4,      // 33 Seq Control   — enable toggle + continuous
+    LayoutType::LAYOUT_ROWS4,      // 34 Seq Routing   — enums + continuous
+    LayoutType::LAYOUT_ROWS4,      // 35 Seq Timing    — mixed enum + step editor
 };
 
 } // namespace UIPage

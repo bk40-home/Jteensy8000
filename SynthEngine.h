@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include "VoiceBlock.h"
 #include "LFOBlock.h"
+#include "StepSequencer.h"
 #include "FXChainBlock.h"
 #include "Mapping.h"
 #include "Waveforms.h"
@@ -540,6 +541,9 @@ inline bool isVoiceActive(uint8_t v) const {
     void       setDelayTimingMode(TimingMode mode);
     TimingMode getDelayTimingMode() const;
 
+    StepSequencer&       getSeq1()       { return _seq1; }
+    const StepSequencer& getSeq1() const { return _seq1; }
+
 private:
     // =========================================================================
     // 8-voice audio architecture
@@ -560,6 +564,17 @@ private:
     uint32_t    _clock = 0;                  // monotonic event counter
 
     // -------------------------------------------------------------------------
+
+    // ── Step Sequencer ──────────────────────────────────────────────
+    StepSequencer        _seq1;
+    uint8_t              _seqDestination     = 0;  // LFO_DEST_NONE
+    uint8_t              _seqPrevDestination = 0;  // for cleanup on dest change
+    uint8_t              _seqSelectedStep    = 0;  // CC step editor cursor
+    uint32_t             _lastUpdateMicros   = 0;  // for deltaMs calculation
+
+    // Shared DC for sequencer → PWM (shape mixer slot 3) and Amp (ampModMixer slot 3).
+    // Amplitude fixed at 1.0; sequencer value carried by mixer gain().
+    AudioSynthWaveformDc _seqDc;
     // Global modulation sources
     // -------------------------------------------------------------------------
     LFOBlock _lfo1;
@@ -599,6 +614,12 @@ private:
     AudioConnection* _voicePatchLFO2FrequencyOsc1[MAX_VOICES];
     AudioConnection* _voicePatchLFO2FrequencyOsc2[MAX_VOICES];
     AudioConnection* _voicePatchLFO2Filter[MAX_VOICES];
+
+    // Seq DC → per-voice shape mixer slot 3 (PWM destination)
+    AudioConnection* _patchSeqDcToShapeOsc1[MAX_VOICES];
+    AudioConnection* _patchSeqDcToShapeOsc2[MAX_VOICES];
+    // Seq DC → amp mod mixer slot 3 (Amp destination)
+    AudioConnection* _patchSeqDcToAmpModMixer;
 
     AudioConnection* _patchAmpModFixedDcToAmpModMixer;
     AudioConnection* _patchLFO1ToAmpModMixer;
@@ -731,6 +752,7 @@ private:
     float _lfo2PitchDepth  = 0.0f, _lfo2FilterDepth = 0.0f;
     float _lfo2PWMDepth    = 0.0f, _lfo2AmpDepth    = 0.0f;
 
+    void _applySeqOutput();
     // NEW: LFO delay (fade-in) state — managed in update()
     float    _lfo1DelayMs    = 0.0f, _lfo2DelayMs    = 0.0f;
     float    _lfo1CurrentAmp = 0.0f, _lfo2CurrentAmp = 0.0f;

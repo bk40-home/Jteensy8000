@@ -359,39 +359,42 @@ struct Korg35LP
 
     inline float process(float x, float g, float k)
     {
-        // Compute effective feedback from the HP output of stage 2.
-        // hp2 = lp1 - lp2.  On the first sample we use the previous state
-        // estimate: lp1_est ≈ p1.s, lp2_est ≈ p2.s, so hp2_est ≈ p1.s - p2.s.
+        // ZDF solve for hp2 (HP output of stage 2 = lp1 - lp2).
         //
-        // ZDF solve:
-        //   lp1 = g1*(x - k*hp2) + p1.s     where g1 = g/(1+g)
+        // The TSK filter uses POSITIVE feedback: hp2 feeds back and is ADDED
+        // to the input.  This reduces the effective damping R = (2-k)/2,
+        // creating resonance as k increases toward 2.
+        //
+        // Equations (positive feedback: input to stage 1 = x + k*hp2):
+        //   lp1 = g1*(x + k*hp2) + p1.s     where g1 = g/(1+g)
         //   lp2 = g1*lp1 + p2.s
         //   hp2 = lp1 - lp2
         //
         // Substituting lp2 into hp2:
-        //   hp2 = lp1 - g1*lp1 - p2.s = lp1*(1 - g1) - p2.s
-        //       = lp1/(1+g) - p2.s
+        //   hp2 = lp1 - g1*lp1 - p2.s = lp1/(1+g) - p2.s
         //
         // Substituting lp1:
-        //   hp2 = [g1*(x - k*hp2) + p1.s]/(1+g) - p2.s
-        //   hp2 = g1/(1+g)*(x - k*hp2) + p1.s/(1+g) - p2.s
-        //   hp2 * [1 + k*g1/(1+g)] = g1/(1+g)*x + p1.s/(1+g) - p2.s
+        //   hp2 = [g1*(x + k*hp2) + p1.s]/(1+g) - p2.s
+        //       = G2*(x + k*hp2) + p1.s/(1+g) - p2.s
+        //   hp2*(1 - k*G2) = G2*x + p1.s/(1+g) - p2.s
         //
         // Let G2 = g1/(1+g) = g/(1+g)^2:
-        //   hp2 = [G2*x + p1.s/(1+g) - p2.s] / [1 + k*G2]
+        //   hp2 = [G2*x + p1.s/(1+g) - p2.s] / (1 - k*G2)
+        //
+        // Note: (1 - k*G2) is always > 0 because G2 < 0.25 and k < 2.
 
         const float g1 = g / (1.0f + g);
         const float G2 = g1 / (1.0f + g);   // = g / (1+g)^2
         const float inv_1pg = 1.0f / (1.0f + g);
 
         // Solve for hp2 (exact ZDF, no iteration)
-        const float hp2_linear = (G2 * x + p1.s * inv_1pg - p2.s) / (1.0f + k * G2);
+        const float hp2_linear = (G2 * x + p1.s * inv_1pg - p2.s) / (1.0f - k * G2);
 
         // Apply saturation to feedback signal (tames self-oscillation)
         const float fb = k * va_tanh_fast(hp2_linear);
 
-        // Forward pass through the two TPT one-poles
-        const float lp1 = p1.processLP(x - fb, g);
+        // Forward pass: POSITIVE feedback (x + fb)
+        const float lp1 = p1.processLP(x + fb, g);
         const float lp2 = p2.processLP(lp1, g);
 
         // LP output is lp2 (Zavalishin Fig 5.23: yLP = output of MM1 LP tap)
@@ -423,37 +426,32 @@ struct Korg35HP
 
     inline float process(float x, float g, float k)
     {
-        // ZDF solve for the HP TSK (mirror of LP version).
+        // ZDF solve for lp2 (LP output of stage 2, the feedback signal).
         //
-        //   hp1 = x - k*lp2 - lp1    (1-pole HP: hp1 = input - lp1)
-        //   hp2 = hp1 - lp2           (where lp2 is the LP output of stage 2)
-        //   lp2 = g1*hp1 + p2.s       (stage 2 processes hp1 as LP)
+        // HP TSK uses POSITIVE feedback (mirror of LP version):
+        //   stage 1 input = x + k*lp2
         //
-        // The feedback signal is lp2 (the LP output of stage 2).
-        //
-        // Solve: lp2 = g1*(x - k*lp2 - [g1*(x - k*lp2) + p1.s]) + p2.s
-        // Let u = x - k*lp2
+        // Derivation:
+        //   Let u = x + k*lp2
         //   lp1 = g1*u + p1.s
-        //   hp1 = u - lp1 = u*(1 - g1) - p1.s = u/(1+g) - p1.s
-        //   lp2 = g1*hp1 + p2.s = g1*(u/(1+g) - p1.s) + p2.s
-        //       = G2*u - g1*p1.s + p2.s     where G2 = g1/(1+g) = g/(1+g)^2
-        //       = G2*(x - k*lp2) - g1*p1.s + p2.s
-        //   lp2*(1 + k*G2) = G2*x - g1*p1.s + p2.s
-        //   lp2 = [G2*x - g1*p1.s + p2.s] / (1 + k*G2)
+        //   hp1 = u - lp1 = u/(1+g) - p1.s
+        //   lp2 = g1*hp1 + p2.s = G2*u - g1*p1.s + p2.s
+        //       = G2*(x + k*lp2) - g1*p1.s + p2.s
+        //   lp2*(1 - k*G2) = G2*x - g1*p1.s + p2.s
+        //   lp2 = [G2*x - g1*p1.s + p2.s] / (1 - k*G2)
 
         const float g1 = g / (1.0f + g);
         const float G2 = g1 / (1.0f + g);  // = g / (1+g)^2
-        const float inv_1pg = 1.0f / (1.0f + g);
 
         // Solve for lp2 (exact ZDF, no iteration)
-        const float lp2_linear = (G2 * x - g1 * p1.s + p2.s) / (1.0f + k * G2);
+        const float lp2_linear = (G2 * x - g1 * p1.s + p2.s) / (1.0f - k * G2);
 
         // Apply saturation to feedback signal (tames self-oscillation)
         const float fb = k * va_tanh_fast(lp2_linear);
 
-        // Forward pass: stage 1 is HP, stage 2 is HP
+        // Forward pass: POSITIVE feedback (x + fb), both stages are HP
         float lp1;
-        const float hp1 = p1.processHP(x - fb, g, lp1);
+        const float hp1 = p1.processHP(x + fb, g, lp1);
         float lp2_actual;
         const float hp2 = p2.processHP(hp1, g, lp2_actual);
 

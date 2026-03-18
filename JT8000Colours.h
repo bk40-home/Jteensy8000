@@ -31,6 +31,7 @@
 #define COLOUR_LFO          0xFB60  // #FFA000  orange
 #define COLOUR_FX           0x06FF  // #FFA000  light cyan
 #define COLOUR_GLOBAL       0x8412  // #FFA000  neutral grey
+#define COLOUR_SEQ          0x97E0  // #96FC00  lime-green (step sequencer)
 #define COLOUR_HEADER_BG    0x1907  // #19233C  dark navy panel
 #define COLOUR_BORDER       0x29AA  // #2D3750  blue-grey
 

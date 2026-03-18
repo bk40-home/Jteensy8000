@@ -70,6 +70,9 @@ public:
     void setOsc2ShapeDcAmp(float amplitude);
     void setOsc1FrequencyDcAmp(float amplitude);
     void setOsc2FrequencyDcAmp(float amplitude);
+
+    /** @brief Set step sequencer pitch offset on both oscillators (FM-scaled). */
+    void setSeqPitchOffset(float fmScaledOffset);
     void setRing1Mix(float level);
     void setRing2Mix(float level);
     void setBaseFrequency(float frequency);
@@ -113,6 +116,9 @@ public:
     void setFilterOctaveControl(float octaves);
     void setFilterEnvAmount(float amount);
     void setFilterKeyTrackAmount(float amount);
+
+    /** @brief Set step sequencer filter modulation offset (bipolar). */
+    void setSeqFilterOffset(float offset);
     void setMultimode(float amount);
     void setTwoPole(bool enabled);
     void setXpander4Pole(bool enabled);

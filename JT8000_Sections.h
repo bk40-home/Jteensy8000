@@ -99,7 +99,10 @@ static const SectionDef kSections[SECTION_COUNT] = {
     // 6 — GLOBAL (pages 23-25, 32)  neutral grey
     { "GLOBAL",  COLOUR_GLOBAL, { 23, 24, 25, 32, 255, 255 }, 4 },
 
-    // 7 — PRESETS: sentinel 0xFF → UIManager opens PresetBrowser instead of SectionScreen
+    // 7 — SEQ   (pages 33-35)  lime-green
+    { "SEQ",     COLOUR_SEQ,    { 33, 34, 35, 255, 255, 255 }, 3 },
+
+    // 8 — PRESETS: sentinel 0xFF → UIManager opens PresetBrowser instead of SectionScreen
     //    pageCount = 0 signals "no pages, this is a browser tile"
-    { "PRESETS", COLOUR_ACCENT, { SECTION_PAGE_BROWSER, 255, 255, 255, 255, 255 }, 0 },
+    //{ "PRESETS", COLOUR_ACCENT, { SECTION_PAGE_BROWSER, 255, 255, 255, 255, 255 }, 0 },
 };

@@ -49,6 +49,13 @@ public:
     void setOctaveControl(float octaves);
     void setEnvModAmount(float amount);
     void setKeyTrackAmount(float amount);
+
+    /**
+     * @brief Set step sequencer filter modulation offset.
+     *        Added to the key tracking DC amplitude (same mod bus, slot 0).
+     *        Range: −1.0 … +1.0 (bipolar, same scale as key track).
+     */
+    void setSeqFilterOffset(float offset);
     void setResonanceModDepth(float depth01);
 
     float getCutoff()            const { return _cutoff; }
@@ -133,6 +140,7 @@ private:
     float _octaveControl     = 4.0f;
     float _envModAmount      = 0.0f;
     float _keyTrackAmount    = 0.0f;
+    float _seqFilterOffset   = 0.0f;  // Step sequencer filter mod (bipolar)
     float _multimode         = 0.0f;
     float _resonanceModDepth = 0.0f;
     float _midiNote          = 60.0f;

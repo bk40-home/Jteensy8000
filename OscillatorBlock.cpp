@@ -266,6 +266,11 @@ void OscillatorBlock::setExternalPitchDc(float fmScaledAmplitude) {
     _updateCombinedPitchDc();
 }
 
+void OscillatorBlock::setSeqPitchOffset(float fmScaledOffset) {
+    _seqPitchOffset = fmScaledOffset;
+    _updateCombinedPitchDc();
+}
+
 // -----------------------------------------------------------------------------
 // _updateStaticPitchFm — recalculate the FM-scaled sum of coarse + fine + detune
 //
@@ -297,7 +302,8 @@ void OscillatorBlock::_updateStaticPitchFm() {
 // No audio processing here — just one .amplitude() call (safe to call anytime).
 // -----------------------------------------------------------------------------
 void OscillatorBlock::_updateCombinedPitchDc() {
-    const float combined = _staticPitchFm + _pitchBendFm + _externalPitchDcAmp;
+    const float combined = _staticPitchFm + _pitchBendFm
+                         + _externalPitchDcAmp + _seqPitchOffset;
 
     // ±48 semitones = ±4 octaves max shift from DC sources
     constexpr float kMaxFm = 48.0f * FM_SEMITONE_SCALE;  // ≈ 0.4

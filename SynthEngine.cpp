@@ -97,6 +97,9 @@ void SynthEngine::begin()
     _ampModMixer.gain(2, 0.0f);
     _ampModMixer.gain(3, 0.0f);
 
+    // Step sequencer DC — fixed amplitude 1.0, value carried by mixer gain
+    _seqDc.amplitude(1.0f);
+
     _ampModLimiterMixer.gain(0, 1.0f);
     _ampModLimiterMixer.gain(1, 0.0f);
     _ampModLimiterMixer.gain(2, 0.0f);
@@ -194,6 +197,16 @@ void SynthEngine::begin()
     _patchAmpModMixerToAmpMultiply   = new AudioConnection(_ampModMixer,      0, _ampMultiply,   0);
     _patchVoiceMixerToAmpMultiply    = new AudioConnection(_voiceMixerFinal,  0, _ampMultiply,   1);
 
+    // Step sequencer → per-voice shape (PWM) mixer slot 3
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        _patchSeqDcToShapeOsc1[i] = new AudioConnection(
+            _seqDc, 0, _voices[i].shapeModMixerOsc1(), 3);
+        _patchSeqDcToShapeOsc2[i] = new AudioConnection(
+            _seqDc, 0, _voices[i].shapeModMixerOsc2(), 3);
+    }
+    // Step sequencer → amp mod mixer slot 3
+    _patchSeqDcToAmpModMixer = new AudioConnection(_seqDc, 0, _ampModMixer, 3);
+
     // Wet path: amp → JPFX stereo input
     _fxPatchInL  = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(),   0);
     _fxPatchInR  = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(),   1);
@@ -231,6 +244,8 @@ void SynthEngine::updateBPMSync() {
         float hz = _bpmClock->getFrequencyForMode(lfo1Mode);
         _lfo1.setFrequency(hz);
     }
+
+    _seq1.updateFromBPMClock(*_bpmClock);
     
     // Update LFO2 if synced
     TimingMode lfo2Mode = _lfo2.getTimingMode();
@@ -311,6 +326,9 @@ TimingMode SynthEngine::getDelayTimingMode() const {
 void SynthEngine::noteOn(byte note, float velocity) {
     float freq = 440.0f * powf(2.0f, (note - 69) / 12.0f);
     _lastNoteFreq = freq;
+
+    // Step sequencer retrigger
+    if (_seq1.getRetrigger()) _seq1.reset();
 
     // Restart LFO delay ramps on any noteOn (standard JP-8000 retrigger behaviour)
     if (_lfo1DelayMs > 0.0f) { _lfo1NoteOnMs = millis(); _lfo1Ramping = true; _lfo1CurrentAmp = 0.0f; }
@@ -462,6 +480,18 @@ void SynthEngine::noteOff(byte note) {
 }
 
 void SynthEngine::update() {
+    
+// ── Step sequencer tick ─────────────────────────────────────────
+  {
+      uint32_t now = micros();
+      float deltaMs = (now - _lastUpdateMicros) * 0.001f;
+      _lastUpdateMicros = now;
+      // Clamp to avoid huge jumps on first call or overflow
+      if (deltaMs > 50.0f) deltaMs = 50.0f;
+      _seq1.tick(deltaMs);
+      _applySeqOutput();
+  }
+    
     // Update BPM-synced parameters
     if (_bpmClock) {
         updateBPMSync();
@@ -982,6 +1012,68 @@ void SynthEngine::_applyLFO2Gains() {
     _ampModMixer.gain(2, ampG);
 }
 
+void SynthEngine::_applySeqOutput() {
+    const float val = _seq1.getOutput();  // −depth … +depth (0 when disabled)
+    const uint8_t dest = _seqDestination;
+
+    // ── Destination changed: zero out the OLD destination ─────────────
+    if (dest != _seqPrevDestination) {
+        switch (_seqPrevDestination) {
+        case LFO_DEST_PITCH:
+            for (int i = 0; i < MAX_VOICES; ++i)
+                _voices[i].setSeqPitchOffset(0.0f);
+            break;
+        case LFO_DEST_FILTER:
+            for (int i = 0; i < MAX_VOICES; ++i)
+                _voices[i].setSeqFilterOffset(0.0f);
+            break;
+        case LFO_DEST_PWM:
+            for (int i = 0; i < MAX_VOICES; ++i) {
+                _voices[i].shapeModMixerOsc1().gain(3, 0.0f);
+                _voices[i].shapeModMixerOsc2().gain(3, 0.0f);
+            }
+            break;
+        case LFO_DEST_AMP:
+            _ampModMixer.gain(3, 0.0f);
+            break;
+        }
+        _seqPrevDestination = dest;
+    }
+
+    // ── Apply to current destination ─────────────────────────────────
+    switch (dest) {
+    case LFO_DEST_PITCH: {
+        // Convert bipolar output to FM-scaled semitones.
+        // Same scaling as LFO pitch: max semitones × FM_SEMITONE_SCALE.
+        const float pitchFm = val * LFO_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;
+        for (int i = 0; i < MAX_VOICES; ++i)
+            _voices[i].setSeqPitchOffset(pitchFm);
+        break;
+    }
+    case LFO_DEST_FILTER:
+        // Added to key tracking DC on mod bus slot 0
+        for (int i = 0; i < MAX_VOICES; ++i)
+            _voices[i].setSeqFilterOffset(val);
+        break;
+
+    case LFO_DEST_PWM:
+        // Shape mixer slot 3 gain — _seqDc outputs 1.0, gain carries value
+        for (int i = 0; i < MAX_VOICES; ++i) {
+            _voices[i].shapeModMixerOsc1().gain(3, val);
+            _voices[i].shapeModMixerOsc2().gain(3, val);
+        }
+        break;
+
+    case LFO_DEST_AMP:
+        // Amp mod mixer slot 3 gain — _seqDc outputs 1.0, gain carries value
+        _ampModMixer.gain(3, val);
+        break;
+
+    default:
+        // LFO_DEST_NONE — nothing to do (output is 0.0 anyway)
+        break;
+    }
+}
 void SynthEngine::setLFO1PitchDepth(float d)  { _lfo1PitchDepth  = d; _applyLFO1Gains(); }
 void SynthEngine::setLFO1FilterDepth(float d) { _lfo1FilterDepth = d; _applyLFO1Gains(); }
 void SynthEngine::setLFO1PWMDepth(float d)    { _lfo1PWMDepth    = d; _applyLFO1Gains(); }
@@ -2018,6 +2110,77 @@ case CC::DELAY_TIMING_MODE: {
             _fxChain.setDrive(driveNorm);
             JT_LOGF("[CC %u:%s] Drive = %.3f\n", control, ccName, driveNorm);
         } break;
+
+
+ // ─────────────────────────────────────────────────────────────
+        // Step Sequencer
+        // ─────────────────────────────────────────────────────────────
+        case CC::SEQ_ENABLE: {
+            _seq1.setEnabled(value >= 64);
+            JT_LOGF("[CC %u] Seq enable = %s\n", control, value >= 64 ? "ON" : "OFF");
+        } break;
+
+        case CC::SEQ_STEPS: {
+            int steps = 1 + (value * 15 / 127);  // 0-127 → 1-16
+            _seq1.setStepCount(steps);
+            JT_LOGF("[CC %u] Seq steps = %d\n", control, steps);
+        } break;
+
+        case CC::SEQ_GATE_LENGTH: {
+            _seq1.setGateLength(norm);
+            JT_LOGF("[CC %u] Seq gate = %.0f%%\n", control, norm * 100.0f);
+        } break;
+
+        case CC::SEQ_SLIDE: {
+            _seq1.setSlide(norm);
+            JT_LOGF("[CC %u] Seq slide = %.0f%%\n", control, norm * 100.0f);
+        } break;
+
+        case CC::SEQ_DIRECTION: {
+            int dir = (value * 3) / 127;  // 0-127 → 0-3
+            _seq1.setDirection(static_cast<SeqDirection>(dir));
+            JT_LOGF("[CC %u] Seq dir = %d (%s)\n", control, dir, SeqDirectionNames[dir]);
+        } break;
+
+        case CC::SEQ_RATE: {
+            // Exponential mapping: 0.1 Hz to 20 Hz
+            float hz = 0.1f * powf(200.0f, norm);
+            _seq1.setRate(hz);
+            JT_LOGF("[CC %u] Seq rate = %.2f Hz\n", control, hz);
+        } break;
+
+        case CC::SEQ_DEPTH: {
+            _seq1.setDepth(norm);
+            JT_LOGF("[CC %u] Seq depth = %.3f\n", control, norm);
+        } break;
+
+        case CC::SEQ_DESTINATION: {
+            int dest = (value * 4) / 127;  // 0-127 → 0-4 (None/Pitch/Filter/PWM/Amp)
+            dest = constrain(dest, 0, NUM_LFO_DESTS - 1);
+            _seqDestination = dest;
+            JT_LOGF("[CC %u] Seq dest = %d (%s)\n", control, dest, LFODestNames[dest]);
+        } break;
+
+        case CC::SEQ_RETRIGGER: {
+            _seq1.setRetrigger(value >= 64);
+            JT_LOGF("[CC %u] Seq retrigger = %s\n", control, value >= 64 ? "ON" : "OFF");
+        } break;
+
+        case CC::SEQ_STEP_SELECT: {
+            _seqSelectedStep = constrain(value, 0, SEQ_MAX_STEPS - 1);
+            JT_LOGF("[CC %u] Seq step select = %d\n", control, _seqSelectedStep);
+        } break;
+
+        case CC::SEQ_STEP_VALUE: {
+            _seq1.setStepValue(_seqSelectedStep, value);
+            JT_LOGF("[CC %u] Seq step[%d] = %d\n", control, _seqSelectedStep, value);
+        } break;
+
+        case CC::SEQ_TIMING_MODE: {
+            int mode = constrain(value, 0, NUM_TIMING_MODES - 1);
+            _seq1.setTimingMode(static_cast<TimingMode>(mode));
+            JT_LOGF("[CC %u] Seq timing = %d (%s)\n", control, mode, TimingModeNames[mode]);
+        } break;       
 
         // ------------------- Fallback -------------------
         default:
