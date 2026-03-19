@@ -51,11 +51,11 @@
 #include <usb_midi.h>
 #include <USBHost_t36.h>
 #include "SynthEngine.h"
-#include "UIPageLayout.h"
+//#include "UIPageLayout.h"
 #include "HardwareInterface_MicroDexed.h"
 #include "UIManager_TFT.h"
 #include "Presets.h"
-#include "AudioScopeTap.h"
+//#include "AudioScopeTap.h"
 #include "BPMClockManager.h"
 
 // ---------------------------------------------------------------------------
@@ -325,8 +325,8 @@ void setup() {
     // Load init template BEFORE syncFromEngine so _ccState is populated.
     // Without this, all CC values are 0 at boot and the display shows wrong values
     // until the first preset is loaded.
-    //Presets.loadInitTemplateByWave(synth, 0);
-    
+    //Presets.loadInitTemplateByWave(synth, 1);
+    synth.handlePitchBend(1, 8192);
 
     ui.syncFromEngine(synth);
 

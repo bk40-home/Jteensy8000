@@ -1,13 +1,20 @@
 // UIManager_TFT.cpp
 // =============================================================================
-// Implementation of UIManager_TFT — see UIManager_TFT.h for design notes.
+// Simplified UI manager: HOME (accordion) + SCOPE_FULL + BROWSER.
+//
+// Key changes from previous version:
+//   - SECTION mode removed — HomeScreen is now the accordion section editor
+//   - HomeScreen no longer has scope/tiles — it's a scrollable param list
+//   - Preset browser: long-press Encoder R from HOME (was a tile tap)
+//   - Full-screen scope: long-press Encoder L from HOME (unchanged)
+//   - Scope waveform: orange, background-matched erase (no ghost artefacts)
+//   - Entry overlay: managed by HomeScreen, UIManager routes input when open
 // =============================================================================
 
 #include "UIManager_TFT.h"
 #include "DebugTrace.h"
 #include <math.h>
 
-// Static singleton pointer — set in begin()
 UIManager_TFT* UIManager_TFT::_instance = nullptr;
 
 // =============================================================================
@@ -17,69 +24,55 @@ UIManager_TFT::UIManager_TFT()
     : _display(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCK, TFT_MISO)
     , _touchOk(false)
     , _mode(Mode::HOME)
-    , _activeSect(-1)
     , _lastFrame(0)
     , _synthRef(nullptr)
     , _currentPresetIdx(0)
     , _scopeFullFirstFrame(true)
-    , _fsPeakSmooth(0.0f)
-{}
+{
+    memset(_fsPrevWave, 0, sizeof(_fsPrevWave));
+}
 
 // =============================================================================
-// beginDisplay() — hardware-only: SPI init, splash, touch init.
-// Call BEFORE AudioMemory() to avoid DMA bus conflicts at startup.
+// beginDisplay() — SPI + touch init. Call BEFORE AudioMemory().
 // =============================================================================
 void UIManager_TFT::beginDisplay() {
     _display.begin(SPI_CLOCK_HZ);
     _display.setRotation(3);       // landscape 320×240
+    _display.invertDisplay(true);  // ILI9341 INVON → send INVOFF
+    _display.fillScreen(COLOUR_BACKGROUND);
 
-    // The ILI9341 power-on default is INVON (colour inversion active).
-    // Without this call every colour would display as its complement.
-    // invertDisplay(false) sends the INVOFF (0x20) command once.
-    _display.invertDisplay(true);
-
-    _display.fillScreen(0x0000);
-
-    // Touch controller init over I2C — safe before AudioMemory
+    // Touch controller over I2C
     _touchOk = _touch.begin();
     JT_LOGF("[UI] Touch: %s\n", _touchOk ? "OK" : "not found");
 
-    // Boot splash — confirms the display is working before audio starts
+    // Boot splash
     _display.setTextSize(3);
-    _display.setTextColor(COLOUR_SYSTEXT);   // amber (BGR-corrected)
+    _display.setTextColor(COLOUR_ACCENT_ORANGE);
     _display.setCursor(60, 90);
     _display.print("JT.8000");
 
     _display.setTextSize(1);
-    _display.setTextColor(COLOUR_TEXT_DIM);  // steel grey (BGR-corrected)
+    _display.setTextColor(COLOUR_TEXT_DIM);
     _display.setCursor(74, 124);
     _display.print("MicroDexed Edition");
 
-    delay(800);   // long enough to read; short enough not to delay boot
-    _display.fillScreen(0x0000);
+    delay(800);
+    _display.fillScreen(COLOUR_BACKGROUND);
 }
 
 // =============================================================================
-// begin() — wire screens. Call AFTER AudioMemory() and synth initialisation.
+// begin() — wire screens. Call AFTER AudioMemory() and synth init.
 // =============================================================================
 void UIManager_TFT::begin(SynthEngine& synth) {
     _synthRef = &synth;
     _instance = this;
 
-    // HomeScreen: display pointer, scope tap, and tile-tap callback
-    _home.begin(&_display, &scopeTap,
-        [](int idx) { if (_instance) _instance->_openSection(idx); });
-
-    // SectionScreen: display pointer and back-button callback
-    _section.begin(&_display);
-    _section.setBackCallback(
-        []() { if (_instance) _instance->_goHome(); });
-
+    _home.begin(&_display, &synth);
     _home.markFullRedraw();
 }
 
 // =============================================================================
-// updateDisplay() — rate-limited to FRAME_MS; safe to call every loop iteration.
+// updateDisplay() — rate-limited to FRAME_MS
 // =============================================================================
 void UIManager_TFT::updateDisplay(SynthEngine& synth) {
     _synthRef = &synth;
@@ -88,19 +81,8 @@ void UIManager_TFT::updateDisplay(SynthEngine& synth) {
     _lastFrame = now;
 
     switch (_mode) {
-
         case Mode::HOME:
-            _home.draw(synth);
-            break;
-
-        case Mode::SECTION:
-            // syncFromEngine() reads CC values and marks changed widgets dirty.
-            // Suppress it during phased redraws — widgets are being drawn step-by-
-            // step and we don't want new dirty flags re-queuing completed steps.
-            if (!_section.isRedrawing()) {
-                _section.syncFromEngine();
-            }
-            _section.draw();
+            _home.draw();
             break;
 
         case Mode::BROWSER:
@@ -108,24 +90,24 @@ void UIManager_TFT::updateDisplay(SynthEngine& synth) {
             break;
 
         case Mode::SCOPE_FULL:
-            _drawFullScope(synth);
+            _drawFullScope();
             break;
     }
 }
 
 // =============================================================================
-// pollInputs() — high-frequency (>= 100 Hz) input poll.
+// pollInputs() — high-frequency input poll (>= 100 Hz)
 // =============================================================================
 void UIManager_TFT::pollInputs(HardwareInterface_MicroDexed& hw, SynthEngine& synth) {
     _synthRef = &synth;
 
-    // Touch input — I2C poll
+    // ---- Touch ----
     if (_touchOk) {
         _touch.update();
         _handleTouch(synth);
     }
 
-    // Encoder deltas and button presses
+    // ---- Encoders ----
     using HW = HardwareInterface_MicroDexed;
     const int  dL = hw.getEncoderDelta(HW::ENC_LEFT);
     const int  dR = hw.getEncoderDelta(HW::ENC_RIGHT);
@@ -135,27 +117,36 @@ void UIManager_TFT::pollInputs(HardwareInterface_MicroDexed& hw, SynthEngine& sy
     switch (_mode) {
 
         case Mode::HOME:
-            if (dL)                    _home.onEncoderDelta(dL);
-            if (bL == HW::PRESS_SHORT) _home.onEncoderPress();
-            if (bL == HW::PRESS_LONG)  _setMode(Mode::SCOPE_FULL);
-            break;
+            // If entry overlay is open, route L encoder to it for list scrolling
+            if (_home.isEntryOpen()) {
+                if (dL) _home.onEntryEncoderDelta(dL);
+                // Any button press while entry is open — let HomeScreen handle
+                // (entry has its own touch-based confirm/cancel)
+                break;
+            }
 
-        case Mode::SECTION:
-            // When entry overlay is open, left encoder scrolls the enum list.
-            // SectionScreen.onEncoderLeft() handles the isEntryOpen check internally,
-            // routing delta to TFTNumericEntry.onEncoderDelta() when appropriate.
-            if (dL) _section.onEncoderLeft(dL);
-            // Right encoder only adjusts CC values when no entry is open
-            if (dR && !_section.isEntryOpen()) _section.onEncoderRight(dR);
-            if (bL == HW::PRESS_SHORT) _section.onBackPress();
-            if (bR == HW::PRESS_LONG)  _section.onEditPress();
+            // Normal navigation
+            if (dL) _home.onEncoderLeft(dL);
+            if (dR) _home.onEncoderRight(dR);
+
+            if (bL == HW::PRESS_SHORT) _home.onEncoderLeftPress();
+            if (bR == HW::PRESS_SHORT) _home.onEncoderRightPress();
+
+            // Long-press L → scope
+            if (bL == HW::PRESS_LONG) _setMode(Mode::SCOPE_FULL);
+
+            // Long-press R → preset browser
+            if (bR == HW::PRESS_LONG) _openBrowser();
             break;
 
         case Mode::BROWSER:
-            if (dL)                    _browser.onEncoder(dL);
-            if (bL == HW::PRESS_SHORT) _browser.onEncoderPress();
-            // Left long or right short → cancel browser, return HOME
-            if (bL == HW::PRESS_LONG || bR == HW::PRESS_SHORT) {
+            if (dL) _browser.onEncoder(dL);
+            if (bL == HW::PRESS_SHORT) {
+                _browser.onEncoderPress();
+                if (!_browser.isOpen()) _goHome();
+            }
+            // R press or L long → cancel browser
+            if (bR == HW::PRESS_SHORT || bL == HW::PRESS_LONG) {
                 _browser.close();
                 _goHome();
             }
@@ -169,59 +160,51 @@ void UIManager_TFT::pollInputs(HardwareInterface_MicroDexed& hw, SynthEngine& sy
 }
 
 // =============================================================================
-// syncFromEngine() — force repaint after preset load
+// syncFromEngine() — after preset load
 // =============================================================================
 void UIManager_TFT::syncFromEngine(SynthEngine& synth) {
-    if (_mode == Mode::SECTION) _section.syncFromEngine();
-    _home.markFullRedraw();
+    _synthRef = &synth;
+    _home.syncFromEngine();
 }
 
 void UIManager_TFT::setCurrentPresetIdx(int idx)  { _currentPresetIdx = idx; }
 int  UIManager_TFT::getCurrentPresetIdx()   const  { return _currentPresetIdx; }
 
 // =============================================================================
-// Private: mode switch
+// Private: mode switching
 // =============================================================================
 void UIManager_TFT::_setMode(Mode m) {
     if (m == _mode) return;
     _mode = m;
-    _display.fillScreen(0x0000);
+    _display.fillScreen(COLOUR_BACKGROUND);
     if (m == Mode::HOME)       _home.markFullRedraw();
-    if (m == Mode::SCOPE_FULL) { _scopeFullFirstFrame = true; }
+    if (m == Mode::SCOPE_FULL) {
+        _scopeFullFirstFrame = true;
+        memset(_fsPrevWave, 0, sizeof(_fsPrevWave));
+    }
 }
 
 void UIManager_TFT::_goHome() {
-    _activeSect = -1;
     _setMode(Mode::HOME);
 }
 
 // =============================================================================
-// Private: _openSection()
-// PRESETS tile opens the browser; all other tiles open the section screen.
+// Private: open preset browser
 // =============================================================================
-void UIManager_TFT::_openSection(int idx) {
-    if (idx < 0 || idx >= SECTION_COUNT || !_synthRef) return;
-    _activeSect = idx;
-    const SectionDef& sect = kSections[idx];
+void UIManager_TFT::_openBrowser() {
+    if (!_synthRef) return;
 
-    _display.fillScreen(0x0000);
+    _display.fillScreen(COLOUR_BACKGROUND);
 
-    if (sectionIsBrowser(sect)) {
-        // PRESETS tile — open the full-screen preset browser
-        _browser.open(_synthRef, _currentPresetIdx,
-            [](int globalIdx) {
-                if (!_instance) return;
-                Presets::presets_loadByGlobalIndex(*_instance->_synthRef, globalIdx);
-                _instance->_currentPresetIdx = globalIdx;
-                _instance->syncFromEngine(*_instance->_synthRef);
-                _instance->_goHome();
-            });
-        _setMode(Mode::BROWSER);
-    } else {
-        // Normal synth section — open parameter screen
-        _section.open(sect, *_synthRef);
-        _setMode(Mode::SECTION);
-    }
+    _browser.open(_synthRef, _currentPresetIdx,
+        [](int globalIdx) {
+            if (!_instance || !_instance->_synthRef) return;
+            Presets::presets_loadByGlobalIndex(*_instance->_synthRef, globalIdx);
+            _instance->_currentPresetIdx = globalIdx;
+            _instance->syncFromEngine(*_instance->_synthRef);
+            _instance->_goHome();
+        });
+    _mode = Mode::BROWSER;
 }
 
 // =============================================================================
@@ -229,33 +212,25 @@ void UIManager_TFT::_openSection(int idx) {
 // =============================================================================
 void UIManager_TFT::_handleTouch(SynthEngine& synth) {
     const TouchInput::Gesture g  = _touch.getGesture();
-    const TouchInput::Point   p  = _touch.getTouchPoint();      // lift position
-    const TouchInput::Point   gs = _touch.getGestureStart();    // touch-down position
+    const TouchInput::Point   p  = _touch.getTouchPoint();
+    const TouchInput::Point   gs = _touch.getGestureStart();
 
     switch (_mode) {
 
         case Mode::HOME:
             if (g == TouchInput::GESTURE_TAP) {
                 _home.onTouch(p.x, p.y);
-                if (_home.isScopeTapped()) _setMode(Mode::SCOPE_FULL);
             }
-            if (g == TouchInput::GESTURE_HOLD)  _setMode(Mode::SCOPE_FULL);
-            if (!_touch.isTouched())             _home.onTouchRelease(p.x, p.y);
-            break;
-
-        case Mode::SECTION:
-            // TAP: open entry / select row  (use lift position — finger didn't move)
-            if (g == TouchInput::GESTURE_TAP)        _section.onTouch(p.x, p.y);
-            // SWIPE LEFT: back to home
-            if (g == TouchInput::GESTURE_SWIPE_LEFT) _section.onBackPress();
-            // SWIPE UP/DOWN: adjust the CC at the ROW WHERE THE FINGER STARTED.
-            // We use gestureStart (not liftPoint) because the swipe gesture
-            // begins on the parameter row and ends above/below it.  Using the
-            // lift position would miss the row completely for fast swipes.
-            if (g == TouchInput::GESTURE_SWIPE_UP)
-                _section.onSwipeAdjust(gs.x, gs.y, +1);
-            if (g == TouchInput::GESTURE_SWIPE_DOWN)
-                _section.onSwipeAdjust(gs.x, gs.y, -1);
+            if (g == TouchInput::GESTURE_SWIPE_UP) {
+                _home.onSwipe(-40);  // scroll content up (reveal below)
+            }
+            if (g == TouchInput::GESTURE_SWIPE_DOWN) {
+                _home.onSwipe(40);   // scroll content down (reveal above)
+            }
+            if (g == TouchInput::GESTURE_HOLD) {
+                // Long hold on touch → scope (alternative to encoder long-press)
+                _setMode(Mode::SCOPE_FULL);
+            }
             break;
 
         case Mode::BROWSER:
@@ -263,16 +238,14 @@ void UIManager_TFT::_handleTouch(SynthEngine& synth) {
                 _browser.onTouch(p.x, p.y);
                 if (!_browser.isOpen()) _goHome();
             }
-            // Swipe up = earlier items (lower index), swipe down = later items
-            if (g == TouchInput::GESTURE_SWIPE_UP)   _browser.onEncoder(-PBLayout::VISIBLE_ROWS);
-            if (g == TouchInput::GESTURE_SWIPE_DOWN) _browser.onEncoder(+PBLayout::VISIBLE_ROWS);
+            if (g == TouchInput::GESTURE_SWIPE_UP)
+                _browser.onEncoder(-PBLayout::VISIBLE_ROWS);
+            if (g == TouchInput::GESTURE_SWIPE_DOWN)
+                _browser.onEncoder(+PBLayout::VISIBLE_ROWS);
             break;
 
         case Mode::SCOPE_FULL:
-            // Any tap on the full-screen scope returns home.
-            if (g == TouchInput::GESTURE_TAP) {
-                _goHome();
-            }
+            if (g == TouchInput::GESTURE_TAP) _goHome();
             break;
     }
 }
@@ -280,11 +253,14 @@ void UIManager_TFT::_handleTouch(SynthEngine& synth) {
 // =============================================================================
 // Private: full-screen oscilloscope
 //
-// Performance: static chrome (header/footer text) is drawn only once on mode
-// entry via _scopeFullFirstFrame. Only the waveform band (y=20..219) is cleared
-// each frame. This saves ~100 000 SPI bytes/frame vs fillScreen().
+// Changes from previous version:
+//   - Waveform colour: COLOUR_SCOPE_WAVE (now orange via JT8000Colours.h)
+//   - Zero line: COLOUR_SCOPE_ZERO (now dim orange)
+//   - Background erase: COLOUR_SCOPE_BG (= COLOUR_BACKGROUND, no ghost artefacts)
+//   - Pixel-erase technique: erase previous waveform points individually before
+//     drawing new ones, avoiding expensive fillRect on the waveform band
 // =============================================================================
-void UIManager_TFT::_drawFullScope(SynthEngine& /*synth*/) {
+void UIManager_TFT::_drawFullScope() {
 
     if (_scopeFullFirstFrame) {
         _scopeFullFirstFrame = false;
@@ -292,7 +268,7 @@ void UIManager_TFT::_drawFullScope(SynthEngine& /*synth*/) {
         // Static header
         _display.fillRect(0, 0, 320, 20, COLOUR_HEADER_BG);
         _display.setTextSize(1);
-        _display.setTextColor(COLOUR_SYSTEXT, COLOUR_HEADER_BG);
+        _display.setTextColor(COLOUR_ACCENT_ORANGE, COLOUR_HEADER_BG);
         _display.setCursor(4, 6);
         _display.print("OSCILLOSCOPE");
 
@@ -302,62 +278,82 @@ void UIManager_TFT::_drawFullScope(SynthEngine& /*synth*/) {
         _display.setTextColor(COLOUR_TEXT_DIM, COLOUR_HEADER_BG);
         _display.setCursor(4, 226);
         _display.print("TAP OR PRESS ANY BUTTON TO RETURN");
+
+        // Clear waveform area to background colour (not black)
+        _display.fillRect(0, 20, 320, 200, COLOUR_SCOPE_BG);
     }
 
-    // CPU% in header — update every frame (small region)
+    // CPU% in header
     {
         char cpuBuf[12];
         snprintf(cpuBuf, sizeof(cpuBuf), "CPU:%d%%", (int)AudioProcessorUsageMax());
         const int16_t cpuX = 320 - (int16_t)(strlen(cpuBuf) * 6) - 4;
         _display.fillRect(cpuX - 2, 2, 320 - cpuX + 2, 16, COLOUR_HEADER_BG);
-        _display.setTextColor(COLOUR_TEXT_DIM, COLOUR_HEADER_BG);
+        const int cpuPct = (int)AudioProcessorUsageMax();
+        const uint16_t cpuCol = (cpuPct > 80) ? COLOUR_METER_RED :
+                                (cpuPct > 50) ? COLOUR_METER_YELLOW :
+                                                 COLOUR_METER_GREEN;
+        _display.setTextColor(cpuCol, COLOUR_HEADER_BG);
         _display.setCursor(cpuX, 6);
         _display.print(cpuBuf);
     }
 
-    // Clear only the waveform band — not the whole screen
-    _display.fillRect(0, 20, 320, 200, 0x0000);
+    // Scope parameters
+    static constexpr int16_t wy = 22, wh = 196, ww = 286;
+    static constexpr int16_t midY = wy + wh / 2;
 
-    // Full-screen scope: 512 samples gives ~11 ms window.
-    // After trig offset (n/4 = 128) we have 384 samples for 286 columns — fills width.
-    static int16_t buf[512];
-    const uint16_t n  = scopeTap.snapshot(buf, 512);
-    const int16_t  wy = 22, wh = 198, ww = 288;
+    // Erase previous waveform pixels (draw them in background colour)
+    // This is much cheaper than fillRect on the entire waveform band
+    for (int col = 1; col < ww - 1; ++col) {
+        if (_fsPrevWave[col] != midY || _fsPrevWave[col-1] != midY) {
+            _display.drawLine(col, _fsPrevWave[col-1], col + 1, _fsPrevWave[col],
+                              COLOUR_SCOPE_BG);
+        }
+    }
 
+    // Draw border + centre line
     _display.drawRect(0, wy, ww, wh, COLOUR_BORDER);
+    _display.drawFastHLine(1, midY, ww - 2, COLOUR_SCOPE_ZERO);
+
+    // Snapshot audio buffer
+    static int16_t buf[512];
+    const uint16_t n = scopeTap.snapshot(buf, 512);
 
     if (n >= 64) {
-        // Rising zero-crossing trigger — search first half of buffer
+        // Rising zero-crossing trigger
         int trig = n / 4;
         for (int i = 4; i < (int)n / 2; ++i) {
             if (buf[i-1] <= 0 && buf[i] > 0) { trig = i; break; }
         }
 
-        const int16_t midY = wy + wh / 2;
-        const int     spp  = ((int)n > ww) ? (n / ww) : 1;
-        int16_t px = 1, py = midY;
+        const int spp = ((int)n > ww) ? (n / ww) : 1;
+        static constexpr float SCOPE_GAIN = 10.0f;
 
+        // Calculate new waveform Y positions
+        int16_t newWave[288];
         for (int col = 0; col < ww - 2; ++col) {
             const int base = trig + col * spp;
-            if (base >= (int)n) break;
+            if (base >= (int)n) { newWave[col] = midY; continue; }
 
-            // Box-filter average per pixel column — reduces aliasing
             int32_t acc = 0; int cnt = 0;
             for (int s = 0; s < spp && (base + s) < (int)n; ++s) {
                 acc += buf[base + s]; cnt++;
             }
             const int16_t samp = cnt ? (int16_t)(acc / cnt) : 0;
-
-            // ×10 gain (+20 dB) — same as home scope for consistent appearance.
-            // Full-screen scope uses drawLine to connect adjacent points smoothly.
-            static constexpr float SCOPE_GAIN = 10.0f;
             int cy = midY - (int)((float)samp * (float)(wh / 2 - 2) * SCOPE_GAIN / 32767.0f);
-            cy = constrain(cy, wy + 1, wy + wh - 1);
-
-            if (col > 0) _display.drawLine(px, py, col + 1, cy, COLOUR_SCOPE_WAVE);
-            px = col + 1; py = cy;
+            newWave[col] = (int16_t)constrain(cy, wy + 1, wy + wh - 1);
         }
-        _display.drawFastHLine(1, midY, ww - 2, COLOUR_SCOPE_ZERO);
+
+        // Draw new waveform
+        for (int col = 1; col < ww - 2; ++col) {
+            _display.drawLine(col, newWave[col-1], col + 1, newWave[col],
+                              COLOUR_SCOPE_WAVE);
+        }
+
+        // Store for next-frame erase
+        memcpy(_fsPrevWave, newWave, sizeof(int16_t) * (ww - 2));
+    } else {
+        // No data — store flat line
+        for (int col = 0; col < ww; ++col) _fsPrevWave[col] = midY;
     }
 }
-

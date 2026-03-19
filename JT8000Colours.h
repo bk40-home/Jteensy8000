@@ -1,5 +1,5 @@
 /**
- * JT8000Colours.h  —  JT-8000 colour palette
+ * JT8000Colours.h  —  JT-8000 unified orange colour palette
  *
  * ALL VALUES ARE STANDARD RGB565
  * ================================
@@ -9,7 +9,9 @@
  *
  * Formula:  value = ((R >> 3) << 11) | ((G >> 2) << 5) | (B >> 3)
  *
- * DO NOT pre-swap R and B — inversion is handled in hardware, not here.
+ * DESIGN: Single orange accent throughout. No per-section colours.
+ * Scope waveform = orange. Status indicators (CPU, meter) keep their
+ * functional traffic-light colours. Cancel/alert = red.
  */
 
 #pragma once
@@ -19,34 +21,56 @@
 // Comment shows the target colour as #RRGGBB.
 // ---------------------------------------------------------------------------
 
+// ---- Background tones (dark navy/charcoal) ----
 #define COLOUR_BACKGROUND   0x10A5  // #101428  deep charcoal-navy
-#define COLOUR_TEXT         0xD6BC  // #D2D7E1  warm off-white
-#define COLOUR_SYSTEXT      0xFD00  // #FFA000  amber orange (JP-8000 LED style)
-#define COLOUR_TEXT_DIM     0x7BF1  // #787D8C  steel grey
-#define COLOUR_SELECTED     0xFD00  // #FFA000  amber (selected row background)
-#define COLOUR_ACCENT       0xF8E3  // #FF1C18  red
-#define COLOUR_OSC          0x065F  // #FFA000  bright cyan
-#define COLOUR_FILTER       0xFDA5  // #FFA000  warm amber-yellow
-#define COLOUR_ENV          0xD994  // #FFA000  magenta-pink
-#define COLOUR_LFO          0xFB60  // #FFA000  orange
-#define COLOUR_FX           0x06FF  // #FFA000  light cyan
-#define COLOUR_GLOBAL       0x8412  // #FFA000  neutral grey
-#define COLOUR_SEQ          0x97E0  // #96FC00  lime-green (step sequencer)
 #define COLOUR_HEADER_BG    0x1907  // #19233C  dark navy panel
-#define COLOUR_BORDER       0x29AA  // #2D3750  blue-grey
+#define COLOUR_SURFACE      0x1148  // #111620  section body fill
+#define COLOUR_SURFACE2     0x1989  // #161C28  group / card background
+#define COLOUR_SURFACE3     0x21EB  // #1C2436  hover / pressed highlight
+
+// ---- Text ----
+#define COLOUR_TEXT         0xD6BC  // #D2D7E1  warm off-white (primary)
+#define COLOUR_TEXT_HI      0xCF3E  // #C8D8F4  bright white (headers, selected)
+#define COLOUR_TEXT_DIM     0x7BF1  // #787D8C  steel grey (secondary / hints)
+#define COLOUR_TEXT_MUTED   0x3A6E  // #3E5070  very dim (group labels, chevrons)
+
+// ---- Orange accent — unified for ALL sections, widgets, knobs ----
+#define COLOUR_ACCENT_ORANGE  0xFD00  // #FFA000  amber orange (primary accent)
+#define COLOUR_ACCENT_HI      0xFD20  // #FFA040  bright orange (hover / active)
+#define COLOUR_ACCENT_DIM     0x6A80  // #6A3508  dim orange (inactive tracks)
+
+// ---- Backward-compatible aliases ----
+// Every section colour now resolves to the same orange.
+// Existing code referencing COLOUR_OSC, COLOUR_FILTER, etc. auto-unifies.
+#define COLOUR_SYSTEXT      COLOUR_ACCENT_ORANGE
+#define COLOUR_SELECTED     COLOUR_ACCENT_ORANGE
+#define COLOUR_OSC          COLOUR_ACCENT_ORANGE
+#define COLOUR_FILTER       COLOUR_ACCENT_ORANGE
+#define COLOUR_ENV          COLOUR_ACCENT_ORANGE
+#define COLOUR_LFO          COLOUR_ACCENT_ORANGE
+#define COLOUR_FX           COLOUR_ACCENT_ORANGE
+#define COLOUR_GLOBAL       COLOUR_ACCENT_ORANGE
+#define COLOUR_SEQ          COLOUR_ACCENT_ORANGE
+
+// ---- Functional colours (not decorative — keep distinct) ----
+#define COLOUR_ACCENT_RED   0xF8E3  // #FF1C18  cancel / alert / destructive
+#define COLOUR_ACCENT       COLOUR_ACCENT_RED  // backward compat for TFTWidgets
+#define COLOUR_BORDER       0x29AA  // #2D3750  blue-grey borders
 
 // ---------------------------------------------------------------------------
-// Scope / meter colours — standard RGB565
+// Scope — orange waveform, background-matched erase (no ghost artefacts)
 // ---------------------------------------------------------------------------
-#define COLOUR_SCOPE_WAVE   0x07E7  // #00FF38  bright LCD green
-#define COLOUR_SCOPE_ZERO   0x0322  // #006414  dim green
-#define COLOUR_SCOPE_BG     0x0060  // #000C00  near-black green tint
-#define COLOUR_METER_GREEN  0x16E2  // #14DC14  bright green
-#define COLOUR_METER_YELLOW 0xFEE0  // #FFDC00  yellow
-#define COLOUR_METER_RED    0xF8E3  // #FF1C18  red
+#define COLOUR_SCOPE_WAVE   COLOUR_ACCENT_ORANGE  // orange waveform trace
+#define COLOUR_SCOPE_ZERO   COLOUR_ACCENT_DIM     // dim orange centre line
+#define COLOUR_SCOPE_BG     COLOUR_BACKGROUND     // erase colour = background
+
+// Status meters keep traffic-light scheme (functional indication)
+#define COLOUR_METER_GREEN  0x16E2  // #14DC14  bright green (safe)
+#define COLOUR_METER_YELLOW 0xFEE0  // #FFDC00  yellow (caution)
+#define COLOUR_METER_RED    0xF8E3  // #FF1C18  red (clipping)
 
 // ---------------------------------------------------------------------------
-// Named colours — standard RGB565 (these were always correct)
+// Named colours — standard RGB565
 // ---------------------------------------------------------------------------
 #define RED                 0xF800
 #define PINK                0xF81F
@@ -56,7 +80,7 @@
 #define DARKGREEN           0x02A0
 #define DX_DARKCYAN         0x030D
 
-// Grey shades — R==G==B so identical regardless of channel order
+// Grey shades — R==G==B so channel order irrelevant
 #define GREY1               0xC618
 #define GREY2               0x52AA
 #define GREY3               0x2104

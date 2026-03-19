@@ -298,7 +298,7 @@ const SECTIONS=[
     {cc:CC.OSC2_ARB_BANK,l:'BANK',t:'knob',fmt:fRaw},
     {cc:CC.OSC2_ARB_INDEX,l:'IDX',t:'knob',fmt:fRaw}]}
 ]},
-{label:'Mixer',led:'#c0c8d8',groups:[
+{label:'Mixer',led:'var(--or)',groups:[
   {label:'Levels',controls:[
     {cc:CC.OSC_MIX_BALANCE,l:'BAL',t:'knob',fmt:fPct},
     {cc:CC.OSC1_MIX,l:'OSC1',t:'knob',fmt:fPct},
@@ -306,7 +306,7 @@ const SECTIONS=[
     {cc:CC.SUB_MIX,l:'SUB',t:'knob',fmt:fPct},
     {cc:CC.NOISE_MIX,l:'NOISE',t:'knob',fmt:fPct}]}
 ]},
-{label:'Filter',led:'var(--blu)',groups:[
+{label:'Filter',led:'var(--or)',groups:[
   {label:'Core',controls:[
     {cc:CC.FILTER_CUTOFF,l:'CUTOFF',t:'knob',fmt:fPct},
     {cc:CC.FILTER_RESONANCE,l:'RESO',t:'knob',fmt:fPct},
@@ -323,21 +323,21 @@ const SECTIONS=[
   {label:'Xpander',controls:[
     {cc:CC.FILTER_OBXA_XPANDER_MODE,l:'XP MODE',t:'select',opts:XP_MODE}]}
 ]},
-{label:'Amp Envelope',led:'var(--grn)',groups:[
+{label:'Amp Envelope',led:'var(--or)',groups:[
   {label:'ADSR',controls:[
     {cc:CC.AMP_ATTACK,l:'ATK',t:'knob',fmt:fMs},
     {cc:CC.AMP_DECAY,l:'DEC',t:'knob',fmt:fMs},
     {cc:CC.AMP_SUSTAIN,l:'SUS',t:'knob',fmt:fPct},
     {cc:CC.AMP_RELEASE,l:'REL',t:'knob',fmt:fMs}]}
 ]},
-{label:'Filter Envelope',led:'var(--blu)',groups:[
+{label:'Filter Envelope',led:'var(--or)',groups:[
   {label:'ADSR',controls:[
     {cc:CC.FILTER_ENV_ATTACK,l:'ATK',t:'knob',fmt:fMs},
     {cc:CC.FILTER_ENV_DECAY,l:'DEC',t:'knob',fmt:fMs},
     {cc:CC.FILTER_ENV_SUSTAIN,l:'SUS',t:'knob',fmt:fPct},
     {cc:CC.FILTER_ENV_RELEASE,l:'REL',t:'knob',fmt:fMs}]}
 ]},
-{label:'Pitch Envelope',led:'var(--pur)',groups:[
+{label:'Pitch Envelope',led:'var(--or)',groups:[
   {label:'ADSR',controls:[
     {cc:CC.PITCH_ENV_ATTACK,l:'ATK',t:'knob',fmt:fMs},
     {cc:CC.PITCH_ENV_DECAY,l:'DEC',t:'knob',fmt:fMs},
@@ -375,7 +375,7 @@ const SECTIONS=[
     {cc:CC.LFO2_DESTINATION,l:'DEST',t:'select',opts:LFO_DEST},
     {cc:CC.LFO2_DELAY,l:'DELAY',t:'knob',fmt:fLDly}]}
 ]},
-{label:'Effects — JP',led:'var(--red)',groups:[
+{label:'Effects — JP',led:'var(--or)',groups:[
   {label:'EQ & Drive',controls:[
     {cc:CC.FX_BASS_GAIN,l:'BASS',t:'knob',fmt:fDB},
     {cc:CC.FX_TREBLE_GAIN,l:'TREBLE',t:'knob',fmt:fDB},
@@ -405,13 +405,13 @@ const SECTIONS=[
     {cc:CC.FX_DRY_MIX,l:'DRY',t:'knob',fmt:fPct},
     {cc:CC.FX_JPFX_MIX,l:'JPFX',t:'knob',fmt:fPct}]}
 ]},
-{label:'Velocity',led:'var(--pur)',groups:[
+{label:'Velocity',led:'var(--or)',groups:[
   {label:'Sensitivity',controls:[
     {cc:CC.VELOCITY_AMP_SENS,l:'AMP',t:'knob',fmt:fPct},
     {cc:CC.VELOCITY_FILTER_SENS,l:'FILTER',t:'knob',fmt:fPct},
     {cc:CC.VELOCITY_ENV_SENS,l:'ENV',t:'knob',fmt:fPct}]}
 ]},
-{label:'Performance',led:'#c0c8d8',groups:[
+{label:'Performance',led:'var(--or)',groups:[
   {label:'Glide',controls:[
     {cc:CC.GLIDE_ENABLE,l:'ON',t:'toggle'},
     {cc:CC.GLIDE_TIME,l:'TIME',t:'knob',fmt:fMs}]},
@@ -422,13 +422,13 @@ const SECTIONS=[
     {cc:CC.PITCH_BEND_RANGE,l:'BEND',t:'knob',fmt:fSt},
     {cc:CC.AMP_MOD_FIXED_LEVEL,l:'AMP LVL',t:'knob',fmt:fPct}]}
 ]},
-{label:'BPM Clock',led:'#c0c8d8',groups:[
+{label:'BPM Clock',led:'var(--or)',groups:[
   {label:'Clock',controls:[
     {cc:CC.BPM_CLOCK_SOURCE,l:'SRC',t:'select',opts:CLOCK},
     {cc:CC.BPM_INTERNAL_TEMPO,l:'BPM',t:'knob',fmt:fBpm},
     {cc:CC.DELAY_TIMING_MODE,l:'DLY SYNC',t:'select',opts:TIMING}]}
 ]},
-{label:'Step Sequencer',led:'#96fc00',groups:[
+{label:'Step Sequencer',led:'var(--or)',groups:[
   {label:'Control',controls:[
     {cc:CC.SEQ_ENABLE,l:'ON',t:'toggle'},
     {cc:CC.SEQ_STEPS,l:'STEPS',t:'knob',fmt:v=>Math.max(1,Math.round(1+(v*15/127)))},

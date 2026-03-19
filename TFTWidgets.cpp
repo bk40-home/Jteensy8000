@@ -449,29 +449,29 @@ void TFTSectionTile::doDraw() {
 
     // ---- Accent bar — 3 px thick at top, full section colour ----
     // Makes sections instantly colour-identifiable at a glance
-    _display->fillRect(_x, _y, _w, 3, _section.colour);
+    _display->fillRect(_x, _y, _w, 3, gTheme.accent);
 
     // ---- Outer border — section colour if pressed, dim border otherwise ----
-    _display->drawRect(_x, _y, _w, _h, _pressed ? _section.colour : gTheme.border);
+    _display->drawRect(_x, _y, _w, _h, _pressed ? gTheme.buttonPress : gTheme.border);
 
     // ---- Section label — centred vertically in the space below the bar ----
     _display->setTextSize(1);
-    _display->setTextColor(_section.colour, bgCol);
+    _display->setTextColor(gTheme.keyText, bgCol);
     const int16_t labelW = (int16_t)(strlen(_section.label) * 6);
     // Centre label in lower portion (below the 3px accent bar)
     const int16_t labelY = _y + 3 + (_h - 3 - 16) / 2;
     _display->setCursor(_x + (_w - labelW) / 2, labelY);
     _display->print(_section.label);
 
-    // ---- Page count hint — small, dim, below label ----
-    if (_section.pageCount > 0) {
-        char hint[5];
-        snprintf(hint, sizeof(hint), "%dp", _section.pageCount);
-        const int16_t hintW = (int16_t)(strlen(hint) * 6);
-        _display->setTextColor(gTheme.textDim, bgCol);
-        _display->setCursor(_x + (_w - hintW) / 2, labelY + 10);
-        _display->print(hint);
-    }
+    // // ---- Page count hint — small, dim, below label ----
+    // if (_section.pageCount > 0) {
+    //     char hint[5];
+    //     snprintf(hint, sizeof(hint), "%dp", _section.pageCount);
+    //     const int16_t hintW = (int16_t)(strlen(hint) * 6);
+    //     _display->setTextColor(gTheme.textDim, bgCol);
+    //     _display->setCursor(_x + (_w - hintW) / 2, labelY + 10);
+    //     _display->print(hint);
+    // }
 }
 
 

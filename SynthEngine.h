@@ -643,7 +643,7 @@ private:
     float _osc1PitchSemi = 0.0f, _osc2PitchSemi = 0.0f;
     // Pitch bend state — shared across all voices.
     float _pitchBendRange = PITCH_BEND_DEFAULT_SEMITONES;  // ±semitones at wheel extremes
-    float _pitchBendSemis = 0.0f;                          // current bend in semitones
+    float _pitchBendSemis = 8192.0f;                          // current bend in semitones
     float _osc1DetuneHz = 0.0f, _osc2DetuneHz = 0.0f;
     float _osc1FineCents = 0.0f,  _osc2FineCents = 0.0f;
     float _osc1Mix = 1.0f,  _osc2Mix = 1.0f;
