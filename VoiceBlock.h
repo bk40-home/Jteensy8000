@@ -5,10 +5,25 @@
 // Combines dual oscillators, sub osc, noise, ring modulators, resonant filter,
 // amp & filter envelopes, pitch envelope, and feedback oscillation.
 //
-// PITCH ARCHITECTURE (Delivery 1):
-//   All pitch sources now route through OscillatorBlock's FM mixer.
-//   VoiceBlock exposes setPitchBend() (was setPitchModulation) which writes
-//   a DC value into the pre-mixer. No software pitch loop.
+// VOICE ACTIVITY MODEL:
+//   A voice is "audio-active" when its amp envelope is in any non-idle phase
+//   (Attack, Decay, Sustain, or Release).  This is queried from the hardware
+//   envelope — no manual boolean is maintained.
+//
+//   isAudioActive() = true  → voice is producing audio (including release tail)
+//   isAudioActive() = false → voice is silent, safe to reallocate
+//
+//   This replaces the old _isActive bool which only tracked MIDI gate state
+//   and went false the instant noteOff() was called, before the release phase
+//   completed.  That caused:
+//     1. Display dots going dark while sound was still audible
+//     2. Voice stealing during release tails
+//     3. update() loop skipping voices mid-release
+//
+// PITCH ARCHITECTURE:
+//   All pitch sources route through OscillatorBlock's FM mixer.
+//   VoiceBlock exposes setPitchBend() which writes a DC value into the
+//   pre-mixer. No software pitch loop.
 // =============================================================================
 
 #include "synth_pinknoise.h"
@@ -38,6 +53,15 @@ public:
     // Used by SynthEngine MONO mode to re-trigger at the same velocity
     // when returning to a previously held note (legato return).
     float getLastVelocity() const;
+
+    // =========================================================================
+    // VOICE ACTIVITY — query the hardware, don't maintain a flag
+    // =========================================================================
+
+    // True when the amp envelope is in ANY active phase (A/D/S/R).
+    // False only when the envelope has fully completed its release.
+    // This is the SINGLE SOURCE OF TRUTH for "is this voice producing audio?"
+    bool isAudioActive() const { return _ampEnvelope.isActive(); }
 
     // =========================================================================
     // OSCILLATOR CONFIGURATION
@@ -265,7 +289,6 @@ private:
     bool    _bpBlend2Pole = false;
     bool    _push2Pole    = false;
 
-    bool _isActive = false;
     float _currentFreq = 0.0f;
     float _lastVelocity = 1.0f;   // Cached for mono legato return
     float _subMix = 0.0f;

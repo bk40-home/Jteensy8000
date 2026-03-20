@@ -1,6 +1,12 @@
 // VoiceBlock.cpp — JT-8000 voice implementation
 // =============================================================================
 // See VoiceBlock.h for architecture notes.
+//
+// VOICE ACTIVITY:
+//   noteOn()  → triggers all envelopes; voice becomes audio-active.
+//   noteOff() → tells envelopes to enter release; voice remains audio-active
+//               until the amp envelope reaches zero.
+//   isAudioActive() queries the amp envelope hardware — no boolean to maintain.
 // =============================================================================
 
 // Do NOT include "synth_waveform.h" directly — that loads the library version
@@ -45,7 +51,7 @@ VoiceBlock::VoiceBlock()
 
     _voiceMixer.gain(0, _kMaxMixerGain);  // Osc mixer
     _voiceMixer.gain(1, 0.0f);            // Unused
-    _voiceMixer.gain(2, _kMaxMixerGain);            // Sub osc
+    _voiceMixer.gain(2, _kMaxMixerGain);  // Sub osc
     _voiceMixer.gain(3, 0.0f);            // Noise
 
     // =========================================================================
@@ -65,7 +71,6 @@ VoiceBlock::VoiceBlock()
 // =============================================================================
 
 void VoiceBlock::noteOn(float frequency, float velocity) {
-    _isActive      = true;
     _currentFreq   = frequency;
     _lastVelocity  = velocity;     // Cache for mono legato return
 
@@ -89,7 +94,9 @@ void VoiceBlock::noteOn(float frequency, float velocity) {
     _osc2.noteOn(frequency, velocity * velAmpScale);
     _subOsc.setFrequency(frequency);
 
-    // Trigger all envelopes
+    // Trigger all envelopes — voice becomes audio-active immediately.
+    // isAudioActive() will return true from this point until the amp
+    // envelope completes its full release phase.
     _filterEnvelope.noteOn();
     _ampEnvelope.noteOn();
     _pitchEnvelope.noteOn();
@@ -108,7 +115,10 @@ void VoiceBlock::noteOn(float frequency, float velocity) {
 // =============================================================================
 
 void VoiceBlock::noteOff() {
-    _isActive = false;
+    // Tell envelopes to begin their release phase.
+    // The voice remains audio-active (isAudioActive() == true) until the amp
+    // envelope output reaches zero.  Do NOT set any boolean here — the hardware
+    // envelope is the single source of truth.
     _filterEnvelope.noteOff();
     _ampEnvelope.noteOff();
     _pitchEnvelope.noteOff();
@@ -168,7 +178,6 @@ void VoiceBlock::setRing2Mix(float level) {
 void VoiceBlock::setSubMix(float level) {
     _subMix = level;
     _subOsc.setAmplitude(_subMix);
-    //_voiceMixer.gain(2, _clampedLevel(_subMix));
 }
 
 void VoiceBlock::setNoiseMix(float level) {
@@ -281,12 +290,15 @@ void VoiceBlock::setFilterADSR(float a, float d, float s, float r) {
 }
 
 // =========================================================================
-// UPDATE — Only glide needs periodic processing
+// UPDATE — glide processing, runs while voice is audio-active
 // =========================================================================
 
 void VoiceBlock::update() {
-    if (_isActive) {
-        _osc1.update();  // Only does work if glide is active
+    // Run oscillator updates (glide) while the voice is producing audio.
+    // This covers the release phase too — glide may still be settling when
+    // noteOff arrives.  isAudioActive() queries the amp envelope hardware.
+    if (isAudioActive()) {
+        _osc1.update();
         _osc2.update();
     }
 }

@@ -282,89 +282,88 @@ void MiniToggle::draw(ILI9341_t3n& d, int16_t x, int16_t y,
 
 
 // =============================================================================
-// MiniGrid — step sequencer tap-to-select bar grid
+// MiniSliderGrid — step sequencer as vertical sliders (unipolar 0-127)
 // =============================================================================
 
-void MiniGrid::draw(ILI9341_t3n& d, int16_t x, int16_t y, int16_t w,
-                    uint8_t stepCount, const uint8_t values[16],
-                    int8_t selectedStep, int8_t playingStep)
+void MiniSliderGrid::draw(ILI9341_t3n& d, int16_t x, int16_t y, int16_t w,
+                          uint8_t stepCount, const uint8_t values[16],
+                          int8_t selectedStep, int8_t playingStep)
 {
     if (stepCount == 0) stepCount = 1;
     if (stepCount > 16) stepCount = 16;
 
-    const int16_t totalH = GRID_BAR_H + GRID_NUM_H + 4;
+    const int16_t totalH = SGRID_TOTAL_H;
 
     // Clear grid area
     d.fillRect(x, y, w, totalH, COL_BG);
 
-    // Calculate per-step width to fill available width
-    const int16_t cellW   = (w - 2) / stepCount;
-    const int16_t midBarY = y + GRID_BAR_H / 2;  // centre line for bipolar display
+    // Per-step column width — fill available width evenly
+    const int16_t cellW = (w - 2) / stepCount;
+    if (cellW < 4) return;  // too narrow to draw
+
+    const int16_t trackH = SGRID_SLIDER_H;
+    const int16_t trackTop = y;
 
     for (uint8_t i = 0; i < stepCount; ++i) {
         const int16_t cx = x + 1 + i * cellW;
-        const int16_t barX = cx + 1;
-        const int16_t barW = cellW - 2;
+        const int16_t sliderX = cx + 1;
+        const int16_t sliderW = cellW - 2;
 
-        // Bar background
-        d.fillRect(barX, y, barW, GRID_BAR_H, COLOUR_BACKGROUND);
-        d.drawRect(barX, y, barW, GRID_BAR_H, COL_BORDER);
+        // Slider track background
+        d.fillRect(sliderX, trackTop, sliderW, trackH, COLOUR_BACKGROUND);
+        d.drawRect(sliderX, trackTop, sliderW, trackH, COL_BORDER);
 
-        // Centre line (zero reference for bipolar values)
-        d.drawFastHLine(barX, midBarY, barW, COL_TEXT_MUT);
+        // Fill from bottom — unipolar: 0 = empty, 127 = full
+        if (values[i] > 0) {
+            const int16_t fillH = (int16_t)((int32_t)values[i] * (trackH - 2) / 127);
+            const int16_t fillY = trackTop + trackH - 1 - fillH;
+            const uint16_t fillCol = (i == selectedStep) ? COL_ACCENT_H : COL_ACCENT;
+            d.fillRect(sliderX + 1, fillY, sliderW - 2, fillH, fillCol);
 
-        // Value bar — treat 64 as zero, 0-63 negative, 65-127 positive
-        const int8_t bipolar = (int8_t)values[i] - 64;
-        if (bipolar > 0) {
-            // Positive: bar grows upward from centre
-            const int16_t barH = (int16_t)((int32_t)bipolar * (GRID_BAR_H / 2) / 63);
-            const uint16_t col = (i == selectedStep) ? COL_ACCENT_H : COL_ACCENT;
-            d.fillRect(barX + 1, midBarY - barH, barW - 2, barH, col);
-        } else if (bipolar < 0) {
-            // Negative: bar grows downward from centre
-            const int16_t barH = (int16_t)((int32_t)(-bipolar) * (GRID_BAR_H / 2) / 64);
-            const uint16_t col = (i == selectedStep) ? COL_ACCENT_H : 0xE2A0;  // dim red-orange
-            d.fillRect(barX + 1, midBarY, barW - 2, barH, col);
+            // Thumb indicator at top of fill
+            const int16_t thumbY = fillY - SGRID_THUMB_H / 2;
+            if (thumbY >= trackTop) {
+                d.fillRect(sliderX, thumbY, sliderW, SGRID_THUMB_H, fillCol);
+            }
         }
 
-        // Playing step highlight: bright border
+        // Playing step: bright top/bottom border lines
         if (i == playingStep) {
-            d.drawRect(barX, y, barW, GRID_BAR_H, COL_ACCENT_H);
+            d.drawFastHLine(sliderX, trackTop, sliderW, COL_ACCENT_H);
+            d.drawFastHLine(sliderX, trackTop + trackH - 1, sliderW, COL_ACCENT_H);
         }
 
-        // Selected step: orange border
+        // Selected step: orange border around the whole slider
         if (i == selectedStep) {
-            d.drawRect(barX - 1, y - 1, barW + 2, GRID_BAR_H + 2, COL_ACCENT);
+            d.drawRect(sliderX - 1, trackTop - 1, sliderW + 2, trackH + 2, COL_ACCENT);
         }
 
-        // Step number below bar
+        // Step number below slider
         char numBuf[4];
         snprintf(numBuf, sizeof(numBuf), "%d", i + 1);
         const int16_t numW = (int16_t)(strlen(numBuf) * 6);
         const int16_t numX = cx + (cellW - numW) / 2;
-        const int16_t numY = y + GRID_BAR_H + 2;
+        const int16_t numY = trackTop + trackH + 2;
         d.setTextSize(1);
-        const uint16_t numCol = (i == playingStep) ? COL_ACCENT_H :
-                                (i == selectedStep) ? COL_ACCENT : COL_TEXT_MUT;
+        const uint16_t numCol = (i == playingStep)  ? COL_ACCENT_H :
+                                (i == selectedStep) ? COL_ACCENT    : COL_TEXT_MUT;
         d.setTextColor(numCol, COL_BG);
         d.setCursor(numX, numY);
         d.print(numBuf);
     }
 }
 
-int8_t MiniGrid::hitTestStep(int16_t gridX, int16_t gridY, int16_t gridW,
-                             uint8_t stepCount, int16_t tx, int16_t ty)
+int8_t MiniSliderGrid::hitTestStep(int16_t gridX, int16_t gridY, int16_t gridW,
+                                   uint8_t stepCount, int16_t tx, int16_t ty)
 {
     if (stepCount == 0) return -1;
     if (stepCount > 16) stepCount = 16;
 
-    const int16_t totalH = GRID_BAR_H + GRID_NUM_H + 4;
+    const int16_t totalH = SGRID_TOTAL_H;
 
-    // Check vertical bounds
     if (ty < gridY || ty >= gridY + totalH) return -1;
     if (tx < gridX || tx >= gridX + gridW) return -1;
 
-    // Determine which step column was tapped
     const int16_t cellW = (gridW - 2) / stepCount;
     if (cellW <= 0) return -1;
 

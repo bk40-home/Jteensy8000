@@ -35,11 +35,12 @@ SynthEngine::SynthEngine()
     // from setup() AFTER AudioMemory().
     // =========================================================================
 
-    // Voice bookkeeping
+    // Voice bookkeeping — gate state and timestamps
     for (int i = 0; i < MAX_VOICES; i++) {
-        _activeNotes[i]    = false;
+        _gateOpen[i]       = false;   // No MIDI notes held at startup
         _noteTimestamps[i] = 0;
     }
+
     for (int i = 0; i < 128; i++) {
         _noteToVoice[i] = VOICE_NONE;
     }
@@ -69,6 +70,44 @@ SynthEngine::SynthEngine()
     _fxPatchInR  = nullptr;
     _fxPatchDryL = nullptr;
     _fxPatchDryR = nullptr;
+}
+
+
+
+// This replaces the old flat scan of _activeNotes[] which treated "gate closed"
+// and "envelope idle" as the same thing, causing release tails to be cut and
+// releasing voices to be treated as equivalent to truly silent ones.
+
+int SynthEngine::_findFreeVoice() {
+    // --- Priority 1: Find a truly idle voice (envelope finished) ---
+    // These voices are completely silent — best candidates, no audible cost.
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        if (!_gateOpen[i] && !_voices[i].isAudioActive()) {
+            return i;
+        }
+    }
+
+    // --- Priority 2: Find the oldest releasing voice (gate closed, still sounding) ---
+    // The envelope is in its release phase. Stealing this voice will cut its
+    // release tail short, but it's already fading out — much less audible than
+    // stealing a held note.
+    int oldestReleasing = -1;
+    uint32_t oldestRelTime = UINT32_MAX;
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        if (!_gateOpen[i] && _noteTimestamps[i] < oldestRelTime) {
+            oldestReleasing = i;
+            oldestRelTime   = _noteTimestamps[i];
+        }
+    }
+    if (oldestReleasing >= 0) return oldestReleasing;
+
+    // --- Priority 3: Steal the oldest held note (gate still open) ---
+    // All voices are actively held — classic voice stealing, take the oldest.
+    int oldest = 0;
+    for (int i = 1; i < MAX_VOICES; ++i) {
+        if (_noteTimestamps[i] < _noteTimestamps[oldest]) oldest = i;
+    }
+    return oldest;
 }
 
 // =============================================================================
@@ -341,14 +380,6 @@ void SynthEngine::noteOn(byte note, float velocity) {
 
     // =========================================================================
     // MONO mode — single voice, last-note priority with legato note stack.
-    //
-    // All held keys are tracked in _monoStack.  The top of the stack is the
-    // note that should be sounding.  When a new key is pressed it becomes
-    // the top and voice 0 glides to it.  When a key is released:
-    //   - If it was the top note AND other keys are still held, voice 0
-    //     glides back to the new top note (legato return).
-    //   - If no keys remain, voice 0 enters its release envelope.
-    // This matches classic mono synth behaviour (e.g. Minimoog, JP-8000).
     // =========================================================================
     if (_polyMode == PolyMode::MONO) {
         _monoStack.push(note);
@@ -360,20 +391,20 @@ void SynthEngine::noteOn(byte note, float velocity) {
         _noteToVoice[note] = 0;
 
         _voices[0].noteOn(freq, velocity);
-        _activeNotes[0] = true;
+        _gateOpen[0] = true;
         _noteTimestamps[0] = _clock++;
         return;
     }
 
     // =========================================================================
-    // UNISON mode — all 8 voices play the same note, detuned
+    // UNISON mode — all voices play the same note, detuned
     // =========================================================================
     if (_polyMode == PolyMode::UNISON) {
         // Release the previous unison note if a different note comes in
         if (_unisonNote >= 0 && _unisonNote != (int)note) {
             for (int i = 0; i < MAX_VOICES; ++i) {
                 _voices[i].noteOff();
-                _activeNotes[i] = false;
+                _gateOpen[i] = false;
             }
             _noteToVoice[_unisonNote] = VOICE_NONE;
         }
@@ -381,55 +412,47 @@ void SynthEngine::noteOn(byte note, float velocity) {
         _noteToVoice[note] = 0;  // Sentinel: voice 0 represents the note
         for (int i = 0; i < MAX_VOICES; ++i) {
             _voices[i].noteOn(freq, velocity);
-            _activeNotes[i] = true;
+            _gateOpen[i] = true;
             _noteTimestamps[i] = _clock++;
         }
         return;
     }
 
     // =========================================================================
-    // POLY mode — standard 8-voice last-note-priority polyphony
+    // POLY mode — standard polyphony with envelope-aware voice allocation
     // =========================================================================
 
-    // Retrigger: same note already playing on a voice
+    // Retrigger: same note already playing on a voice — reuse that voice.
+    // The gate is already open for this note, just retrigger the envelopes.
     if (_noteToVoice[note] != VOICE_NONE) {
         int v = _noteToVoice[note];
         _voices[v].noteOn(freq, velocity);
+        _gateOpen[v] = true;   // Ensure gate is marked open (may have been releasing)
         _noteTimestamps[v] = _clock++;
         return;
     }
-    // Free voice available
-    for (int i = 0; i < MAX_VOICES; ++i) {
-        if (!_activeNotes[i]) {
-            _voices[i].noteOn(freq, velocity);
-            _activeNotes[i] = true;
-            _noteToVoice[note] = i;
-            _noteTimestamps[i] = _clock++;
-            return;
-        }
+
+    // Find the best available voice using three-tier priority:
+    //   1. Envelope idle (truly silent)     — zero cost
+    //   2. Gate closed, releasing           — cuts release tail
+    //   3. Oldest held note                 — voice stealing
+    int v = _findFreeVoice();
+
+    // Clear any stale note→voice mapping for the stolen voice
+    for (int n = 0; n < 128; ++n) {
+        if (_noteToVoice[n] == v) { _noteToVoice[n] = VOICE_NONE; break; }
     }
-    // Voice steal — take the oldest note
-    int oldest = 0;
-    for (int i = 1; i < MAX_VOICES; ++i)
-        if (_noteTimestamps[i] < _noteTimestamps[oldest]) oldest = i;
 
-    for (int n = 0; n < 128; ++n)
-        if (_noteToVoice[n] == oldest) { _noteToVoice[n] = VOICE_NONE; break; }
-
-    _voices[oldest].noteOn(freq, velocity);
-    _activeNotes[oldest] = true;
-    _noteToVoice[note] = oldest;
-    _noteTimestamps[oldest] = _clock++;
+    _voices[v].noteOn(freq, velocity);
+    _gateOpen[v] = true;
+    _noteToVoice[note] = v;
+    _noteTimestamps[v] = _clock++;
 }
 
 void SynthEngine::noteOff(byte note) {
 
     // =========================================================================
     // MONO mode — legato note-stack return.
-    //
-    // Remove the released key from the stack.  If other keys are still held,
-    // glide voice 0 to the new top note instead of releasing it.  If no keys
-    // remain, do a normal release so the amp envelope closes naturally.
     // =========================================================================
     if (_polyMode == PolyMode::MONO) {
         _monoStack.remove(note);
@@ -445,14 +468,16 @@ void SynthEngine::noteOff(byte note) {
             for (int n = 0; n < 128; ++n) _noteToVoice[n] = VOICE_NONE;
             _noteToVoice[returnNote] = 0;
 
-            // noteOn will glide from the current pitch to the return pitch
-            // because voice 0 is already active and glide is implicit in MONO.
+            // noteOn will glide from the current pitch to the return pitch.
             _voices[0].noteOn(returnFreq, _voices[0].getLastVelocity());
             _noteTimestamps[0] = _clock++;
+            // Gate stays open — we're still holding a key.
         } else {
-            // No held keys — release voice 0 normally.
+            // No held keys — close the gate and let the envelope release naturally.
             _voices[0].noteOff();
-            _activeNotes[0] = false;
+            _gateOpen[0] = false;
+            // Do NOT clear isVoiceActive — the amp envelope is still releasing.
+            // The voice will report isAudioActive()==false once the release completes.
         }
         return;
     }
@@ -464,7 +489,7 @@ void SynthEngine::noteOff(byte note) {
         if ((int)note == _unisonNote) {
             for (int i = 0; i < MAX_VOICES; ++i) {
                 _voices[i].noteOff();
-                _activeNotes[i] = false;
+                _gateOpen[i] = false;
             }
             _noteToVoice[note] = VOICE_NONE;
             _unisonNote = -1;
@@ -472,15 +497,17 @@ void SynthEngine::noteOff(byte note) {
         return;
     }
 
-    // POLY: release the single assigned voice
+    // POLY: close the gate on the assigned voice, let envelope release naturally.
     int v = _noteToVoice[note];
     _voices[v].noteOff();
-    _activeNotes[v] = false;
+    _gateOpen[v] = false;
     _noteToVoice[note] = VOICE_NONE;
+    // Voice remains audio-active during release — isVoiceActive() still returns true.
+    // The display dot stays lit and the update loop keeps running the voice.
 }
 
 void SynthEngine::update() {
-    
+
 // ── Step sequencer tick ─────────────────────────────────────────
   {
       uint32_t now = micros();
@@ -491,7 +518,7 @@ void SynthEngine::update() {
       _seq1.tick(deltaMs);
       _applySeqOutput();
   }
-    
+
     // Update BPM-synced parameters
     if (_bpmClock) {
         updateBPMSync();
@@ -504,20 +531,21 @@ void SynthEngine::update() {
     _lfo1.update();
     _lfo2.update();
 
-    // Update only voices that are actively sounding.
-    // IMPORTANT: do NOT add a "|| v == 0" exception here — that forces voice 0
-    // to run its oscillator/glide update on every loop even when silent, which
-    // costs the equivalent of one full voice of CPU at idle.  In MONO mode the
-    // voice-0-only path is handled correctly by _activeNotes[0] being set.
+    // Update voices that are producing audio — including those in release phase.
+    // isVoiceActive() queries the amp envelope hardware, so it returns true
+    // during Attack, Decay, Sustain, AND Release.  Only truly idle voices
+    // (envelope output at zero) are skipped.
+    //
+    // This means:
+    //   - Glide completes even if noteOff arrives mid-glide
+    //   - Display dots stay lit through the release tail
+    //   - CPU is freed only when the voice is genuinely silent
     for (uint8_t v = 0; v < MAX_VOICES; v++) {
-        if (_activeNotes[v]) {
+        if (isVoiceActive(v)) {
             _voices[v].update();
         }
     }
-
-}
-
-// ---- Filter / Env ----
+}// ---- Filter / Env ----
 void SynthEngine::setFilterCutoff(float value) {
     // Validate range
     value = constrain(value, CUTOFF_MIN_HZ, CUTOFF_MAX_HZ);
@@ -692,7 +720,7 @@ void SynthEngine::setPolyMode(PolyMode mode) {
     // Kill all active voices when switching modes to prevent stuck notes.
     for (int i = 0; i < MAX_VOICES; ++i) {
         _voices[i].noteOff();
-        _activeNotes[i] = false;
+        _gateOpen[i] = false;
     }
     for (int n = 0; n < 128; ++n) _noteToVoice[n] = VOICE_NONE;
     _unisonNote = -1;
@@ -2150,8 +2178,16 @@ case CC::DELAY_TIMING_MODE: {
         } break;
 
         case CC::SEQ_DEPTH: {
-            _seq1.setDepth(norm);
-            JT_LOGF("[CC %u] Seq depth = %.3f\n", control, norm);
+            // Bipolar depth: CC 0 = -1.0, CC 64 = 0.0, CC 127 = +1.0
+            // Dead-zone at CC 64 to ensure exact zero (avoids float midpoint error)
+            float bipolar;
+            if (value == 64) {
+                bipolar = 0.0f;
+            } else {
+                bipolar = (static_cast<float>(value) / 127.0f) * 2.0f - 1.0f;
+            }
+            _seq1.setDepth(bipolar);
+            JT_LOGF("[CC %u] Seq depth = %.3f (bipolar)\n", control, bipolar);
         } break;
 
         case CC::SEQ_DESTINATION: {

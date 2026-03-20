@@ -63,8 +63,7 @@ body{background:var(--bg);color:var(--txt);font-family:'JetBrains Mono',monospac
 .seq-step{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0;cursor:ns-resize;user-select:none;touch-action:none}
 .seq-bar-wrap{width:100%;height:80px;background:#0a1018;border-radius:3px;position:relative;overflow:hidden;border:1px solid #1a2030}
 .seq-bar{position:absolute;bottom:0;left:0;right:0;background:var(--or);border-radius:2px 2px 0 0;transition:height 40ms ease-out}
-.seq-bar.neg{top:0;bottom:auto;background:#e04820;border-radius:0 0 2px 2px}
-.seq-bar-wrap .seq-mid{position:absolute;left:0;right:0;top:50%;height:1px;background:#2e3a50;pointer-events:none}
+.seq-bar-wrap .seq-mid{display:none}
 .seq-step-num{font-size:7px;color:var(--txt-dim);margin-top:2px;font-family:'JetBrains Mono',monospace}
 .seq-step.active .seq-bar-wrap{border-color:var(--or)}
 .seq-step.playing .seq-step-num{color:var(--grn);font-weight:bold}
@@ -225,8 +224,8 @@ const TIMING=[{v:0,l:'Free'},{v:11,l:'1/16'},{v:22,l:'1/8T'},{v:33,l:'1/8'},{v:4
 const MOD_FX=[{v:0,l:'Off'},{v:6,l:'Chorus 1'},{v:17,l:'Chorus 2'},{v:28,l:'Chorus 3'},{v:40,l:'Flanger 1'},{v:51,l:'Flanger 2'},{v:62,l:'Deep Flanger'},{v:74,l:'Phaser 1'},{v:85,l:'Phaser 2'},{v:96,l:'Phaser 3'},{v:108,l:'Phaser 4'},{v:127,l:'Super Chorus'}];
 const DLY_FX=[{v:0,l:'Off'},{v:13,l:'Mono Short'},{v:38,l:'Mono Long'},{v:64,l:'Pan L>R'},{v:89,l:'Pan R>L'},{v:114,l:'Pan Stereo'}];
 const CLOCK=[{v:0,l:'Internal'},{v:127,l:'External'}];
-const SEQ_DIR=[{v:0,l:'Forward'},{v:42,l:'Reverse'},{v:85,l:'Bounce'},{v:127,l:'Random'}];
-const SEQ_DEST=[{v:0,l:'None'},{v:32,l:'Pitch'},{v:64,l:'Filter'},{v:95,l:'PWM'},{v:127,l:'Amp'}];
+const SEQ_DIR=[{v:0,l:'Forward'},{v:43,l:'Reverse'},{v:85,l:'Bounce'},{v:127,l:'Random'}];
+const SEQ_DEST=[{v:0,l:'None'},{v:32,l:'Pitch'},{v:64,l:'Filter'},{v:96,l:'PWM'},{v:127,l:'Amp'}];
 const POLY=[{v:21,l:'Poly'},{v:63,l:'Mono'},{v:106,l:'Unison'}];
 const DRIVE=[{v:0,l:'Bypass'},{v:32,l:'Soft Clip'},{v:96,l:'Hard Clip'}];
 const MOD_TAPS=[{v:0,l:'1 Tap'},{v:127,l:'3 Tap (Ensemble)'}];
@@ -437,7 +436,7 @@ const SECTIONS=[
   {label:'Routing',controls:[
     {cc:CC.SEQ_DIRECTION,l:'DIR',t:'select',opts:SEQ_DIR},
     {cc:CC.SEQ_DESTINATION,l:'DEST',t:'select',opts:SEQ_DEST},
-    {cc:CC.SEQ_DEPTH,l:'DEPTH',t:'knob',fmt:fPct},
+    {cc:CC.SEQ_DEPTH,l:'DEPTH',t:'knob',fmt:v=>{const b=Math.round(((v-64)/63)*100);return(b>=0?'+':'')+b+'%'}},
     {cc:CC.SEQ_RETRIGGER,l:'RETRIG',t:'toggle'}]},
   {label:'Timing',controls:[
     {cc:CC.SEQ_RATE,l:'RATE',t:'knob',fmt:v=>{const h=0.1*Math.pow(200,v/127);return h<1?h.toFixed(2)+'Hz':h.toFixed(1)+'Hz'}},
@@ -513,7 +512,7 @@ function setSelV(s,def,v){let best=def.opts[0],bd=999;def.opts.forEach(o=>{const
 
 /* === STEP GRID WIDGET === */
 // Internal storage: 16 step values (0-127), CC 64 = midpoint
-const seqSteps=new Uint8Array(16).fill(64);
+const seqSteps=new Uint8Array(16).fill(0);
 let seqDrag=null;
 
 function mkStepGrid(cc,def){
@@ -589,26 +588,15 @@ function drawStepBar(i){
   const lbl=document.getElementById('seq-val-'+i);
   if(!bar||!lbl)return;
   const v=seqSteps[i];
-  const bipolar=(v-64)/63;  // -1.0 to +1.0 approx
-  const dispVal=v===64?'0':(v>64?'+':'')+Math.round(bipolar*100);
-  lbl.textContent=dispVal;
+  // Unipolar: 0 = empty, 127 = full
+  const pct=Math.round((v/127)*100);
+  lbl.textContent=pct+'%';
 
-  // Remove both direction classes
+  // Always fill from bottom, no negative direction
   bar.classList.remove('neg');
-  if(v>=64){
-    // Positive: bar grows up from center
-    const pct=((v-64)/63)*50;
-    bar.style.height=pct+'%';
-    bar.style.bottom='50%';
-    bar.style.top='auto';
-  } else {
-    // Negative: bar grows down from center
-    bar.classList.add('neg');
-    const pct=((64-v)/64)*50;
-    bar.style.height=pct+'%';
-    bar.style.top='50%';
-    bar.style.bottom='auto';
-  }
+  bar.style.height=((v/127)*100)+'%';
+  bar.style.bottom='0';
+  bar.style.top='auto';
 }
 
 /* === BUILD UI === */
@@ -686,10 +674,10 @@ function refBank(){const s=gS(),sel=document.getElementById('pbank'),prev=sel.va
 function savePreset(){const name=document.getElementById('pname').value.trim();if(!name){toast('Enter name');return}const snap={};Object.keys(ccDefs).forEach(cc=>{snap[cc]=state[+cc]||0});snap._seqSteps=Array.from(seqSteps);const s=gS();s[name]=snap;sS(s);refBank();toast('Saved: '+name)}
 function loadPreset(){const name=document.getElementById('pbank').value;if(!name){toast('Select preset');return}const snap=gS()[name];if(!snap){toast('Not found');return}Object.entries(snap).forEach(([cc,v])=>{if(cc==='_seqSteps'){if(Array.isArray(v))v.forEach((sv,i)=>{seqSteps[i]=sv;drawStepBar(i)})}else{state[+cc]=v;refresh(+cc)}});document.getElementById('pname').value=name;document.getElementById('lcd').textContent=name;toast('Loaded: '+name)}
 function delPreset(){const name=document.getElementById('pbank').value;if(!name)return;const s=gS();delete s[name];sS(s);refBank();toast('Deleted')}
-function initPatch(){initDefaults();seqSteps.fill(64);for(let i=0;i<16;i++)drawStepBar(i);Object.keys(ccDefs).forEach(cc=>refresh(+cc));document.getElementById('pname').value='Init Patch';document.getElementById('lcd').textContent='INIT PATCH';toast('Initialised')}
+function initPatch(){initDefaults();seqSteps.fill(0);for(let i=0;i<16;i++)drawStepBar(i);Object.keys(ccDefs).forEach(cc=>refresh(+cc));document.getElementById('pname').value='Init Patch';document.getElementById('lcd').textContent='INIT PATCH';toast('Initialised')}
 
 /* === SERIAL EXPORT === */
-function buildSerial(){const name=document.getElementById('pname').value;let o='// JT-8000 Preset: '+name+'\n// PATCH:cc,val;\n\n';Object.keys(ccDefs).sort((a,b)=>+a-+b).forEach(cc=>{const n=+cc,v=state[n]||0,def=ccDefs[n];o+=`PATCH:${n},${v};  // CC${String(n).padStart(3)} ${def.l.padEnd(12)} = ${def.fmt?def.fmt(v):v}${n>127?'  // INTERNAL':''}\n`});o+='\n// Step Sequencer Values (step:value)\n';for(let i=0;i<16;i++){o+=`SEQ_STEP:${i},${seqSteps[i]};  // Step ${String(i+1).padStart(2)} = ${seqSteps[i]===64?'0':(seqSteps[i]>64?'+':'')+Math.round(((seqSteps[i]-64)/63)*100)+'%'}\n`}return o}
+function buildSerial(){const name=document.getElementById('pname').value;let o='// JT-8000 Preset: '+name+'\n// PATCH:cc,val;\n\n';Object.keys(ccDefs).sort((a,b)=>+a-+b).forEach(cc=>{const n=+cc,v=state[n]||0,def=ccDefs[n];o+=`PATCH:${n},${v};  // CC${String(n).padStart(3)} ${def.l.padEnd(12)} = ${def.fmt?def.fmt(v):v}${n>127?'  // INTERNAL':''}\n`});o+='\n// Step Sequencer Values (step:value, 0-127 unipolar)\n';for(let i=0;i<16;i++){o+=`SEQ_STEP:${i},${seqSteps[i]};  // Step ${String(i+1).padStart(2)} = ${Math.round(seqSteps[i]/127*100)}%\n`}return o}
 function openModal(){document.getElementById('sout').textContent=buildSerial();document.getElementById('modal').classList.add('open')}
 function closeModal(){document.getElementById('modal').classList.remove('open')}
 function copySerial(){navigator.clipboard.writeText(document.getElementById('sout').textContent).then(()=>toast('Copied'))}

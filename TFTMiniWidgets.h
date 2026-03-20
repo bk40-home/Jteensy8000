@@ -40,8 +40,8 @@ namespace MiniLayout {
     static constexpr int16_t KNOB_CELL_W    = 42;    // total cell width per knob
     static constexpr int16_t KNOB_CELL_H    = 48;    // total cell height (arc + label + value)
     static constexpr int16_t KNOB_RADIUS    = 12;    // arc radius (24px diameter)
-    static constexpr int16_t KNOB_ARC_W     = 1;     // arc stroke thickness
-    static constexpr int16_t KNOB_DOT_R     = 1;     // pointer dot radius
+    static constexpr int16_t KNOB_ARC_W     = 2;     // arc stroke thickness
+    static constexpr int16_t KNOB_DOT_R     = 2;     // pointer dot radius
 
     // ---- Mini select (dropdown) ----
     static constexpr int16_t SEL_CELL_W     = 70;    // total cell width
@@ -55,10 +55,16 @@ namespace MiniLayout {
     static constexpr int16_t TOG_PILL_H     = 14;    // pill height
     static constexpr int16_t TOG_PILL_R     = 7;     // pill corner radius
 
-    // ---- Seq grid step cell ----
-    static constexpr int16_t GRID_CELL_W    = 18;    // per-step column width
-    static constexpr int16_t GRID_BAR_H     = 50;    // bar graph height
-    static constexpr int16_t GRID_NUM_H     = 8;     // step number text height
+    // ---- Seq slider grid ----
+    static constexpr int16_t SGRID_SLIDER_W   = 14;    // per-step slider column width
+    static constexpr int16_t SGRID_SLIDER_H   = 60;    // slider track height
+    static constexpr int16_t SGRID_THUMB_H    = 4;     // thumb height
+    static constexpr int16_t SGRID_NUM_H      = 8;     // step number text height
+    static constexpr int16_t SGRID_TOTAL_H    = SGRID_SLIDER_H + SGRID_NUM_H + 4; // total grid height
+
+    // Legacy alias for HomeScreen layout calculations
+    static constexpr int16_t GRID_BAR_H       = SGRID_SLIDER_H;
+    static constexpr int16_t GRID_NUM_H       = SGRID_NUM_H;
 
     // ---- Spacing ----
     static constexpr int16_t CTRL_GAP_X     = 2;     // horizontal gap between controls
@@ -145,16 +151,26 @@ namespace MiniToggle {
 
 
 // =============================================================================
-// MiniGrid — draw a step sequencer bar grid (tap-to-select steps)
+// MiniSliderGrid — step sequencer as 16 vertical sliders (unipolar 0-127)
 //
-// Draws up to 16 vertical bars, each representing one step value (0-127).
-// Tap on a bar selects that step for editing via the numeric entry overlay.
-// activeStep is highlighted (e.g. during playback).
+// Each step is a vertical slider: fill from bottom proportional to value.
+// Tap a slider to select that step for editing (encoder R adjusts value).
+// Playing step gets a bright border. Selected step gets an orange border.
+// Values are unipolar: 0 = empty (bottom), 127 = full (top).
+//
+//   ┌─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┐
+//   │ │ │█│ │ │█│ │ │ │█│ │ │ │ │ │ │  ← fill from bottom
+//   │ │█│█│ │█│█│█│ │ │█│ │ │ │ │ │ │
+//   │█│█│█│█│█│█│█│█│ │█│ │ │ │ │ │ │
+//   ├─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─┤
+//   │1│2│3│4│5│6│7│8│9│…│ │ │ │ │ │ │  ← step numbers
+//   └─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘
 // =============================================================================
-namespace MiniGrid {
+namespace MiniSliderGrid {
 
-    // Draw the complete grid. stepCount = number of active steps (1-16).
-    // values[] has 16 entries. selectedStep = currently selected (-1 = none).
+    // Draw the complete slider grid. stepCount = active steps (1-16).
+    // values[] has 16 entries (0-127 each, unipolar).
+    // selectedStep = currently selected for editing (-1 = none).
     // playingStep = currently playing (-1 = none).
     void draw(ILI9341_t3n& d, int16_t x, int16_t y, int16_t w,
               uint8_t stepCount, const uint8_t values[16],

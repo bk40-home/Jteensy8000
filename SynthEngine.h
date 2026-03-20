@@ -262,10 +262,20 @@ public:
     float getOsc1FeedbackMix()     const;
     float getOsc2FeedbackMix()     const;
 
-    // Returns true if voice slot v is currently playing a note
-inline bool isVoiceActive(uint8_t v) const {
-    return (v < MAX_VOICES) && _activeNotes[v];
-}
+
+    // Returns true if voice slot v is producing audio (including release tail).
+    // Queries the amp envelope hardware — accurate even during release phase.
+    // Used by the display for voice activity dots.
+    inline bool isVoiceActive(uint8_t v) const {
+        return (v < MAX_VOICES) && _voices[v].isAudioActive();
+    }
+
+    // Returns true if voice slot v has a MIDI note gate currently open.
+    // A voice can have its gate closed but still be audio-active (release phase).
+    // Used internally for voice allocation decisions.
+    inline bool isGateOpen(uint8_t v) const {
+        return (v < MAX_VOICES) && _gateOpen[v];
+    }
 
     // =========================================================================
     // Arbitrary waveform (AKWF bank) selection
@@ -558,10 +568,13 @@ private:
     // =========================================================================
 
     VoiceBlock  _voices[MAX_VOICES];
-    bool        _activeNotes[MAX_VOICES];
+    bool        _gateOpen[MAX_VOICES];
     byte        _noteToVoice[128];          // note# → voice index lookup
     uint32_t    _noteTimestamps[MAX_VOICES]; // for LRU voice stealing
     uint32_t    _clock = 0;                  // monotonic event counter
+
+    // Returns voice index, always succeeds (worst case steals oldest held note).
+    int _findFreeVoice();
 
     // -------------------------------------------------------------------------
 
@@ -643,7 +656,7 @@ private:
     float _osc1PitchSemi = 0.0f, _osc2PitchSemi = 0.0f;
     // Pitch bend state — shared across all voices.
     float _pitchBendRange = PITCH_BEND_DEFAULT_SEMITONES;  // ±semitones at wheel extremes
-    float _pitchBendSemis = 8192.0f;                          // current bend in semitones
+    float _pitchBendSemis = 0.0f;                          // current bend in semitones
     float _osc1DetuneHz = 0.0f, _osc2DetuneHz = 0.0f;
     float _osc1FineCents = 0.0f,  _osc2FineCents = 0.0f;
     float _osc1Mix = 1.0f,  _osc2Mix = 1.0f;
