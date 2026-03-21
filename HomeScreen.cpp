@@ -12,6 +12,7 @@
 // =============================================================================
 
 #include "HomeScreen.h"
+#include "MidiDrain.h"
 #include "WaveForms.h"
 #include "AudioFilterVABank.h"
 #include "StepSequencer.h"
@@ -343,10 +344,14 @@ void HomeScreen::draw() {
     // ---- Phased full redraw (mode entry / overlay close) ----
     if (_redrawStep > 0) {
         switch (_redrawStep) {
-            case 1: _display->fillScreen(COLOUR_BACKGROUND); break;
+            case 1:
+                _display->fillScreen(COLOUR_BACKGROUND);
+                MidiDrain::poll();   // fillScreen blocks ~15 ms
+                break;
             case 2: _drawHeader(true); break;
             case 3:
                 _drawContent();
+                MidiDrain::poll();   // structural redraw blocks ~8 ms
                 _redrawStep = 0;
                 _layoutDirty = false;
                 _clearAllControlDirty();
@@ -369,6 +374,7 @@ void HomeScreen::draw() {
     // Structural layout change → full content redraw
     if (_layoutDirty) {
         _drawContent();
+        MidiDrain::poll();   // structural redraw blocks ~8 ms
         _layoutDirty = false;
         _clearAllControlDirty();
         return;
@@ -401,6 +407,7 @@ void HomeScreen::_drawContent() {
     if (!_display) return;
 
     _display->fillRect(0, CONTENT_Y, SW, CONTENT_H, COLOUR_BACKGROUND);
+    MidiDrain::poll();   // content area clear blocks ~5 ms (320×218 pixels)
 
     const int16_t clipTop = CONTENT_Y;
     const int16_t clipBot = CONTENT_Y + CONTENT_H;
@@ -427,6 +434,7 @@ void HomeScreen::_drawContent() {
             const int16_t bodyH = _calcExpandedBodyHeight(s);
             if (bodyScreenY + bodyH > clipTop && bodyScreenY < clipBot) {
                 _drawSectionBody(s, bodyScreenY);
+                MidiDrain::poll();   // expanded body draw blocks ~3-5 ms
             }
         }
         virtualY += sectH;

@@ -57,6 +57,7 @@
 #include "Presets.h"
 //#include "AudioScopeTap.h"
 #include "BPMClockManager.h"
+#include "MidiDrain.h"
 
 // ---------------------------------------------------------------------------
 // PCM5102A mute pin — wire to XSMT on DAC board
@@ -316,6 +317,12 @@ void setup() {
     Serial.println("[JT8000] DIN MIDI (Serial1) configured");
 
     // -------------------------------------------------------------------------
+    // STEP 5b: MIDI drain helper — allows MIDI to be serviced inside blocking
+    //          display operations (fillScreen, section expand redraw, etc.)
+    // -------------------------------------------------------------------------
+    MidiDrain::begin(&myusb, &midiHost, &midi1);
+
+    // -------------------------------------------------------------------------
     // STEP 6: Hardware encoders + synth engine
     // -------------------------------------------------------------------------
     hw.begin();
@@ -326,7 +333,7 @@ void setup() {
     // Without this, all CC values are 0 at boot and the display shows wrong values
     // until the first preset is loaded.
     //Presets.loadInitTemplateByWave(synth, 1);
-    synth.handlePitchBend(1, 8192);
+
 
     ui.syncFromEngine(synth);
 
@@ -368,6 +375,9 @@ void setup() {
     ampUSBR.gain(0.7f);
 
     Serial.println("[JT8000] Ready");
+
+
+        synth.handlePitchBend(1, 8192);
 }
 
 // ===========================================================================

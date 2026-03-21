@@ -12,6 +12,7 @@
 // =============================================================================
 
 #include "UIManager_TFT.h"
+#include "MidiDrain.h"
 #include "DebugTrace.h"
 #include <math.h>
 
@@ -177,6 +178,7 @@ void UIManager_TFT::_setMode(Mode m) {
     if (m == _mode) return;
     _mode = m;
     _display.fillScreen(COLOUR_BACKGROUND);
+    MidiDrain::poll();   // fillScreen blocks ~15 ms — drain MIDI immediately after
     if (m == Mode::HOME)       _home.markFullRedraw();
     if (m == Mode::SCOPE_FULL) {
         _scopeFullFirstFrame = true;
@@ -195,6 +197,7 @@ void UIManager_TFT::_openBrowser() {
     if (!_synthRef) return;
 
     _display.fillScreen(COLOUR_BACKGROUND);
+    MidiDrain::poll();   // fillScreen blocks ~15 ms — drain MIDI immediately after
 
     _browser.open(_synthRef, _currentPresetIdx,
         [](int globalIdx) {
@@ -274,6 +277,8 @@ void UIManager_TFT::_drawFullScope() {
 
         // Static footer
         _display.fillRect(0, 220, 320, 20, COLOUR_HEADER_BG);
+        MidiDrain::poll();   // drain after header+footer fills (~2 ms combined)
+
         _display.setTextSize(1);
         _display.setTextColor(COLOUR_TEXT_DIM, COLOUR_HEADER_BG);
         _display.setCursor(4, 226);
@@ -281,6 +286,7 @@ void UIManager_TFT::_drawFullScope() {
 
         // Clear waveform area to background colour (not black)
         _display.fillRect(0, 20, 320, 200, COLOUR_SCOPE_BG);
+        MidiDrain::poll();   // drain after large area clear (~5 ms)
     }
 
     // CPU% in header
@@ -310,6 +316,8 @@ void UIManager_TFT::_drawFullScope() {
                               COLOUR_SCOPE_BG);
         }
     }
+
+    MidiDrain::poll();   // drain after erase loop (~2-4 ms of drawLine calls)
 
     // Draw border + centre line
     _display.drawRect(0, wy, ww, wh, COLOUR_BORDER);

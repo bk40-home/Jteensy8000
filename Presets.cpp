@@ -161,66 +161,30 @@ void loadMicrospherePreset(SynthEngine& synth, int index, uint8_t midiCh) {
 }
 
 // ---------------------------------------------------------------------------
-// TUS preset loader
-// Maps TUSPatch struct fields to their corresponding CC numbers.
-// Each field is stored in JP-8000 CC units (see TUS_Presets.h for encoding).
+// TUS preset loader (CC-array format)
+//
+// Data is already in JT-8000 CC-space (exported from the HTML editor).
+// No transform required — iterate data[0..127] and dispatch each CC.
+//
+// CC 0 is skipped (bank select / unused).
+// CC 1 is skipped (mod wheel — live performance, not preset state).
+//
+// Cost: ~128 handleControlChange() calls per load. At ~1 µs each on
+// Teensy 4.1 @ 816 MHz, total load time is well under 1 ms.
 // ---------------------------------------------------------------------------
 void loadTUSPreset(SynthEngine& synth, int index) {
     if (index < 0 || index >= kTUS_COUNT) return;
 
-    // Read from PROGMEM safely
-    TUSPatch p;
-    memcpy_P(&p, &kTUS_Patches[index], sizeof(TUSPatch));
+    // Copy from PROGMEM to stack (safe on Teensy ARM, required on AVR)
+    TUSPatchCC p;
+    memcpy_P(&p, &kTUS_Patches[index], sizeof(TUSPatchCC));
 
     AudioNoInterrupts();
 
-    sendCC(synth, CC::OSC1_WAVE,        p.osc1Wave);
-    sendCC(synth, CC::OSC2_WAVE,        p.osc2Wave);
-    sendCC(synth, CC::OSC1_PITCH_OFFSET,p.osc1Coarse);
-    sendCC(synth, CC::OSC2_PITCH_OFFSET,p.osc2Coarse);
-
-    // SuperSaw detune applies to both oscillators if set
-    sendCC(synth, CC::SUPERSAW1_DETUNE, p.ssDetune);
-    sendCC(synth, CC::SUPERSAW2_DETUNE, p.ssDetune);
-
-    sendCC(synth, CC::OSC1_MIX,         p.osc1Mix);
-    sendCC(synth, CC::OSC2_MIX,         p.osc2Mix);
-    sendCC(synth, CC::NOISE_MIX,        p.noiseMix);
-    sendCC(synth, CC::SUB_MIX,          p.subMix);
-
-    sendCC(synth, CC::FILTER_CUTOFF,    p.filterCutoff);
-    sendCC(synth, CC::FILTER_RESONANCE, p.filterRes);
-    sendCC(synth, CC::FILTER_ENV_AMOUNT,p.filterEnvAmt);
-
-    sendCC(synth, CC::AMP_ATTACK,       p.ampAttack);
-    sendCC(synth, CC::AMP_DECAY,        p.ampDecay);
-    sendCC(synth, CC::AMP_SUSTAIN,      p.ampSustain);
-    sendCC(synth, CC::AMP_RELEASE,      p.ampRelease);
-    sendCC(synth, CC::AMP_MOD_FIXED_LEVEL, p.ampLevel);
-
-    sendCC(synth, CC::LFO1_FREQ,        p.lfo1Rate);
-    sendCC(synth, CC::LFO2_FREQ,        p.lfo2Rate);
-
-    sendCC(synth, CC::GLIDE_ENABLE,     p.glideOn);
-    sendCC(synth, CC::GLIDE_TIME,       p.glideTime);
-
-    // Map JP-8000 FX type to JPFX mod effect
-    // 0=none, 1=chorus, 2=chorus2, 3=flanger, 4=delay, 5=long delay
-    uint8_t modFX = 0;
-    if (p.fxType == 1 || p.fxType == 2) modFX = 1;   // chorus variants
-    else if (p.fxType == 3)              modFX = 5;   // flanger
-    sendCC(synth, CC::FX_MOD_EFFECT,    modFX);
-    sendCC(synth, CC::FX_MOD_RATE,      p.fxParam1);
-    sendCC(synth, CC::FX_MOD_FEEDBACK,  p.fxParam2);
-
-    // Delay-type FX from JP-8000
-    uint8_t dlyFX = 0;
-    if (p.fxType == 4) dlyFX = 1;       // delay
-    else if (p.fxType == 5) dlyFX = 2;  // long delay
-    sendCC(synth, CC::FX_JPFX_DELAY_EFFECT, dlyFX);
-    if (p.fxType >= 4) {
-        sendCC(synth, CC::FX_JPFX_DELAY_TIME,     p.fxParam1);
-        sendCC(synth, CC::FX_JPFX_DELAY_FEEDBACK, p.fxParam2);
+    // Send every CC value. Start at CC 2 — CC 0 (bank select) and
+    // CC 1 (mod wheel) are not preset parameters.
+    for (uint8_t cc = 2; cc < 128; cc++) {
+        synth.handleControlChange(1, cc, p.data[cc]);
     }
 
     AudioInterrupts();
