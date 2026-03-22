@@ -1859,7 +1859,6 @@ case CC::FX_JPFX_MIX: {
     float mix = norm;  // norm is already calculated from CC value
     setFXJPFXMix(mix, mix);  // Set both L and R channels
     JT_LOGF("[CC %u:%s] JPFX Mix = %.3f\n", control, ccName, mix);
-    if (_notify) _notify(control, value);
 } break;
 
 case CC::FX_REVERB_BYPASS: {
@@ -1868,7 +1867,6 @@ case CC::FX_REVERB_BYPASS: {
     bool bypass = (value > 63);
     setFXReverbBypass(bypass);
     JT_LOGF("[CC %u:%s] Reverb Bypass = %s\n", control, ccName, bypass ? "ON" : "OFF");
-    if (_notify) _notify(control, value);
 } break;
 
 
@@ -2231,4 +2229,7 @@ case CC::DELAY_TIMING_MODE: {
     if (control < 128 || (control >= 130 && control < 160)) {
         _ccState[control] = value;
     }
+
+    // Notify listener (USB MIDI echo + TFT dirty flag) for EVERY CC change.
+    if (_notify) _notify(control, value);
 }

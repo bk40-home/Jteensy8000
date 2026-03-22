@@ -1,9 +1,24 @@
+// ---------------------------------------------------------------------------
+// Presets.cpp — JT-8000 preset loading implementation
+//
+// Three banks:
+//   Init templates   → loadInitTemplateByWave()   — CC-by-CC hard-coded defaults
+//   Microsphere      → loadMicrospherePreset()    — 64-byte raw SysEx via kSlots mapping
+//   TUS              → loadTUSPreset()            — direct CC-array, no transform
+//
+// All loaders wrap their CC sends in AudioNoInterrupts() / AudioInterrupts()
+// to prevent partial-state audio glitches during preset switch.
+// ---------------------------------------------------------------------------
+
 #include "Presets.h"
 #include "Mapping.h"
 #include "CCDefs.h"
 #include "Presets_Microsphere.h"
 #include "TUS_Presets.h"
 
+// ---------------------------------------------------------------------------
+// Helper — send a single CC through the synth engine's handler
+// ---------------------------------------------------------------------------
 namespace {
 inline void sendCC(SynthEngine& synth, uint8_t cc, uint8_t val, uint8_t ch = 1) {
     synth.handleControlChange(ch, cc, val);
@@ -12,10 +27,16 @@ inline void sendCC(SynthEngine& synth, uint8_t cc, uint8_t val, uint8_t ch = 1) 
 
 namespace Presets {
 
+// ---------------------------------------------------------------------------
+// Bank layout — global index offsets
+// ---------------------------------------------------------------------------
 static const int kTEMPLATE_COUNT    = 9;
 static const int kMICROSPHERE_START = kTEMPLATE_COUNT;                              // offset 9
 static const int kTUS_START         = kMICROSPHERE_START + JT8000_PRESET_COUNT;     // offset 41
 
+// ---------------------------------------------------------------------------
+// Template names
+// ---------------------------------------------------------------------------
 const char* templateName(uint8_t idx) {
     static const char* names[9] = {
         "Init Wave 0","Init Wave 1","Init Wave 2","Init Wave 3","Init Wave 4",
@@ -24,9 +45,15 @@ const char* templateName(uint8_t idx) {
     return (idx < 9) ? names[idx] : "Init";
 }
 
+// ---------------------------------------------------------------------------
+// Counts
+// ---------------------------------------------------------------------------
 int presets_templateCount() { return kTEMPLATE_COUNT; }
 int presets_totalCount()    { return kTEMPLATE_COUNT + JT8000_PRESET_COUNT + kTUS_COUNT; }
 
+// ---------------------------------------------------------------------------
+// Name lookup by global index
+// ---------------------------------------------------------------------------
 const char* presets_nameByGlobalIndex(int idx) {
     if (idx < kTEMPLATE_COUNT) return templateName((uint8_t)idx);
     if (idx < kTUS_START) {
@@ -37,6 +64,9 @@ const char* presets_nameByGlobalIndex(int idx) {
     return (tusIdx >= 0 && tusIdx < kTUS_COUNT) ? kTUS_Patches[tusIdx].name : "—";
 }
 
+// ---------------------------------------------------------------------------
+// Load by global index — wraps around at boundaries
+// ---------------------------------------------------------------------------
 void presets_loadByGlobalIndex(SynthEngine& synth, int globalIdx, uint8_t midiCh) {
     int total = presets_totalCount(); if (total <= 0) return;
     while (globalIdx < 0) globalIdx += total;
@@ -51,22 +81,21 @@ void presets_loadByGlobalIndex(SynthEngine& synth, int globalIdx, uint8_t midiCh
     }
 }
 
+// ---------------------------------------------------------------------------
+// Init template — one per waveform type
+// Sets every synthesis parameter to a clean default via individual CC sends.
+// ---------------------------------------------------------------------------
 void loadInitTemplateByWave(SynthEngine &synth, uint8_t waveIndex) {
-    // Constrain to the number of defined waveforms (sine, saw, square, supersaw, etc.).
     waveIndex %= numWaveformsAll;
-
-    // Find the WaveformType corresponding to the template index.
     WaveformType wfType = waveformListAll[waveIndex];
-
-    // Convert the waveform to the appropriate CC value for OSC1_WAVE/OSC2_WAVE.
     uint8_t waveCC = ccFromWaveform(wfType);
 
-    // Now send CC values using the full 0–127 range.
+    AudioNoInterrupts();
+
     sendCC(synth, CC::OSC1_WAVE, waveCC);
     sendCC(synth, CC::OSC2_WAVE, waveCC);
 
     sendCC(synth, CC::OSC_MIX_BALANCE, 0);
-    //sendCC(synth, CC::OSC2_MIX, 0);
     sendCC(synth, CC::SUB_MIX, 0);
     sendCC(synth, CC::NOISE_MIX, 0);
 
@@ -95,6 +124,7 @@ void loadInitTemplateByWave(SynthEngine &synth, uint8_t waveIndex) {
 
     sendCC(synth, CC::LFO1_DEPTH, 0);
     sendCC(synth, CC::LFO2_DEPTH, 0);
+
     // LFO per-destination depths — all off at init
     sendCC(synth, CC::LFO1_PITCH_DEPTH,  0);
     sendCC(synth, CC::LFO1_FILTER_DEPTH, 0);
@@ -104,45 +134,50 @@ void loadInitTemplateByWave(SynthEngine &synth, uint8_t waveIndex) {
     sendCC(synth, CC::LFO2_FILTER_DEPTH, 0);
     sendCC(synth, CC::LFO2_PWM_DEPTH,    0);
     sendCC(synth, CC::LFO2_AMP_DEPTH,    0);
-    // Pitch envelope — depth=centre (0 semis), ADSR initialised, no effect until depth moved
-    sendCC(synth, CC::PITCH_ENV_ATTACK,  5);   // short attack  (~10 ms)
-    sendCC(synth, CC::PITCH_ENV_DECAY,   40);  // medium decay  (~200 ms)
-    sendCC(synth, CC::PITCH_ENV_SUSTAIN, 0);   // sustain=0: classic transient pitch bend
-    sendCC(synth, CC::PITCH_ENV_RELEASE, 10);  // short release (~50 ms)
-    sendCC(synth, CC::PITCH_ENV_DEPTH,   64);  // 64 = 0 semitones = neutral, no effect
-    // Velocity sensitivity — all off at init (full level regardless of velocity)
+
+    // Pitch envelope — neutral defaults
+    sendCC(synth, CC::PITCH_ENV_ATTACK,  5);
+    sendCC(synth, CC::PITCH_ENV_DECAY,   40);
+    sendCC(synth, CC::PITCH_ENV_SUSTAIN, 0);
+    sendCC(synth, CC::PITCH_ENV_RELEASE, 10);
+    sendCC(synth, CC::PITCH_ENV_DEPTH,   64);   // 64 = 0 semitones = neutral
+
+    // Velocity sensitivity — all off
     sendCC(synth, CC::VELOCITY_AMP_SENS,    0);
     sendCC(synth, CC::VELOCITY_FILTER_SENS, 0);
     sendCC(synth, CC::VELOCITY_ENV_SENS,    0);
 
-// JPFX Tone (neutral)
-sendCC(synth, CC::FX_BASS_GAIN, 64);     // 0 dB (center)
-sendCC(synth, CC::FX_TREBLE_GAIN, 64);   // 0 dB (center)
+    // JPFX Tone (neutral)
+    sendCC(synth, CC::FX_BASS_GAIN, 64);
+    sendCC(synth, CC::FX_TREBLE_GAIN, 64);
 
-// JPFX Modulation (off)
-sendCC(synth, CC::FX_MOD_EFFECT, 0);     // Off
-sendCC(synth, CC::FX_MOD_MIX, 64);       // 50% mix (if enabled)
-sendCC(synth, CC::FX_MOD_RATE, 0);       // Use preset rate
-sendCC(synth, CC::FX_MOD_FEEDBACK, 0);   // Use preset feedback
+    // JPFX Modulation (off)
+    sendCC(synth, CC::FX_MOD_EFFECT, 0);
+    sendCC(synth, CC::FX_MOD_MIX, 64);
+    sendCC(synth, CC::FX_MOD_RATE, 0);
+    sendCC(synth, CC::FX_MOD_FEEDBACK, 0);
 
-// JPFX Delay (off)
-sendCC(synth, CC::FX_JPFX_DELAY_EFFECT, 0);    // Off
-sendCC(synth, CC::FX_JPFX_DELAY_MIX, 64);      // 50% mix (if enabled)
-sendCC(synth, CC::FX_JPFX_DELAY_FEEDBACK, 0);  // Use preset feedback
-sendCC(synth, CC::FX_JPFX_DELAY_TIME, 0);      // Use preset time
+    // JPFX Delay (off)
+    sendCC(synth, CC::FX_JPFX_DELAY_EFFECT, 0);
+    sendCC(synth, CC::FX_JPFX_DELAY_MIX, 64);
+    sendCC(synth, CC::FX_JPFX_DELAY_FEEDBACK, 0);
+    sendCC(synth, CC::FX_JPFX_DELAY_TIME, 0);
 
-// JPFX Dry mix
-sendCC(synth, CC::FX_DRY_MIX, 127);      // Full dry (effects off)
+    // JPFX Dry mix
+    sendCC(synth, CC::FX_DRY_MIX, 127);
 
     sendCC(synth, CC::GLIDE_ENABLE, 0);
     sendCC(synth, CC::GLIDE_TIME,   0);
     sendCC(synth, CC::AMP_MOD_FIXED_LEVEL, 127);
-    sendCC(synth, CC::POLY_MODE,    0);    // 0 = POLY mode
-    sendCC(synth, CC::UNISON_DETUNE, 64);  // 64 = mid-range detune spread
+    sendCC(synth, CC::POLY_MODE,    0);
+    sendCC(synth, CC::UNISON_DETUNE, 64);
 
     AudioInterrupts();
 }
 
+// ---------------------------------------------------------------------------
+// Microsphere bank — 64-byte raw SysEx via kSlots mapping table
+// ---------------------------------------------------------------------------
 void loadRawPatchViaCC(SynthEngine& synth, const uint8_t data[64], uint8_t midiCh) {
     AudioNoInterrupts();
     for (const auto& row : JT8000Map::kSlots) {
@@ -164,12 +199,11 @@ void loadMicrospherePreset(SynthEngine& synth, int index, uint8_t midiCh) {
 // TUS preset loader (CC-array format)
 //
 // Data is already in JT-8000 CC-space (exported from the HTML editor).
-// No transform required — iterate data[0..127] and dispatch each CC.
+// No transform required — iterate data[2..127] and dispatch each CC.
 //
-// CC 0 is skipped (bank select / unused).
-// CC 1 is skipped (mod wheel — live performance, not preset state).
+// CC 0 is unused (bank select). CC 1 is mod wheel (live, not preset state).
 //
-// Cost: ~128 handleControlChange() calls per load. At ~1 µs each on
+// Cost: 126 handleControlChange() calls per load. At ~1 µs each on
 // Teensy 4.1 @ 816 MHz, total load time is well under 1 ms.
 // ---------------------------------------------------------------------------
 void loadTUSPreset(SynthEngine& synth, int index) {
@@ -181,8 +215,7 @@ void loadTUSPreset(SynthEngine& synth, int index) {
 
     AudioNoInterrupts();
 
-    // Send every CC value. Start at CC 2 — CC 0 (bank select) and
-    // CC 1 (mod wheel) are not preset parameters.
+    // Send every CC value starting at CC 2
     for (uint8_t cc = 2; cc < 128; cc++) {
         synth.handleControlChange(1, cc, p.data[cc]);
     }
