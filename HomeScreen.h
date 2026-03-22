@@ -46,6 +46,11 @@ public:
     void draw();
     void syncFromEngine();
 
+    // Notify that a specific CC value changed (from MIDI input, preset load,
+    // or encoder on another page). Marks the matching control dirty so the
+    // next draw() cycle repaints it. Lightweight — just a flag set, no draw.
+    void notifyCC(uint8_t cc);
+
     void onEncoderLeft(int delta);
     void onEncoderLeftPress();
     void onEncoderRight(int delta);

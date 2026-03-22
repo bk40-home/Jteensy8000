@@ -168,6 +168,14 @@ void UIManager_TFT::syncFromEngine(SynthEngine& synth) {
     _home.syncFromEngine();
 }
 
+// ---------------------------------------------------------------------------
+// notifyCC() — tell the home screen a single CC changed (MIDI input / preset).
+// Lightweight: just sets a dirty flag, no drawing.
+// ---------------------------------------------------------------------------
+void UIManager_TFT::notifyCC(uint8_t cc) {
+    _home.notifyCC(cc);
+}
+
 void UIManager_TFT::setCurrentPresetIdx(int idx)  { _currentPresetIdx = idx; }
 int  UIManager_TFT::getCurrentPresetIdx()   const  { return _currentPresetIdx; }
 

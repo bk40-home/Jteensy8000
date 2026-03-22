@@ -35,6 +35,9 @@ body{background:var(--bg);color:var(--txt);font-family:'JetBrains Mono',monospac
 .btn-or{border-color:var(--or-lo);color:var(--or)}.btn-or:hover{background:var(--or-lo);color:var(--or-hi);box-shadow:var(--or-glow)}
 .btn-grn{border-color:#1a4a20;color:var(--grn)}.btn-grn:hover{background:#1a3a18}
 .btn-red{border-color:#4a1a18;color:var(--red)}.btn-red:hover{background:#3a1210}
+.btn-pur:hover{background:#1a1030;color:#b060ff}
+.midi-dot.flash{background:var(--or);box-shadow:0 0 8px rgba(240,128,32,.6);transition:none}
+.midi-dot:not(.flash){transition:background .3s,box-shadow .3s}
 
 /* === TOOLBAR (presets + expand/collapse) === */
 .toolbar{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:6px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -147,6 +150,8 @@ select.es:focus{outline:1px solid var(--or)}
     <button class="btn btn-or" onclick="sendAll()">Send All</button>
     <button class="btn" onclick="openModal()">Export</button>
     <button class="btn btn-grn" onclick="initPatch()">Init</button>
+    <select id="midiIn" style="min-width:120px"><option value="">— no input —</option></select>
+    <div class="midi-dot" id="mdot-in"></div>
   </div>
 </div>
 
@@ -158,6 +163,7 @@ select.es:focus{outline:1px solid var(--or)}
   <button class="btn btn-or" onclick="savePreset()">Save</button>
   <button class="btn" onclick="loadPreset()">Load</button>
   <button class="btn btn-red" onclick="delPreset()">Del</button>
+  <button class="btn btn-pur" onclick="openSyxPicker()" style="border-color:#5020a0;color:#9040ff">Load SYX</button>
   <div style="flex:1"></div>
   <button class="btn" onclick="expandAll()">Expand All</button>
   <button class="btn" onclick="collapseAll()">Collapse All</button>
@@ -172,8 +178,10 @@ select.es:focus{outline:1px solid var(--or)}
   <div class="sb-sep"></div>
   <span class="sb-k">Val:</span><span class="sb-v" id="stval">—</span>
   <div class="sb-sep"></div>
-  <span class="sb-k">MIDI:</span><span class="sb-v" id="stout">—</span>
-  <span class="sb-r">v8.0 &middot; JT-8000 CC Editor &middot; Drag ↕ &middot; Scroll &middot; DblClick=64</span>
+  <span class="sb-k">OUT:</span><span class="sb-v" id="stout">—</span>
+  <div class="sb-sep"></div>
+  <span class="sb-k">IN:</span><span class="sb-v" id="stmidi-in">—</span>
+  <span class="sb-r">v8.1 &middot; JT-8000 CC Editor &middot; Drag ↕ &middot; Scroll &middot; DblClick=64</span>
 </div>
 
 <script>
@@ -607,7 +615,30 @@ function buildUI(){
     // Header
     const hdr=document.createElement('div');hdr.className='sec-hdr';
     hdr.innerHTML=`<div class="sec-led" style="background:${sec.led};box-shadow:0 0 6px ${sec.led}"></div><div class="sec-title">${sec.label}</div>${sec.badge?`<div class="sec-badge">${sec.badge}</div>`:''}<div class="sec-chevron">▼</div>`;
-    hdr.addEventListener('click',()=>{div.classList.toggle('closed')});
+    hdr.addEventListener('click',()=>{
+      div.classList.toggle('closed');
+      // Re-render knobs when section expands — canvas draws are silently
+      // discarded while parent has display:none, so any CC changes received
+      // while collapsed (from MIDI input or SysEx load) need redrawing.
+      if(!div.classList.contains('closed')){
+        div.querySelectorAll('.kw').forEach(kw=>{
+          const cc=+kw.dataset.cc;const cv=kw.querySelector('canvas');
+          if(cv)drawKnob(cv,state[cc]||0,false);
+          const vd=kw.querySelector(`[data-ccv="${cc}"]`);
+          const def=ccDefs[cc];
+          if(vd&&def)vd.textContent=def.fmt?def.fmt(state[cc]||0):(state[cc]||0);
+        });
+        // Also refresh selects and toggles in this section
+        div.querySelectorAll('select[data-ccs]').forEach(s=>{
+          const cc=+s.dataset.ccs;const def=ccDefs[cc];
+          if(def)setSelV(s,def,state[cc]||0);
+        });
+        div.querySelectorAll('[data-cct]').forEach(b=>{
+          const cc=+b.dataset.cct;const on=(state[cc]||0)>=64;
+          b.classList.toggle('on',on);b.textContent=on?'ON':'OFF';
+        });
+      }
+    });
     // Body
     const body=document.createElement('div');body.className='sec-body';
     sec.groups.forEach(grp=>{
@@ -655,13 +686,548 @@ let ma=null,mo=null,mch=1;
 const chs=document.getElementById('midiCh');
 for(let i=1;i<=16;i++){const o=document.createElement('option');o.value=i;o.textContent=i;chs.append(o)}
 chs.addEventListener('change',e=>{mch=+e.target.value});
-document.getElementById('midiOut').addEventListener('change',e=>{mo=e.target.value?ma.outputs.get(e.target.value):null;updMidi()});
+document.getElementById('midiOut').addEventListener('change',e=>{mo=e.target.value?ma.outputs.get(e.target.value):null;updMidi();fillIns()});
+document.getElementById('midiIn').addEventListener('change', e => {setMidiInput(e.target.value && ma ? ma.inputs.get(e.target.value) : null);});
 function initMidi(){if(!navigator.requestMIDIAccess){setMS(false);return}navigator.requestMIDIAccess().then(a=>{ma=a;fillOuts();a.onstatechange=fillOuts}).catch(()=>setMS(false))}
 function fillOuts(){const s=document.getElementById('midiOut'),prev=s.value;s.innerHTML='<option value="">— no output —</option>';ma.outputs.forEach(o=>{const op=document.createElement('option');op.value=o.id;op.textContent=o.name;if(o.id===prev)op.selected=true;s.append(op)});if(prev&&ma.outputs.has(prev))mo=ma.outputs.get(prev);updMidi()}
 function updMidi(){setMS(!!mo);document.getElementById('stout').textContent=mo?mo.name:'—'}
 function setMS(ok){document.getElementById('mdot').className='midi-dot'+(ok?' ok':'')}
 function midiSend(cc,v){if(!mo||cc>127)return;mo.send([0xB0|((mch-1)&0xF),cc&0x7F,v&0x7F])}
 function sendAll(){let n=0;Object.keys(ccDefs).forEach(cc=>{const c=+cc;if(c<=127){midiSend(c,state[c]||0);n++}});for(let i=0;i<16;i++){midiSend(CC.SEQ_STEP_SELECT,i);midiSend(CC.SEQ_STEP_VALUE,seqSteps[i]);n+=2}toast('Sent '+n+' CCs')}
+
+// =============================================================================
+// FEATURE 1: MIDI INPUT LISTENER
+//
+// Listens for incoming CC messages from the Teensy and updates the editor
+// state + UI without re-sending the CC (avoids feedback loop).
+// =============================================================================
+ 
+let mi = null;  // Current MIDI input port
+ 
+// Called when a MIDI message arrives from the selected input
+function onMidiMessage(evt) {
+    const d = evt.data;
+    if (!d || d.length < 3) return;
+ 
+    const status = d[0] & 0xF0;
+    const ch     = (d[0] & 0x0F) + 1;
+ 
+    // Only process CC messages on the selected channel
+    if (status !== 0xB0) return;
+    if (ch !== mch) return;
+ 
+    const cc  = d[1] & 0x7F;
+    const val = d[2] & 0x7F;
+ 
+    // Update state and UI WITHOUT sending MIDI back (prevents echo loop)
+    state[cc] = val;
+    refresh(cc);
+    statusBar(cc, val);
+ 
+    // Flash the MIDI activity dot briefly
+    flashMidiIn();
+}
+ 
+// Visual feedback for MIDI input activity
+let midiInFlashTimer = null;
+function flashMidiIn() {
+    const dot = document.getElementById('mdot-in');
+    if (!dot) return;
+    dot.classList.add('flash');
+    clearTimeout(midiInFlashTimer);
+    midiInFlashTimer = setTimeout(() => dot.classList.remove('flash'), 80);
+}
+ 
+// Attach/detach MIDI input listener when input port changes
+function setMidiInput(port) {
+    // Detach old listener
+    if (mi) {
+        mi.onmidimessage = null;
+    }
+    mi = port;
+    if (mi) {
+        mi.onmidimessage = onMidiMessage;
+    }
+    // Update status display
+    const label = document.getElementById('stmidi-in');
+    if (label) label.textContent = mi ? mi.name : '—';
+}
+ 
+// Populate the MIDI Input dropdown (called alongside fillOuts)
+function fillIns() {
+    if (!ma) return;
+    const s = document.getElementById('midiIn');
+    if (!s) return;
+    const prev = s.value;
+    s.innerHTML = '<option value="">— no input —</option>';
+    ma.inputs.forEach(inp => {
+        const op = document.createElement('option');
+        op.value = inp.id;
+        op.textContent = inp.name;
+        if (inp.id === prev) op.selected = true;
+        s.append(op);
+    });
+    // Restore previous selection
+    if (prev && ma.inputs.has(prev)) {
+        setMidiInput(ma.inputs.get(prev));
+    }
+    // Auto-select: if no input selected yet but we have a MIDI output selected,
+    // try to find a matching input (same device name). This gives bidirectional
+    // sync without requiring the user to manually pick both dropdowns.
+    if (!mi && mo) {
+        const outName = mo.name;
+        ma.inputs.forEach(inp => {
+            if (!mi && inp.name === outName) {
+                s.value = inp.id;
+                setMidiInput(inp);
+            }
+        });
+    }
+    // If still no input and only one input exists, auto-select it
+    if (!mi && ma.inputs.size === 1) {
+        const only = ma.inputs.values().next().value;
+        s.value = only.id;
+        setMidiInput(only);
+    }
+}
+ 
+ 
+// =============================================================================
+// FEATURE 2: SYSEX FILE IMPORT
+//
+// Parses JP-8000/8080 .syx and .mid files client-side.
+// Shows a patch picker modal, then sends the selected patch as CCs.
+// Uses the same mapping as JP8000SyxMap.h.
+// =============================================================================
+ 
+const SYX = {
+    // ── JP-8000 OSC1 waveform → JT-8000 CC values ──
+    // JP: 0=SuperSaw, 1=TWM, 2=Feedback, 3=Noise, 4=Pulse, 5=Saw, 6=Triangle
+    osc1Wave: [123, 77, 13, 68, 113, 86, 31],
+ 
+    // ── JP-8000 OSC2 waveform → JT-8000 CC values ──
+    // JP: 0=Pulse, 1=Triangle, 2=Saw, 3=Noise
+    osc2Wave: [113, 31, 86, 68],
+ 
+    // ── LFO1 waveform (JP same as JT: 0=Tri, 1=Saw, 2=Sqr, 3=S&H) ──
+    lfo1Wave: [0, 1, 2, 3],
+ 
+    // ── Filter type: JP 0=HPF,1=BPF,2=LPF → JT 2=HPF,1=BPF,0=LPF ──
+    filterType: [2, 1, 0],
+ 
+    // ── Multi FX type → JT FX_MOD_EFFECT ──
+    mfxType: [10, 10, 0, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0],
+ 
+    // ── Delay type → JT FX_JPFX_DELAY_EFFECT ──
+    delayType: [2, 0, 3, 1, 1],
+ 
+    // ── Safe defaults for JT-exclusive parameters ──
+    defaults: [
+        [113, 0],   // FILTER_ENGINE → OBXa
+        [115, 0],   // VA_FILTER_TYPE
+        [111, 0],   // FILTER_OBXA_MULTIMODE
+        [114, 0],   // FILTER_OBXA_XPANDER_MODE
+        [117, 0],   // FILTER_OBXA_RES_MOD_DEPTH
+        [84,  64],  // FILTER_OCTAVE_CONTROL
+        [16,  0],   // FX_DRIVE
+        [94,  127], // FX_REVERB_BYPASS (off)
+        [74,  127], // FX_DRY_MIX (full)
+        [76,  127], // FX_JPFX_MIX (full)
+        [59,  0],   // NOISE_MIX
+        [58,  0],   // SUB_MIX
+        [15,  64],  // UNISON_DETUNE
+        [67,  0],   // PITCH_ENV_SUSTAIN
+        [68,  0],   // PITCH_ENV_RELEASE
+        [35,  0],   // LFO1_PWM_DEPTH
+        [40,  0],   // LFO2_PWM_DEPTH
+        [55,  64],  // LFO1_DEPTH
+        [52,  64],  // LFO2_DEPTH
+        [53,  0],   // LFO2_DESTINATION
+        [2,   0],   // SEQ_ENABLE (off)
+    ],
+ 
+    // ── OSC1 Ctrl1 CC target based on waveform ──
+    osc1Ctrl1CC(wave) {
+        switch (wave) {
+            case 0: return CC.SUPERSAW1_DETUNE;
+            case 1: case 2: case 4: case 6: return CC.OSC1_MIX;
+            default: return 0;
+        }
+    },
+    osc1Ctrl2CC(wave) {
+        switch (wave) {
+            case 0: return CC.SUPERSAW1_MIX;
+            case 1: case 2: return CC.OSC1_FEEDBACK_AMOUNT;
+            default: return 0;
+        }
+    },
+    osc2Ctrl1CC(wave) {
+        switch (wave) {
+            case 0: case 1: return CC.OSC2_MIX;
+            default: return 0;
+        }
+    },
+    osc2Ctrl2CC(wave) { return 0; },
+ 
+    clamp7(v) { return Math.max(0, Math.min(127, Math.round(v))); },
+ 
+    signed64ToUni(v) { return this.clamp7(Math.abs(v - 64) * 2); },
+    osc2Range(v) { return this.clamp7((v * 127 + 25) / 50); },
+    osc2Fine(v) { return this.clamp7((v * 127 + 50) / 100); },
+};
+ 
+// ── Slot table: mirrors JP8000SyxMap.h kSlots[] ──
+// Format: [syxOffset, jtCC, transformFn]
+// transformFn: 'direct', 'bool127', 'signed64', 'signed64touni',
+//              'osc1wave', 'osc2wave', 'lfo1wave', 'filtertype',
+//              'mfxtype', 'delaytype', 'osc2range', 'osc2fine', 'monomode'
+const SYX_SLOTS = [
+    [0x10, CC.LFO1_WAVEFORM,     'lfo1wave'],
+    [0x11, CC.LFO1_FREQ,         'direct'],
+    [0x12, CC.LFO1_DELAY,        'direct'],
+    [0x13, CC.LFO2_FREQ,         'direct'],
+    [0x15, CC.RING1_MIX,         'bool127'],
+    [0x17, CC.OSC_MIX_BALANCE,   'signed64'],
+    [0x18, CC.LFO1_DESTINATION,  'direct'],
+    [0x19, CC.LFO1_PITCH_DEPTH,  'signed64touni'],
+    [0x1A, CC.LFO2_PITCH_DEPTH,  'signed64touni'],
+    [0x1B, CC.PITCH_ENV_DEPTH,   'signed64'],
+    [0x1C, CC.PITCH_ENV_ATTACK,  'direct'],
+    [0x1D, CC.PITCH_ENV_DECAY,   'direct'],
+    [0x1E, CC.OSC1_WAVE,         'osc1wave'],
+    [0x21, CC.OSC2_WAVE,         'osc2wave'],
+    [0x23, CC.OSC2_PITCH_OFFSET, 'osc2range'],
+    [0x24, CC.OSC2_FINE_TUNE,    'osc2fine'],
+    [0x27, CC.FILTER_MODE,       'filtertype'],
+    [0x29, CC.FILTER_CUTOFF,     'direct'],
+    [0x2A, CC.FILTER_RESONANCE,  'direct'],
+    [0x2B, CC.FILTER_KEY_TRACK,  'signed64'],
+    [0x2C, CC.LFO1_FILTER_DEPTH, 'signed64touni'],
+    [0x2D, CC.LFO2_FILTER_DEPTH, 'signed64touni'],
+    [0x2E, CC.FILTER_ENV_AMOUNT, 'signed64'],
+    [0x2F, CC.FILTER_ENV_ATTACK, 'direct'],
+    [0x30, CC.FILTER_ENV_DECAY,  'direct'],
+    [0x31, CC.FILTER_ENV_SUSTAIN,'direct'],
+    [0x32, CC.FILTER_ENV_RELEASE,'direct'],
+    [0x33, CC.AMP_MOD_FIXED_LEVEL,'direct'],
+    [0x34, CC.LFO1_AMP_DEPTH,   'signed64touni'],
+    [0x35, CC.LFO2_AMP_DEPTH,   'signed64touni'],
+    [0x36, CC.AMP_ATTACK,        'direct'],
+    [0x37, CC.AMP_DECAY,         'direct'],
+    [0x38, CC.AMP_SUSTAIN,       'direct'],
+    [0x39, CC.AMP_RELEASE,       'direct'],
+    [0x3B, CC.FX_BASS_GAIN,      'signed64'],
+    [0x3C, CC.FX_TREBLE_GAIN,    'signed64'],
+    [0x3D, CC.FX_MOD_EFFECT,     'mfxtype'],
+    [0x3E, CC.FX_MOD_MIX,        'direct'],
+    [0x3F, CC.FX_JPFX_DELAY_EFFECT, 'delaytype'],
+    [0x40, CC.FX_JPFX_DELAY_TIME,'direct'],
+    [0x41, CC.FX_JPFX_DELAY_FEEDBACK,'direct'],
+    [0x42, CC.FX_JPFX_DELAY_MIX, 'direct'],
+    [0x43, CC.PITCH_BEND_RANGE,  'direct'],
+    [0x45, CC.GLIDE_ENABLE,      'bool127'],
+    [0x46, CC.GLIDE_TIME,        'direct'],
+    [0x47, CC.POLY_MODE,         'monomode'],
+];
+ 
+// Apply a single transform
+function syxTransform(raw, type) {
+    switch (type) {
+        case 'direct':       return raw;
+        case 'signed64':     return raw;
+        case 'bool127':      return raw ? 127 : 0;
+        case 'signed64touni':return SYX.signed64ToUni(raw);
+        case 'osc1wave':     return SYX.osc1Wave[raw] ?? 86;
+        case 'osc2wave':     return SYX.osc2Wave[raw] ?? 86;
+        case 'lfo1wave':     return SYX.lfo1Wave[raw] ?? 0;
+        case 'filtertype':   return SYX.filterType[raw] ?? 0;
+        case 'mfxtype':      return SYX.mfxType[raw] ?? 0;
+        case 'delaytype':    return SYX.delayType[raw] ?? 0;
+        case 'osc2range':    return SYX.osc2Range(raw);
+        case 'osc2fine':     return SYX.osc2Fine(raw);
+        case 'monomode':     return raw === 0 ? 0 : 64;
+        default:             return raw;
+    }
+}
+ 
+// ── Parse .syx file (raw F0..F7 sequences) ──
+function parseSyxFile(buf) {
+    const arr = new Uint8Array(buf);
+    const patches = [];
+    let i = 0;
+    while (i < arr.length) {
+        if (arr[i] !== 0xF0) { i++; continue; }
+        const f0 = i; i++;
+        while (i < arr.length && arr[i] !== 0xF7) i++;
+        if (i >= arr.length) break;
+        // Message body: bytes between F0+1 and F7
+        const msgStart = f0 + 1;
+        const msgLen = i - msgStart;
+        const p = tryExtractPatch(arr, msgStart, msgLen);
+        if (p) patches.push(p);
+        i++; // skip F7
+    }
+    return patches;
+}
+ 
+// ── Parse .mid file (MIDI container with SysEx events) ──
+function parseMidFile(buf) {
+    const arr = new Uint8Array(buf);
+    const patches = [];
+    if (arr.length < 14) return patches;
+    // Verify MThd
+    if (String.fromCharCode(arr[0],arr[1],arr[2],arr[3]) !== 'MThd') return patches;
+ 
+    const headerLen = (arr[4]<<24)|(arr[5]<<16)|(arr[6]<<8)|arr[7];
+    const nTracks = (arr[10]<<8)|arr[11];
+    let pos = 8 + headerLen;
+ 
+    for (let trk = 0; trk < nTracks && pos + 8 <= arr.length; trk++) {
+        if (String.fromCharCode(arr[pos],arr[pos+1],arr[pos+2],arr[pos+3]) !== 'MTrk') break;
+        const trkLen = (arr[pos+4]<<24)|(arr[pos+5]<<16)|(arr[pos+6]<<8)|arr[pos+7];
+        const trkEnd = pos + 8 + trkLen;
+        let p = pos + 8;
+ 
+        while (p < trkEnd) {
+            // Read VLQ delta
+            let delta = 0;
+            while (p < trkEnd) { const b = arr[p++]; delta = (delta<<7)|(b&0x7F); if (!(b&0x80)) break; }
+            if (p >= trkEnd) break;
+            const status = arr[p];
+ 
+            if (status === 0xF0) {
+                p++; // skip F0
+                let msgLen = 0;
+                while (p < trkEnd) { const b = arr[p++]; msgLen = (msgLen<<7)|(b&0x7F); if (!(b&0x80)) break; }
+                // Body at p, length msgLen (includes F7)
+                const contentLen = msgLen - 1;
+                const patch = tryExtractPatch(arr, p, contentLen);
+                if (patch) patches.push(patch);
+                p += msgLen;
+            } else if (status === 0xFF) {
+                p += 2; // skip FF + type
+                let metaLen = 0;
+                while (p < trkEnd) { const b = arr[p++]; metaLen = (metaLen<<7)|(b&0x7F); if (!(b&0x80)) break; }
+                p += metaLen;
+            } else if (status >= 0x80) {
+                p++;
+                if (status >= 0xC0 && status < 0xE0) p += 1;
+                else if (status >= 0x80 && status < 0xC0) p += 2;
+                else if (status >= 0xE0 && status < 0xF0) p += 2;
+            } else { p++; }
+        }
+        pos = trkEnd;
+    }
+    return patches;
+}
+ 
+// ── Try to extract a JP-8000 patch from a DT1 message body ──
+function tryExtractPatch(arr, msgStart, msgLen) {
+    if (msgLen < 20) return null;
+    if (arr[msgStart] !== 0x41) return null;         // Roland
+    if (arr[msgStart+2] !== 0x00) return null;       // Model MSB
+    if (arr[msgStart+3] !== 0x06) return null;       // Model LSB
+    if (arr[msgStart+4] !== 0x12) return null;       // DT1
+ 
+    const dataStart = msgStart + 9;                  // After mfr+dev+model+cmd+4addr
+    const dataLen = msgLen - 9 - 1;                  // Exclude checksum
+    if (dataLen < 74) return null;
+ 
+    // Extract name (first 16 bytes)
+    let name = '';
+    for (let j = 0; j < 16 && (dataStart + j) < arr.length; j++) {
+        const c = arr[dataStart + j];
+        name += (c >= 0x20 && c <= 0x7E) ? String.fromCharCode(c) : ' ';
+    }
+    name = name.trim();
+ 
+    return { name, dataStart, dataLen, arr };
+}
+ 
+// ── Load a single patch: send defaults, then mapped CCs ──
+function loadSyxPatch(patch) {
+    const { arr, dataStart, dataLen } = patch;
+    const d = (off) => (dataStart + off < arr.length) ? arr[dataStart + off] : 0;
+ 
+    // Step 1: Safe defaults
+    for (const [cc, val] of SYX.defaults) {
+        onCC(cc, val);
+    }
+ 
+    // Step 2: Read waveforms for context dispatch
+    const osc1Wave = d(0x1E);
+    const osc2Wave = d(0x21);
+    const mfxType  = d(0x3D);
+ 
+    // Step 3: Main slot table
+    for (const [off, cc, xf] of SYX_SLOTS) {
+        const raw = d(off);
+        const val = syxTransform(raw, xf);
+        onCC(cc, val);
+    }
+ 
+    // Step 4: Context-dependent OSC controls
+    const c1_1 = SYX.osc1Ctrl1CC(osc1Wave);
+    const c1_2 = SYX.osc1Ctrl2CC(osc1Wave);
+    if (c1_1) onCC(c1_1, d(0x1F));
+    if (c1_2) onCC(c1_2, d(0x20));
+ 
+    const c2_1 = SYX.osc2Ctrl1CC(osc2Wave);
+    const c2_2 = SYX.osc2Ctrl2CC(osc2Wave);
+    if (c2_1) onCC(c2_1, d(0x25));
+    if (c2_2) onCC(c2_2, d(0x26));
+ 
+    // Step 5: MFX drive mapping (types 8-12)
+    if (mfxType >= 8 && mfxType <= 12) {
+        const driveVal = Math.min(127, 32 + (mfxType - 8) * 24);
+        onCC(CC.FX_DRIVE, driveVal);
+        onCC(CC.FX_MOD_EFFECT, 0);
+    }
+ 
+    // Step 6: MFX short delay routing (types 5-7)
+    if (mfxType >= 5 && mfxType <= 7) {
+        onCC(CC.FX_JPFX_DELAY_EFFECT, 0);
+        onCC(CC.FX_JPFX_DELAY_MIX, d(0x3E));
+        onCC(CC.FX_MOD_EFFECT, 0);
+    }
+ 
+    // Step 7: Super Chorus Fast rate boost
+    if (mfxType === 1) {
+        onCC(CC.FX_MOD_RATE, 100);
+    }
+ 
+    // Update LCD
+    document.getElementById('pname').value = patch.name;
+    document.getElementById('lcd').textContent = patch.name;
+ 
+    // Force full UI refresh — expand all sections so canvases render,
+    // then redraw every registered control from current state[].
+    expandAll();
+    Object.keys(ccDefs).forEach(cc => refresh(+cc));
+
+    toast('Loaded: ' + patch.name);
+}
+ 
+// ── File picker and modal ──
+function openSyxPicker() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.syx,.mid,.MID,.SYX';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const buf = await file.arrayBuffer();
+        const isMidi = file.name.toLowerCase().endsWith('.mid');
+        const patches = isMidi ? parseMidFile(buf) : parseSyxFile(buf);
+ 
+        if (patches.length === 0) {
+            toast('No JP-8000 patches found in file');
+            return;
+        }
+ 
+        showSyxModal(file.name, patches);
+    };
+    input.click();
+}
+ 
+function showSyxModal(fileName, patches) {
+    // Remove existing modal if any
+    const existing = document.getElementById('syx-modal');
+    if (existing) existing.remove();
+ 
+    const ov = document.createElement('div');
+    ov.id = 'syx-modal';
+    ov.className = 'ov';
+    ov.style.display = 'flex';
+    ov.innerHTML = `
+        <div class="mb" style="max-width:480px;max-height:80vh;display:flex;flex-direction:column">
+            <div class="mt" style="display:flex;justify-content:space-between;align-items:center">
+                <span>Load SysEx — ${patches.length} patches</span>
+                <button class="btn btn-red" onclick="closeSyxModal()" style="padding:2px 10px">✕</button>
+            </div>
+            <div style="font-size:8px;color:var(--txt-dim);margin:4px 0 8px">${fileName}</div>
+            <div id="syx-list" style="overflow-y:auto;flex:1;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg)"></div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+                <button class="btn btn-or" id="syx-load-btn" disabled onclick="loadSelectedSyxPatch()">Load Selected</button>
+                <button class="btn btn-grn" id="syx-send-btn" disabled onclick="loadAndSendSyxPatch()">Load + Send MIDI</button>
+                <button class="btn" onclick="closeSyxModal()">Cancel</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(ov);
+ 
+    // Build patch list
+    const list = document.getElementById('syx-list');
+    patches.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.style.cssText = `padding:5px 10px;cursor:pointer;font-size:11px;border-bottom:1px solid var(--bdr);
+            display:flex;align-items:center;gap:8px;transition:background .1s`;
+        row.innerHTML = `<span style="color:var(--txt-dim);font-size:9px;width:24px;text-align:right">${i}</span>
+            <span style="color:var(--txt-hi)">${p.name}</span>`;
+        row.onmouseenter = () => row.style.background = 'var(--bg3)';
+        row.onmouseleave = () => { if (!row.classList.contains('sel')) row.style.background = ''; };
+        row.onclick = () => {
+            list.querySelectorAll('div').forEach(r => { r.classList.remove('sel'); r.style.background = ''; });
+            row.classList.add('sel');
+            row.style.background = 'var(--bg4)';
+            window._syxSelectedIdx = i;
+            document.getElementById('syx-load-btn').disabled = false;
+            document.getElementById('syx-send-btn').disabled = false;
+        };
+        row.ondblclick = () => {
+            window._syxSelectedIdx = i;
+            loadAndSendSyxPatch();
+        };
+        list.appendChild(row);
+    });
+ 
+    window._syxPatches = patches;
+    window._syxSelectedIdx = -1;
+}
+ 
+function closeSyxModal() {
+    const m = document.getElementById('syx-modal');
+    if (m) m.remove();
+}
+ 
+function loadSelectedSyxPatch() {
+    if (window._syxSelectedIdx < 0 || !window._syxPatches) return;
+    loadSyxPatch(window._syxPatches[window._syxSelectedIdx]);
+    closeSyxModal();
+}
+ 
+function loadAndSendSyxPatch() {
+    if (window._syxSelectedIdx < 0 || !window._syxPatches) return;
+    loadSyxPatch(window._syxPatches[window._syxSelectedIdx]);
+    // Also send all CCs over MIDI
+    sendAll();
+    closeSyxModal();
+}
+ 
+ 
+// =============================================================================
+// INTEGRATION PATCHES — modifications to existing editor functions
+//
+// These replace/extend existing functions. Apply by placing this code
+// AFTER the existing function definitions (JS hoisting will use the
+// last definition for non-const functions).
+// =============================================================================
+ 
+// ── Patch initMidi() to also set up input handling ──
+const _origInitMidi = typeof initMidi === 'function' ? initMidi : null;
+function initMidi_patched() {
+    if (!navigator.requestMIDIAccess) { setMS(false); return; }
+    navigator.requestMIDIAccess({ sysex: false }).then(a => {
+        ma = a;
+        fillOuts();
+        fillIns();
+        a.onstatechange = () => { fillOuts(); fillIns(); };
+    }).catch(() => setMS(false));
+}
+ 
+// ── Patch fillOuts() to also refresh inputs ──
+const _origFillOuts = typeof fillOuts === 'function' ? fillOuts : null;
+
 
 /* === STATUS === */
 function statusBar(cc,v){const def=ccDefs[cc];document.getElementById('stcc').textContent=cc+(def?' '+def.l:'');document.getElementById('stval').textContent=(def&&def.fmt)?v+' ('+def.fmt(v)+')':v}
@@ -687,7 +1253,10 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target===docu
 let tt;function toast(m){const el=document.getElementById('toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),2100)}
 
 /* === INIT === */
-buildUI();initMidi();refBank();
+buildUI();
+initMidi = initMidi_patched;
+initMidi();
+refBank();
 </script>
 </body>
 </html>

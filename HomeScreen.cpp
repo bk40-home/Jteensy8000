@@ -75,6 +75,28 @@ void HomeScreen::syncFromEngine() {
     _markAllControlsDirty();
 }
 
+// ---------------------------------------------------------------------------
+// notifyCC — mark the control matching a CC number as dirty for repaint.
+//
+// Only checks the currently expanded section (collapsed sections have no
+// visible controls to repaint). Called from the CC notifier callback in
+// the .ino — runs at MIDI handler frequency so must be fast.
+// ---------------------------------------------------------------------------
+void HomeScreen::notifyCC(uint8_t cc) {
+    if (_expandedSection < 0 || _expandedSection >= SECTION_COUNT) return;
+    const SectionDef& sec = kSections[_expandedSection];
+    int16_t flat = 0;
+    for (int g = 0; g < sec.groupCount; ++g) {
+        for (int c = 0; c < sec.groups[g].controlCount; ++c) {
+            if (sec.groups[g].controls[c].cc == cc) {
+                _markControlDirty(flat);
+                return; // Each CC appears at most once in a section
+            }
+            ++flat;
+        }
+    }
+}
+
 bool HomeScreen::isEntryOpen() const { return _entry.isOpen(); }
 TFTNumericEntry& HomeScreen::getEntry() { return _entry; }
 void HomeScreen::onEntryEncoderDelta(int delta) {

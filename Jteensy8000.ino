@@ -174,13 +174,15 @@ static void printUSBDeviceInfo(bool connected) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// CC notifier — called by SynthEngine after each handled CC.
-// Kept as a hook; add UI dirty-flag logic here if needed.
-// ---------------------------------------------------------------------------
-static void onCCHandled(uint8_t /*cc*/, uint8_t /*val*/) {
-    // Reserved for future UI sync optimisation
+static void onCCHandled(uint8_t cc, uint8_t val) {
+    // Echo CC changes back to USB Device MIDI for HTML editor sync.
+    usbMIDI.sendControlChange(cc & 0x7F, val & 0x7F, 1);
+
+    // Tell TFT to repaint the matching control (if visible).
+    // This is just a dirty-flag set — no drawing happens here.
+    ui.notifyCC(cc);
 }
+
 
 // ===========================================================================
 // MIDI event handlers

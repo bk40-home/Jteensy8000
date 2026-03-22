@@ -74,6 +74,9 @@ public:
     // ---- Sync after preset load (same API as before) ----
     void syncFromEngine(SynthEngine& synth);
 
+    // ---- Notify single CC change (for MIDI input live update) ----
+    void notifyCC(uint8_t cc);
+
     void setCurrentPresetIdx(int idx);
     int  getCurrentPresetIdx() const;
 
