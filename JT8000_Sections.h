@@ -182,12 +182,16 @@ static const SectionDef kSections[SECTION_COUNT] = {
         K(CC::NOISE_MIX,       "NOISE"),
         EMPTY, EMPTY, EMPTY
     }, 5 },
-    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "Cross Mod & Sync", {
+        K(CC::OSC_CROSS_MOD_DEPTH, "XMOD"),
+        T(CC::OSC_SYNC_ENABLE,     "SYNC"),
+        EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
+    }, 2 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 }
-}, 1 },
+}, 2 },   // groupCount: 1 → 2
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3 — Filter

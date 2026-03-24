@@ -94,6 +94,18 @@ void VoiceBlock::noteOn(float frequency, float velocity) {
     _osc2.noteOn(frequency, velocity * velAmpScale);
     _subOsc.setFrequency(frequency);
 
+#if JT_OPT_OSC_SYNC
+    // Forward note parameters to sync engine when active.
+    // The sync engine maintains its own phase accumulators so it needs
+    // the base frequency and amplitude independently of OscillatorBlock.
+    if (_syncActive) {
+        _syncEngine.setSlaveFrequency(frequency);
+        _syncEngine.setMasterFrequency(frequency);
+        _syncEngine.setSlaveAmplitude(velocity * velAmpScale);
+        _syncEngine.setMasterAmplitude(velocity * velAmpScale);
+    }
+#endif
+
     // Trigger all envelopes — voice becomes audio-active immediately.
     // isAudioActive() will return true from this point until the amp
     // envelope completes its full release phase.
@@ -128,8 +140,18 @@ void VoiceBlock::noteOff() {
 // OSCILLATOR CONFIGURATION
 // =============================================================================
 
-void VoiceBlock::setOsc1Waveform(int waveform) { _osc1.setWaveformType(waveform); }
-void VoiceBlock::setOsc2Waveform(int waveform) { _osc2.setWaveformType(waveform); }
+void VoiceBlock::setOsc1Waveform(int waveform) {
+    _osc1.setWaveformType(waveform);
+#if JT_OPT_OSC_SYNC
+    if (_syncActive) _syncEngine.setSlaveWaveform((short)waveform);
+#endif
+}
+void VoiceBlock::setOsc2Waveform(int waveform) {
+    _osc2.setWaveformType(waveform);
+#if JT_OPT_OSC_SYNC
+    if (_syncActive) _syncEngine.setMasterWaveform((short)waveform);
+#endif
+}
 
 void VoiceBlock::setBaseFrequency(float frequency) {
     _osc1.noteOn(frequency, _osc1.getShapeDcAmp());  // Preserve current amp
@@ -300,6 +322,16 @@ void VoiceBlock::update() {
     if (isAudioActive()) {
         _osc1.update();
         _osc2.update();
+#if JT_OPT_OSC_SYNC
+        // When sync is active, OscillatorBlock::update() still runs glide
+        // on the internal oscillators (keeping their state current for when
+        // sync is disabled).  Forward the glided base frequencies to the
+        // sync engine so its phase accumulators track the same pitch.
+        if (_syncActive) {
+            _syncEngine.setSlaveFrequency(_osc1.getBaseFreq());
+            _syncEngine.setMasterFrequency(_osc2.getBaseFreq());
+        }
+#endif
     }
 }
 
@@ -403,3 +435,128 @@ float VoiceBlock::getOsc1FeedbackMix()    const { return _osc1.getFeedbackMix();
 float VoiceBlock::getOsc2FeedbackMix()    const { return _osc2.getFeedbackMix(); }
 float VoiceBlock::getOsc1FeedbackAmount() const { return _osc1.getFeedbackAmount(); }
 float VoiceBlock::getOsc2FeedbackAmount() const { return _osc2.getFeedbackAmount(); }
+
+// =========================================================================
+// CROSS MODULATION & OSCILLATOR SYNC
+// =========================================================================
+
+void VoiceBlock::setCrossModDepth(float depth) {
+    _crossModDepth = depth;
+#if JT_OPT_OSC_SYNC
+    if (_syncActive) {
+        _syncEngine.setCrossModDepth(depth);
+    }
+    // When sync is off, cross-mod has no effect — it requires the sync
+    // engine's per-sample FM injection.  Standalone cross-mod via a
+    // pre-mixer on OscillatorBlock is a future enhancement.
+#endif
+}
+
+float VoiceBlock::getCrossModDepth() const {
+    return _crossModDepth;
+}
+
+bool VoiceBlock::getSyncEnabled() const {
+#if JT_OPT_OSC_SYNC
+    return _syncActive;
+#else
+    return false;
+#endif
+}
+
+void VoiceBlock::setSyncEnabled(bool enabled) {
+#if JT_OPT_OSC_SYNC
+    if (enabled == _syncActive) return;   // No change — skip cable rebuild
+    _syncActive = enabled;
+
+    // ── Cable swap inside AudioNoInterrupts guard ───────────────────────
+    // The Teensy audio scheduler traverses the connection graph in the ISR.
+    // We must prevent ISR execution while deleting/creating AudioConnections
+    // to avoid dangling pointer traversal.  The new/delete calls are fast
+    // on Teensy 4.1 (<1 µs each) so the guard window is short.
+    // ────────────────────────────────────────────────────────────────────
+    AudioNoInterrupts();
+
+    if (enabled) {
+        // --- ENTERING SYNC MODE ---
+        // The AudioSynthOscSync replaces both oscillator outputs.
+        // Disconnect the normal osc → mixer and osc → ring mod paths,
+        // then wire the sync engine's two outputs in their place.
+
+        // 1. Delete normal osc → oscMixer connections
+        delete _patchCables[0]; _patchCables[0] = nullptr;   // osc1 → oscMixer 0
+        delete _patchCables[1]; _patchCables[1] = nullptr;   // osc2 → oscMixer 1
+
+        // 2. Delete normal osc → ring mod connections
+        delete _patchCables[2]; _patchCables[2] = nullptr;   // osc1 → ring1 in0
+        delete _patchCables[3]; _patchCables[3] = nullptr;   // osc2 → ring1 in1
+        delete _patchCables[4]; _patchCables[4] = nullptr;   // osc1 → ring2 in0
+        delete _patchCables[5]; _patchCables[5] = nullptr;   // osc2 → ring2 in1
+
+        // 3. Wire sync engine outputs → oscMixer
+        _patchSyncSlaveToMix    = new AudioConnection(_syncEngine, 0, _oscMixer, 0);
+        _patchSyncMasterToMix   = new AudioConnection(_syncEngine, 1, _oscMixer, 1);
+
+        // 4. Wire sync engine outputs → ring modulators
+        _patchSyncSlaveToRing1  = new AudioConnection(_syncEngine, 0, _ring1, 0);
+        _patchSyncMasterToRing1 = new AudioConnection(_syncEngine, 1, _ring1, 1);
+        _patchSyncSlaveToRing2  = new AudioConnection(_syncEngine, 0, _ring2, 0);
+        _patchSyncMasterToRing2 = new AudioConnection(_syncEngine, 1, _ring2, 1);
+
+        // 5. Wire FM modulation mixers → sync engine inputs
+        //    The sync engine reads the same FM mixer outputs that the normal
+        //    oscillators use, so LFO/pitch-env/bend all pass through.
+        _patchSyncSlaveFM     = new AudioConnection(
+            _osc1.frequencyModMixer(), 0, _syncEngine, 0);
+        _patchSyncMasterFM    = new AudioConnection(
+            _osc2.frequencyModMixer(), 0, _syncEngine, 1);
+
+        // 6. Wire shape/PWM modulation mixers → sync engine inputs
+        _patchSyncSlaveShape  = new AudioConnection(
+            _osc1.shapeModMixer(), 0, _syncEngine, 2);
+        _patchSyncMasterShape = new AudioConnection(
+            _osc2.shapeModMixer(), 0, _syncEngine, 3);
+
+        // 7. Configure sync engine with current oscillator state
+        _syncEngine.setSyncEnabled(true);
+        _syncEngine.setSlaveFrequency(_osc1.getBaseFreq());
+        _syncEngine.setMasterFrequency(_osc2.getBaseFreq());
+        _syncEngine.setSlaveAmplitude(1.0f);
+        _syncEngine.setMasterAmplitude(1.0f);
+        _syncEngine.setSlaveWaveform((short)_osc1.getWaveform());
+        _syncEngine.setMasterWaveform((short)_osc2.getWaveform());
+        _syncEngine.frequencyModulation(FM_OCTAVE_RANGE);
+        _syncEngine.setCrossModDepth(_crossModDepth);
+
+    } else {
+        // --- LEAVING SYNC MODE ---
+        // Delete all sync connections and restore the normal osc paths.
+
+        // 1. Delete sync engine connections
+        delete _patchSyncSlaveToMix;    _patchSyncSlaveToMix    = nullptr;
+        delete _patchSyncMasterToMix;   _patchSyncMasterToMix   = nullptr;
+        delete _patchSyncSlaveFM;       _patchSyncSlaveFM       = nullptr;
+        delete _patchSyncMasterFM;      _patchSyncMasterFM      = nullptr;
+        delete _patchSyncSlaveShape;    _patchSyncSlaveShape    = nullptr;
+        delete _patchSyncMasterShape;   _patchSyncMasterShape   = nullptr;
+        delete _patchSyncSlaveToRing1;  _patchSyncSlaveToRing1  = nullptr;
+        delete _patchSyncMasterToRing1; _patchSyncMasterToRing1 = nullptr;
+        delete _patchSyncSlaveToRing2;  _patchSyncSlaveToRing2  = nullptr;
+        delete _patchSyncMasterToRing2; _patchSyncMasterToRing2 = nullptr;
+
+        // 2. Restore normal osc → oscMixer connections
+        _patchCables[0] = new AudioConnection(_osc1.output(), 0, _oscMixer, 0);
+        _patchCables[1] = new AudioConnection(_osc2.output(), 0, _oscMixer, 1);
+
+        // 3. Restore normal osc → ring mod connections
+        _patchCables[2] = new AudioConnection(_osc1.output(), 0, _ring1, 0);
+        _patchCables[3] = new AudioConnection(_osc2.output(), 0, _ring1, 1);
+        _patchCables[4] = new AudioConnection(_osc1.output(), 0, _ring2, 0);
+        _patchCables[5] = new AudioConnection(_osc2.output(), 0, _ring2, 1);
+
+        _syncEngine.setSyncEnabled(false);
+    }
+
+    AudioInterrupts();
+#endif // JT_OPT_OSC_SYNC
+}

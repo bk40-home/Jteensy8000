@@ -4,7 +4,7 @@
 // =============================================================================
 
 #include "PresetBrowser.h"
-#include "MidiDrain.h"
+
 
 // =============================================================================
 // open()
@@ -41,7 +41,6 @@ void PresetBrowser::draw(ILI9341_t3n& tft) {
         _drawHeader(tft);
         _drawFooter(tft);
         for (int r = 0; r < PBLayout::VISIBLE_ROWS; ++r) _drawRow(tft, r);
-        MidiDrain::poll();   // full browser redraw blocks ~3-4 ms
         _dirty      = false;
         _prevCursor = _cursorIdx;
         _prevScroll = _scrollTop;

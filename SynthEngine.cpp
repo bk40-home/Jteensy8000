@@ -67,7 +67,7 @@ SynthEngine::SynthEngine()
     _patchAmpModMixerToAmpMultiply = nullptr;
     _patchVoiceMixerToAmpMultiply  = nullptr;
     _fxPatchInL  = nullptr;
-    _fxPatchInR  = nullptr;
+    
     _fxPatchDryL = nullptr;
     _fxPatchDryR = nullptr;
 }
@@ -246,9 +246,12 @@ void SynthEngine::begin()
     // Step sequencer → amp mod mixer slot 3
     _patchSeqDcToAmpModMixer = new AudioConnection(_seqDc, 0, _ampModMixer, 3);
 
-    // Wet path: amp → JPFX stereo input
+    // Wet path: amp → JPFX mono input (JPFX fans mono→stereo internally)
     _fxPatchInL  = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(),   0);
-    _fxPatchInR  = new AudioConnection(_ampMultiply, 0, _fxChain.getJPFXInput(),   1);
+    // NOTE: _fxPatchInR removed — JPFX is AudioStream(1, ...) with only
+    // input 0.  Input 1 does not exist; the connection was silently ignored
+    // by the Teensy Audio Library.  JPFX creates stereo spread internally
+    // via its modulation and delay processing stages.
 
     // Dry path: amp → output mixers directly (bypass FX)
     _fxPatchDryL = new AudioConnection(_ampMultiply, 0, _fxChain.getOutputLeft(),  0);
@@ -820,6 +823,16 @@ void SynthEngine::setOsc2FeedbackAmount(float amount) { _osc2FeedbackAmount = am
 void SynthEngine::setOsc1FeedbackMix(float mix) { _osc1FeedbackMix = mix; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc1FeedbackMix(mix); }
 void SynthEngine::setOsc2FeedbackMix(float mix) { _osc2FeedbackMix = mix; for (int i=0;i<MAX_VOICES;++i) _voices[i].setOsc2FeedbackMix(mix); }
 
+// ── Cross Modulation & Oscillator Sync ───────────────────────────────────
+void SynthEngine::setCrossModDepth(float depth) {
+    _crossModDepth = depth;
+    for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setCrossModDepth(depth);
+}
+
+void SynthEngine::setSyncEnabled(bool enabled) {
+    _syncEnabled = enabled;
+    for (int i = 0; i < MAX_VOICES; ++i) _voices[i].setSyncEnabled(enabled);
+}
 
 
 // ---- Arbitrary waveform bank/index selection ----
@@ -1906,6 +1919,23 @@ case CC::FX_REVERB_BYPASS: {
 
         case CC::RING1_MIX: { setRing1Mix(norm); JT_LOGF("[CC %u:%s] Ring1 Mix = %.3f\n", control, ccName, norm); } break;
         case CC::RING2_MIX: { setRing2Mix(norm); JT_LOGF("[CC %u:%s] Ring2 Mix = %.3f\n", control, ccName, norm); } break;
+
+        // ------------------- Cross Modulation & Oscillator Sync -------------------
+        case CC::OSC_CROSS_MOD_DEPTH: {
+#if JT_OPT_OSC_SYNC
+            const float depth = crossModDepthFromCC(value);
+            setCrossModDepth(depth);
+            JT_LOGF("[CC %u:%s] XMod Depth = %.4f (CC %u)\n", control, ccName, depth, value);
+#endif
+        } break;
+
+        case CC::OSC_SYNC_ENABLE: {
+#if JT_OPT_OSC_SYNC
+            const bool enabled = (value > 0);
+            setSyncEnabled(enabled);
+            JT_LOGF("[CC %u:%s] Osc Sync = %s\n", control, ccName, enabled ? "ON" : "OFF");
+#endif
+        } break;
 
         // ------------------- Arbitrary waveform bank selection -------------------
         case CC::OSC1_ARB_BANK: {

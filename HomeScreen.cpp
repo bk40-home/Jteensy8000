@@ -12,7 +12,7 @@
 // =============================================================================
 
 #include "HomeScreen.h"
-#include "MidiDrain.h"
+
 #include "WaveForms.h"
 #include "AudioFilterVABank.h"
 #include "StepSequencer.h"
@@ -368,12 +368,10 @@ void HomeScreen::draw() {
         switch (_redrawStep) {
             case 1:
                 _display->fillScreen(COLOUR_BACKGROUND);
-                MidiDrain::poll();   // fillScreen blocks ~15 ms
                 break;
             case 2: _drawHeader(true); break;
             case 3:
                 _drawContent();
-                MidiDrain::poll();   // structural redraw blocks ~8 ms
                 _redrawStep = 0;
                 _layoutDirty = false;
                 _clearAllControlDirty();
@@ -396,7 +394,6 @@ void HomeScreen::draw() {
     // Structural layout change → full content redraw
     if (_layoutDirty) {
         _drawContent();
-        MidiDrain::poll();   // structural redraw blocks ~8 ms
         _layoutDirty = false;
         _clearAllControlDirty();
         return;
@@ -429,7 +426,6 @@ void HomeScreen::_drawContent() {
     if (!_display) return;
 
     _display->fillRect(0, CONTENT_Y, SW, CONTENT_H, COLOUR_BACKGROUND);
-    MidiDrain::poll();   // content area clear blocks ~5 ms (320×218 pixels)
 
     const int16_t clipTop = CONTENT_Y;
     const int16_t clipBot = CONTENT_Y + CONTENT_H;
@@ -456,7 +452,6 @@ void HomeScreen::_drawContent() {
             const int16_t bodyH = _calcExpandedBodyHeight(s);
             if (bodyScreenY + bodyH > clipTop && bodyScreenY < clipBot) {
                 _drawSectionBody(s, bodyScreenY);
-                MidiDrain::poll();   // expanded body draw blocks ~3-5 ms
             }
         }
         virtualY += sectH;
@@ -616,7 +611,7 @@ void HomeScreen::_drawHeader(bool full) {
         memset(_prevVoiceActive, 0xFF, sizeof(_prevVoiceActive));
     }
     _drawVoiceDots();
-    const int cpuNow = (int)AudioProcessorUsageMax();
+    const int cpuNow = (int)AudioProcessorUsage();
     if (cpuNow != _lastCpuPct) {
         _lastCpuPct = cpuNow;
         const int16_t cpuX = SW - 58;
@@ -941,7 +936,8 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
         case CC::DELAY_TIMING_MODE: case CC::SEQ_TIMING_MODE: opts = kSync; count = 12; break;
         case CC::BPM_CLOCK_SOURCE: opts = kClkSrc; count = 2; break;
         case CC::FX_REVERB_BYPASS: opts = kBypass; count = 2; break;
-        case CC::GLIDE_ENABLE: case CC::SEQ_ENABLE: case CC::SEQ_RETRIGGER: opts = kOnOff; count = 2; break;
+        case CC::GLIDE_ENABLE: case CC::SEQ_ENABLE: case CC::SEQ_RETRIGGER:
+        case CC::OSC_SYNC_ENABLE: opts = kOnOff; count = 2; break;
         case CC::POLY_MODE: opts = kPolyMode; count = 3; break;
         case CC::FX_MOD_EFFECT: opts = kModFX; count = 12; isFxMod = true; break;
         case CC::FX_JPFX_DELAY_EFFECT: opts = kDelayFX; count = 6; isFxDelay = true; break;
@@ -1067,6 +1063,7 @@ const char* HomeScreen::_enumTextForCC(uint8_t cc) const {
         case CC::LFO1_DESTINATION: return _synth->getLFO1DestinationName();
         case CC::LFO2_DESTINATION: return _synth->getLFO2DestinationName();
         case CC::GLIDE_ENABLE: case CC::SEQ_ENABLE: case CC::SEQ_RETRIGGER:
+        case CC::OSC_SYNC_ENABLE:
             return (_synth->getCC(cc) > 63) ? "On" : "Off";
         case CC::FX_REVERB_BYPASS: return _synth->getFXReverbBypass() ? "Bypass" : "Active";
         case CC::FILTER_ENGINE: return (_synth->getFilterEngine()==CC::FILTER_ENGINE_VA) ? "VA Bank" : "OBXa";
@@ -1092,9 +1089,11 @@ const char* HomeScreen::_enumTextForCC(uint8_t cc) const {
             cc==CC::DELAY_TIMING_MODE||cc==CC::BPM_CLOCK_SOURCE||cc==CC::GLIDE_ENABLE||cc==CC::FX_REVERB_BYPASS||
             cc==CC::POLY_MODE||cc==CC::FX_MOD_EFFECT||cc==CC::FX_JPFX_DELAY_EFFECT||cc==CC::FILTER_ENGINE||
             cc==CC::FILTER_MODE||cc==CC::VA_FILTER_TYPE||cc==CC::FILTER_OBXA_XPANDER_MODE||cc==CC::FX_DRIVE||
-            cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER||cc==CC::SEQ_DIRECTION||cc==CC::SEQ_DESTINATION||cc==CC::SEQ_TIMING_MODE);
+            cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER||cc==CC::SEQ_DIRECTION||cc==CC::SEQ_DESTINATION||cc==CC::SEQ_TIMING_MODE||
+            cc==CC::OSC_SYNC_ENABLE);
 }
 
 /*static*/ bool HomeScreen::_isToggleCC(uint8_t cc) {
-    return (cc==CC::GLIDE_ENABLE||cc==CC::FX_REVERB_BYPASS||cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER);
+    return (cc==CC::GLIDE_ENABLE||cc==CC::FX_REVERB_BYPASS||cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER||
+            cc==CC::OSC_SYNC_ENABLE);
 }

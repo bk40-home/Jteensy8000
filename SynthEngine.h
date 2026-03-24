@@ -262,6 +262,12 @@ public:
     float getOsc1FeedbackMix()     const;
     float getOsc2FeedbackMix()     const;
 
+    // ── Cross Modulation & Oscillator Sync ───────────────────────────────
+    void  setCrossModDepth(float depth);
+    void  setSyncEnabled(bool enabled);
+    float getCrossModDepth() const { return _crossModDepth; }
+    bool  getSyncEnabled()   const { return _syncEnabled; }
+
 
     // Returns true if voice slot v is producing audio (including release tail).
     // Queries the amp envelope hardware — accurate even during release phase.
@@ -640,7 +646,7 @@ private:
     AudioConnection* _patchAmpModMixerToAmpMultiply;
     AudioConnection* _patchVoiceMixerToAmpMultiply;
     AudioConnection* _fxPatchInL;    // Amp multiply → JPFX left input
-    AudioConnection* _fxPatchInR;    // Amp multiply → JPFX right input
+    //AudioConnection* _fxPatchInR;    // Amp multiply → JPFX right input
     AudioConnection* _fxPatchDryL;   // Amp multiply → dry mixer left
     AudioConnection* _fxPatchDryR;   // Amp multiply → dry mixer right
 
@@ -676,6 +682,8 @@ private:
     float _osc1ShapeDc = 0.0f, _osc2ShapeDc = 0.0f;
     float _osc1FeedbackAmount = 0.0f, _osc2FeedbackAmount = 0.0f;
     float _osc1FeedbackMix    = 0.0f, _osc2FeedbackMix    = 0.0f;
+    float _crossModDepth = 0.0f;
+    bool  _syncEnabled   = false;
 
     // LFO mirrors
     float _lfo1Frequency = 0.0f, _lfo2Frequency = 0.0f;

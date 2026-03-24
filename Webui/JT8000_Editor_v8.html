@@ -197,6 +197,7 @@ SUPERSAW1_DETUNE:77,SUPERSAW1_MIX:78,SUPERSAW2_DETUNE:79,SUPERSAW2_MIX:80,
 SUB_MIX:58,NOISE_MIX:59,
 OSC1_FREQ_DC:86,OSC1_SHAPE_DC:87,OSC2_FREQ_DC:88,OSC2_SHAPE_DC:89,
 RING1_MIX:91,RING2_MIX:92,
+OSC_CROSS_MOD_DEPTH:19,OSC_SYNC_ENABLE:20,
 OSC1_ARB_BANK:101,OSC1_ARB_INDEX:83,OSC2_ARB_BANK:102,OSC2_ARB_INDEX:85,
 FILTER_CUTOFF:23,FILTER_RESONANCE:24,FILTER_ENV_AMOUNT:48,FILTER_KEY_TRACK:50,
 FILTER_OCTAVE_CONTROL:84,
@@ -311,7 +312,10 @@ const SECTIONS=[
     {cc:CC.OSC1_MIX,l:'OSC1',t:'knob',fmt:fPct},
     {cc:CC.OSC2_MIX,l:'OSC2',t:'knob',fmt:fPct},
     {cc:CC.SUB_MIX,l:'SUB',t:'knob',fmt:fPct},
-    {cc:CC.NOISE_MIX,l:'NOISE',t:'knob',fmt:fPct}]}
+    {cc:CC.NOISE_MIX,l:'NOISE',t:'knob',fmt:fPct}]},
+  {label:'Cross Mod & Sync',controls:[
+    {cc:CC.OSC_CROSS_MOD_DEPTH,l:'XMOD',t:'knob',fmt:fPct},
+    {cc:CC.OSC_SYNC_ENABLE,l:'SYNC',t:'toggle'}]}
 ]},
 {label:'Filter',led:'var(--or)',groups:[
   {label:'Core',controls:[

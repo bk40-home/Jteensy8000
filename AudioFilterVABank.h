@@ -156,7 +156,7 @@ private:
     float _envValue     = 0.0f;
     float _drive        = 1.0f;
 
-    VASaturationType _satType = SAT_TANH;
+    VASaturationType _satType = SAT_NONE;
 
     // ── Filter state structs ─────────────────────────────────────────────────
     // All topologies pre-allocated; only the active one runs per block.

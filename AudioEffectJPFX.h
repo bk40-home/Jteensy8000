@@ -72,6 +72,15 @@
  *          JPFX_DELAY_PINGPONG2 → JPFX_DELAY_PAN_RL     (position 3)
  *          JPFX_DELAY_PINGPONG3 → JPFX_DELAY_PAN_STEREO (position 4)
  *   FXChainBlock name tables need updating to match.
+ *
+ * CLICK FIX (Delivery 3):
+ *   - setDelayEffect() now uses _pendingDelayType for ISR-safe preset
+ *     switching.  The audio ISR picks up the change at the start of the
+ *     next update() block, clears buffers and resets the write index
+ *     atomically within the ISR context.  Eliminates the race condition
+ *     where the ISR could read a half-cleared buffer.
+ *   - Minimum delay clamp (1 sample) prevents reading the write position.
+ *   - int16 conversion uses proper clamping instead of constrain() macro.
  */
 
 #pragma once
@@ -91,6 +100,11 @@ static constexpr float JPFX_MAX_DELAY_MS = 1500.0f;
 // Maximum modulation delay in milliseconds.  Chorus needs ~20 ms max
 // (base + depth); 50 ms provides headroom for future presets.
 static constexpr float JPFX_MAX_MOD_MS = 50.0f;
+
+// Minimum delay time in samples.  Prevents the interpolated read from
+// landing on or straddling the write position, which would read stale
+// data and produce a periodic click at the buffer wrap-around point.
+static constexpr float JPFX_MIN_DELAY_SAMP = 1.0f;
 
 // Preset table sizes
 static constexpr uint8_t JPFX_NUM_MOD_VARIATIONS   = 11;
@@ -171,7 +185,7 @@ public:
     void setDelayEffect(DelayEffectType type);
     void setDelayMix(float mix);        // -1.0..1.0 (negative inverts phase)
     void setDelayFeedback(float fb);    // 0.0..0.99, -1 = use preset
-    void setDelayTime(float ms);        // ms override, 0 = use preset
+    void setDelayTime(float ms);        // ms override, preserves preset L/R ratio
 
     // -----------------------------------------------------------------------
     // BPM timing interface
@@ -296,10 +310,26 @@ private:
 
     static const DelayParams delayPresets[JPFX_NUM_DELAY_VARIATIONS];
 
+    // -----------------------------------------------------------------------
+    // Delay state — ISR-safe preset switching
+    //
+    // _pendingDelayType is written by setDelayEffect() from the main loop.
+    // update() (audio ISR) checks for a pending change at the top of each
+    // block, clears buffers and resets the write index atomically within
+    // ISR context.  This eliminates the race condition where the ISR could
+    // read a half-cleared buffer.
+    //
+    // volatile: prevents the compiler from caching the value in a register
+    // across the main-loop → ISR boundary.  On Cortex-M7 single-word
+    // writes are atomic, so no mutex is needed.
+    // -----------------------------------------------------------------------
     DelayEffectType _delayType;
+    volatile DelayEffectType _pendingDelayType;
+
     float _delayMix;                // User delay Level (-1..1, negative inverts)
     float _delayFeedbackOverride;   // -1 = use preset
-    float _delayTimeOverride;       // -1 = use preset (ms)
+    float _delayTimeOverrideL;      // -1 = use preset L time (ms)
+    float _delayTimeOverrideR;      // -1 = use preset R time (ms)
 
     // BPM timing state
     TimingMode _delayTimingMode;

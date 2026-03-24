@@ -35,6 +35,7 @@
 #include "FilterBlock.h"
 #include "LFOBlock.h"
 #include "SubOscillatorBlock.h"
+#include "CrossModSync.h"
 #include "DebugTrace.h"
 
 class VoiceBlock {
@@ -244,6 +245,15 @@ public:
     float getFilterEnvRelease()   const;
 
     // =========================================================================
+    // CROSS MODULATION & OSCILLATOR SYNC
+    // =========================================================================
+
+    void  setSyncEnabled(bool enabled);
+    bool  getSyncEnabled() const;
+    void  setCrossModDepth(float depth);
+    float getCrossModDepth() const;
+
+    // =========================================================================
     // AUDIO OUTPUTS & MODULATION MIXERS
     // =========================================================================
 
@@ -316,4 +326,38 @@ private:
 
     // Base filter env amount (before velocity scaling)
     float _baseFilterEnvAmount = 0.0f;
+
+    // -----------------------------------------------------------------------
+    // Cross Modulation & Oscillator Sync
+    //
+    // When sync is ENABLED, the AudioSynthOscSync replaces both oscillator
+    // outputs in the audio graph.  Patch cables [0..5] are deleted and
+    // replaced with sync engine connections.  When sync is DISABLED, the
+    // original connections are restored.
+    //
+    // Cross-mod depth is forwarded to the sync engine when sync is active.
+    // When sync is off, cross-mod has no effect (requires the sync engine's
+    // per-sample FM injection).  Standalone cross-mod via a pre-mixer is a
+    // future enhancement (adds 8 extra AudioMixer4 objects).
+    // -----------------------------------------------------------------------
+#if JT_OPT_OSC_SYNC
+    AudioSynthOscSync _syncEngine;
+    bool              _syncActive    = false;
+    float             _crossModDepth = 0.0f;
+
+    // Dynamic patch cables — created on sync enable, destroyed on disable.
+    // When sync is OFF all are nullptr and _patchCables[0..5] are active.
+    AudioConnection* _patchSyncSlaveToMix    = nullptr;  // sync ch0 → oscMixer 0
+    AudioConnection* _patchSyncMasterToMix   = nullptr;  // sync ch1 → oscMixer 1
+    AudioConnection* _patchSyncSlaveFM       = nullptr;  // osc1 FM mixer → sync in0
+    AudioConnection* _patchSyncMasterFM      = nullptr;  // osc2 FM mixer → sync in1
+    AudioConnection* _patchSyncSlaveShape    = nullptr;  // osc1 shape mixer → sync in2
+    AudioConnection* _patchSyncMasterShape   = nullptr;  // osc2 shape mixer → sync in3
+    AudioConnection* _patchSyncSlaveToRing1  = nullptr;  // sync ch0 → ring1 in0
+    AudioConnection* _patchSyncMasterToRing1 = nullptr;  // sync ch1 → ring1 in1
+    AudioConnection* _patchSyncSlaveToRing2  = nullptr;  // sync ch0 → ring2 in0
+    AudioConnection* _patchSyncMasterToRing2 = nullptr;  // sync ch1 → ring2 in1
+#else
+    float             _crossModDepth = 0.0f;             // stored but unused
+#endif
 };

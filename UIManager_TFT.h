@@ -112,4 +112,11 @@ private:
     // Full-screen scope state
     bool          _scopeFullFirstFrame;
     int16_t       _fsPrevWave[288];   // previous waveform Y for erase-before-draw
+
+    // ---- Async DMA framebuffer ----
+    // 320×240×2 = 153,600 bytes in DMAMEM (DMA-accessible RAM2).
+    // All draw calls write to this buffer (RAM speed = microseconds).
+    // updateScreenAsync() pushes the buffer to the display via DMA in background.
+    // The CPU never waits for SPI — MIDI polling continues uninterrupted.
+    static DMAMEM uint16_t _fb[320 * 240];
 };

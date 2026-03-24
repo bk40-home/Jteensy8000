@@ -185,6 +185,7 @@ public:
     float getGlideTime()       const { return _glideTimeMs; }
     float getShapeDcAmp()      const { return _shapeDcAmp; }
     float getExternalPitchDc() const { return _externalPitchDcAmp; }
+    float getBaseFreq()        const { return _baseFreq; }
 
     // =========================================================================
     // AUDIO OUTPUT & MOD MIXER ACCESS

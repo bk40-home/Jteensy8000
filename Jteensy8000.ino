@@ -57,7 +57,6 @@
 #include "Presets.h"
 //#include "AudioScopeTap.h"
 #include "BPMClockManager.h"
-#include "MidiDrain.h"
 
 // ---------------------------------------------------------------------------
 // PCM5102A mute pin — wire to XSMT on DAC board
@@ -317,12 +316,6 @@ void setup() {
     midi1.turnThruOff();  // disable software MIDI-thru (would re-send to Serial1)
 
     Serial.println("[JT8000] DIN MIDI (Serial1) configured");
-
-    // -------------------------------------------------------------------------
-    // STEP 5b: MIDI drain helper — allows MIDI to be serviced inside blocking
-    //          display operations (fillScreen, section expand redraw, etc.)
-    // -------------------------------------------------------------------------
-    MidiDrain::begin(&myusb, &midiHost, &midi1);
 
     // -------------------------------------------------------------------------
     // STEP 6: Hardware encoders + synth engine

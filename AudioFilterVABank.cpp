@@ -216,20 +216,35 @@ void AudioFilterVABank::update(void)
 
     const float k_block = _kTarget;   // already mapped in resonance()
 
-    // ── Moog passband gain compensation ──────────────────────────────────────
-    // The Moog ladder drops passband gain as resonance increases: H(0) = 1/(1+k)
-    // (Zavalishin §5.1 p.134).  Full compensation (1+k) is mathematically correct
-    // for a DC signal but massively amplifies the resonance peak, causing clipping.
-    //
-    // Use sqrt(1 + k) instead: recovers roughly half the passband loss in dB
-    // while keeping the resonance peak at manageable levels.
-    //   k=0:    comp=1.00  (no change)
-    //   k=2:    comp=1.73  (+4.8dB vs -9.5dB passband loss)
-    //   k=3.95: comp=2.22  (+6.9dB vs -13.9dB passband loss)
-    const bool isMoog = (_type == FILTER_MOOG_LP4 ||
-                         _type == FILTER_MOOG_LP2 ||
-                         _type == FILTER_MOOG_BP2);
-    const float moogCompensation = isMoog ? sqrtf(1.0f + k_block) : 1.0f;
+    // // ── Moog passband gain compensation ──────────────────────────────────────
+    // // The Moog ladder drops passband gain as resonance increases: H(0) = 1/(1+k)
+    // // (Zavalishin §5.1 p.134).  Full compensation (1+k) is mathematically correct
+    // // for a DC signal but massively amplifies the resonance peak, causing clipping.
+    // //
+    // // Use sqrt(1 + k) instead: recovers roughly half the passband loss in dB
+    // // while keeping the resonance peak at manageable levels.
+    // //   k=0:    comp=1.00  (no change)
+    // //   k=2:    comp=1.73  (+4.8dB vs -9.5dB passband loss)
+    // //   k=3.95: comp=2.22  (+6.9dB vs -13.9dB passband loss)
+    // const bool isMoog = (_type == FILTER_MOOG_LP4 ||
+    //                      _type == FILTER_MOOG_LP2 ||
+    //                      _type == FILTER_MOOG_BP2);
+    // const float moogCompensation = isMoog ? sqrtf(1.0f + k_block) : 1.0f;
+
+    // ── Diode ladder cutoff compensation ─────────────────────────────────────
+// The diode ladder's inter-stage ½ averaging causes a much steeper rolloff
+// than a standard 4-pole cascade.  Its -6dB point falls at ~10% of the
+// 1-pole cutoff frequency.  Scaling the internal cutoff by 8× aligns the
+// perceived passband with other filter types (Moog, SVF).
+// One extra tanf() call per block (~20 cycles / 128 samples = negligible).
+const bool isDiode = (_type == FILTER_DIODE_LP);
+float g_diode = 0.0f;
+if (isDiode) {
+    static constexpr float DIODE_FC_MULT = 8.0f;
+    const float fcDiode = va_clamp(fcBlockClamped * DIODE_FC_MULT,
+                                   5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
+    g_diode = va_compute_g(fcDiode, AUDIO_SAMPLE_RATE_EXACT);
+}
 
     // Pre-check drive (avoid per-sample branch when drive is unity)
     const bool hasDrive = (_drive != 1.0f);
@@ -304,25 +319,24 @@ void AudioFilterVABank::update(void)
             // Passband gain compensated by moogCompensation factor.
             case FILTER_MOOG_LP4:
                 _moog.process(x, g, k);
-                y = _moog.y4 * moogCompensation;
+                y = _moog.y4 ;//* moogCompensation;
                 break;
 
             case FILTER_MOOG_LP2:
                 _moog.process(x, g, k);
-                y = _moog.y2 * moogCompensation;
+                y = _moog.y2 ;//* moogCompensation;
                 break;
 
             case FILTER_MOOG_BP2:
                 // BP approximated as y2 - y4 from Moog cascade
                 // (Zavalishin §5.1 p.135 – pole subtraction gives bandpass character)
                 _moog.process(x, g, k);
-                y = (_moog.y2 - _moog.y4) * moogCompensation;
+                y = (_moog.y2 - _moog.y4) ;//* moogCompensation;
                 break;
 
             // ── Diode ladder (Zavalishin §5.10 p.165) ────────────────────────
-            // Nested ZDF solve, self-osc at k=17
             case FILTER_DIODE_LP:
-                _diode.process(x, g, k);
+                _diode.process(x, g_diode, k);
                 y = _diode.y4;
                 break;
 

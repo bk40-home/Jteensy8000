@@ -58,6 +58,9 @@ namespace CC {
 
     static constexpr uint8_t OSC1_FEEDBACK_MIX = 125;    
     static constexpr uint8_t OSC2_FEEDBACK_MIX = 126;
+    
+    static constexpr uint8_t OSC_CROSS_MOD_DEPTH = 19;  // 0–127 → cross-mod depth
+    static constexpr uint8_t OSC_SYNC_ENABLE     = 20;  // 0 = off, ≥1 = on
 
 
     // -------------------------------------------------------------------------
@@ -361,6 +364,8 @@ namespace CC {
             case OSC2_ARB_BANK:       return "OSC2 Bank";
             case OSC1_ARB_INDEX:      return "OSC1 Wave#";
             case OSC2_ARB_INDEX:      return "OSC2 Wave#";
+            case OSC_CROSS_MOD_DEPTH: return "XMod Depth";
+            case OSC_SYNC_ENABLE:     return "Osc Sync";
 
             // Filter
             case FILTER_CUTOFF:       return "Cutoff";
