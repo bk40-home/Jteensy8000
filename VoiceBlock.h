@@ -81,8 +81,8 @@ public:
     void setOsc1PitchBend(float semitones);
     void setOsc2PitchBend(float semitones);
 
-    void setOsc1Detune(float hertz);
-    void setOsc2Detune(float hertz);
+    void setOsc1Detune(float semitones);
+    void setOsc2Detune(float semitones);
     void setOsc1FineTune(float cents);
     void setOsc2FineTune(float cents);
     void setSubMix(float level);

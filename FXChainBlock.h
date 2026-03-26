@@ -47,7 +47,7 @@
 #include "Audio.h"
 #include "AudioEffectJPFX.h"
 #include "BPMClockManager.h"        // for updateFromBPMClock / TimingMode
-#include "AudioEffectPlateReverbJT.h" // my PlateReverb
+#include "AudioEffectReverbJT.h" // my PlateReverb
 
 // ---------------------------------------------------------------------------
 // Minimum mixer gain treated as "active" for the reverb bypass decision.
@@ -182,7 +182,7 @@ private:
     // =========================================================================
 
     AudioEffectJPFX            _jpfx;          // Tone / mod / delay engine
-    AudioEffectPlateReverbJT _plateReverb;   // stereo plate reverb
+    AudioEffectReverbJT _plateReverb;   // stereo plate reverb
 
     // 4-channel stereo output mixers
     //   ch0 = dry  ch1 = JPFX wet  ch2 = reverb wet  ch3 = spare

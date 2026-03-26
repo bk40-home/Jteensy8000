@@ -12,6 +12,7 @@
 //   4. Glide slides the base frequency via direct .frequency() calls — the
 //      combined DC does not change while gliding.
 //   5. No powf() in this file — all arithmetic is addition / multiplication.
+//   6. ALL pitch parameters arrive as SEMITONES — no Hz conversion here.
 // =============================================================================
 
 #include "OscillatorBlock.h"
@@ -233,6 +234,9 @@ void OscillatorBlock::setAmplitude(float amplitude) {
 
 // =============================================================================
 // PITCH CONTROL — all write through _updateCombinedPitchDc()
+//
+// ALL pitch parameters arrive as SEMITONES.
+// No frequency-dependent conversions in this class.
 // =============================================================================
 
 void OscillatorBlock::setPitchOffset(float semitones) {
@@ -247,9 +251,9 @@ void OscillatorBlock::setFineTune(float cents) {
     _updateStaticPitchFm();
 }
 
-void OscillatorBlock::setDetune(float hertz) {
-    if (_detuneHz == hertz) return;
-    _detuneHz = hertz;
+void OscillatorBlock::setDetune(float semitones) {
+    if (_detuneSemitones == semitones) return;
+    _detuneSemitones = semitones;
     _updateStaticPitchFm();
 }
 
@@ -274,21 +278,18 @@ void OscillatorBlock::setSeqPitchOffset(float fmScaledOffset) {
 // -----------------------------------------------------------------------------
 // _updateStaticPitchFm — recalculate the FM-scaled sum of coarse + fine + detune
 //
-// Called on any change to offset, fine tune, or detune, and on noteOn() (because
-// detune Hz→semitone conversion is frequency-dependent and _baseFreq just changed).
+// All three inputs are already in semitones (or cents, converted here).
+// No frequency-dependent conversion — this is pure addition + scaling.
+// Called on any change to offset, fine tune, or detune.
 // -----------------------------------------------------------------------------
 void OscillatorBlock::_updateStaticPitchFm() {
-    // Fine tune: cents → semitones
+    // Fine tune: cents → semitones (100 cents = 1 semitone)
     const float fineSemitones = _fineTuneCents * 0.01f;
 
-    // Detune Hz → approximate semitones at the current base frequency.
-    // Formula: semitones = Hz × (12 / ln(2)) / baseFreq ≈ Hz × 17.3123 / baseFreq.
-    // Guard against very low base frequencies to avoid division instability.
-    const float detuneSemitones = (_baseFreq > 20.0f)
-        ? (_detuneHz * 17.3123f / _baseFreq)   // 12/ln(2) ≈ 17.3123
-        : 0.0f;
-
-    _staticPitchFm = (_pitchOffsetSemitones + fineSemitones + detuneSemitones)
+    // Detune is already in semitones — no Hz conversion needed.
+    // The CC handler in SynthEngine does the Hz→semitone conversion
+    // at the MIDI edge, so we receive clean semitone values here.
+    _staticPitchFm = (_pitchOffsetSemitones + fineSemitones + _detuneSemitones)
                      * FM_SEMITONE_SCALE;
 
     _updateCombinedPitchDc();
@@ -333,9 +334,9 @@ void OscillatorBlock::noteOn(float frequency, float velocity) {
         if (_supersaw) _supersaw->setFrequency(_glideCurrentHz);
         AudioInterrupts();
 
-        // _baseFreq stays at the CURRENT glide position for detune calculations
-        // (it will be updated to the final target once glide completes).
-        // Note: _combinedPitchDc does not need updating — it holds static offsets;
+        // _baseFreq stays at the CURRENT glide position for display / queries.
+        // It will be updated to the final target once glide completes.
+        // _combinedPitchDc does not need updating — it holds static offsets;
         // glide position changes are expressed via direct .frequency() calls.
     } else {
         // --- No glide: jump directly to new frequency ---
@@ -363,9 +364,12 @@ void OscillatorBlock::noteOn(float frequency, float velocity) {
 
     _lastVelocity = velocity;
 
-    // Detune conversion depends on _baseFreq — recalculate after frequency change.
-    // This only updates the static DC; bend and external remain unchanged.
-    _updateStaticPitchFm();
+    // NOTE: No _updateStaticPitchFm() call needed here.
+    // Detune is now in semitones (frequency-independent), so the FM-scaled
+    // value does not change when the base frequency changes.  The previous
+    // Hz-based detune required recalculation here because the Hz→semitone
+    // conversion was frequency-dependent — that conversion is now done once
+    // at the CC edge in SynthEngine.
 }
 
 void OscillatorBlock::noteOff() {
@@ -391,15 +395,16 @@ void OscillatorBlock::update() {
         // Close enough — snap to target, stop ramping
         _glideCurrentHz = _glideTargetHz;
         _glideActive    = false;
-        _baseFreq       = _glideTargetHz;   // Update base so detune calc is correct
+        _baseFreq       = _glideTargetHz;   // Update base for display / queries
 
         AudioNoInterrupts();
         _mainOsc.frequency(_glideTargetHz);
         if (_supersaw) _supersaw->setFrequency(_glideTargetHz);
         AudioInterrupts();
 
-        // Recalculate detune component now that _baseFreq has changed to final target
-        _updateStaticPitchFm();
+        // NOTE: No _updateStaticPitchFm() call needed here.
+        // Detune is in semitones — frequency-independent, so the FM-scaled
+        // value does not change when the base frequency changes.
         return;
     }
 

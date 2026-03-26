@@ -216,8 +216,8 @@ void VoiceBlock::setOsc1PitchOffset(float semitones) { _osc1.setPitchOffset(semi
 void VoiceBlock::setOsc2PitchOffset(float semitones) { _osc2.setPitchOffset(semitones); }
 void VoiceBlock::setOsc1PitchBend(float semitones)   { _osc1.setPitchBend(semitones); }
 void VoiceBlock::setOsc2PitchBend(float semitones)   { _osc2.setPitchBend(semitones); }
-void VoiceBlock::setOsc1Detune(float hertz)           { _osc1.setDetune(hertz); }
-void VoiceBlock::setOsc2Detune(float hertz)           { _osc2.setDetune(hertz); }
+void VoiceBlock::setOsc1Detune(float semitones)       { _osc1.setDetune(semitones); }
+void VoiceBlock::setOsc2Detune(float semitones)       { _osc2.setDetune(semitones); }
 void VoiceBlock::setOsc1FineTune(float cents)         { _osc1.setFineTune(cents); }
 void VoiceBlock::setOsc2FineTune(float cents)         { _osc2.setFineTune(cents); }
 

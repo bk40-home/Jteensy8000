@@ -22,6 +22,13 @@
 //   To shift by S semitones: amplitude = S / (FM_OCTAVE_RANGE × 12) = S / 120.
 //   FM_SEMITONE_SCALE = 1/120 ≈ 0.00833.
 //
+// PITCH UNITS:
+//   ALL pitch parameters entering this class are in SEMITONES.
+//   The Hz→semitone conversion for detune is done at the CC edge
+//   (SynthEngine::handleControlChange), NOT inside OscillatorBlock.
+//   This eliminates the frequency-dependent conversion that previously
+//   lived in _updateStaticPitchFm() and removes a class of pitch-drift bugs.
+//
 // GLIDE:
 //   Implemented entirely via direct _mainOsc.frequency() / supersaw.setFrequency()
 //   calls in update().  The combined DC does not change during glide — the base
@@ -31,6 +38,7 @@
 //   - 3 fewer AudioSynthWaveformDc objects per OscillatorBlock  (×16 = 48 fewer)
 //   - 1 fewer AudioMixer4 per OscillatorBlock                   (×16 = 16 fewer)
 //   - No powf() anywhere in this file
+//   - No frequency-dependent conversion in _updateStaticPitchFm()
 //   - Glide is the only periodic work; dirty flag makes idle voices free
 //
 // Synth_Waveform.h (local JT fork) is included below — do NOT also include
@@ -98,6 +106,9 @@ public:
 
     // =========================================================================
     // PITCH CONTROL — all routes combine into _combinedPitchDc (software sum)
+    //
+    // ALL pitch parameters are in SEMITONES.  The caller (SynthEngine CC handler)
+    // is responsible for any Hz→semitone conversion at the MIDI edge.
     // =========================================================================
 
     /** Coarse pitch offset in semitones (e.g. −24, 0, +12, +24). */
@@ -106,8 +117,14 @@ public:
     /** Fine tune in cents (−100 to +100). */
     void setFineTune(float cents);
 
-    /** Detune spread in Hz (converted to semitones at the current base freq). */
-    void setDetune(float hertz);
+    /**
+     * @brief Detune offset in SEMITONES.
+     *
+     * For unison spread: already in semitones from _applyUnisonDetune().
+     * For CC detune: SynthEngine converts the CC Hz value to semitones
+     * before calling this.  No frequency-dependent conversion here.
+     */
+    void setDetune(float semitones);
 
     /**
      * @brief Pitch-wheel bend in semitones (±range).
@@ -172,13 +189,13 @@ public:
     float getFeedbackMix()     const { return _feedbackMixLevel; }
 
     // =========================================================================
-    // PARAMETER GETTERS
+    // PARAMETER GETTERS — all pitch values in semitones
     // =========================================================================
 
     int   getWaveform()        const { return _currentType; }
     float getPitchOffset()     const { return _pitchOffsetSemitones; }
     float getFineTune()        const { return _fineTuneCents; }
-    float getDetune()          const { return _detuneHz; }
+    float getDetune()          const { return _detuneSemitones; }
     float getSupersawDetune()  const { return _supersawDetune; }
     float getSupersawMix()     const { return _supersawMix; }
     bool  getGlideEnabled()    const { return _glideEnabled; }
@@ -278,13 +295,13 @@ private:
 
     bool  _supersawEnabled;
     int   _currentType      = 1;       // WAVEFORM_SAWTOOTH default
-    float _baseFreq         = 440.0f;  // Set once on noteOn(), read by detune calc
+    float _baseFreq         = 440.0f;  // Set once on noteOn(), read during glide
     float _lastVelocity     = 1.0f;
 
-    // Pitch components — stored as semitones so they can be recombined
+    // Pitch components — ALL stored as semitones for consistent units
     float _pitchOffsetSemitones = 0.0f;   // Coarse (e.g. −24..+24)
     float _fineTuneCents        = 0.0f;   // Fine tune (−100..+100 cents)
-    float _detuneHz             = 0.0f;   // Spread in Hz (converted at noteOn)
+    float _detuneSemitones      = 0.0f;   // Detune spread (semitones, converted at CC edge)
     float _pitchBendSemitones   = 0.0f;   // Current wheel position
 
     // Pre-computed FM-scaled contributions (updated by individual setters)
@@ -322,13 +339,13 @@ private:
     /**
      * @brief Recalculate the combined static pitch DC amplitude.
      *
-     * Combines coarse offset, fine tune and detune (all Hz-based) into a single
-     * FM-scaled scalar, storing it in _staticPitchFm.  Then calls
-     * _updateCombinedPitchDc() to push the final sum to the audio graph.
+     * Combines coarse offset (semitones), fine tune (cents→semitones) and
+     * detune (semitones) into a single FM-scaled scalar in _staticPitchFm.
+     * Then calls _updateCombinedPitchDc() to push the final sum to the
+     * audio graph.
      *
-     * The detune Hz→semitone conversion uses the current _baseFreq so it stays
-     * accurate across the keyboard.  Call after noteOn() and after any change
-     * to coarse, fine or detune.
+     * No frequency-dependent conversion — all inputs are already semitones.
+     * Call after any change to coarse, fine or detune.
      */
     void _updateStaticPitchFm();
 
