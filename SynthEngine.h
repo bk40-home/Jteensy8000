@@ -471,8 +471,12 @@ public:
     const char* getFXDelayEffectName() const;
 
     // =========================================================================
-    // Reverb (hexefx)
+    // Reverb — multi-algorithm (AudioEffectReverbJT)
     // =========================================================================
+    void       setFXReverbType(ReverbType type);
+    ReverbType getFXReverbType()          const;
+    const char* getFXReverbTypeName()     const;
+
     void  setFXReverbRoomSize(float size);
     void  setFXReverbHiDamping(float damp);
     void  setFXReverbLoDamping(float damp);
@@ -480,7 +484,21 @@ public:
     float getFXReverbHiDamping()  const;
     float getFXReverbLoDamping()  const;
 
-    // Bypass reverb to save CPU when not needed
+    void  setFXReverbPredelay(float ms);
+    float getFXReverbPredelay()   const;
+
+    void  setFXReverbModDepth(float depth);
+    float getFXReverbModDepth()   const;
+
+    void  setFXReverbModRate(float hz);
+    float getFXReverbModRate()    const;
+
+    void setFXReverbFreeze(bool freeze);
+    bool getFXReverbFreeze()      const;
+
+    void  setFXReverbExtra(float value);
+    float getFXReverbExtra()      const;
+
     void setFXReverbBypass(bool bypass);
     bool getFXReverbBypass()      const;
 
@@ -737,9 +755,15 @@ private:
     float  _fxDelayFeedback  = -1.0f;
     float  _fxDelayTime      = 0.0f;
     float  _fxDryMix         = 1.0f;
+    ReverbType _fxReverbType  = ReverbType::PLATE;
     float  _fxReverbRoomSize = 0.5f;
     float  _fxReverbHiDamp   = 0.5f;
     float  _fxReverbLoDamp   = 0.5f;
+    float  _fxReverbPredelay = 0.0f;
+    float  _fxReverbModDepth = 0.5f;
+    float  _fxReverbModRate  = 0.8f;
+    float  _fxReverbExtra    = 12.0f;
+    bool   _fxReverbFrozen   = false;
     float  _fxJPFXMixL       = 0.0f;
     float  _fxJPFXMixR       = 0.0f;
     float  _fxReverbMixL     = 0.0f;

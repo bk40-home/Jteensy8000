@@ -247,8 +247,16 @@ TimingMode FXChainBlock::getDelayTimingMode() const {
 }
 
 // ===========================================================================
-// REVERB
+// REVERB — multi-algorithm (AudioEffectReverbJT)
 // ===========================================================================
+
+void FXChainBlock::setReverbType(ReverbType type) {
+    _reverbType = type;
+    _plateReverb.setType(type);
+}
+
+ReverbType  FXChainBlock::getReverbType()     const { return _reverbType; }
+const char* FXChainBlock::getReverbTypeName() const { return _plateReverb.getTypeName(); }
 
 void FXChainBlock::setReverbRoomSize(float size) {
     if (size < 0.0f) size = 0.0f;
@@ -271,9 +279,47 @@ void FXChainBlock::setReverbLoDamping(float damp) {
     _plateReverb.lodamp(damp);
 }
 
+void FXChainBlock::setReverbPredelay(float ms) {
+    if (ms < 0.0f)   ms = 0.0f;
+    if (ms > 500.0f) ms = 500.0f;
+    _reverbPredelayMs = ms;
+    _plateReverb.predelay(ms);
+}
+
+void FXChainBlock::setReverbModDepth(float depth) {
+    if (depth < 0.0f) depth = 0.0f;
+    if (depth > 1.0f) depth = 1.0f;
+    _reverbModDepth = depth;
+    _plateReverb.modDepth(depth);
+}
+
+void FXChainBlock::setReverbModRate(float hz) {
+    if (hz < 0.1f) hz = 0.1f;
+    if (hz > 5.0f) hz = 5.0f;
+    _reverbModRate = hz;
+    _plateReverb.modRate(hz);
+}
+
+void FXChainBlock::setReverbFreeze(bool freeze) {
+    _reverbFrozen = freeze;
+    _plateReverb.freeze(freeze);
+}
+
+void FXChainBlock::setReverbExtra(float value) {
+    _reverbExtra = value;
+    // Route to the appropriate algorithm-specific parameter
+    // Currently only shimmer uses this (pitch shift in semitones)
+    _plateReverb.shimmerPitch(value);
+}
+
 float FXChainBlock::getReverbRoomSize()  const { return _reverbRoomSize; }
 float FXChainBlock::getReverbHiDamping() const { return _reverbHiDamp;   }
 float FXChainBlock::getReverbLoDamping() const { return _reverbLoDamp;   }
+float FXChainBlock::getReverbPredelay()  const { return _reverbPredelayMs; }
+float FXChainBlock::getReverbModDepth()  const { return _reverbModDepth; }
+float FXChainBlock::getReverbModRate()   const { return _reverbModRate;  }
+bool  FXChainBlock::getReverbFreeze()    const { return _reverbFrozen;   }
+float FXChainBlock::getReverbExtra()     const { return _reverbExtra;    }
 
 void FXChainBlock::setReverbBypass(bool bypass) {
     _reverbManualBypass = bypass;

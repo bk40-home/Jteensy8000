@@ -100,8 +100,8 @@ namespace CC {
     // -------------------------------------------------------------------------
     static constexpr uint8_t FX_REVERB_SIZE     = 70;  // Reverb room size
     static constexpr uint8_t FX_REVERB_DAMP     = 71;  // Reverb high damping
-    static constexpr uint8_t FX_DELAY_TIME      = 72;  // Legacy delay time (unused in JPFX)
-    static constexpr uint8_t FX_DELAY_FEEDBACK  = 73;  // Legacy delay feedback (unused in JPFX)
+    static constexpr uint8_t FX_REVERB_TYPE      = 72;  // Reverb algorithm (0..4: Plate/Hall/Shimmer/Spring/Cloud)
+    static constexpr uint8_t FX_REVERB_PREDELAY  = 73;  // Reverb pre-delay (0..500 ms)
 
     // -------------------------------------------------------------------------
     // FX MIX LEVELS - CRITICAL FOR PAGE 19
@@ -134,10 +134,10 @@ namespace CC {
     // -------------------------------------------------------------------------
     static constexpr uint8_t FX_REVERB_LODAMP    = 93;  // Reverb low damping
     static constexpr uint8_t FX_REVERB_BYPASS    = 94;  // Reverb bypass toggle (saves CPU)
-    static constexpr uint8_t FX_DELAY_MOD_RATE   = 95;  // Legacy (unused in JPFX)
-    static constexpr uint8_t FX_DELAY_MOD_DEPTH  = 96;  // Legacy (unused in JPFX)
-    static constexpr uint8_t FX_DELAY_INERTIA    = 97;  // Legacy (unused in JPFX)
-    static constexpr uint8_t FX_DELAY_TREBLE     = 98;  // Legacy (unused in JPFX)
+    static constexpr uint8_t FX_REVERB_MOD_DEPTH = 95;  // Reverb tank modulation depth (0..1)
+    static constexpr uint8_t FX_REVERB_MOD_RATE  = 96;  // Reverb tank modulation rate (0.1..5 Hz)
+    static constexpr uint8_t FX_REVERB_FREEZE    = 97;  // Reverb freeze (infinite hold, mute input)
+    static constexpr uint8_t FX_REVERB_EXTRA     = 98;  // Type-dependent: Shimmer=pitch, Spring=chirp, Cloud=density
     // Note: CC 99-110 used by JPFX (see below)
 
     // -------------------------------------------------------------------------
@@ -429,12 +429,12 @@ namespace CC {
             case FX_JPFX_DELAY_TIME:     return "Dly Time";
 
             // FX - Legacy (unused)
-            case FX_DELAY_TIME:       return "Delay Time";
-            case FX_DELAY_FEEDBACK:   return "Delay FB";
-            case FX_DELAY_MOD_RATE:   return "Dly ModRate"; 
-            case FX_DELAY_MOD_DEPTH:  return "Dly ModDepth";
-            case FX_DELAY_INERTIA:    return "Dly Inertia";
-            case FX_DELAY_TREBLE:     return "Dly Treble";
+            case FX_REVERB_TYPE:      return "Rev Type";
+            case FX_REVERB_PREDELAY:  return "Rev PreDly";
+            case FX_REVERB_MOD_DEPTH: return "Rev ModDep";
+            case FX_REVERB_MOD_RATE:  return "Rev ModRate";
+            case FX_REVERB_FREEZE:    return "Rev Freeze";
+            case FX_REVERB_EXTRA:     return "Rev Extra";
 
             // Global
             case GLIDE_ENABLE:        return "Glide On";

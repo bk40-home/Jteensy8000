@@ -921,6 +921,7 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
     static const char* kModFX[] = { "Off","Chorus 1","Chorus 2","Chorus 3","Flanger 1","Flanger 2","Flanger 3","Phaser 1","Phaser 2","Phaser 3","Phaser 4","Super Chorus" };
     static const char* kDelayFX[] = { "Off","Mono Short","Mono Long","Pan L>R","Pan R>L","Pan Stereo" };
     static const char* kDrive[] = { "Bypass", "Soft Clip", "Hard Clip" };
+    static const char* kReverbType[] = { "Plate", "Hall", "Shimmer", "Spring", "Cloud" };
     static const char* kSeqDir[] = { "Forward","Reverse","Bounce","Random" };
     static const char* kSeqDest[] = { "None","Pitch","Filter","PWM","Amp" };
 
@@ -936,6 +937,8 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
         case CC::DELAY_TIMING_MODE: case CC::SEQ_TIMING_MODE: opts = kSync; count = 12; break;
         case CC::BPM_CLOCK_SOURCE: opts = kClkSrc; count = 2; break;
         case CC::FX_REVERB_BYPASS: opts = kBypass; count = 2; break;
+        case CC::FX_REVERB_FREEZE: opts = kOnOff; count = 2; break;
+        case CC::FX_REVERB_TYPE: opts = kReverbType; count = 5; break;
         case CC::GLIDE_ENABLE: case CC::SEQ_ENABLE: case CC::SEQ_RETRIGGER:
         case CC::OSC_SYNC_ENABLE: opts = kOnOff; count = 2; break;
         case CC::POLY_MODE: opts = kPolyMode; count = 3; break;
@@ -1066,6 +1069,8 @@ const char* HomeScreen::_enumTextForCC(uint8_t cc) const {
         case CC::OSC_SYNC_ENABLE:
             return (_synth->getCC(cc) > 63) ? "On" : "Off";
         case CC::FX_REVERB_BYPASS: return _synth->getFXReverbBypass() ? "Bypass" : "Active";
+        case CC::FX_REVERB_FREEZE: return _synth->getFXReverbFreeze() ? "On" : "Off";
+        case CC::FX_REVERB_TYPE: return _synth->getFXReverbTypeName();
         case CC::FILTER_ENGINE: return (_synth->getFilterEngine()==CC::FILTER_ENGINE_VA) ? "VA Bank" : "OBXa";
         case CC::FILTER_MODE: { static const char* k[]={"4-Pole LP","2-Pole LP","2-Pole BP","2-Pole Push","Xpander","Xpander+M"}; return ((_synth->getFilterMode())<CC::FILTER_MODE_COUNT)?k[_synth->getFilterMode()]:"?"; }
         case CC::VA_FILTER_TYPE: { const uint8_t vt=_synth->getVAFilterType(); return (vt<(uint8_t)FILTER_COUNT)?kVAFilterNames[vt]:"?"; }
@@ -1087,6 +1092,7 @@ const char* HomeScreen::_enumTextForCC(uint8_t cc) const {
     return (cc==CC::OSC1_WAVE||cc==CC::OSC2_WAVE||cc==CC::LFO1_WAVEFORM||cc==CC::LFO2_WAVEFORM||
             cc==CC::LFO1_DESTINATION||cc==CC::LFO2_DESTINATION||cc==CC::LFO1_TIMING_MODE||cc==CC::LFO2_TIMING_MODE||
             cc==CC::DELAY_TIMING_MODE||cc==CC::BPM_CLOCK_SOURCE||cc==CC::GLIDE_ENABLE||cc==CC::FX_REVERB_BYPASS||
+            cc==CC::FX_REVERB_TYPE||cc==CC::FX_REVERB_FREEZE||
             cc==CC::POLY_MODE||cc==CC::FX_MOD_EFFECT||cc==CC::FX_JPFX_DELAY_EFFECT||cc==CC::FILTER_ENGINE||
             cc==CC::FILTER_MODE||cc==CC::VA_FILTER_TYPE||cc==CC::FILTER_OBXA_XPANDER_MODE||cc==CC::FX_DRIVE||
             cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER||cc==CC::SEQ_DIRECTION||cc==CC::SEQ_DESTINATION||cc==CC::SEQ_TIMING_MODE||
@@ -1094,6 +1100,6 @@ const char* HomeScreen::_enumTextForCC(uint8_t cc) const {
 }
 
 /*static*/ bool HomeScreen::_isToggleCC(uint8_t cc) {
-    return (cc==CC::GLIDE_ENABLE||cc==CC::FX_REVERB_BYPASS||cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER||
+    return (cc==CC::GLIDE_ENABLE||cc==CC::FX_REVERB_BYPASS||cc==CC::FX_REVERB_FREEZE||cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER||
             cc==CC::OSC_SYNC_ENABLE);
 }

@@ -213,9 +213,10 @@ LFO2_FREQ:51,LFO2_DEPTH:52,LFO2_DESTINATION:53,LFO2_WAVEFORM:63,LFO2_TIMING_MODE
 LFO2_PITCH_DEPTH:38,LFO2_FILTER_DEPTH:39,LFO2_PWM_DEPTH:40,LFO2_AMP_DEPTH:57,LFO2_DELAY:64,
 FX_BASS_GAIN:99,FX_TREBLE_GAIN:100,FX_DRIVE:16,
 FX_MOD_EFFECT:103,FX_MOD_MIX:104,FX_MOD_RATE:105,FX_MOD_FEEDBACK:106,
-FX_MOD_DEPTH:95,FX_MOD_BASE_DELAY:96,FX_MOD_TAP_COUNT:97,FX_MOD_LFO_SHAPE:98,
 FX_JPFX_DELAY_EFFECT:107,FX_JPFX_DELAY_MIX:108,FX_JPFX_DELAY_FEEDBACK:109,FX_JPFX_DELAY_TIME:110,
-FX_REVERB_SIZE:70,FX_REVERB_DAMP:71,FX_REVERB_LODAMP:93,FX_REVERB_BYPASS:94,FX_REVERB_MIX:75,
+FX_REVERB_TYPE:72,FX_REVERB_SIZE:70,FX_REVERB_DAMP:71,FX_REVERB_LODAMP:93,
+FX_REVERB_MIX:75,FX_REVERB_PREDELAY:73,FX_REVERB_BYPASS:94,
+FX_REVERB_MOD_DEPTH:95,FX_REVERB_MOD_RATE:96,FX_REVERB_FREEZE:97,FX_REVERB_EXTRA:98,
 FX_DRY_MIX:74,FX_JPFX_MIX:76,
 BPM_CLOCK_SOURCE:118,BPM_INTERNAL_TEMPO:119,DELAY_TIMING_MODE:122,
 VELOCITY_AMP_SENS:10,VELOCITY_FILTER_SENS:11,VELOCITY_ENV_SENS:12,
@@ -237,8 +238,7 @@ const SEQ_DIR=[{v:0,l:'Forward'},{v:43,l:'Reverse'},{v:85,l:'Bounce'},{v:127,l:'
 const SEQ_DEST=[{v:0,l:'None'},{v:32,l:'Pitch'},{v:64,l:'Filter'},{v:96,l:'PWM'},{v:127,l:'Amp'}];
 const POLY=[{v:21,l:'Poly'},{v:63,l:'Mono'},{v:106,l:'Unison'}];
 const DRIVE=[{v:0,l:'Bypass'},{v:32,l:'Soft Clip'},{v:96,l:'Hard Clip'}];
-const MOD_TAPS=[{v:0,l:'1 Tap'},{v:127,l:'3 Tap (Ensemble)'}];
-const MOD_LFO=[{v:0,l:'Triangle (BBD)'},{v:127,l:'Sine (Smooth)'}];
+const REV_TYPE=[{v:0,l:'Plate'},{v:26,l:'Hall'},{v:52,l:'Shimmer'},{v:78,l:'Spring'},{v:104,l:'Cloud'}];
 // NEW: Filter engine, mode, VA type
 const FLT_ENG=[{v:0,l:'OBXa'},{v:127,l:'VA Bank'}];
 const engMid=i=>Math.floor(((2*i+1)*128)/(2*6));
@@ -262,7 +262,9 @@ const fDly=v=>Math.round(5+(v/127)*1495)+'ms';
 const fSt=v=>Math.round((v/127)*24)+'st';
 const fLDly=v=>{if(!v)return'0ms';const m=Math.round(Math.pow(v/127,2)*4000);return m<1000?m+'ms':(m/1000).toFixed(2)+'s'};
 const fRaw=v=>String(v);
-const fModMs=v=>(v/127*50).toFixed(1)+'ms';
+const fRevPdly=v=>(v/127*500).toFixed(0)+'ms';
+const fRevHz=v=>(0.1+v/127*4.9).toFixed(1)+'Hz';
+const fRevSemi=v=>{let s=((v-64)*(24/64));return (s>=0?'+':'')+s.toFixed(0)+'st';};
 
 /* === SECTION + CONTROL DEFINITIONS === */
 const SECTIONS=[
@@ -396,22 +398,24 @@ const SECTIONS=[
     {cc:CC.FX_MOD_MIX,l:'MIX',t:'knob',fmt:fPct},
     {cc:CC.FX_MOD_RATE,l:'RATE',t:'knob',fmt:fHz},
     {cc:CC.FX_MOD_FEEDBACK,l:'FB',t:'knob',fmt:fPct}]},
-  {label:'Mod Tuning',controls:[
-    {cc:CC.FX_MOD_DEPTH,l:'DEPTH',t:'knob',fmt:fModMs},
-    {cc:CC.FX_MOD_BASE_DELAY,l:'BASE DLY',t:'knob',fmt:fModMs},
-    {cc:CC.FX_MOD_TAP_COUNT,l:'TAPS',t:'select',opts:MOD_TAPS},
-    {cc:CC.FX_MOD_LFO_SHAPE,l:'LFO',t:'select',opts:MOD_LFO}]},
   {label:'Delay',controls:[
     {cc:CC.FX_JPFX_DELAY_EFFECT,l:'TYPE',t:'select',opts:DLY_FX},
     {cc:CC.FX_JPFX_DELAY_TIME,l:'TIME',t:'knob',fmt:fDly},
     {cc:CC.FX_JPFX_DELAY_MIX,l:'MIX',t:'knob',fmt:fPct},
     {cc:CC.FX_JPFX_DELAY_FEEDBACK,l:'FB',t:'knob',fmt:fPct}]},
   {label:'Reverb',controls:[
+    {cc:CC.FX_REVERB_TYPE,l:'TYPE',t:'select',opts:REV_TYPE},
     {cc:CC.FX_REVERB_SIZE,l:'SIZE',t:'knob',fmt:fPct},
     {cc:CC.FX_REVERB_DAMP,l:'HI DMP',t:'knob',fmt:fPct},
     {cc:CC.FX_REVERB_LODAMP,l:'LO DMP',t:'knob',fmt:fPct},
     {cc:CC.FX_REVERB_MIX,l:'MIX',t:'knob',fmt:fPct},
+    {cc:CC.FX_REVERB_PREDELAY,l:'PREDLY',t:'knob',fmt:fRevPdly},
     {cc:CC.FX_REVERB_BYPASS,l:'BYPASS',t:'toggle'}]},
+  {label:'Rev Tweak',controls:[
+    {cc:CC.FX_REVERB_MOD_DEPTH,l:'MOD D',t:'knob',fmt:fPct},
+    {cc:CC.FX_REVERB_MOD_RATE,l:'MOD R',t:'knob',fmt:fRevHz},
+    {cc:CC.FX_REVERB_FREEZE,l:'FREEZE',t:'toggle'},
+    {cc:CC.FX_REVERB_EXTRA,l:'EXTRA',t:'knob',fmt:fRevSemi}]},
   {label:'Output',controls:[
     {cc:CC.FX_DRY_MIX,l:'DRY',t:'knob',fmt:fPct},
     {cc:CC.FX_JPFX_MIX,l:'JPFX',t:'knob',fmt:fPct}]}
@@ -474,7 +478,8 @@ function initDefaults(){
   state[CC.PITCH_ENV_DEPTH]=64;
   state[CC.FX_DRY_MIX]=127;state[CC.FX_JPFX_MIX]=127;
   state[CC.AMP_MOD_FIXED_LEVEL]=127;state[CC.PITCH_BEND_RANGE]=12;
-  state[CC.FX_MOD_DEPTH]=4;state[CC.FX_MOD_BASE_DELAY]=13;
+  state[CC.FX_REVERB_TYPE]=0;state[CC.FX_REVERB_MOD_DEPTH]=64;state[CC.FX_REVERB_MOD_RATE]=36;
+  state[CC.FX_REVERB_EXTRA]=64;
 }
 initDefaults();
 
@@ -835,6 +840,8 @@ const SYX = {
         [84,  64],  // FILTER_OCTAVE_CONTROL
         [16,  0],   // FX_DRIVE
         [94,  127], // FX_REVERB_BYPASS (off)
+        [72,    0], // FX_REVERB_TYPE (Plate)
+        [97,    0], // FX_REVERB_FREEZE (off)
         [74,  127], // FX_DRY_MIX (full)
         [76,  127], // FX_JPFX_MIX (full)
         [59,  0],   // NOISE_MIX

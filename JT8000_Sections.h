@@ -337,11 +337,6 @@ static const SectionDef kSections[SECTION_COUNT] = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 9 — Effects — JP
-//
-// NOTE: Mod Tuning group uses CCs 95-98 which are marked "Legacy" in CCDefs.h
-// but are actively used by the HTML editor. If firmware does not handle them
-// yet, the knobs will read/write CC values but have no audible effect until
-// SynthEngine routes them.
 // ─────────────────────────────────────────────────────────────────────────────
 { "Effects", {
     { "EQ & Drive", {
@@ -366,20 +361,27 @@ static const SectionDef kSections[SECTION_COUNT] = {
         EMPTY, EMPTY, EMPTY
     }, 5 },
     { "Reverb", {
-        K(CC::FX_REVERB_SIZE,   "SIZE"),
-        K(CC::FX_REVERB_DAMP,   "HI DMP"),
-        K(CC::FX_REVERB_LODAMP, "LO DMP"),
-        K(CC::FX_REVERB_MIX,    "MIX"),
-        T(CC::FX_REVERB_BYPASS, "BYPASS"),
-        EMPTY, EMPTY, EMPTY
-    }, 5 },
+        S(CC::FX_REVERB_TYPE,      "TYPE"),
+        K(CC::FX_REVERB_SIZE,      "SIZE"),
+        K(CC::FX_REVERB_DAMP,      "HI DMP"),
+        K(CC::FX_REVERB_LODAMP,    "LO DMP"),
+        K(CC::FX_REVERB_MIX,       "MIX"),
+        K(CC::FX_REVERB_PREDELAY,  "PREDLY"),
+        T(CC::FX_REVERB_BYPASS,    "BYPASS"),
+        T(CC::FX_REVERB_FREEZE,    "FREEZE")
+    }, 8 },
+    { "Rev Tweak", {
+        K(CC::FX_REVERB_MOD_DEPTH, "MOD D"),
+        K(CC::FX_REVERB_MOD_RATE,  "MOD R"),
+        K(CC::FX_REVERB_EXTRA,     "EXTRA"),
+        EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
+    }, 3 },
     { "Output", {
         K(CC::FX_DRY_MIX,  "DRY"),
         K(CC::FX_JPFX_MIX, "JPFX"),
         EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
-    }, 2 },
-    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 }
-}, 5 },
+    }, 2 }
+}, 6 },
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 10 — Velocity

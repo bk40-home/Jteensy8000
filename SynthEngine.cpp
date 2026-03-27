@@ -699,17 +699,6 @@ void SynthEngine::setPitchBendRange(float semitones) {
     if (semitones < 0.0f)                        semitones = 0.0f;
     if (semitones > PITCH_BEND_MAX_SEMITONES)     semitones = PITCH_BEND_MAX_SEMITONES;
     _pitchBendRange = semitones;
-
-    // Re-apply the current bend at the new range so pitch is consistent
-    // immediately without requiring another wheel movement.
-    // Preserve current normalised wheel position, re-scale to new range.
-    const float oldRange = (_pitchBendRange > 0.0f) ? _pitchBendRange : PITCH_BEND_DEFAULT_SEMITONES;
-    const float normPos  = (_pitchBendRange > 0.0f) ? (_pitchBendSemis / oldRange) : 0.0f;
-    _pitchBendSemis = normPos * semitones;
-    for (int i = 0; i < MAX_VOICES; ++i) {
-        _voices[i].setOsc1PitchBend(_pitchBendSemis);
-        _voices[i].setOsc2PitchBend(_pitchBendSemis);
-    }
 }
 
 // =============================================================================
@@ -768,13 +757,15 @@ void SynthEngine::handlePitchBend(uint8_t /*channel*/, int16_t value) {
     //   value=16383 → +1.0 (full up, almost — correct enough)
     //
     // Multiply by current bend range to get semitones.
-    const float normalised  = (float)(value - 8192) / 8192.0f;
+    const float normalised  = (float)(value) / 8192.0f;
     _pitchBendSemis         = normalised * _pitchBendRange;
-
+    
+    JT_LOGF("[normalised %.2f: semis %.2f, value = %.2f],  \n", normalised, _pitchBendSemis, (float)value);
     // Apply to all voices — both oscillators share the same bend offset.
     for (int i = 0; i < MAX_VOICES; ++i) {
         _voices[i].setOsc1PitchBend(_pitchBendSemis);
         _voices[i].setOsc2PitchBend(_pitchBendSemis);
+        
     }
 }
 
@@ -1390,6 +1381,14 @@ float SynthEngine::getFXDryMix() const {
     return _fxDryMix;
 }
 
+void SynthEngine::setFXReverbType(ReverbType type) {
+    _fxReverbType = type;
+    _fxChain.setReverbType(type);
+}
+
+ReverbType  SynthEngine::getFXReverbType()     const { return _fxReverbType; }
+const char* SynthEngine::getFXReverbTypeName() const { return _fxChain.getReverbTypeName(); }
+
 void SynthEngine::setFXReverbRoomSize(float size) {
     _fxReverbRoomSize = size;
     _fxChain.setReverbRoomSize(size);
@@ -1405,6 +1404,31 @@ void SynthEngine::setFXReverbLoDamping(float damp) {
     _fxChain.setReverbLoDamping(damp);
 }
 
+void SynthEngine::setFXReverbPredelay(float ms) {
+    _fxReverbPredelay = ms;
+    _fxChain.setReverbPredelay(ms);
+}
+
+void SynthEngine::setFXReverbModDepth(float depth) {
+    _fxReverbModDepth = depth;
+    _fxChain.setReverbModDepth(depth);
+}
+
+void SynthEngine::setFXReverbModRate(float hz) {
+    _fxReverbModRate = hz;
+    _fxChain.setReverbModRate(hz);
+}
+
+void SynthEngine::setFXReverbFreeze(bool freeze) {
+    _fxReverbFrozen = freeze;
+    _fxChain.setReverbFreeze(freeze);
+}
+
+void SynthEngine::setFXReverbExtra(float value) {
+    _fxReverbExtra = value;
+    _fxChain.setReverbExtra(value);
+}
+
 void SynthEngine::setFXJPFXMix(float left, float right) {
     _fxJPFXMixL = left;
     _fxJPFXMixR = right;
@@ -1418,16 +1442,21 @@ void SynthEngine::setFXReverbMix(float left, float right) {
 }
 
 // Getters
-float SynthEngine::getFXReverbRoomSize() const { return _fxReverbRoomSize; }
+float SynthEngine::getFXReverbRoomSize()  const { return _fxReverbRoomSize; }
 float SynthEngine::getFXReverbHiDamping() const { return _fxReverbHiDamp; }
 float SynthEngine::getFXReverbLoDamping() const { return _fxReverbLoDamp; }
+float SynthEngine::getFXReverbPredelay()  const { return _fxReverbPredelay; }
+float SynthEngine::getFXReverbModDepth()  const { return _fxReverbModDepth; }
+float SynthEngine::getFXReverbModRate()   const { return _fxReverbModRate; }
+bool  SynthEngine::getFXReverbFreeze()    const { return _fxReverbFrozen; }
+float SynthEngine::getFXReverbExtra()     const { return _fxReverbExtra; }
 float SynthEngine::getFXJPFXMixL() const { return _fxJPFXMixL; }
 float SynthEngine::getFXJPFXMixR() const { return _fxJPFXMixR; }
 float SynthEngine::getFXReverbMixL() const { return _fxReverbMixL; }
 float SynthEngine::getFXReverbMixR() const { return _fxReverbMixR; }
 
 // ============================================================================
-// FX REVERB BYPASS CONTROL (NEW - CPU Optimization)
+// FX REVERB BYPASS CONTROL
 // ============================================================================
 
 void SynthEngine::setFXReverbBypass(bool bypass) {
@@ -1858,8 +1887,46 @@ case CC::FX_REVERB_LODAMP: {
 } break;
 
 case CC::FX_REVERB_MIX: {
-    setFXReverbMix(norm, norm);  // Stereo
+    setFXReverbMix(norm, norm);
     JT_LOGF("[CC %u:%s] Reverb Mix = %.3f\n", control, ccName, norm);
+} break;
+
+case CC::FX_REVERB_TYPE: {
+    // Map CC 0..127 into 5 equal buckets (0..4)
+    uint8_t typeIdx = (uint8_t)constrain((int)value * 5 / 128, 0, 4);
+    setFXReverbType((ReverbType)typeIdx);
+    JT_LOGF("[CC %u:%s] Reverb Type = %s (%u)\n", control, ccName, getFXReverbTypeName(), typeIdx);
+} break;
+
+case CC::FX_REVERB_PREDELAY: {
+    float ms = norm * 500.0f;   // 0..1 → 0..500 ms
+    setFXReverbPredelay(ms);
+    JT_LOGF("[CC %u:%s] Reverb PreDelay = %.1f ms\n", control, ccName, ms);
+} break;
+
+case CC::FX_REVERB_MOD_DEPTH: {
+    setFXReverbModDepth(norm);
+    JT_LOGF("[CC %u:%s] Reverb ModDepth = %.3f\n", control, ccName, norm);
+} break;
+
+case CC::FX_REVERB_MOD_RATE: {
+    float hz = 0.1f + norm * 4.9f;   // 0..1 → 0.1..5.0 Hz
+    setFXReverbModRate(hz);
+    JT_LOGF("[CC %u:%s] Reverb ModRate = %.2f Hz\n", control, ccName, hz);
+} break;
+
+case CC::FX_REVERB_FREEZE: {
+    bool freeze = (value > 63);
+    setFXReverbFreeze(freeze);
+    JT_LOGF("[CC %u:%s] Reverb Freeze = %s\n", control, ccName, freeze ? "ON" : "OFF");
+} break;
+
+case CC::FX_REVERB_EXTRA: {
+    // Type-dependent: for SHIMMER → pitch in semitones (-24..+24)
+    // Bipolar: CC 64 = 0, CC 0 = -24, CC 127 = +24
+    float semi = ((float)value - 64.0f) * (24.0f / 64.0f);
+    setFXReverbExtra(semi);
+    JT_LOGF("[CC %u:%s] Reverb Extra = %.1f\n", control, ccName, semi);
 } break;
 
 // ============================================================================
