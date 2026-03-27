@@ -699,17 +699,6 @@ void SynthEngine::setPitchBendRange(float semitones) {
     if (semitones < 0.0f)                        semitones = 0.0f;
     if (semitones > PITCH_BEND_MAX_SEMITONES)     semitones = PITCH_BEND_MAX_SEMITONES;
     _pitchBendRange = semitones;
-
-    // Re-apply the current bend at the new range so pitch is consistent
-    // immediately without requiring another wheel movement.
-    // Preserve current normalised wheel position, re-scale to new range.
-    const float oldRange = (_pitchBendRange > 0.0f) ? _pitchBendRange : PITCH_BEND_DEFAULT_SEMITONES;
-    const float normPos  = (_pitchBendRange > 0.0f) ? (_pitchBendSemis / oldRange) : 0.0f;
-    _pitchBendSemis = normPos * semitones;
-    for (int i = 0; i < MAX_VOICES; ++i) {
-        _voices[i].setOsc1PitchBend(_pitchBendSemis);
-        _voices[i].setOsc2PitchBend(_pitchBendSemis);
-    }
 }
 
 // =============================================================================
