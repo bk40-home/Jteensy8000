@@ -478,24 +478,16 @@ void AudioEffectJPFX::setModFeedback(float fb)
 void AudioEffectJPFX::setDelayEffect(DelayEffectType type)
 {
     if (type != _delayType) {
-        JT_LOGF("[JPFX] setDelayEffect: old=%d new=%d bufSize=%u muteCounter=%u\n", 
-                (int)_delayType, (int)type, _delayBufSize, _delayMuteCounter);
         _delayType = type;
 
         // Reset time overrides so the new preset's native L/R times take effect.
         _delayTimeOverrideL = -1.0f;
         _delayTimeOverrideR = -1.0f;
 
-        // Mute wet output for a FULL BUFFER cycle.  During mute, processDelay
+        // Mute wet output for a full buffer cycle.  During mute, processDelay
         // writes input-only (no feedback) at every position.  Once the write
-        // pointer has completed a full lap, every position in the circular
-        // buffer contains post-change audio and the feedback loop is clean.
-        //
-        // We use the full buffer size (not just the delay time) because the
-        // PSRAM buffer may contain uninitialised data from extmem_malloc that
-        // was not reliably zeroed by the startup memset.  A shorter mute
-        // period could leave garbage in positions that the feedback loop
-        // eventually reaches after the write pointer wraps.
+        // pointer completes a full lap, every position contains post-change
+        // audio and the feedback loop cannot amplify stale PSRAM content.
         if (type >= 0 && type < JPFX_NUM_DELAY_VARIATIONS) {
             _delayMuteCounter = _delayBufSize;
         } else {
@@ -804,16 +796,6 @@ void AudioEffectJPFX::prepareDelay()
                       : p.feedback;
     _delayWetCached   = wet;
     _delayDryCached   = 1.0f - wet;
-
-    // Diagnostic: mute counter state (rate-limited)
-    {
-        static uint32_t lastPrepLog = 0;
-        if (millis() - lastPrepLog > 500) {
-            lastPrepLog = millis();
-            JT_LOGF("[JPFX prep] L=%.1f R=%.1f samp, fb=%.2f wet=%.2f muteC=%u type=%d\n",
-                    dSampL, dSampR, _delayFbCached, wet, _delayMuteCounter, (int)_delayType);
-        }
-    }
 }
 
 
@@ -860,13 +842,12 @@ inline void AudioEffectJPFX::processDelay(float inL, float inR,
     const float    fracR  = readIdxR - (float)iR0;
     float          delayR = _delayBufR[iR0] + (_delayBufR[iR1] - _delayBufR[iR0]) * fracR;
 
-    // -----------------------------------------------------------------------
-    // Sanitise delay reads — protect against PSRAM corruption / uninitialised
-    // memory / NaN.  Audio samples are always in [-1, +1] after normalisation.
-    // Any value outside [-2, +2] (with headroom for feedback accumulation) is
-    // garbage.  Clamp to zero AND scrub the source buffer positions so the
-    // corruption doesn't re-enter the feedback loop on the next lap.
-    // -----------------------------------------------------------------------
+    // Sanitise PSRAM reads.  Audio samples are normalised to [-1, +1]; with
+    // feedback accumulation values up to ±2 are plausible.  Anything beyond
+    // that is PSRAM corruption, uninitialised memory, or NaN.  Clamp to zero
+    // and scrub the source positions so corruption cannot re-enter the
+    // feedback loop on the next buffer lap.  Cost: ~2 branches per sample
+    // (near-free on Cortex-M7 branch predictor, always predicted not-taken).
     if (delayL > 2.0f || delayL < -2.0f || delayL != delayL) {
         delayL = 0.0f;
         _delayBufL[iL0] = 0.0f;
@@ -964,23 +945,6 @@ void AudioEffectJPFX::update(void)
         // Stage 4: Delay (mono / panning)
         float delL, delR;
         processDelay(modL, modR, delL, delR);
-
-        // --- DIAGNOSTIC: detect discontinuity spikes in delay output ---
-        // Fires when the sample-to-sample delta exceeds 0.15 (~-16dB jump).
-        // Rate-limited to once per second to avoid serial flood.
-        {
-            static float prevL = 0.0f, prevR = 0.0f;
-            static uint32_t lastReport = 0;
-            const float dL = fabsf(delL - prevL);
-            const float dR = fabsf(delR - prevR);
-            if ((dL > 0.15f || dR > 0.15f) && (millis() - lastReport > 1000)) {
-                lastReport = millis();
-                JT_LOGF("[CLICK] dL=%.4f dR=%.4f  delL=%.4f delR=%.4f  prevL=%.4f prevR=%.4f  writeIdx=%u  muteC=%u  bufSize=%u  bufL=%p\n",
-                         dL, dR, delL, delR, prevL, prevR, _delayWriteIdx, _delayMuteCounter, _delayBufSize, _delayBufL);
-            }
-            prevL = delL;
-            prevR = delR;
-        }
 
         // Track peak for block-rate limiter
         const float peakL = fabsf(delL);
