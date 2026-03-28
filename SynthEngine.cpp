@@ -242,6 +242,8 @@ void SynthEngine::begin()
             _seqDc, 0, _voices[i].shapeModMixerOsc1(), 3);
         _patchSeqDcToShapeOsc2[i] = new AudioConnection(
             _seqDc, 0, _voices[i].shapeModMixerOsc2(), 3);
+
+            
     }
     // Step sequencer → amp mod mixer slot 3
     _patchSeqDcToAmpModMixer = new AudioConnection(_seqDc, 0, _ampModMixer, 3);
@@ -256,6 +258,12 @@ void SynthEngine::begin()
     // Dry path: amp → output mixers directly (bypass FX)
     _fxPatchDryL = new AudioConnection(_ampMultiply, 0, _fxChain.getOutputLeft(),  0);
     _fxPatchDryR = new AudioConnection(_ampMultiply, 0, _fxChain.getOutputRight(), 0);
+
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        _voices[i].setOsc1PitchBend(_pitchBendSemis);
+        _voices[i].setOsc2PitchBend(_pitchBendSemis);
+        
+    }
 }
 
 static inline float CCtoTime(uint8_t cc) { return JT8000Map::cc_to_time_ms(cc); }

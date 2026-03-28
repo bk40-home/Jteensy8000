@@ -137,7 +137,11 @@ private:
         uint32_t len;
         uint32_t writeIdx;
 
+        // Write one sample. Clamps NaN/Inf to zero to prevent tank corruption.
         inline void write(float sample) {
+            // Fast NaN/Inf check: a finite float equals itself; NaN does not.
+            // Also catches ±Inf since Inf > any threshold.
+            if (!(sample > -10.0f && sample < 10.0f)) sample = 0.0f;
             buf[writeIdx] = sample;
             if (++writeIdx >= len) writeIdx = 0;
         }
@@ -316,8 +320,8 @@ private:
     float    _modPhase;             // triangle LFO phase (0..1)
     float    _modPhaseInc;          // per-sample increment
 
-    bool     _bypassed;
-    bool     _frozen;
+    volatile bool     _bypassed;
+    volatile bool     _frozen;
 
     // =========================================================================
     // MEMORY POOL

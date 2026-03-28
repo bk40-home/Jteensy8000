@@ -462,7 +462,10 @@ void AudioEffectReverbJT::update(void)
     }
 
     // Cache parameters
-    const float    decay       = _frozen ? 1.0f : _decay;
+    // Freeze decay capped at 0.9999 — inaudibly close to infinite hold but
+    // prevents numerical drift from accumulating into NaN/overflow over time.
+    // At 44.1 kHz with 0.9999 decay, the tail loses 1 dB after ~22 seconds.
+    const float    decay       = _frozen ? 0.9999f : _decay;
     const float    inputGain   = _frozen ? 0.0f : 1.0f;
     const float    wetLvl      = _wetLevel;
     const float    dryLvl      = _dryLevel;
@@ -540,27 +543,34 @@ void AudioEffectReverbJT::updatePlate(
     float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 1.0f : _decay;
+    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
     static constexpr float kWet = 0.3f;
 
-    float crossFB0 = _plateDelay[1].read(_plateDelay[1].len - 1) * decay;
-    float crossFB1 = _plateDelay[0].read(_plateDelay[0].len - 1) * decay;
+    // Read cross-feedback from the END of each delay, apply damping + decay.
+    // Damping must be inside the feedback loop to have any audible effect —
+    // it shapes what re-enters the tank, progressively darkening the tail.
+    float crossFB0 = _plateDelay[1].read(_plateDelay[1].len - 1);
+    crossFB0 = _plateLPF[0].process(crossFB0);
+    crossFB0 = _plateHPF[0].process(crossFB0);
+    crossFB0 *= decay;
 
+    float crossFB1 = _plateDelay[0].read(_plateDelay[0].len - 1);
+    crossFB1 = _plateLPF[1].process(crossFB1);
+    crossFB1 = _plateHPF[1].process(crossFB1);
+    crossFB1 *= decay;
+
+    // Tank half 0: diffused input + damped cross-feedback → APF → delay
     float t0 = diffused + crossFB0;
     t0 = _plateAPF[0].processModulated(t0, lfo * _modDepth);
     _plateDelay[0].write(t0);
-    float t0out = _plateDelay[0].read(_plateDelay[0].len - 1);
-    t0out = _plateLPF[0].process(t0out);
-    t0out = _plateHPF[0].process(t0out);
 
+    // Tank half 1: diffused input + damped cross-feedback → APF → delay
     float t1 = diffused + crossFB1;
     t1 = _plateAPF[1].processModulated(t1, -lfo * _modDepth);
     _plateDelay[1].write(t1);
-    float t1out = _plateDelay[1].read(_plateDelay[1].len - 1);
-    t1out = _plateLPF[1].process(t1out);
-    t1out = _plateHPF[1].process(t1out);
 
+    // Output taps: read directly from delay lines (pre-damping = brighter)
     float wetL = (_plateDelay[0].read(PLATE_TAP_L[0])
                 + _plateDelay[0].read(PLATE_TAP_L[1])
                 - _plateDelay[1].read(PLATE_TAP_L[2])) * kWet;
@@ -583,7 +593,7 @@ void AudioEffectReverbJT::updateHall(
     float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 1.0f : _decay;
+    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
 
     // Read from all 8 delay line outputs
@@ -647,7 +657,7 @@ void AudioEffectReverbJT::updateShimmer(
     float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 1.0f : _decay;
+    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
     static constexpr float kWet = 0.3f;
 
@@ -681,25 +691,27 @@ void AudioEffectReverbJT::updateShimmer(
         _shimmerPhase -= (float)SHIMMER_BUF_LEN;
     }
 
-    // --- Tank processing (same as plate but with shimmer injection) ---
+    // --- Tank processing (plate topology with shimmer injection) ---
+    // Damping inside the feedback loop — same fix as plate.
     float shimmerFB = pitched * _shimmerFeedbackMix;
 
-    float crossFB0 = _plateDelay[1].read(_plateDelay[1].len - 1) * decay;
-    float crossFB1 = _plateDelay[0].read(_plateDelay[0].len - 1) * decay;
+    float crossFB0 = _plateDelay[1].read(_plateDelay[1].len - 1);
+    crossFB0 = _plateLPF[0].process(crossFB0);
+    crossFB0 = _plateHPF[0].process(crossFB0);
+    crossFB0 *= decay;
+
+    float crossFB1 = _plateDelay[0].read(_plateDelay[0].len - 1);
+    crossFB1 = _plateLPF[1].process(crossFB1);
+    crossFB1 = _plateHPF[1].process(crossFB1);
+    crossFB1 *= decay;
 
     float t0 = diffused + crossFB0 + shimmerFB;
     t0 = _plateAPF[0].processModulated(t0, lfo * _modDepth);
     _plateDelay[0].write(t0);
-    float t0out = _plateDelay[0].read(_plateDelay[0].len - 1);
-    t0out = _plateLPF[0].process(t0out);
-    t0out = _plateHPF[0].process(t0out);
 
     float t1 = diffused + crossFB1 + shimmerFB;
     t1 = _plateAPF[1].processModulated(t1, -lfo * _modDepth);
     _plateDelay[1].write(t1);
-    float t1out = _plateDelay[1].read(_plateDelay[1].len - 1);
-    t1out = _plateLPF[1].process(t1out);
-    t1out = _plateHPF[1].process(t1out);
 
     float wetL = (_plateDelay[0].read(PLATE_TAP_L[0])
                 + _plateDelay[0].read(PLATE_TAP_L[1])
@@ -777,7 +789,7 @@ void AudioEffectReverbJT::updateCloud(
     float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 1.0f : _decay;
+    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
 
     // Read long delay feedback

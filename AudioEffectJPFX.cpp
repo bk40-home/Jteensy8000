@@ -124,7 +124,6 @@ AudioEffectJPFX::AudioEffectJPFX()
 
     // --- Delay ---
     _delayType             = JPFX_DELAY_OFF;
-    _pendingDelayType      = JPFX_DELAY_OFF;    // No pending change
     _delayMix              = 0.5f;
     _delayFeedbackOverride = -1.0f;
     _delayTimeOverrideL    = -1.0f;     // -1 = use preset L time
@@ -139,6 +138,9 @@ AudioEffectJPFX::AudioEffectJPFX()
     _delayWetCached    = 0.0f;
     _delayDryCached    = 1.0f;
     _delayInvertCached = false;
+
+    // --- Delay mute counter (no pending mute at startup) ---
+    _delayMuteCounter = 0;
 
     // --- Buffers ---
     _modBufL   = nullptr;
@@ -282,17 +284,17 @@ void AudioEffectJPFX::updateFromBPMClock(const BPMClockManager& bpmClock)
     // Only update delay time when synced to BPM
     if (_delayTimingMode == TIMING_FREE) return;
     if (_delayType == JPFX_DELAY_OFF)    return;
-
+ 
     float syncedTimeMs = bpmClock.getTimeForMode(_delayTimingMode);
     if (syncedTimeMs <= 0.0f) return;
-
+ 
     // Compute L/R ratio from the active preset
     float ratio = 1.0f;
     const DelayParams &p = delayPresets[_delayType];
     if (p.delayMsL > 0.0f) {
         ratio = p.delayMsR / p.delayMsL;
     }
-
+ 
     _delayTimeOverrideL = syncedTimeMs;
     _delayTimeOverrideR = syncedTimeMs * ratio;
 }
@@ -473,29 +475,33 @@ void AudioEffectJPFX::setModFeedback(float fb)
 // Delay parameter setters
 // ===========================================================================
 
-// ---------------------------------------------------------------------------
-// setDelayEffect — ISR-safe delay preset switching
-//
-// Writes the requested type to _pendingDelayType.  The actual type change,
-// buffer clear, and write index reset happen inside update() at the start
-// of the next audio block.  This guarantees the ISR never sees a half-
-// cleared buffer or a write index that was reset mid-block.
-//
-// On Cortex-M7 a single aligned word write is atomic, so no mutex or
-// interrupt disable is needed — the ISR will see either the old or the
-// new value, never a torn read.
-// ---------------------------------------------------------------------------
 void AudioEffectJPFX::setDelayEffect(DelayEffectType type)
 {
-    // Reset time overrides so the new preset's native L/R times take effect.
-    // The user's knob position will re-apply via setDelayTime() on next CC.
-    _delayTimeOverrideL = -1.0f;
-    _delayTimeOverrideR = -1.0f;
+    if (type != _delayType) {
+        JT_LOGF("[JPFX] setDelayEffect: old=%d new=%d bufSize=%u muteCounter=%u\n", 
+                (int)_delayType, (int)type, _delayBufSize, _delayMuteCounter);
+        _delayType = type;
 
-    // Signal the ISR to pick up the change at the next block boundary.
-    // If type == current _delayType, _pendingDelayType will match and
-    // update() will skip the transition (no redundant buffer clears).
-    _pendingDelayType = type;
+        // Reset time overrides so the new preset's native L/R times take effect.
+        _delayTimeOverrideL = -1.0f;
+        _delayTimeOverrideR = -1.0f;
+
+        // Mute wet output for a FULL BUFFER cycle.  During mute, processDelay
+        // writes input-only (no feedback) at every position.  Once the write
+        // pointer has completed a full lap, every position in the circular
+        // buffer contains post-change audio and the feedback loop is clean.
+        //
+        // We use the full buffer size (not just the delay time) because the
+        // PSRAM buffer may contain uninitialised data from extmem_malloc that
+        // was not reliably zeroed by the startup memset.  A shorter mute
+        // period could leave garbage in positions that the feedback loop
+        // eventually reaches after the write pointer wraps.
+        if (type >= 0 && type < JPFX_NUM_DELAY_VARIATIONS) {
+            _delayMuteCounter = _delayBufSize;
+        } else {
+            _delayMuteCounter = 0;
+        }
+    }
 }
 
 void AudioEffectJPFX::setDelayMix(float mix)
@@ -523,17 +529,17 @@ void AudioEffectJPFX::setDelayFeedback(float fb)
 void AudioEffectJPFX::setDelayTime(float ms)
 {
     _freeRunningDelayTime = ms;
-
+ 
     // Only apply when in free-running mode (BPM mode is managed by clock)
     if (_delayTimingMode != TIMING_FREE) return;
-
+ 
     // Disable override: revert to preset times
     if (ms <= 0.0f) {
         _delayTimeOverrideL = -1.0f;
         _delayTimeOverrideR = -1.0f;
         return;
     }
-
+ 
     // Compute L/R ratio from the active preset to preserve stereo spread.
     // Guard against divide-by-zero on mono presets (L == R → ratio = 1.0).
     float ratio = 1.0f;
@@ -543,7 +549,7 @@ void AudioEffectJPFX::setDelayTime(float ms)
             ratio = p.delayMsR / p.delayMsL;
         }
     }
-
+ 
     _delayTimeOverrideL = ms;
     _delayTimeOverrideR = ms * ratio;
 }
@@ -753,9 +759,6 @@ inline void AudioEffectJPFX::processModulation(float inL, float inR,
 // Called once per update() block.  Caches delay time (in samples), feedback,
 // wet/dry levels, and phase inversion flag.  processDelay() reads these
 // cached values rather than recomputing for each of the 128 samples.
-//
-// Delay times are clamped to a minimum of JPFX_MIN_DELAY_SAMP (1 sample)
-// to prevent the interpolated read from landing on the write position.
 // ===========================================================================
 void AudioEffectJPFX::prepareDelay()
 {
@@ -783,8 +786,10 @@ void AudioEffectJPFX::prepareDelay()
 
     float dSampL = timeMsL * msToSamp;
     float dSampR = timeMsR * msToSamp;
-    dSampL = constrain(dSampL, JPFX_MIN_DELAY_SAMP, maxSamp);
-    dSampR = constrain(dSampR, JPFX_MIN_DELAY_SAMP, maxSamp);
+    if (dSampL < JPFX_MIN_DELAY_SAMP) dSampL = JPFX_MIN_DELAY_SAMP;
+    if (dSampL > maxSamp)              dSampL = maxSamp;
+    if (dSampR < JPFX_MIN_DELAY_SAMP) dSampR = JPFX_MIN_DELAY_SAMP;
+    if (dSampR > maxSamp)              dSampR = maxSamp;
 
     // Resolve wet/dry from user mix (negative = phase inversion)
     float wet = _delayMix;
@@ -799,27 +804,32 @@ void AudioEffectJPFX::prepareDelay()
                       : p.feedback;
     _delayWetCached   = wet;
     _delayDryCached   = 1.0f - wet;
+
+    // Diagnostic: mute counter state (rate-limited)
+    {
+        static uint32_t lastPrepLog = 0;
+        if (millis() - lastPrepLog > 500) {
+            lastPrepLog = millis();
+            JT_LOGF("[JPFX prep] L=%.1f R=%.1f samp, fb=%.2f wet=%.2f muteC=%u type=%d\n",
+                    dSampL, dSampR, _delayFbCached, wet, _delayMuteCounter, (int)_delayType);
+        }
+    }
 }
 
 
 // ===========================================================================
 // processDelay — delay / panning delay per-sample processing
 //
-// Uses block-constant cache from prepareDelay().  The interpolated read
-// index advances by 1 per sample (matching the write pointer) so the
-// delay tap stays sample-accurate.
-//
-// When delay is off, the write pointer still advances (maintaining sync)
-// but no buffer reads or writes occur — the buffer is left to decay
-// naturally when the effect is re-enabled.
+// Uses block-constant cache from prepareDelay().  Mute counter handles
+// click-free preset transitions: during the mute period the buffer is
+// filled with fresh audio (input only, no feedback from stale reads)
+// and the wet output is zeroed.  Once the counter reaches 0, every
+// position the read pointer can reach contains post-change audio.
 // ===========================================================================
 inline void AudioEffectJPFX::processDelay(float inL, float inR,
                                            float &outL, float &outR)
 {
-    // Bypass path: pass input through, no buffer operations.
-    // Buffer content decays naturally (no explicit per-sample decay needed —
-    // it just sits there; on re-enable, prepareDelay() will read valid data
-    // because the write pointer has not been writing garbage).
+    // Bypass: no buffer access when delay is off
     if (_delayType == JPFX_DELAY_OFF || !_delayBufL || !_delayBufR) {
         outL = inL;
         outR = inR;
@@ -840,7 +850,7 @@ inline void AudioEffectJPFX::processDelay(float inL, float inR,
     const uint32_t iL0    = (uint32_t)readIdxL;
     const uint32_t iL1    = (iL0 + 1) % _delayBufSize;
     const float    fracL  = readIdxL - (float)iL0;
-    const float    delayL = _delayBufL[iL0] + (_delayBufL[iL1] - _delayBufL[iL0]) * fracL;
+    float          delayL = _delayBufL[iL0] + (_delayBufL[iL1] - _delayBufL[iL0]) * fracL;
 
     // Interpolated read — RIGHT channel
     float readIdxR = (float)_delayWriteIdx - dSampR;
@@ -848,14 +858,45 @@ inline void AudioEffectJPFX::processDelay(float inL, float inR,
     const uint32_t iR0    = (uint32_t)readIdxR;
     const uint32_t iR1    = (iR0 + 1) % _delayBufSize;
     const float    fracR  = readIdxR - (float)iR0;
-    const float    delayR = _delayBufR[iR0] + (_delayBufR[iR1] - _delayBufR[iR0]) * fracR;
+    float          delayR = _delayBufR[iR0] + (_delayBufR[iR1] - _delayBufR[iR0]) * fracR;
 
-    // Write input + feedback into circular buffer, advance write pointer
+    // -----------------------------------------------------------------------
+    // Sanitise delay reads — protect against PSRAM corruption / uninitialised
+    // memory / NaN.  Audio samples are always in [-1, +1] after normalisation.
+    // Any value outside [-2, +2] (with headroom for feedback accumulation) is
+    // garbage.  Clamp to zero AND scrub the source buffer positions so the
+    // corruption doesn't re-enter the feedback loop on the next lap.
+    // -----------------------------------------------------------------------
+    if (delayL > 2.0f || delayL < -2.0f || delayL != delayL) {
+        delayL = 0.0f;
+        _delayBufL[iL0] = 0.0f;
+        _delayBufL[iL1] = 0.0f;
+    }
+    if (delayR > 2.0f || delayR < -2.0f || delayR != delayR) {
+        delayR = 0.0f;
+        _delayBufR[iR0] = 0.0f;
+        _delayBufR[iR1] = 0.0f;
+    }
+
+    // Write into circular buffer + advance write pointer.
+    // During mute: input only (no feedback from stale reads).
+    // After mute:  input + feedback (normal delay operation).
+    if (_delayMuteCounter > 0) {
+        _delayBufL[_delayWriteIdx] = inL;
+        _delayBufR[_delayWriteIdx] = inR;
+        _delayWriteIdx = (_delayWriteIdx + 1) % _delayBufSize;
+        --_delayMuteCounter;
+        // Output dry only — no stale wet signal
+        outL = inL;
+        outR = inR;
+        return;
+    }
+
     _delayBufL[_delayWriteIdx] = inL + delayL * feedback;
     _delayBufR[_delayWriteIdx] = inR + delayR * feedback;
     _delayWriteIdx = (_delayWriteIdx + 1) % _delayBufSize;
 
-    // Blend dry and wet (with optional phase inversion for creative use)
+    // Blend dry and wet (with optional phase inversion)
     const float wetL = invertWet ? -delayL : delayL;
     const float wetR = invertWet ? -delayR : delayR;
     outL = dryLevel * inL + wetLevel * wetL;
@@ -869,7 +910,6 @@ inline void AudioEffectJPFX::processDelay(float inL, float inR,
 // Called by the Teensy Audio Library every 128 samples (~2.9 ms at 44.1 kHz).
 //
 // Processing order:
-//   0. ISR-safe delay preset transition (if pending)
 //   1. Block-rate parameter updates (tone, saturation, delay cache)
 //   2. Per-sample loop: Saturation → Tone → Modulation → Delay → Limiter
 //   3. Block-rate limiter gain adjustment
@@ -877,22 +917,6 @@ inline void AudioEffectJPFX::processDelay(float inL, float inR,
 // ===========================================================================
 void AudioEffectJPFX::update(void)
 {
-    // --- Stage 0: ISR-safe delay preset transition ---
-    // setDelayEffect() writes _pendingDelayType from the main loop.
-    // We pick it up here, inside the ISR, so the buffer clear and
-    // write index reset are atomic with respect to audio processing.
-    const DelayEffectType pending = _pendingDelayType;
-    if (pending != _delayType) {
-        _delayType = pending;
-        _delayWriteIdx = 0;
-
-        // Clear delay buffers to prevent stale audio bleed
-        if (_delayBufL && _delayBufR) {
-            memset(_delayBufL, 0, sizeof(float) * _delayBufSize);
-            memset(_delayBufR, 0, sizeof(float) * _delayBufSize);
-        }
-    }
-
     // Receive mono input (may be nullptr when no audio is connected —
     // processing continues to maintain LFO phase and effect tails)
     audio_block_t *in = receiveReadOnly(0);
@@ -941,6 +965,23 @@ void AudioEffectJPFX::update(void)
         float delL, delR;
         processDelay(modL, modR, delL, delR);
 
+        // --- DIAGNOSTIC: detect discontinuity spikes in delay output ---
+        // Fires when the sample-to-sample delta exceeds 0.15 (~-16dB jump).
+        // Rate-limited to once per second to avoid serial flood.
+        {
+            static float prevL = 0.0f, prevR = 0.0f;
+            static uint32_t lastReport = 0;
+            const float dL = fabsf(delL - prevL);
+            const float dR = fabsf(delR - prevR);
+            if ((dL > 0.15f || dR > 0.15f) && (millis() - lastReport > 1000)) {
+                lastReport = millis();
+                JT_LOGF("[CLICK] dL=%.4f dR=%.4f  delL=%.4f delR=%.4f  prevL=%.4f prevR=%.4f  writeIdx=%u  muteC=%u  bufSize=%u  bufL=%p\n",
+                         dL, dR, delL, delR, prevL, prevR, _delayWriteIdx, _delayMuteCounter, _delayBufSize, _delayBufL);
+            }
+            prevL = delL;
+            prevR = delR;
+        }
+
         // Track peak for block-rate limiter
         const float peakL = fabsf(delL);
         const float peakR = fabsf(delR);
@@ -948,7 +989,7 @@ void AudioEffectJPFX::update(void)
         if (peakR > blockPeak) blockPeak = peakR;
 
         // Apply current limiter gain and convert to int16.
-        // Manual clamp avoids Arduino constrain() macro (multi-eval issue).
+        // Explicit clamp avoids constrain() macro multi-evaluation.
         float outF_L = delL * _limGain * 32767.0f;
         float outF_R = delR * _limGain * 32767.0f;
         if (outF_L >  32767.0f) outF_L =  32767.0f;
