@@ -248,8 +248,8 @@ private:
     // -- Reverb --
     ReverbType _reverbType    = ReverbType::PLATE;
     float _reverbRoomSize     = 0.5f;   // 0..1
-    float _reverbHiDamp       = 0.5f;   // 0..1
-    float _reverbLoDamp       = 0.5f;   // 0..1
+    float _reverbHiDamp       = 0.0f;   // 0..1 (0 = bright, no damping)
+    float _reverbLoDamp       = 0.0f;   // 0..1 (0 = full bass, no damping)
     float _reverbPredelayMs   = 0.0f;   // 0..500 ms
     float _reverbModDepth     = 0.5f;   // 0..1
     float _reverbModRate      = 0.8f;   // 0.1..5 Hz

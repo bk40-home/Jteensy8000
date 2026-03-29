@@ -137,19 +137,21 @@ private:
         uint32_t len;
         uint32_t writeIdx;
 
-        // Write one sample. Clamps NaN/Inf to zero to prevent tank corruption.
+        // Write one sample — branchless NaN/Inf guard via integer reinterpret.
+        // On Cortex-M7 this compiles to VMOV + BIC + CMP — ~2 cycles, no branch.
         inline void write(float sample) {
-            // Fast NaN/Inf check: a finite float equals itself; NaN does not.
-            // Also catches ±Inf since Inf > any threshold.
-            if (!(sample > -10.0f && sample < 10.0f)) sample = 0.0f;
-            buf[writeIdx] = sample;
-            if (++writeIdx >= len) writeIdx = 0;
+            union { float f; uint32_t u; } val;
+            val.f = sample;
+            // If exponent bits are all 1s (0x7F800000), it's NaN or Inf → zero it
+            if (__builtin_expect((val.u & 0x7F800000) == 0x7F800000, 0)) val.f = 0.0f;
+            buf[writeIdx] = val.f;
+            if (__builtin_expect(++writeIdx >= len, 0)) writeIdx = 0;
         }
 
         inline float read(uint32_t delaySamples) const {
-            uint32_t idx = (writeIdx >= delaySamples)
-                         ? writeIdx - delaySamples
-                         : writeIdx + len - delaySamples;
+            uint32_t idx = writeIdx - delaySamples;
+            if (__builtin_expect(writeIdx < delaySamples, 0))
+                idx += len;
             return buf[idx];
         }
 
@@ -163,7 +165,6 @@ private:
         }
 
         // Cubic Hermite interpolation for pitch shifting (shimmer)
-        // Better quality than linear for large pitch ratios
         inline float readCubic(float delaySamples) const {
             uint32_t i = (uint32_t)delaySamples;
             float    f = delaySamples - (float)i;
@@ -173,7 +174,6 @@ private:
             float y2 = read(i + 1);
             float y3 = read(i + 2);
 
-            // Hermite basis functions
             float c0 = y1;
             float c1 = 0.5f * (y2 - y0);
             float c2 = y0 - 2.5f * y1 + 2.0f * y2 - 0.5f * y3;
@@ -341,15 +341,16 @@ private:
     void assignBuffers();
 
     // Per-algorithm update routines (called from update())
-    void updatePlate(float diffused, float lfo, int16_t* outL, int16_t* outR,
+    // decay is passed in to avoid re-reading volatile _frozen per sample
+    void updatePlate(float diffused, float lfo, float decay, int16_t* outL, int16_t* outR,
                      float inL, float inR, float wetLvl, float dryLvl, int i);
-    void updateHall(float diffused, float lfo, int16_t* outL, int16_t* outR,
+    void updateHall(float diffused, float lfo, float decay, int16_t* outL, int16_t* outR,
                     float inL, float inR, float wetLvl, float dryLvl, int i);
-    void updateShimmer(float diffused, float lfo, int16_t* outL, int16_t* outR,
+    void updateShimmer(float diffused, float lfo, float decay, int16_t* outL, int16_t* outR,
                        float inL, float inR, float wetLvl, float dryLvl, int i);
-    void updateSpring(float diffused, float lfo, int16_t* outL, int16_t* outR,
+    void updateSpring(float diffused, float lfo, float decay, int16_t* outL, int16_t* outR,
                       float inL, float inR, float wetLvl, float dryLvl, int i);
-    void updateCloud(float diffused, float lfo, int16_t* outL, int16_t* outR,
+    void updateCloud(float diffused, float lfo, float decay, int16_t* outL, int16_t* outR,
                      float inL, float inR, float wetLvl, float dryLvl, int i);
 
     // Recalculate shimmer read rate from semitone setting

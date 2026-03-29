@@ -757,8 +757,8 @@ private:
     float  _fxDryMix         = 1.0f;
     ReverbType _fxReverbType  = ReverbType::PLATE;
     float  _fxReverbRoomSize = 0.5f;
-    float  _fxReverbHiDamp   = 0.5f;
-    float  _fxReverbLoDamp   = 0.5f;
+    float  _fxReverbHiDamp   = 0.0f;
+    float  _fxReverbLoDamp   = 0.0f;
     float  _fxReverbPredelay = 0.0f;
     float  _fxReverbModDepth = 0.5f;
     float  _fxReverbModRate  = 0.8f;

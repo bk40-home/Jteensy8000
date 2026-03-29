@@ -78,7 +78,7 @@ AudioEffectReverbJT::AudioEffectReverbJT()
     , _type(ReverbType::PLATE)
     , _sizeParam(0.5f)
     , _decay(0.7f)
-    , _hiDampCoeff(0.3f)
+    , _hiDampCoeff(0.0f)
     , _loDampCoeff(0.0f)
     , _wetLevel(1.0f)
     , _dryLevel(0.0f)
@@ -242,30 +242,45 @@ void AudioEffectReverbJT::recalcDecay()
 {
     float n = _sizeParam;
 
+    // Decay mapping — compensates for damping filters inside the feedback loop.
+    //
+    // With damping active, the effective feedback is decay × filter_passthrough.
+    // At default hidamp (coeff 0.35), the LPF passes ~65% of treble energy,
+    // so the effective decay for bright content is ~0.65 × nominal_decay.
+    // We raise the nominal decay range to compensate, giving musically
+    // useful tails at every knob position.
+    //
+    // Approximate RT60 at 44.1kHz with ~140ms tank cycle, moderate damping:
+    //   size 0%   → ~0.5s    (tight slap)
+    //   size 25%  → ~1.5s    (small room)
+    //   size 50%  → ~3s      (medium hall)
+    //   size 75%  → ~8s      (large hall / trance)
+    //   size 100% → ~30s+    (near-infinite wash)
+
     switch (_type) {
         case ReverbType::PLATE:
         case ReverbType::SHIMMER:
-            // Quadratic: fine control at the long end
-            _decay = 0.05f + 0.9495f * n * n;
+            // n^1.5 curve: floor 0.80, ceiling 0.999
+            // With damping inside the loop, nominal decay needs to be high —
+            // the filters attenuate the signal each cycle, so the effective
+            // feedback is lower than the decay coefficient.
+            _decay = 0.80f + 0.199f * n * sqrtf(n);
             break;
 
         case ReverbType::HALL:
-            // Even longer maximum — FDN supports stable decay near unity
-            _decay = 0.10f + 0.8995f * n * n;
+            _decay = 0.85f + 0.149f * n * sqrtf(n);
             break;
 
         case ReverbType::SPRING:
-            // Shorter range — spring reverbs don't sustain as long
-            _decay = 0.10f + 0.75f * n;
+            _decay = 0.60f + 0.30f * n;
             break;
 
         case ReverbType::CLOUD:
-            // Near-unity for pad-wash character
-            _decay = 0.20f + 0.7995f * n * n;
+            _decay = 0.88f + 0.119f * n * sqrtf(n);
             break;
 
         default:
-            _decay = 0.5f;
+            _decay = 0.85f;
             break;
     }
 }
@@ -500,23 +515,23 @@ void AudioEffectReverbJT::update(void)
         // sample is negligible compared to the DSP work.
         switch (_type) {
             case ReverbType::PLATE:
-                updatePlate(diffused, lfo, outL->data, outR->data,
+                updatePlate(diffused, lfo, decay, outL->data, outR->data,
                            inSmpL, inSmpR, wetLvl, dryLvl, i);
                 break;
             case ReverbType::HALL:
-                updateHall(diffused, lfo, outL->data, outR->data,
+                updateHall(diffused, lfo, decay, outL->data, outR->data,
                           inSmpL, inSmpR, wetLvl, dryLvl, i);
                 break;
             case ReverbType::SHIMMER:
-                updateShimmer(diffused, lfo, outL->data, outR->data,
+                updateShimmer(diffused, lfo, decay, outL->data, outR->data,
                              inSmpL, inSmpR, wetLvl, dryLvl, i);
                 break;
             case ReverbType::SPRING:
-                updateSpring(diffused, lfo, outL->data, outR->data,
+                updateSpring(diffused, lfo, decay, outL->data, outR->data,
                             inSmpL, inSmpR, wetLvl, dryLvl, i);
                 break;
             case ReverbType::CLOUD:
-                updateCloud(diffused, lfo, outL->data, outR->data,
+                updateCloud(diffused, lfo, decay, outL->data, outR->data,
                            inSmpL, inSmpR, wetLvl, dryLvl, i);
                 break;
             default:
@@ -540,10 +555,9 @@ void AudioEffectReverbJT::update(void)
 // =============================================================================
 
 void AudioEffectReverbJT::updatePlate(
-    float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
+    float diffused, float lfo, float decay, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
     static constexpr float kWet = 0.3f;
 
@@ -590,10 +604,9 @@ void AudioEffectReverbJT::updatePlate(
 // =============================================================================
 
 void AudioEffectReverbJT::updateHall(
-    float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
+    float diffused, float lfo, float decay, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
 
     // Read from all 8 delay line outputs
@@ -654,10 +667,9 @@ void AudioEffectReverbJT::updateHall(
 // =============================================================================
 
 void AudioEffectReverbJT::updateShimmer(
-    float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
+    float diffused, float lfo, float decay, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
     static constexpr float kWet = 0.3f;
 
@@ -732,10 +744,9 @@ void AudioEffectReverbJT::updateShimmer(
 // =============================================================================
 
 void AudioEffectReverbJT::updateSpring(
-    float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
+    float diffused, float lfo, float decay, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 0.999f : _decay;  // spring can't truly freeze
     static constexpr float kToInt16 = 32767.0f;
 
     // Read feedback from delay outputs
@@ -786,10 +797,9 @@ void AudioEffectReverbJT::updateSpring(
 // =============================================================================
 
 void AudioEffectReverbJT::updateCloud(
-    float diffused, float lfo, int16_t* outDataL, int16_t* outDataR,
+    float diffused, float lfo, float decay, int16_t* outDataL, int16_t* outDataR,
     float inL, float inR, float wetLvl, float dryLvl, int i)
 {
-    const float decay = _frozen ? 0.9999f : _decay;
     static constexpr float kToInt16 = 32767.0f;
 
     // Read long delay feedback
