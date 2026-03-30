@@ -456,6 +456,35 @@ float VoiceBlock::getCrossModDepth() const {
     return _crossModDepth;
 }
 
+// =============================================================================
+// SILENCE — force voice into fully idle state
+//
+// At boot, no noteOn()/noteOff() cycle has occurred, so oscillators may still
+// have non-zero default amplitudes and the Teensy audio scheduler runs every
+// AudioStream::update() unconditionally.  Downstream objects (filters, mixers)
+// burn CPU processing non-silent blocks that produce no audible output.
+//
+// Call once per voice from SynthEngine::begin() after all patch cables are
+// built.  This puts the voice into the exact same state as a completed
+// noteOn → noteOff → envelope-idle cycle, so the audio scheduler processes
+// zero blocks through the entire chain from first boot.
+// =============================================================================
+
+void VoiceBlock::silence() {
+    // Zero all oscillator amplitudes — stops waveform generation
+    _osc1.noteOff();          // _mainOsc.amplitude(0) + supersaw amplitude(0)
+    _osc2.noteOff();
+    _subOsc.setAmplitude(0.0f);
+    _noise.amplitude(0.0f);
+
+    // Ensure envelopes are in idle state (not attack/decay/sustain/release)
+    // noteOff() transitions to release; calling it from idle is harmless —
+    // AudioEffectEnvelope::noteOff() on an already-idle envelope is a no-op.
+    _ampEnvelope.noteOff();
+    _filterEnvelope.noteOff();
+    _pitchEnvelope.noteOff();
+}
+
 bool VoiceBlock::getSyncEnabled() const {
 #if JT_OPT_OSC_SYNC
     return _syncActive;

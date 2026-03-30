@@ -48,6 +48,7 @@ public:
     void update();
     void noteOn(float frequency, float velocity);
     void noteOff();
+    void silence();       // Force voice to idle state (boot / panic)
     void setAmplitude(float amplitude);
 
     // Returns the velocity of the most recent noteOn (0.0–1.0).
@@ -75,6 +76,9 @@ public:
     void setOsc2Mix(float level);
     void setOsc1PitchOffset(float semitones);
     void setOsc2PitchOffset(float semitones);
+
+    
+
 
     /** Pitch bend — writes DC into pre-mixer for both oscillators.
      *  Called per-frame by SynthEngine when the pitch wheel moves. */

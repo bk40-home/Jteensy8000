@@ -561,30 +561,42 @@ void AudioEffectReverbJT::updatePlate(
     static constexpr float kToInt16 = 32767.0f;
     static constexpr float kWet = 0.3f;
 
-    // Read cross-feedback from the END of each delay, apply damping + decay.
-    // Damping must be inside the feedback loop to have any audible effect —
-    // it shapes what re-enters the tank, progressively darkening the tail.
-    float crossFB0 = _plateDelay[1].read(_plateDelay[1].len - 1);
-    crossFB0 = _plateLPF[0].process(crossFB0);
-    crossFB0 = _plateHPF[0].process(crossFB0);
-    crossFB0 *= decay;
+    // ── Dattorro tank topology (correct signal flow) ──────────────────────
+    //
+    // The damping filters sit BETWEEN the delay output and the cross-feedback
+    // multiply.  This means:
+    //   - The raw delay line holds the full-bandwidth signal (output taps
+    //     read from here → brighter, more present output)
+    //   - The filtered signal is what gets scaled by decay and fed into
+    //     the OTHER tank half → highs decay faster than lows (natural room)
+    //   - Decay and damping act on the same signal but are NOT compounding:
+    //     decay controls overall tail length, damping controls spectral tilt
+    //
+    // Signal: delay_end → LPF → HPF → × decay → cross-feed to other half
+    //         delay_taps → output (unfiltered, bright)
 
-    float crossFB1 = _plateDelay[0].read(_plateDelay[0].len - 1);
-    crossFB1 = _plateLPF[1].process(crossFB1);
-    crossFB1 = _plateHPF[1].process(crossFB1);
-    crossFB1 *= decay;
+    // Read end of each tank delay, apply damping, then decay
+    float fb0 = _plateDelay[1].read(_plateDelay[1].len - 1);
+    fb0 = _plateLPF[0].process(fb0);    // hi-freq damping
+    fb0 = _plateHPF[0].process(fb0);    // lo-freq damping
+    fb0 *= decay;                        // overall tail length
 
-    // Tank half 0: diffused input + damped cross-feedback → APF → delay
-    float t0 = diffused + crossFB0;
+    float fb1 = _plateDelay[0].read(_plateDelay[0].len - 1);
+    fb1 = _plateLPF[1].process(fb1);
+    fb1 = _plateHPF[1].process(fb1);
+    fb1 *= decay;
+
+    // Tank half 0: input + filtered cross-feedback → modulated APF → delay
+    float t0 = diffused + fb0;
     t0 = _plateAPF[0].processModulated(t0, lfo * _modDepth);
     _plateDelay[0].write(t0);
 
-    // Tank half 1: diffused input + damped cross-feedback → APF → delay
-    float t1 = diffused + crossFB1;
+    // Tank half 1: input + filtered cross-feedback → modulated APF → delay
+    float t1 = diffused + fb1;
     t1 = _plateAPF[1].processModulated(t1, -lfo * _modDepth);
     _plateDelay[1].write(t1);
 
-    // Output taps: read directly from delay lines (pre-damping = brighter)
+    // Output taps: read from delay lines (full bandwidth, pre-filter)
     float wetL = (_plateDelay[0].read(PLATE_TAP_L[0])
                 + _plateDelay[0].read(PLATE_TAP_L[1])
                 - _plateDelay[1].read(PLATE_TAP_L[2])) * kWet;

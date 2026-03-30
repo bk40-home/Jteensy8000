@@ -264,6 +264,18 @@ void SynthEngine::begin()
         _voices[i].setOsc2PitchBend(_pitchBendSemis);
         
     }
+
+    // =========================================================================
+    // SILENCE ALL VOICES — ensure idle state from first audio interrupt
+    //
+    // Without this, voices that have never received a noteOn/noteOff cycle
+    // still consume full CPU: the Teensy scheduler calls update() on every
+    // AudioStream unconditionally, and oscillators/filters process non-zero
+    // blocks until explicitly silenced.
+    // =========================================================================
+    for (int i = 0; i < MAX_VOICES; ++i) {
+        _voices[i].silence();
+    }
 }
 
 static inline float CCtoTime(uint8_t cc) { return JT8000Map::cc_to_time_ms(cc); }
