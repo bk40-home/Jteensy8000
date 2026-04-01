@@ -1,0 +1,192 @@
+[CC 21:OSC1 Wave] OSC1 Waveform -> SAW (1)
+[CC 22:OSC2 Wave] OSC2 Waveform -> SAW (1)
+[CC 41:OSC1 Coarse] OSC1 Coarse = 0.0 semitones
+[CC 42:OSC2 Coarse] OSC2 Coarse = 0.0 semitones
+[CC 45:OSC1 Fine] OSC1 Fine = 0.0 cents
+[CC 46:OSC2 Fine] OSC2 Fine = 0.0 cents
+[CC 43:OSC1 Detune] OSC1 Detune = 0.00 Hz
+[CC 44:OSC2 Detune] OSC2 Detune = 0.00 Hz
+[CC 47:Osc Bal] Osc Mix balance L=1.000 R=0.000
+[CC 60:Osc1 Mix] OSC1 Mix = 1.000
+[CC 61:Osc2 Mix] OSC2 Mix = 0.000
+[CC 58:Sub Mix] Sub Mix   = 0.000
+[CC 59:Noise Mix] Noise Mix = 0.000
+[CC 77:Saw1 Det] Supersaw1 Detune = 0.000
+[CC 78:Saw1 Mix] Supersaw1 Mix    = 0.000
+[CC 79:Saw2 Det] Supersaw2 Detune = 0.000
+[CC 80:Saw2 Mix] Supersaw2 Mix    = 0.000
+[CC 123:Osc1 FBA] Osc1 feedback amount = 0.000 
+[CC 124:Osc2 FBA] Osc2 feedback amount = 0.000 
+[CC 125:Osc1 FBM] Osc1 feedback mix = 0.000 
+[CC 126:Osc2 FBM] Osc2 feedback mix = 0.000 
+[CC 23:Cutoff] Cutoff = 20000.00 Hz
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[CC 24:Resonance] Resonance = 0.0000 (engine 1)
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[CC 48:Flt Env Amt] Filt Env Amount = 0.024
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[CC 50:Key Track] KeyTrack = 0.024
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[CC 84:Oct Ctrl] Filter Octave = 0.000
+[SE] FilterEngine = 1
+[CC 113:Flt Engine] FilterEngine = 1
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[CC 112:Flt Mode] FilterMode = 0
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[SE] VAFilterType = 0
+[CC 115:VA Type] VAFilterType = 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[CC 114:Xpand Mode] XpanderMode = 0
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[CC 111:Multimode] Multimode = 0.000
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[CC 117:Q Depth] ResModDepth = 0.000
+[CC 25:Amp Att] Amp Attack = 1.00 ms
+[CC 26:Amp Dec] Amp Decay = 1.00 ms
+[CC 27:Amp Sus] Amp Sustain = 1.000
+[CC 28:Amp Rel] Amp Release = 1.00 ms
+[CC 29:Flt Att] Filt Env Attack = 1.00 ms
+[CC 30:Flt Dec] Filt Env Decay = 1.00 ms
+[CC 31:Flt Sus] Filt Env Sustain = 1.000
+[CC 32:Flt Rel] Filt Env Release = 1.00 ms
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0300 Hz
+[CC 55:LFO1 Depth] LFO1 Depth = 0.000
+[CC 56:LFO1 Dest] LFO1 Dest = 0
+[CC 62:LFO1 Wave] LFO1 Wave -> SIN (0)
+[CC 33] LFO1 Pitch depth 0.000
+[CC 34] LFO1 Filter depth 0.000
+[CC 35] LFO1 PWM depth 0.000
+[CC 36] LFO1 Amp depth 0.000
+[CC 37] LFO1 Delay 0 ms
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0300 Hz
+[CC 52:LFO2 Depth] LFO2 Depth = 0.000
+[CC 53:LFO2 Dest] LFO2 Dest = 0
+[CC 63:LFO2 Wave] LFO2 Wave -> SIN (0)
+[CC 38] LFO2 Pitch depth 0.000
+[CC 39] LFO2 Filter depth 0.000
+[CC 40] LFO2 PWM depth 0.000
+[CC 57] LFO2 Amp depth 0.000
+[CC 64] LFO2 Delay 0 ms
+[CC 65] PEnv Attack 1.4 ms
+[CC 66] PEnv Decay 19.2 ms
+[CC 67] PEnv Sustain 0.000
+[CC 68] PEnv Release 2.1 ms
+[CC 69] PEnv Depth 0.0 semitones
+[CC 10] Vel Amp Sens 0.000
+[CC 11] Vel Filter Sens 0.000
+[CC 12] Vel Env Sens 0.000
+[CC 99:Bass] Bass = 0.1 dB
+[CC 100:Treble] Treble = 0.1 dB
+[CC 16:Drive] Drive = 0.000
+[CC 103:Mod FX] Mod Effect = -1 (Off)
+[CC 104:Mod Mix] Mod Mix = 0.504
+[CC 105:Mod Rate] Mod Rate = 0.00 Hz
+[CC 106:Mod FB] Mod FB = -1.000
+[CC 107:Dly FX] Delay Effect = -1 (Off)
+[CC 108:Dly Mix] Delay Mix = 0.504
+[CC 109:Dly FB] Delay FB = -1.000
+[CC 110:Dly Time] Delay Time = 0.0 ms
+[CC 70:Rev Size] Reverb Size = 0.000
+[CC 71:Rev Damp] Reverb HiDamp = 0.000
+[CC 93:Rev LoDamp] Reverb LoDamp = 0.000
+[CC 75:Rev Mix] Reverb Mix = 0.000
+[CC 94:Rev Bypass] Reverb Bypass = OFF
+[CC 74:Dry Mix] Dry Mix = 1.000
+[CC 76:JPFX Mix] JPFX Mix = 0.000
+[CC 81:Glide On] Glide Enabled = 0
+[CC 82:Glide Time] Glide Time = 1.00 ms
+[CC 90:Amp Mod] Amp mod fixed level = 1.000
+[CC 14:Poly Mode] → POLY
+[CC 15:Uni Detune] Unison detune = 0.504
+[CC 91:Ring1 Mix] Ring1 Mix = 0.000
+[CC 92:Ring2 Mix] Ring2 Mix = 0.000
+[CC 86:Freq DC1] Osc1 Freq DC 0 semitones (amp 0.0000)
+[CC 87:Shape DC1] Osc1 Shape DC = 0.000
+[CC 88:Freq DC2] Osc2 Freq DC 0 semitones (amp 0.0000)
+[CC 89:Shape DC2] Osc2 Shape DC = 0.000

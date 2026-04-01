@@ -1,0 +1,1641 @@
+[CC 21:OSC1 Wave] OSC1 Waveform -> BLP (12)
+[MIDI] CC       21 114
+[CC 21:OSC1 Wave] OSC1 Waveform -> SSAW (100)
+[MIDI] CC       21 123
+[CC 47:Osc Bal] Osc Mix balance L=0.969 R=0.031
+[MIDI] CC       47   4
+[CC 47:Osc Bal] Osc Mix balance L=0.945 R=0.055
+[MIDI] CC       47   7
+[CC 47:Osc Bal] Osc Mix balance L=0.921 R=0.079
+[MIDI] CC       47  10
+[CC 47:Osc Bal] Osc Mix balance L=0.890 R=0.110
+[MIDI] CC       47  14
+[CC 47:Osc Bal] Osc Mix balance L=0.858 R=0.142
+[MIDI] CC       47  18
+[CC 47:Osc Bal] Osc Mix balance L=0.827 R=0.173
+[MIDI] CC       47  22
+[CC 47:Osc Bal] Osc Mix balance L=0.811 R=0.189
+[MIDI] CC       47  24
+[CC 47:Osc Bal] Osc Mix balance L=0.787 R=0.213
+[MIDI] CC       47  27
+[CC 47:Osc Bal] Osc Mix balance L=0.772 R=0.228
+[MIDI] CC       47  29
+[CC 47:Osc Bal] Osc Mix balance L=0.756 R=0.244
+[MIDI] CC       47  31
+[CC 47:Osc Bal] Osc Mix balance L=0.740 R=0.260
+[MIDI] CC       47  33
+[CC 47:Osc Bal] Osc Mix balance L=0.724 R=0.276
+[MIDI] CC       47  35
+[CC 47:Osc Bal] Osc Mix balance L=0.717 R=0.283
+[MIDI] CC       47  36
+[CC 47:Osc Bal] Osc Mix balance L=0.709 R=0.291
+[MIDI] CC       47  37
+[CC 47:Osc Bal] Osc Mix balance L=0.701 R=0.299
+[MIDI] CC       47  38
+[CC 47:Osc Bal] Osc Mix balance L=0.693 R=0.307
+[MIDI] CC       47  39
+[CC 47:Osc Bal] Osc Mix balance L=0.685 R=0.315
+[MIDI] CC       47  40
+[CC 47:Osc Bal] Osc Mix balance L=0.677 R=0.323
+[MIDI] CC       47  41
+[CC 47:Osc Bal] Osc Mix balance L=0.669 R=0.331
+[MIDI] CC       47  42
+[CC 47:Osc Bal] Osc Mix balance L=0.677 R=0.323
+[MIDI] CC       47  41
+[CC 47:Osc Bal] Osc Mix balance L=1.000 R=0.000
+[MIDI] CC       47   0
+[CC 47:Osc Bal] Osc Mix balance L=0.992 R=0.008
+[MIDI] CC       47   1
+[CC 47:Osc Bal] Osc Mix balance L=0.984 R=0.016
+[MIDI] CC       47   2
+[CC 47:Osc Bal] Osc Mix balance L=0.976 R=0.024
+[MIDI] CC       47   3
+[CC 47:Osc Bal] Osc Mix balance L=0.961 R=0.039
+[MIDI] CC       47   5
+[CC 47:Osc Bal] Osc Mix balance L=0.953 R=0.047
+[MIDI] CC       47   6
+[CC 47:Osc Bal] Osc Mix balance L=0.937 R=0.063
+[MIDI] CC       47   8
+[CC 47:Osc Bal] Osc Mix balance L=0.921 R=0.079
+[MIDI] CC       47  10
+[CC 47:Osc Bal] Osc Mix balance L=0.906 R=0.094
+[MIDI] CC       47  12
+[CC 47:Osc Bal] Osc Mix balance L=0.890 R=0.110
+[MIDI] CC       47  14
+[CC 47:Osc Bal] Osc Mix balance L=0.874 R=0.126
+[MIDI] CC       47  16
+[CC 47:Osc Bal] Osc Mix balance L=0.866 R=0.134
+[MIDI] CC       47  17
+[CC 47:Osc Bal] Osc Mix balance L=0.858 R=0.142
+[MIDI] CC       47  18
+[CC 47:Osc Bal] Osc Mix balance L=0.850 R=0.150
+[MIDI] CC       47  19
+[CC 47:Osc Bal] Osc Mix balance L=0.835 R=0.165
+[MIDI] CC       47  21
+[CC 47:Osc Bal] Osc Mix balance L=0.827 R=0.173
+[MIDI] CC       47  22
+[CC 47:Osc Bal] Osc Mix balance L=0.819 R=0.181
+[MIDI] CC       47  23
+[CC 47:Osc Bal] Osc Mix balance L=0.803 R=0.197
+[MIDI] CC       47  25
+[CC 47:Osc Bal] Osc Mix balance L=0.795 R=0.205
+[MIDI] CC       47  26
+[CC 47:Osc Bal] Osc Mix balance L=0.787 R=0.213
+[MIDI] CC       47  27
+[CC 47:Osc Bal] Osc Mix balance L=0.772 R=0.228
+[MIDI] CC       47  29
+[CC 47:Osc Bal] Osc Mix balance L=0.764 R=0.236
+[MIDI] CC       47  30
+[CC 47:Osc Bal] Osc Mix balance L=0.756 R=0.244
+[MIDI] CC       47  31
+[CC 47:Osc Bal] Osc Mix balance L=0.748 R=0.252
+[MIDI] CC       47  32
+[CC 47:Osc Bal] Osc Mix balance L=0.740 R=0.260
+[MIDI] CC       47  33
+[CC 47:Osc Bal] Osc Mix balance L=0.732 R=0.268
+[MIDI] CC       47  34
+[CC 47:Osc Bal] Osc Mix balance L=0.724 R=0.276
+[MIDI] CC       47  35
+[CC 47:Osc Bal] Osc Mix balance L=0.717 R=0.283
+[MIDI] CC       47  36
+[CC 47:Osc Bal] Osc Mix balance L=0.709 R=0.291
+[MIDI] CC       47  37
+[CC 47:Osc Bal] Osc Mix balance L=0.701 R=0.299
+[MIDI] CC       47  38
+[CC 47:Osc Bal] Osc Mix balance L=0.693 R=0.307
+[MIDI] CC       47  39
+[CC 47:Osc Bal] Osc Mix balance L=0.685 R=0.315
+[MIDI] CC       47  40
+[CC 47:Osc Bal] Osc Mix balance L=0.677 R=0.323
+[MIDI] CC       47  41
+[CC 47:Osc Bal] Osc Mix balance L=0.669 R=0.331
+[MIDI] CC       47  42
+[CC 47:Osc Bal] Osc Mix balance L=0.661 R=0.339
+[MIDI] CC       47  43
+[CC 47:Osc Bal] Osc Mix balance L=0.654 R=0.346
+[MIDI] CC       47  44
+[CC 47:Osc Bal] Osc Mix balance L=0.646 R=0.354
+[MIDI] CC       47  45
+[CC 47:Osc Bal] Osc Mix balance L=0.638 R=0.362
+[MIDI] CC       47  46
+[CC 47:Osc Bal] Osc Mix balance L=0.630 R=0.370
+[MIDI] CC       47  47
+[CC 47:Osc Bal] Osc Mix balance L=0.622 R=0.378
+[MIDI] CC       47  48
+[CC 47:Osc Bal] Osc Mix balance L=0.614 R=0.386
+[MIDI] CC       47  49
+[CC 47:Osc Bal] Osc Mix balance L=0.606 R=0.394
+[MIDI] CC       47  50
+[CC 47:Osc Bal] Osc Mix balance L=0.598 R=0.402
+[MIDI] CC       47  51
+[CC 47:Osc Bal] Osc Mix balance L=0.583 R=0.417
+[MIDI] CC       47  53
+[CC 47:Osc Bal] Osc Mix balance L=0.559 R=0.441
+[MIDI] CC       47  56
+[CC 47:Osc Bal] Osc Mix balance L=0.535 R=0.465
+[MIDI] CC       47  59
+[CC 47:Osc Bal] Osc Mix balance L=0.528 R=0.472
+[MIDI] CC       47  60
+[CC 47:Osc Bal] Osc Mix balance L=0.512 R=0.488
+[MIDI] CC       47  62
+[CC 47:Osc Bal] Osc Mix balance L=0.496 R=0.504
+[MIDI] CC       47  64
+[CC 47:Osc Bal] Osc Mix balance L=0.488 R=0.512
+[MIDI] CC       47  65
+[CC 47:Osc Bal] Osc Mix balance L=0.480 R=0.520
+[MIDI] CC       47  66
+[CC 47:Osc Bal] Osc Mix balance L=0.472 R=0.528
+[MIDI] CC       47  67
+[CC 47:Osc Bal] Osc Mix balance L=0.465 R=0.535
+[MIDI] CC       47  68
+[CC 47:Osc Bal] Osc Mix balance L=0.457 R=0.543
+[MIDI] CC       47  69
+[CC 47:Osc Bal] Osc Mix balance L=0.449 R=0.551
+[MIDI] CC       47  70
+[CC 47:Osc Bal] Osc Mix balance L=0.457 R=0.543
+[MIDI] CC       47  69
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  83
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  90
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   59  42
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  90
+[MIDI] NoteOff  59   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   59  66
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   57  41
+[MIDI] NoteOff  57   0
+[MIDI] NoteOff  59   0
+[CC 61:Osc2 Mix] OSC2 Mix = 0.827
+[MIDI] CC       61 105
+[CC 61:Osc2 Mix] OSC2 Mix = 0.811
+[MIDI] CC       61 103
+[CC 61:Osc2 Mix] OSC2 Mix = 0.795
+[MIDI] CC       61 101
+[CC 61:Osc2 Mix] OSC2 Mix = 0.772
+[MIDI] CC       61  98
+[CC 61:Osc2 Mix] OSC2 Mix = 0.748
+[MIDI] CC       61  95
+[CC 61:Osc2 Mix] OSC2 Mix = 0.724
+[MIDI] CC       61  92
+[CC 61:Osc2 Mix] OSC2 Mix = 0.709
+[MIDI] CC       61  90
+[CC 61:Osc2 Mix] OSC2 Mix = 0.685
+[MIDI] CC       61  87
+[CC 61:Osc2 Mix] OSC2 Mix = 0.677
+[MIDI] CC       61  86
+[CC 61:Osc2 Mix] OSC2 Mix = 0.669
+[MIDI] CC       61  85
+[CC 61:Osc2 Mix] OSC2 Mix = 0.661
+[MIDI] CC       61  84
+[CC 61:Osc2 Mix] OSC2 Mix = 0.654
+[MIDI] CC       61  83
+[CC 61:Osc2 Mix] OSC2 Mix = 0.646
+[MIDI] CC       61  82
+[CC 61:Osc2 Mix] OSC2 Mix = 0.638
+[MIDI] CC       61  81
+[CC 61:Osc2 Mix] OSC2 Mix = 0.630
+[MIDI] CC       61  80
+[CC 61:Osc2 Mix] OSC2 Mix = 0.614
+[MIDI] CC       61  78
+[CC 61:Osc2 Mix] OSC2 Mix = 0.606
+[MIDI] CC       61  77
+[CC 61:Osc2 Mix] OSC2 Mix = 0.614
+[MIDI] CC       61  78
+[CC 61:Osc2 Mix] OSC2 Mix = 0.622
+[MIDI] CC       61  79
+[CC 61:Osc2 Mix] OSC2 Mix = 0.646
+[MIDI] CC       61  82
+[CC 61:Osc2 Mix] OSC2 Mix = 0.701
+[MIDI] CC       61  89
+[CC 61:Osc2 Mix] OSC2 Mix = 0.787
+[MIDI] CC       61 100
+[CC 61:Osc2 Mix] OSC2 Mix = 0.906
+[MIDI] CC       61 115
+[CC 61:Osc2 Mix] OSC2 Mix = 1.000
+[MIDI] CC       61 127
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   51  41
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   49  53
+[MIDI] NoteOff  51   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   58  58
+[MIDI] NoteOff  49   0
+[MIDI] NoteOff  58   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> TRI (3)
+[MIDI] CC       22  32
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  90
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> ARB (4)
+[MIDI] CC       22  41
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  86
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> rSAW (6)
+[MIDI] CC       22  59
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  73
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> BLS (9)
+[MIDI] CC       22  86
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  73
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> vTRI (8)
+[MIDI] CC       22  77
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  67
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> rBLS (10)
+[MIDI] CC       22  96
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  66
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> BLSQ (11)
+[MIDI] CC       22 105
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  62
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> BLP (12)
+[MIDI] CC       22 114
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  73
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> SSAW (100)
+[MIDI] CC       22 123
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  69
+[MIDI] NoteOff  50   0
+[CC 22:OSC2 Wave] OSC2 Waveform -> SIN (0)
+[MIDI] CC       22   4
+[CC 61:Osc2 Mix] OSC2 Mix = 0.992
+[MIDI] CC       61 126
+[CC 61:Osc2 Mix] OSC2 Mix = 0.984
+[MIDI] CC       61 125
+[CC 61:Osc2 Mix] OSC2 Mix = 0.961
+[MIDI] CC       61 122
+[CC 61:Osc2 Mix] OSC2 Mix = 0.937
+[MIDI] CC       61 119
+[CC 61:Osc2 Mix] OSC2 Mix = 0.913
+[MIDI] CC       61 116
+[CC 61:Osc2 Mix] OSC2 Mix = 0.882
+[MIDI] CC       61 112
+[CC 61:Osc2 Mix] OSC2 Mix = 0.866
+[MIDI] CC       61 110
+[CC 61:Osc2 Mix] OSC2 Mix = 0.850
+[MIDI] CC       61 108
+[CC 61:Osc2 Mix] OSC2 Mix = 0.835
+[MIDI] CC       61 106
+[CC 61:Osc2 Mix] OSC2 Mix = 0.827
+[MIDI] CC       61 105
+[CC 61:Osc2 Mix] OSC2 Mix = 0.811
+[MIDI] CC       61 103
+[CC 61:Osc2 Mix] OSC2 Mix = 0.803
+[MIDI] CC       61 102
+[CC 61:Osc2 Mix] OSC2 Mix = 0.795
+[MIDI] CC       61 101
+[CC 61:Osc2 Mix] OSC2 Mix = 0.787
+[MIDI] CC       61 100
+[CC 61:Osc2 Mix] OSC2 Mix = 0.780
+[MIDI] CC       61  99
+[CC 61:Osc2 Mix] OSC2 Mix = 0.772
+[MIDI] CC       61  98
+[CC 61:Osc2 Mix] OSC2 Mix = 0.764
+[MIDI] CC       61  97
+[CC 61:Osc2 Mix] OSC2 Mix = 0.756
+[MIDI] CC       61  96
+[CC 61:Osc2 Mix] OSC2 Mix = 0.748
+[MIDI] CC       61  95
+[CC 61:Osc2 Mix] OSC2 Mix = 0.740
+[MIDI] CC       61  94
+[CC 61:Osc2 Mix] OSC2 Mix = 0.732
+[MIDI] CC       61  93
+[CC 61:Osc2 Mix] OSC2 Mix = 0.724
+[MIDI] CC       61  92
+[CC 61:Osc2 Mix] OSC2 Mix = 0.717
+[MIDI] CC       61  91
+[CC 61:Osc2 Mix] OSC2 Mix = 0.701
+[MIDI] CC       61  89
+[CC 61:Osc2 Mix] OSC2 Mix = 0.693
+[MIDI] CC       61  88
+[CC 61:Osc2 Mix] OSC2 Mix = 0.685
+[MIDI] CC       61  87
+[CC 61:Osc2 Mix] OSC2 Mix = 0.693
+[MIDI] CC       61  88
+[CC 61:Osc2 Mix] OSC2 Mix = 0.685
+[MIDI] CC       61  87
+[CC 61:Osc2 Mix] OSC2 Mix = 0.693
+[MIDI] CC       61  88
+[CC 61:Osc2 Mix] OSC2 Mix = 0.709
+[MIDI] CC       61  90
+[CC 61:Osc2 Mix] OSC2 Mix = 0.732
+[MIDI] CC       61  93
+[CC 61:Osc2 Mix] OSC2 Mix = 0.772
+[MIDI] CC       61  98
+[CC 61:Osc2 Mix] OSC2 Mix = 0.819
+[MIDI] CC       61 104
+[CC 61:Osc2 Mix] OSC2 Mix = 0.906
+[MIDI] CC       61 115
+[CC 61:Osc2 Mix] OSC2 Mix = 0.976
+[MIDI] CC       61 124
+[CC 61:Osc2 Mix] OSC2 Mix = 1.000
+[MIDI] CC       61 127
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   44  45
+[MIDI] NoteOff  44   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   46  70
+[MIDI] NoteOff  46   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48  70
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   46  64
+[MIDI] NoteOff  48   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   44  78
+[MIDI] NoteOff  46   0
+[MIDI] NoteOff  44   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   36  69
+[normalised -0.05: semis -0.40, value = -384.00],  
+[MIDI] PitchBend ch1 val=-384
+[normalised -0.14: semis -1.20, value = -1152.00],  
+[MIDI] PitchBend ch1 val=-1152
+[normalised -0.25: semis -2.13, value = -2048.00],  
+[MIDI] PitchBend ch1 val=-2048
+[normalised -0.31: semis -2.66, value = -2560.00],  
+[MIDI] PitchBend ch1 val=-2560
+[normalised -0.42: semis -3.59, value = -3456.00],  
+[MIDI] PitchBend ch1 val=-3456
+[normalised -0.50: semis -4.25, value = -4096.00],  
+[MIDI] PitchBend ch1 val=-4096
+[normalised -0.58: semis -4.92, value = -4736.00],  
+[MIDI] PitchBend ch1 val=-4736
+[normalised -0.64: semis -5.45, value = -5248.00],  
+[MIDI] PitchBend ch1 val=-5248
+[normalised -0.72: semis -6.11, value = -5888.00],  
+[MIDI] PitchBend ch1 val=-5888
+[normalised -0.78: semis -6.64, value = -6400.00],  
+[MIDI] PitchBend ch1 val=-6400
+[normalised -0.81: semis -6.91, value = -6656.00],  
+[MIDI] PitchBend ch1 val=-6656
+[normalised -0.88: semis -7.44, value = -7168.00],  
+[MIDI] PitchBend ch1 val=-7168
+[normalised -0.91: semis -7.71, value = -7424.00],  
+[MIDI] PitchBend ch1 val=-7424
+[normalised -0.94: semis -7.97, value = -7680.00],  
+[MIDI] PitchBend ch1 val=-7680
+[normalised -0.98: semis -8.37, value = -8064.00],  
+[MIDI] PitchBend ch1 val=-8064
+[normalised -1.00: semis -8.50, value = -8192.00],  
+[MIDI] PitchBend ch1 val=-8192
+[normalised -0.98: semis -8.37, value = -8064.00],  
+[MIDI] PitchBend ch1 val=-8064
+[normalised -0.95: semis -8.11, value = -7808.00],  
+[MIDI] PitchBend ch1 val=-7808
+[normalised -0.91: semis -7.71, value = -7424.00],  
+[MIDI] PitchBend ch1 val=-7424
+[normalised -0.88: semis -7.44, value = -7168.00],  
+[MIDI] PitchBend ch1 val=-7168
+[normalised -0.84: semis -7.18, value = -6912.00],  
+[MIDI] PitchBend ch1 val=-6912
+[normalised -0.78: semis -6.64, value = -6400.00],  
+[MIDI] PitchBend ch1 val=-6400
+[normalised -0.72: semis -6.11, value = -5888.00],  
+[MIDI] PitchBend ch1 val=-5888
+[normalised -0.64: semis -5.45, value = -5248.00],  
+[MIDI] PitchBend ch1 val=-5248
+[normalised -0.58: semis -4.92, value = -4736.00],  
+[MIDI] PitchBend ch1 val=-4736
+[normalised -0.52: semis -4.38, value = -4224.00],  
+[MIDI] PitchBend ch1 val=-4224
+[normalised -0.39: semis -3.32, value = -3200.00],  
+[MIDI] PitchBend ch1 val=-3200
+[normalised -0.25: semis -2.13, value = -2048.00],  
+[MIDI] PitchBend ch1 val=-2048
+[normalised -0.12: semis -1.06, value = -1024.00],  
+[MIDI] PitchBend ch1 val=-1024
+[normalised 0.00: semis 0.00, value = 0.00],  
+[MIDI] PitchBend ch1 val=0
+[normalised 0.06: semis 0.53, value = 512.00],  
+[MIDI] PitchBend ch1 val=512
+[normalised 0.14: semis 1.20, value = 1152.00],  
+[MIDI] PitchBend ch1 val=1152
+[normalised 0.20: semis 1.73, value = 1664.00],  
+[MIDI] PitchBend ch1 val=1664
+[normalised 0.23: semis 1.99, value = 1920.00],  
+[MIDI] PitchBend ch1 val=1920
+[normalised 0.30: semis 2.52, value = 2432.00],  
+[MIDI] PitchBend ch1 val=2432
+[normalised 0.33: semis 2.79, value = 2688.00],  
+[MIDI] PitchBend ch1 val=2688
+[normalised 0.39: semis 3.32, value = 3200.00],  
+[MIDI] PitchBend ch1 val=3200
+[normalised 0.42: semis 3.59, value = 3456.00],  
+[MIDI] PitchBend ch1 val=3456
+[normalised 0.45: semis 3.85, value = 3712.00],  
+[MIDI] PitchBend ch1 val=3712
+[normalised 0.47: semis 3.99, value = 3840.00],  
+[MIDI] PitchBend ch1 val=3840
+[normalised 0.48: semis 4.12, value = 3968.00],  
+[MIDI] PitchBend ch1 val=3968
+[normalised 0.50: semis 4.25, value = 4096.00],  
+[MIDI] PitchBend ch1 val=4096
+[normalised 0.52: semis 4.38, value = 4224.00],  
+[MIDI] PitchBend ch1 val=4224
+[normalised 0.50: semis 4.25, value = 4096.00],  
+[MIDI] PitchBend ch1 val=4096
+[normalised 0.47: semis 3.99, value = 3840.00],  
+[MIDI] PitchBend ch1 val=3840
+[normalised 0.45: semis 3.85, value = 3712.00],  
+[MIDI] PitchBend ch1 val=3712
+[normalised 0.39: semis 3.32, value = 3200.00],  
+[MIDI] PitchBend ch1 val=3200
+[normalised 0.34: semis 2.92, value = 2816.00],  
+[MIDI] PitchBend ch1 val=2816
+[normalised 0.30: semis 2.52, value = 2432.00],  
+[MIDI] PitchBend ch1 val=2432
+[normalised 0.22: semis 1.86, value = 1792.00],  
+[MIDI] PitchBend ch1 val=1792
+[normalised 0.14: semis 1.20, value = 1152.00],  
+[MIDI] PitchBend ch1 val=1152
+[normalised 0.06: semis 0.53, value = 512.00],  
+[MIDI] PitchBend ch1 val=512
+[normalised 0.00: semis 0.00, value = 0.00],  
+[MIDI] PitchBend ch1 val=0
+[MIDI] NoteOff  36   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   36  67
+[MIDI] NoteOff  36   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48  98
+[MIDI] NoteOff  48   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  58
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   52  75
+[MIDI] NoteOff  52   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   53  83
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   52  73
+[MIDI] NoteOff  53   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  63
+[MIDI] NoteOff  52   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48  75
+[MIDI] NoteOff  50   0
+[MIDI] NoteOff  48   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  43
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48  39
+[MIDI] NoteOff  48   0
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   52  59
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  55
+[MIDI] NoteOff  52   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48  66
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  61
+[MIDI] NoteOff  48   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   53  63
+[MIDI] NoteOff  50   0
+[MIDI] NoteOff  53   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   55  60
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  55
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   47  55
+[MIDI] NoteOff  50   0
+[MIDI] NoteOff  47   0
+[MIDI] NoteOff  55   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   56  70
+[MIDI] NoteOff  56   0
+[CC 43:OSC1 Detune] OSC1 Detune = 0.00 Hz
+[MIDI] CC       43  64
+[CC 43:OSC1 Detune] OSC1 Detune = -0.09 Hz
+[MIDI] CC       43  63
+[CC 43:OSC1 Detune] OSC1 Detune = -0.28 Hz
+[MIDI] CC       43  62
+[CC 43:OSC1 Detune] OSC1 Detune = -0.47 Hz
+[MIDI] CC       43  61
+[CC 43:OSC1 Detune] OSC1 Detune = -0.66 Hz
+[MIDI] CC       43  60
+[CC 43:OSC1 Detune] OSC1 Detune = -0.85 Hz
+[MIDI] CC       43  59
+[CC 43:OSC1 Detune] OSC1 Detune = -1.04 Hz
+[MIDI] CC       43  58
+[CC 43:OSC1 Detune] OSC1 Detune = -1.23 Hz
+[MIDI] CC       43  57
+[CC 43:OSC1 Detune] OSC1 Detune = -1.61 Hz
+[MIDI] CC       43  55
+[CC 43:OSC1 Detune] OSC1 Detune = -1.80 Hz
+[MIDI] CC       43  54
+[CC 43:OSC1 Detune] OSC1 Detune = -2.17 Hz
+[MIDI] CC       43  52
+[CC 43:OSC1 Detune] OSC1 Detune = -2.36 Hz
+[MIDI] CC       43  51
+[CC 43:OSC1 Detune] OSC1 Detune = -2.55 Hz
+[MIDI] CC       43  50
+[CC 43:OSC1 Detune] OSC1 Detune = -2.74 Hz
+[MIDI] CC       43  49
+[CC 43:OSC1 Detune] OSC1 Detune = -2.55 Hz
+[MIDI] CC       43  50
+[CC 43:OSC1 Detune] OSC1 Detune = -2.36 Hz
+[MIDI] CC       43  51
+[CC 43:OSC1 Detune] OSC1 Detune = -1.61 Hz
+[MIDI] CC       43  55
+[CC 43:OSC1 Detune] OSC1 Detune = -0.09 Hz
+[MIDI] CC       43  63
+[CC 43:OSC1 Detune] OSC1 Detune = 2.55 Hz
+[MIDI] CC       43  77
+[CC 43:OSC1 Detune] OSC1 Detune = 4.44 Hz
+[MIDI] CC       43  87
+[CC 43:OSC1 Detune] OSC1 Detune = 5.57 Hz
+[MIDI] CC       43  93
+[CC 43:OSC1 Detune] OSC1 Detune = 6.52 Hz
+[MIDI] CC       43  98
+[CC 43:OSC1 Detune] OSC1 Detune = 7.09 Hz
+[MIDI] CC       43 101
+[CC 43:OSC1 Detune] OSC1 Detune = 7.46 Hz
+[MIDI] CC       43 103
+[CC 43:OSC1 Detune] OSC1 Detune = 7.65 Hz
+[MIDI] CC       43 104
+[CC 43:OSC1 Detune] OSC1 Detune = 7.84 Hz
+[MIDI] CC       43 105
+[CC 43:OSC1 Detune] OSC1 Detune = 8.22 Hz
+[MIDI] CC       43 107
+[CC 43:OSC1 Detune] OSC1 Detune = 8.41 Hz
+[MIDI] CC       43 108
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   60  36
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  75
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   52  75
+[MIDI] NoteOff  60   0
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   60  69
+[MIDI] NoteOff  60   0
+[MIDI] NoteOff  52   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   56  53
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   52  52
+[MIDI] NoteOn   60  56
+[MIDI] NoteOff  56   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   55  51
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   59  56
+[MIDI] NoteOff  60   0
+[MIDI] NoteOff  55   0
+[MIDI] NoteOff  59   0
+[MIDI] NoteOff  52   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  77
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   55  61
+[MIDI] NoteOff  50   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   60  60
+[MIDI] NoteOff  55   0
+[MIDI] NoteOff  60   0
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0317 Hz
+[MIDI] CC       54   1
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0336 Hz
+[MIDI] CC       54   2
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0376 Hz
+[MIDI] CC       54   4
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0421 Hz
+[MIDI] CC       54   6
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0528 Hz
+[MIDI] CC       54  10
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0625 Hz
+[MIDI] CC       54  13
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0783 Hz
+[MIDI] CC       54  17
+[CC 54:LFO1 Freq] LFO1 Freq = 0.1039 Hz
+[MIDI] CC       54  22
+[CC 54:LFO1 Freq] LFO1 Freq = 0.1302 Hz
+[MIDI] CC       54  26
+[CC 54:LFO1 Freq] LFO1 Freq = 0.1632 Hz
+[MIDI] CC       54  30
+[CC 54:LFO1 Freq] LFO1 Freq = 0.2045 Hz
+[MIDI] CC       54  34
+[CC 54:LFO1 Freq] LFO1 Freq = 0.2423 Hz
+[MIDI] CC       54  37
+[CC 54:LFO1 Freq] LFO1 Freq = 0.2713 Hz
+[MIDI] CC       54  39
+[CC 54:LFO1 Freq] LFO1 Freq = 0.3037 Hz
+[MIDI] CC       54  41
+[CC 54:LFO1 Freq] LFO1 Freq = 0.3213 Hz
+[MIDI] CC       54  42
+[CC 54:LFO1 Freq] LFO1 Freq = 0.3400 Hz
+[MIDI] CC       54  43
+[CC 54:LFO1 Freq] LFO1 Freq = 0.3597 Hz
+[MIDI] CC       54  44
+[CC 54:LFO1 Freq] LFO1 Freq = 0.3806 Hz
+[MIDI] CC       54  45
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48  83
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   50  64
+[MIDI] NoteOff  50   0
+[MIDI] NoteOff  48   0
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0317 Hz
+[MIDI] CC       51   1
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0336 Hz
+[MIDI] CC       51   2
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0398 Hz
+[MIDI] CC       51   5
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0471 Hz
+[MIDI] CC       51   8
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0558 Hz
+[MIDI] CC       51  11
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0740 Hz
+[MIDI] CC       51  16
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0928 Hz
+[MIDI] CC       51  20
+[CC 51:LFO2 Freq] LFO2 Freq = 0.1163 Hz
+[MIDI] CC       51  24
+[CC 51:LFO2 Freq] LFO2 Freq = 0.1542 Hz
+[MIDI] CC       51  29
+[CC 51:LFO2 Freq] LFO2 Freq = 0.1827 Hz
+[MIDI] CC       51  32
+[CC 51:LFO2 Freq] LFO2 Freq = 0.2045 Hz
+[MIDI] CC       51  34
+[CC 51:LFO2 Freq] LFO2 Freq = 0.2290 Hz
+[MIDI] CC       51  36
+[CC 51:LFO2 Freq] LFO2 Freq = 0.2423 Hz
+[MIDI] CC       51  37
+[CC 51:LFO2 Freq] LFO2 Freq = 0.2564 Hz
+[MIDI] CC       51  38
+[CC 51:LFO2 Freq] LFO2 Freq = 0.2713 Hz
+[MIDI] CC       51  39
+[CC 51:LFO2 Freq] LFO2 Freq = 0.2870 Hz
+[MIDI] CC       51  40
+[CC 51:LFO2 Freq] LFO2 Freq = 0.3037 Hz
+[MIDI] CC       51  41
+[CC 51:LFO2 Freq] LFO2 Freq = 0.3213 Hz
+[MIDI] CC       51  42
+[CC 51:LFO2 Freq] LFO2 Freq = 0.3400 Hz
+[MIDI] CC       51  43
+[CC 51:LFO2 Freq] LFO2 Freq = 0.3213 Hz
+[MIDI] CC       51  42
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48  98
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   57  61
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   56  48
+[MIDI] NoteOff  56   0
+[MIDI] NoteOff  57   0
+[MIDI] NoteOff  48   0
+[CC 81:Glide On] Glide Enabled = 1
+[MIDI] CC       81  96
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   47  75
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   53  69
+[MIDI] NoteOff  47   0
+[MIDI] NoteOff  53   0
+[CC 81:Glide On] Glide Enabled = 1
+[MIDI] CC       81  32
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48 121
+[MIDI] NoteOff  48   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   51  51
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   57  29
+[MIDI] NoteOff  57   0
+[MIDI] NoteOff  51   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   48 127
+[MIDI] NoteOff  48   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   51 120
+[MIDI] NoteOff  51   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   53  98
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   55  69
+[MIDI] NoteOff  53   0
+[FLT] Env Mod: 0.02
+[FLT] Key Track: 0.00
+[MIDI] NoteOn   57  80
+[MIDI] NoteOff  55   0
+[MIDI] NoteOff  57   0
+[CC 21:OSC1 Wave] OSC1 Waveform -> SIN (0)
+[CC 43:OSC1 Detune] OSC1 Detune = 0.28 Hz
+[CC 47:Osc Bal] Osc Mix balance L=1.000 R=0.000
+[CC 60:Osc1 Mix] OSC1 Mix = 1.000
+[CC 61:Osc2 Mix] OSC2 Mix = 0.000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[CC 24:Resonance] Resonance = 0.0000 (engine 0)
+[FLT] Engine → VA (SVF LP2)
+[FLT] Engine → VA (SVF LP2)
+[FLT] Engine → VA (SVF LP2)
+[FLT] Engine → VA (SVF LP2)
+[FLT] Engine → VA (SVF LP2)
+[FLT] Engine → VA (SVF LP2)
+[FLT] Engine → VA (SVF LP2)
+[FLT] Engine → VA (SVF LP2)
+[SE] FilterEngine = 1
+[CC 113:Flt Engine] FilterEngine = 1
+[MIDI] CC       21   4
+[MIDI] CC       43  65
+[MIDI] CC       47   0
+[MIDI] CC       60 127
+[MIDI] CC       61   0
+[MIDI] CC       24   0
+[MIDI] CC      113  96
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0300 Hz
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0300 Hz
+[CC 127:?] Bend range = ±2.3 semitones
+[CC 21:OSC1 Wave] OSC1 Waveform -> SIN (0)
+[CC 41:OSC1 Coarse] OSC1 Coarse = 0.0 semitones
+[CC 45:OSC1 Fine] OSC1 Fine = 0.0 cents
+[CC 43:OSC1 Detune] OSC1 Detune = 0.28 Hz
+[MIDI] CC       54   0
+[MIDI] CC       51   0
+[MIDI] CC      127  12
+[MIDI] CC       21   4
+[MIDI] CC       41  65
+[MIDI] CC       45  64
+[MIDI] CC       43  65
+[CC 77:Saw1 Det] Supersaw1 Detune = 0.000
+[CC 78:Saw1 Mix] Supersaw1 Mix    = 0.000
+[CC 123:Osc1 FBA] Osc1 feedback amount = 0.000 
+[CC 125:Osc1 FBM] Osc1 feedback mix = 0.000 
+[CC 86:Freq DC1] Osc1 Freq DC 0 semitones (amp 0.0000)
+[CC 87:Shape DC1] Osc1 Shape DC = 0.000
+[CC 91:Ring1 Mix] Ring1 Mix = 0.000
+[MIDI] CC       77   0
+[MIDI] CC       78   0
+[MIDI] CC      123   0
+[MIDI] CC      125   0
+[MIDI] CC       86   0
+[MIDI] CC       87   0
+[MIDI] CC       91   0
+[CC 101:OSC1 Bank] OSC1 Bank -> BwBlended (0)
+[CC 83:OSC1 Wave#] OSC1 Table -> 0/73
+[CC 22:OSC2 Wave] OSC2 Waveform -> SIN (0)
+[CC 42:OSC2 Coarse] OSC2 Coarse = 0.0 semitones
+[CC 46:OSC2 Fine] OSC2 Fine = 0.0 cents
+[CC 44:OSC2 Detune] OSC2 Detune = 0.28 Hz
+[CC 79:Saw2 Det] Supersaw2 Detune = 0.000
+[MIDI] CC      101   6
+[MIDI] CC       83   0
+[MIDI] CC       22   4
+[MIDI] CC       42  65
+[MIDI] CC       46  64
+[MIDI] CC       44  65
+[MIDI] CC       79   0
+[CC 80:Saw2 Mix] Supersaw2 Mix    = 0.000
+[CC 124:Osc2 FBA] Osc2 feedback amount = 0.000 
+[CC 126:Osc2 FBM] Osc2 feedback mix = 0.000 
+[CC 88:Freq DC2] Osc2 Freq DC 0 semitones (amp 0.0000)
+[CC 89:Shape DC2] Osc2 Shape DC = 0.000
+[CC 92:Ring2 Mix] Ring2 Mix = 0.000
+[CC 102:OSC2 Bank] OSC2 Bank -> BwBlended (0)
+[MIDI] CC       80   0
+[MIDI] CC      124   0
+[MIDI] CC      126   0
+[MIDI] CC       88   0
+[MIDI] CC       89   0
+[MIDI] CC       92   0
+[MIDI] CC      102   6
+[CC 85:OSC2 Wave#] OSC2 Table -> 0/73
+[CC 47:Osc Bal] Osc Mix balance L=1.000 R=0.000
+[CC 60:Osc1 Mix] OSC1 Mix = 1.000
+[CC 61:Osc2 Mix] OSC2 Mix = 0.000
+[CC 58:Sub Mix] Sub Mix   = 0.000
+[CC 59:Noise Mix] Noise Mix = 0.000
+[CC 19:XMod Depth] XMod Depth = 0.0000 (CC 0)
+[MIDI] CC       85   0
+[MIDI] CC       47   0
+[MIDI] CC       60 127
+[MIDI] CC       61   0
+[MIDI] CC       58   0
+[MIDI] CC       59   0
+[MIDI] CC       19   0
+[CC 20:Osc Sync] Osc Sync = ON
+[CC 23:Cutoff] Cutoff = 20000.00 Hz
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[CC 24:Resonance] Resonance = 0.0000 (engine 1)
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[CC 48:Flt Env Amt] Filt Env Amount = 0.024
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[CC 50:Key Track] KeyTrack = 0.024
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[CC 84:Oct Ctrl] Filter Octave = 0.000
+[SE] FilterEngine = 1
+[CC 113:Flt Engine] FilterEngine = 1
+[MIDI] CC       20  32
+[MIDI] CC       23 127
+[MIDI] CC       24   0
+[MIDI] CC       48  65
+[MIDI] CC       50  65
+[MIDI] CC       84   0
+[MIDI] CC      113  96
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[CC 112:Flt Mode] FilterMode = 0
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[SE] VAFilterType = 0
+[CC 115:VA Type] VAFilterType = 0
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[CC 111:Multimode] Multimode = 0.000
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[CC 117:Q Depth] ResModDepth = 0.000
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[CC 114:Xpand Mode] XpanderMode = 0
+[CC 25:Amp Att] Amp Attack = 1.00 ms
+[CC 26:Amp Dec] Amp Decay = 1.00 ms
+[CC 27:Amp Sus] Amp Sustain = 1.000
+[MIDI] CC      112  10
+[MIDI] CC      115   4
+[MIDI] CC      111   0
+[MIDI] CC      117   0
+[MIDI] CC      114   4
+[MIDI] CC       25   0
+[MIDI] CC       26   0
+[MIDI] CC       27 127
+[CC 28:Amp Rel] Amp Release = 1.00 ms
+[CC 29:Flt Att] Filt Env Attack = 1.00 ms
+[CC 30:Flt Dec] Filt Env Decay = 1.00 ms
+[CC 31:Flt Sus] Filt Env Sustain = 1.000
+[CC 32:Flt Rel] Filt Env Release = 1.00 ms
+[CC 65] PEnv Attack 1.0 ms
+[CC 66] PEnv Decay 1.0 ms
+[MIDI] CC       28   0
+[MIDI] CC       29   0
+[MIDI] CC       30   0
+[MIDI] CC       31 127
+[MIDI] CC       32   0
+[MIDI] CC       65   0
+[MIDI] CC       66   0
+[CC 67] PEnv Sustain 0.000
+[CC 68] PEnv Release 1.0 ms
+[CC 69] PEnv Depth 0.0 semitones
+[CC 62:LFO1 Wave] LFO1 Wave -> SIN (0)
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0300 Hz
+[CC 55:LFO1 Depth] LFO1 Depth = 0.000
+[CC 56:LFO1 Dest] LFO1 Dest = 0
+[MIDI] CC       67   0
+[MIDI] CC       68   0
+[MIDI] CC       69  64
+[MIDI] CC       62   4
+[MIDI] CC       54   0
+[MIDI] CC       55   0
+[MIDI] CC       56  12
+[CC 120:LFO1 Sync] LFO1 Timing = Free
+[CC 33] LFO1 Pitch depth 0.000
+[CC 34] LFO1 Filter depth 0.000
+[CC 35] LFO1 PWM depth 0.000
+[CC 36] LFO1 Amp depth 0.000
+[CC 37] LFO1 Delay 0 ms
+[CC 63:LFO2 Wave] LFO2 Wave -> SIN (0)
+[MIDI] CC      120   5
+[MIDI] CC       33   0
+[MIDI] CC       34   0
+[MIDI] CC       35   0
+[MIDI] CC       36   0
+[MIDI] CC       37   0
+[MIDI] CC       63   4
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0300 Hz
+[CC 52:LFO2 Depth] LFO2 Depth = 0.000
+[CC 53:LFO2 Dest] LFO2 Dest = 0
+[CC 121:LFO2 Sync] LFO2 Timing = Free
+[CC 38] LFO2 Pitch depth 0.000
+[CC 39] LFO2 Filter depth 0.000
+[CC 40] LFO2 PWM depth 0.000
+[MIDI] CC       51   0
+[MIDI] CC       52   0
+[MIDI] CC       53  12
+[MIDI] CC      121   5
+[MIDI] CC       38   0
+[MIDI] CC       39   0
+[MIDI] CC       40   0
+[CC 57] LFO2 Amp depth 0.000
+[CC 64] LFO2 Delay 0 ms
+[CC 99:Bass] Bass = 0.1 dB
+[CC 100:Treble] Treble = 0.1 dB
+[CC 16:Drive] Drive = 0.165
+[CC 103:Mod FX] Mod Effect = 0 (Chorus 1)
+[CC 104:Mod Mix] Mod Mix = 0.000
+[MIDI] CC       57   0
+[MIDI] CC       64   0
+[MIDI] CC       99  64
+[MIDI] CC      100  64
+[MIDI] CC       16  21
+[MIDI] CC      103   5
+[MIDI] CC      104   0
+[CC 105:Mod Rate] Mod Rate = 0.00 Hz
+[CC 106:Mod FB] Mod FB = -1.000
+[CC 107:Dly FX] Delay Effect = 0 (Mono Short)
+[CC 110:Dly Time] Delay Time = 0.0 ms
+[CC 108:Dly Mix] Delay Mix = 0.000
+[CC 109:Dly FB] Delay FB = -1.000
+[CC 70:Rev Size] Reverb Size = 0.000
+[MIDI] CC      105   0
+[MIDI] CC      106   0
+[MIDI] CC      107  10
+[MIDI] CC      110   0
+[MIDI] CC      108   0
+[MIDI] CC      109   0
+[MIDI] CC       70   0
+[CC 75:Rev Mix] Reverb Mix = 0.000
+[CC 94:Rev Bypass] Reverb Bypass = OFF
+[CC 74:Dry Mix] Dry Mix = 1.000
+[CC 76:JPFX Mix] JPFX Mix = 1.000
+[CC 10] Vel Amp Sens 0.000
+[CC 11] Vel Filter Sens 0.000
+[CC 12] Vel Env Sens 0.000
+[MIDI] CC       75   0
+[MIDI] CC       94  32
+[MIDI] CC       74 127
+[MIDI] CC       76 127
+[MIDI] CC       10   0
+[MIDI] CC       11   0
+[MIDI] CC       12   0
+[CC 81:Glide On] Glide Enabled = 1
+[CC 82:Glide Time] Glide Time = 1.00 ms
+[CC 127:?] Bend range = ±2.3 semitones
+[CC 90:Amp Mod] Amp mod fixed level = 1.000
+[CC 14:Poly Mode] → POLY
+[CC 15:Uni Detune] Unison detune = 0.000
+[CC 118:Clock Src] Clock Source = INTERNAL
+[MIDI] CC       81  32
+[MIDI] CC       82   0
+[MIDI] CC      127  12
+[MIDI] CC       90 127
+[MIDI] CC       14  21
+[MIDI] CC       15   0
+[MIDI] CC      118  32
+[CC 119:Int BPM] Internal BPM = 40.0
+[CC 122:Dly Sync] Delay Timing = Free
+[CC 2] Seq enable = OFF
+[CC 3] Seq steps = 8
+[CC 4] Seq gate = 100%
+[CC 5] Seq slide = 0%
+[CC 6] Seq dir = 0 (Forward)
+[MIDI] CC      119   0
+[MIDI] CC      122   5
+[MIDI] CC        2  32
+[MIDI] CC        3  64
+[MIDI] CC        4 127
+[MIDI] CC        5   0
+[MIDI] CC        6  16
+[CC 7] Seq rate = 0.10 Hz
+[CC 8] Seq depth = 0.000 (bipolar)
+[CC 9] Seq dest = 0 (None)
+[CC 13] Seq retrigger = ON
+[CC 116] Seq timing = 5 (1/4)
+[CC 17] Seq step select = 0
+[CC 17] Seq step select = 0
+[MIDI] CC        7   0
+[MIDI] CC        8  64
+[MIDI] CC        9  12
+[MIDI] CC       13  96
+[MIDI] CC      116   5
+[MIDI] CC       17   0
+[MIDI] CC       17   0
+[CC 18] Seq step[0] = 0
+[CC 17] Seq step select = 1
+[CC 18] Seq step[1] = 0
+[CC 17] Seq step select = 2
+[CC 18] Seq step[2] = 0
+[CC 17] Seq step select = 3
+[CC 18] Seq step[3] = 0
+[MIDI] CC       18   0
+[MIDI] CC       17   1
+[MIDI] CC       18   0
+[MIDI] CC       17   2
+[MIDI] CC       18   0
+[MIDI] CC       17   3
+[MIDI] CC       18   0
+[CC 17] Seq step select = 4
+[CC 18] Seq step[4] = 0
+[CC 17] Seq step select = 5
+[CC 18] Seq step[5] = 0
+[CC 17] Seq step select = 6
+[CC 18] Seq step[6] = 0
+[CC 17] Seq step select = 7
+[MIDI] CC       17   4
+[MIDI] CC       18   0
+[MIDI] CC       17   5
+[MIDI] CC       18   0
+[MIDI] CC       17   6
+[MIDI] CC       18   0
+[MIDI] CC       17   7
+[CC 18] Seq step[7] = 0
+[CC 17] Seq step select = 8
+[CC 18] Seq step[8] = 0
+[CC 17] Seq step select = 9
+[CC 18] Seq step[9] = 0
+[CC 17] Seq step select = 10
+[CC 18] Seq step[10] = 0
+[MIDI] CC       18   0
+[MIDI] CC       17   8
+[MIDI] CC       18   0
+[MIDI] CC       17   9
+[MIDI] CC       18   0
+[MIDI] CC       17  10
+[MIDI] CC       18   0
+[CC 17] Seq step select = 11
+[CC 18] Seq step[11] = 0
+[CC 17] Seq step select = 12
+[CC 18] Seq step[12] = 0
+[CC 17] Seq step select = 13
+[CC 18] Seq step[13] = 0
+[CC 17] Seq step select = 14
+[MIDI] CC       17  11
+[MIDI] CC       18   0
+[MIDI] CC       17  12
+[MIDI] CC       18   0
+[MIDI] CC       17  13
+[MIDI] CC       18   0
+[MIDI] CC       17  14
+[CC 18] Seq step[14] = 0
+[CC 17] Seq step select = 15
+[CC 18] Seq step[15] = 0
+[MIDI] CC       18   0
+[MIDI] CC       17  15
+[MIDI] CC       18   0
+[CC 21:OSC1 Wave] OSC1 Waveform -> SIN (0)
+[CC 41:OSC1 Coarse] OSC1 Coarse = 0.0 semitones
+[CC 45:OSC1 Fine] OSC1 Fine = 0.0 cents
+[CC 43:OSC1 Detune] OSC1 Detune = 0.28 Hz
+[CC 77:Saw1 Det] Supersaw1 Detune = 0.000
+[CC 78:Saw1 Mix] Supersaw1 Mix    = 0.000
+[CC 123:Osc1 FBA] Osc1 feedback amount = 0.000 
+[MIDI] CC       21   4
+[MIDI] CC       41  65
+[MIDI] CC       45  64
+[MIDI] CC       43  65
+[MIDI] CC       77   0
+[MIDI] CC       78   0
+[MIDI] CC      123   0
+[CC 125:Osc1 FBM] Osc1 feedback mix = 0.000 
+[CC 86:Freq DC1] Osc1 Freq DC 0 semitones (amp 0.0000)
+[CC 87:Shape DC1] Osc1 Shape DC = 0.000
+[CC 91:Ring1 Mix] Ring1 Mix = 0.000
+[CC 101:OSC1 Bank] OSC1 Bank -> BwBlended (0)
+[CC 83:OSC1 Wave#] OSC1 Table -> 0/73
+[CC 22:OSC2 Wave] OSC2 Waveform -> SIN (0)
+[MIDI] CC      125   0
+[MIDI] CC       86   0
+[MIDI] CC       87   0
+[MIDI] CC       91   0
+[MIDI] CC      101   6
+[MIDI] CC       83   0
+[MIDI] CC       22   4
+[CC 42:OSC2 Coarse] OSC2 Coarse = 0.0 semitones
+[CC 46:OSC2 Fine] OSC2 Fine = 0.0 cents
+[CC 44:OSC2 Detune] OSC2 Detune = 0.28 Hz
+[CC 79:Saw2 Det] Supersaw2 Detune = 0.000
+[CC 80:Saw2 Mix] Supersaw2 Mix    = 0.000
+[CC 124:Osc2 FBA] Osc2 feedback amount = 0.000 
+[CC 126:Osc2 FBM] Osc2 feedback mix = 0.000 
+[MIDI] CC       42  65
+[MIDI] CC       46  64
+[MIDI] CC       44  65
+[MIDI] CC       79   0
+[MIDI] CC       80   0
+[MIDI] CC      124   0
+[MIDI] CC      126   0
+[CC 88:Freq DC2] Osc2 Freq DC 0 semitones (amp 0.0000)
+[CC 89:Shape DC2] Osc2 Shape DC = 0.000
+[CC 92:Ring2 Mix] Ring2 Mix = 0.000
+[CC 102:OSC2 Bank] OSC2 Bank -> BwBlended (0)
+[CC 85:OSC2 Wave#] OSC2 Table -> 0/73
+[CC 47:Osc Bal] Osc Mix balance L=1.000 R=0.000
+[CC 60:Osc1 Mix] OSC1 Mix = 1.000
+[MIDI] CC       88   0
+[MIDI] CC       89   0
+[MIDI] CC       92   0
+[MIDI] CC      102   6
+[MIDI] CC       85   0
+[MIDI] CC       47   0
+[MIDI] CC       60 127
+[CC 61:Osc2 Mix] OSC2 Mix = 0.000
+[CC 58:Sub Mix] Sub Mix   = 0.000
+[CC 59:Noise Mix] Noise Mix = 0.000
+[CC 19:XMod Depth] XMod Depth = 0.0000 (CC 0)
+[CC 20:Osc Sync] Osc Sync = ON
+[CC 23:Cutoff] Cutoff = 20000.00 Hz
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[FLT] Resonance: 0.0000
+[CC 24:Resonance] Resonance = 0.0000 (engine 1)
+[MIDI] CC       61   0
+[MIDI] CC       58   0
+[MIDI] CC       59   0
+[MIDI] CC       19   0
+[MIDI] CC       20  32
+[MIDI] CC       23 127
+[MIDI] CC       24   0
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[FLT] Env Mod: 0.02
+[CC 48:Flt Env Amt] Filt Env Amount = 0.024
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[FLT] Key Track: 0.00
+[CC 50:Key Track] KeyTrack = 0.024
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[FLT] Octave Ctrl: 0.00
+[CC 84:Oct Ctrl] Filter Octave = 0.000
+[SE] FilterEngine = 1
+[CC 113:Flt Engine] FilterEngine = 1
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[FLT] TwoPole: 0
+[FLT] Xpander4P: 0
+[FLT] BPBlend2P: 0
+[FLT] Push2P: 0
+[CC 112:Flt Mode] FilterMode = 0
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[FLT] VA type: SVF LP2
+[SE] VAFilterType = 0
+[CC 115:VA Type] VAFilterType = 0
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[FLT] Multimode: 0.00
+[CC 111:Multimode] Multimode = 0.000
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[FLT] ResModDepth: 0.00
+[CC 117:Q Depth] ResModDepth = 0.000
+[MIDI] CC       48  65
+[MIDI] CC       50  65
+[MIDI] CC       84   0
+[MIDI] CC      113  96
+[MIDI] CC      112  10
+[MIDI] CC      115   4
+[MIDI] CC      111   0
+[MIDI] CC      117   0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[FLT] XpanderMode: 0
+[CC 114:Xpand Mode] XpanderMode = 0
+[CC 25:Amp Att] Amp Attack = 1.00 ms
+[CC 26:Amp Dec] Amp Decay = 1.00 ms
+[CC 27:Amp Sus] Amp Sustain = 1.000
+[CC 28:Amp Rel] Amp Release = 1.00 ms
+[CC 29:Flt Att] Filt Env Attack = 1.00 ms
+[CC 30:Flt Dec] Filt Env Decay = 1.00 ms
+[MIDI] CC      114   4
+[MIDI] CC       25   0
+[MIDI] CC       26   0
+[MIDI] CC       27 127
+[MIDI] CC       28   0
+[MIDI] CC       29   0
+[MIDI] CC       30   0
+[CC 31:Flt Sus] Filt Env Sustain = 1.000
+[CC 32:Flt Rel] Filt Env Release = 1.00 ms
+[CC 65] PEnv Attack 1.0 ms
+[CC 66] PEnv Decay 1.0 ms
+[CC 67] PEnv Sustain 0.000
+[CC 68] PEnv Release 1.0 ms
+[CC 69] PEnv Depth 0.0 semitones
+[MIDI] CC       31 127
+[MIDI] CC       32   0
+[MIDI] CC       65   0
+[MIDI] CC       66   0
+[MIDI] CC       67   0
+[MIDI] CC       68   0
+[MIDI] CC       69  64
+[CC 62:LFO1 Wave] LFO1 Wave -> SIN (0)
+[CC 54:LFO1 Freq] LFO1 Freq = 0.0300 Hz
+[CC 55:LFO1 Depth] LFO1 Depth = 0.000
+[CC 56:LFO1 Dest] LFO1 Dest = 0
+[CC 120:LFO1 Sync] LFO1 Timing = Free
+[CC 33] LFO1 Pitch depth 0.000
+[CC 34] LFO1 Filter depth 0.000
+[MIDI] CC       62   4
+[MIDI] CC       54   0
+[MIDI] CC       55   0
+[MIDI] CC       56  12
+[MIDI] CC      120   5
+[MIDI] CC       33   0
+[MIDI] CC       34   0
+[CC 35] LFO1 PWM depth 0.000
+[CC 36] LFO1 Amp depth 0.000
+[CC 37] LFO1 Delay 0 ms
+[CC 63:LFO2 Wave] LFO2 Wave -> SIN (0)
+[CC 51:LFO2 Freq] LFO2 Freq = 0.0300 Hz
+[CC 52:LFO2 Depth] LFO2 Depth = 0.000
+[CC 53:LFO2 Dest] LFO2 Dest = 0
+[MIDI] CC       35   0
+[MIDI] CC       36   0
+[MIDI] CC       37   0
+[MIDI] CC       63   4
+[MIDI] CC       51   0
+[MIDI] CC       52   0
+[MIDI] CC       53  12
+[CC 121:LFO2 Sync] LFO2 Timing = Free
+[CC 38] LFO2 Pitch depth 0.000
+[CC 39] LFO2 Filter depth 0.000
+[CC 40] LFO2 PWM depth 0.000
+[CC 57] LFO2 Amp depth 0.000
+[CC 64] LFO2 Delay 0 ms
+[CC 99:Bass] Bass = 0.1 dB
+[MIDI] CC      121   5
+[MIDI] CC       38   0
+[MIDI] CC       39   0
+[MIDI] CC       40   0
+[MIDI] CC       57   0
+[MIDI] CC       64   0
+[MIDI] CC       99  64
+[CC 100:Treble] Treble = 0.1 dB
+[CC 16:Drive] Drive = 0.165
+[CC 103:Mod FX] Mod Effect = 0 (Chorus 1)
+[CC 104:Mod Mix] Mod Mix = 0.000
+[CC 105:Mod Rate] Mod Rate = 0.00 Hz
+[CC 106:Mod FB] Mod FB = -1.000
+[CC 107:Dly FX] Delay Effect = 0 (Mono Short)
+[MIDI] CC      100  64
+[MIDI] CC       16  21
+[MIDI] CC      103   5
+[MIDI] CC      104   0
+[MIDI] CC      105   0
+[MIDI] CC      106   0
+[MIDI] CC      107  10
+[CC 110:Dly Time] Delay Time = 0.0 ms
+[CC 108:Dly Mix] Delay Mix = 0.000
+[CC 109:Dly FB] Delay FB = -1.000
+[CC 70:Rev Size] Reverb Size = 0.000
+[CC 75:Rev Mix] Reverb Mix = 0.000
+[CC 94:Rev Bypass] Reverb Bypass = OFF
+[CC 74:Dry Mix] Dry Mix = 1.000
+[MIDI] CC      110   0
+[MIDI] CC      108   0
+[MIDI] CC      109   0
+[MIDI] CC       70   0
+[MIDI] CC       75   0
+[MIDI] CC       94  32
+[MIDI] CC       74 127
+[CC 76:JPFX Mix] JPFX Mix = 1.000
+[CC 10] Vel Amp Sens 0.000
+[CC 11] Vel Filter Sens 0.000
+[CC 12] Vel Env Sens 0.000
+[CC 81:Glide On] Glide Enabled = 1
+[CC 82:Glide Time] Glide Time = 1.00 ms
+[CC 127:?] Bend range = ±2.3 semitones
+[MIDI] CC       76 127
+[MIDI] CC       10   0
+[MIDI] CC       11   0
+[MIDI] CC       12   0
+[MIDI] CC       81  32
+[MIDI] CC       82   0
+[MIDI] CC      127  12
+[CC 90:Amp Mod] Amp mod fixed level = 1.000
+[CC 14:Poly Mode] → POLY
+[CC 15:Uni Detune] Unison detune = 0.000
+[CC 118:Clock Src] Clock Source = INTERNAL
+[CC 119:Int BPM] Internal BPM = 40.0
+[CC 122:Dly Sync] Delay Timing = Free
+[CC 2] Seq enable = OFF
+[MIDI] CC       90 127
+[MIDI] CC       14  21
+[MIDI] CC       15   0
+[MIDI] CC      118  32
+[MIDI] CC      119   0
+[MIDI] CC      122   5
+[MIDI] CC        2  32
+[CC 3] Seq steps = 8
+[CC 4] Seq gate = 100%
+[CC 5] Seq slide = 0%
+[CC 6] Seq dir = 0 (Forward)
+[CC 7] Seq rate = 0.10 Hz
+[CC 8] Seq depth = 0.000 (bipolar)
+[CC 9] Seq dest = 0 (None)
+[MIDI] CC        3  64
+[MIDI] CC        4 127
+[MIDI] CC        5   0
+[MIDI] CC        6  16
+[MIDI] CC        7   0
+[MIDI] CC        8  64
+[MIDI] CC        9  12
+[CC 13] Seq retrigger = ON
+[CC 116] Seq timing = 5 (1/4)
+[CC 17] Seq step select = 0
+[CC 17] Seq step select = 0
+[CC 18] Seq step[0] = 0
+[CC 17] Seq step select = 1
+[CC 18] Seq step[1] = 0
+[MIDI] CC       13  96
+[MIDI] CC      116   5
+[MIDI] CC       17   0
+[MIDI] CC       17   0
+[MIDI] CC       18   0
+[MIDI] CC       17   1
+[MIDI] CC       18   0
+[CC 17] Seq step select = 2
+[CC 18] Seq step[2] = 0
+[CC 17] Seq step select = 3
+[CC 18] Seq step[3] = 0
+[CC 17] Seq step select = 4
+[CC 18] Seq step[4] = 0
+[CC 17] Seq step select = 5
+[MIDI] CC       17   2
+[MIDI] CC       18   0
+[MIDI] CC       17   3
+[MIDI] CC       18   0
+[MIDI] CC       17   4
+[MIDI] CC       18   0
+[MIDI] CC       17   5
+[CC 18] Seq step[5] = 0
+[CC 17] Seq step select = 6
+[CC 18] Seq step[6] = 0
+[CC 17] Seq step select = 7
+[CC 18] Seq step[7] = 0
+[CC 17] Seq step select = 8
+[CC 18] Seq step[8] = 0
+[MIDI] CC       18   0
+[MIDI] CC       17   6
+[MIDI] CC       18   0
+[MIDI] CC       17   7
+[MIDI] CC       18   0
+[MIDI] CC       17   8
+[MIDI] CC       18   0
+[CC 17] Seq step select = 9
+[CC 18] Seq step[9] = 0
+[CC 17] Seq step select = 10
+[CC 18] Seq step[10] = 0
+[CC 17] Seq step select = 11
+[CC 18] Seq step[11] = 0
+[CC 17] Seq step select = 12
+[MIDI] CC       17   9
+[MIDI] CC       18   0
+[MIDI] CC       17  10
+[MIDI] CC       18   0
+[MIDI] CC       17  11
+[MIDI] CC       18   0
+[MIDI] CC       17  12
+[CC 18] Seq step[12] = 0
+[CC 17] Seq step select = 13
+[CC 18] Seq step[13] = 0
+[CC 17] Seq step select = 14
+[CC 18] Seq step[14] = 0
+[CC 17] Seq step select = 15
+[CC 18] Seq step[15] = 0
+[MIDI] CC       18   0
+[MIDI] CC       17  13
+[MIDI] CC       18   0
+[MIDI] CC       17  14
+[MIDI] CC       18   0
+[MIDI] CC       17  15
+[MIDI] CC       18   0

@@ -47,7 +47,7 @@
 #include "Audio.h"
 #include "AudioEffectJPFX.h"
 #include "BPMClockManager.h"        // for updateFromBPMClock / TimingMode
-#include "AudioEffectReverbJT.h" // my PlateReverb
+#include "AudioEffectPlateReverbJT.h" // JT-8000 plate reverb
 
 // ---------------------------------------------------------------------------
 // Minimum mixer gain treated as "active" for the reverb bypass decision.
@@ -127,13 +127,8 @@ public:
     TimingMode getDelayTimingMode() const;
 
     // =========================================================================
-    // REVERB  (AudioEffectReverbJT — multi-algorithm)
+    // REVERB  (AudioEffectPlateReverbJT)
     // =========================================================================
-
-    // Algorithm selection (Plate/Hall/Shimmer/Spring/Cloud)
-    void       setReverbType(ReverbType type);
-    ReverbType getReverbType() const;
-    const char* getReverbTypeName() const;
 
     void  setReverbRoomSize(float size);    // clamped 0..1
     float getReverbRoomSize() const;
@@ -143,24 +138,6 @@ public:
 
     void  setReverbLoDamping(float damp);   // clamped 0..1 (low-freq absorption)
     float getReverbLoDamping() const;
-
-    void  setReverbPredelay(float ms);      // clamped 0..500 ms
-    float getReverbPredelay() const;
-
-    void  setReverbModDepth(float depth);   // clamped 0..1 (tank allpass wobble)
-    float getReverbModDepth() const;
-
-    void  setReverbModRate(float hz);       // clamped 0.1..5 Hz (tank LFO speed)
-    float getReverbModRate() const;
-
-    void setReverbFreeze(bool freeze);      // infinite hold, input muted
-    bool getReverbFreeze() const;
-
-    // Type-dependent extra parameter:
-    //   SHIMMER → pitch shift in semitones (-24..+24, default +12)
-    //   Others  → no effect (safe to call, value ignored)
-    void  setReverbExtra(float value);
-    float getReverbExtra() const;
 
     // Hard bypass override (in addition to the auto-bypass on mix=0)
     void setReverbBypass(bool bypass);
@@ -205,7 +182,7 @@ private:
     // =========================================================================
 
     AudioEffectJPFX            _jpfx;          // Tone / mod / delay engine
-    AudioEffectReverbJT _plateReverb;   // stereo plate reverb
+    AudioEffectPlateReverbJT _plateReverb;   // stereo plate reverb
 
     // 4-channel stereo output mixers
     //   ch0 = dry  ch1 = JPFX wet  ch2 = reverb wet  ch3 = spare
@@ -246,16 +223,10 @@ private:
     float  _delayTime     = 0.0f;  // ms (0=use preset)
 
     // -- Reverb --
-    ReverbType _reverbType    = ReverbType::PLATE;
     float _reverbRoomSize     = 0.5f;   // 0..1
-    float _reverbHiDamp       = 0.0f;   // 0..1 (0 = bright, no damping)
-    float _reverbLoDamp       = 0.0f;   // 0..1 (0 = full bass, no damping)
-    float _reverbPredelayMs   = 0.0f;   // 0..500 ms
-    float _reverbModDepth     = 0.5f;   // 0..1
-    float _reverbModRate      = 0.8f;   // 0.1..5 Hz
-    float _reverbExtra        = 12.0f;  // type-dependent (shimmer pitch default +12)
+    float _reverbHiDamp       = 0.5f;   // 0..1
+    float _reverbLoDamp       = 0.5f;   // 0..1
     bool  _reverbManualBypass = false;   // hard bypass override
-    bool  _reverbFrozen       = false;   // infinite hold
 
     // -- Output mix levels --
     float _dryMixL    = 1.0f;   // ch0 left

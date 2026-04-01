@@ -361,27 +361,20 @@ static const SectionDef kSections[SECTION_COUNT] = {
         EMPTY, EMPTY, EMPTY
     }, 5 },
     { "Reverb", {
-        S(CC::FX_REVERB_TYPE,      "TYPE"),
-        K(CC::FX_REVERB_SIZE,      "SIZE"),
-        K(CC::FX_REVERB_DAMP,      "HI DMP"),
-        K(CC::FX_REVERB_LODAMP,    "LO DMP"),
-        K(CC::FX_REVERB_MIX,       "MIX"),
-        K(CC::FX_REVERB_PREDELAY,  "PREDLY"),
-        T(CC::FX_REVERB_BYPASS,    "BYPASS"),
-        T(CC::FX_REVERB_FREEZE,    "FREEZE")
-    }, 8 },
-    { "Rev Tweak", {
-        K(CC::FX_REVERB_MOD_DEPTH, "MOD D"),
-        K(CC::FX_REVERB_MOD_RATE,  "MOD R"),
-        K(CC::FX_REVERB_EXTRA,     "EXTRA"),
-        EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
-    }, 3 },
+        K(CC::FX_REVERB_SIZE,   "SIZE"),
+        K(CC::FX_REVERB_DAMP,   "HI DMP"),
+        K(CC::FX_REVERB_LODAMP, "LO DMP"),
+        K(CC::FX_REVERB_MIX,    "MIX"),
+        T(CC::FX_REVERB_BYPASS, "BYPASS"),
+        EMPTY, EMPTY, EMPTY
+    }, 5 },
     { "Output", {
         K(CC::FX_DRY_MIX,  "DRY"),
         K(CC::FX_JPFX_MIX, "JPFX"),
         EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
-    }, 2 }
-}, 6 },
+    }, 2 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 }
+}, 5 },
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 10 — Velocity

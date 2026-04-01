@@ -264,18 +264,6 @@ void SynthEngine::begin()
         _voices[i].setOsc2PitchBend(_pitchBendSemis);
         
     }
-
-    // =========================================================================
-    // SILENCE ALL VOICES — ensure idle state from first audio interrupt
-    //
-    // Without this, voices that have never received a noteOn/noteOff cycle
-    // still consume full CPU: the Teensy scheduler calls update() on every
-    // AudioStream unconditionally, and oscillators/filters process non-zero
-    // blocks until explicitly silenced.
-    // =========================================================================
-    for (int i = 0; i < MAX_VOICES; ++i) {
-        _voices[i].silence();
-    }
 }
 
 static inline float CCtoTime(uint8_t cc) { return JT8000Map::cc_to_time_ms(cc); }
@@ -1401,14 +1389,6 @@ float SynthEngine::getFXDryMix() const {
     return _fxDryMix;
 }
 
-void SynthEngine::setFXReverbType(ReverbType type) {
-    _fxReverbType = type;
-    _fxChain.setReverbType(type);
-}
-
-ReverbType  SynthEngine::getFXReverbType()     const { return _fxReverbType; }
-const char* SynthEngine::getFXReverbTypeName() const { return _fxChain.getReverbTypeName(); }
-
 void SynthEngine::setFXReverbRoomSize(float size) {
     _fxReverbRoomSize = size;
     _fxChain.setReverbRoomSize(size);
@@ -1424,31 +1404,6 @@ void SynthEngine::setFXReverbLoDamping(float damp) {
     _fxChain.setReverbLoDamping(damp);
 }
 
-void SynthEngine::setFXReverbPredelay(float ms) {
-    _fxReverbPredelay = ms;
-    _fxChain.setReverbPredelay(ms);
-}
-
-void SynthEngine::setFXReverbModDepth(float depth) {
-    _fxReverbModDepth = depth;
-    _fxChain.setReverbModDepth(depth);
-}
-
-void SynthEngine::setFXReverbModRate(float hz) {
-    _fxReverbModRate = hz;
-    _fxChain.setReverbModRate(hz);
-}
-
-void SynthEngine::setFXReverbFreeze(bool freeze) {
-    _fxReverbFrozen = freeze;
-    _fxChain.setReverbFreeze(freeze);
-}
-
-void SynthEngine::setFXReverbExtra(float value) {
-    _fxReverbExtra = value;
-    _fxChain.setReverbExtra(value);
-}
-
 void SynthEngine::setFXJPFXMix(float left, float right) {
     _fxJPFXMixL = left;
     _fxJPFXMixR = right;
@@ -1462,14 +1417,9 @@ void SynthEngine::setFXReverbMix(float left, float right) {
 }
 
 // Getters
-float SynthEngine::getFXReverbRoomSize()  const { return _fxReverbRoomSize; }
+float SynthEngine::getFXReverbRoomSize() const { return _fxReverbRoomSize; }
 float SynthEngine::getFXReverbHiDamping() const { return _fxReverbHiDamp; }
 float SynthEngine::getFXReverbLoDamping() const { return _fxReverbLoDamp; }
-float SynthEngine::getFXReverbPredelay()  const { return _fxReverbPredelay; }
-float SynthEngine::getFXReverbModDepth()  const { return _fxReverbModDepth; }
-float SynthEngine::getFXReverbModRate()   const { return _fxReverbModRate; }
-bool  SynthEngine::getFXReverbFreeze()    const { return _fxReverbFrozen; }
-float SynthEngine::getFXReverbExtra()     const { return _fxReverbExtra; }
 float SynthEngine::getFXJPFXMixL() const { return _fxJPFXMixL; }
 float SynthEngine::getFXJPFXMixR() const { return _fxJPFXMixR; }
 float SynthEngine::getFXReverbMixL() const { return _fxReverbMixL; }
@@ -1909,44 +1859,6 @@ case CC::FX_REVERB_LODAMP: {
 case CC::FX_REVERB_MIX: {
     setFXReverbMix(norm, norm);
     JT_LOGF("[CC %u:%s] Reverb Mix = %.3f\n", control, ccName, norm);
-} break;
-
-case CC::FX_REVERB_TYPE: {
-    // Map CC 0..127 into 5 equal buckets (0..4)
-    uint8_t typeIdx = (uint8_t)constrain((int)value * 5 / 128, 0, 4);
-    setFXReverbType((ReverbType)typeIdx);
-    JT_LOGF("[CC %u:%s] Reverb Type = %s (%u)\n", control, ccName, getFXReverbTypeName(), typeIdx);
-} break;
-
-case CC::FX_REVERB_PREDELAY: {
-    float ms = norm * 500.0f;   // 0..1 → 0..500 ms
-    setFXReverbPredelay(ms);
-    JT_LOGF("[CC %u:%s] Reverb PreDelay = %.1f ms\n", control, ccName, ms);
-} break;
-
-case CC::FX_REVERB_MOD_DEPTH: {
-    setFXReverbModDepth(norm);
-    JT_LOGF("[CC %u:%s] Reverb ModDepth = %.3f\n", control, ccName, norm);
-} break;
-
-case CC::FX_REVERB_MOD_RATE: {
-    float hz = 0.1f + norm * 4.9f;   // 0..1 → 0.1..5.0 Hz
-    setFXReverbModRate(hz);
-    JT_LOGF("[CC %u:%s] Reverb ModRate = %.2f Hz\n", control, ccName, hz);
-} break;
-
-case CC::FX_REVERB_FREEZE: {
-    bool freeze = (value > 63);
-    setFXReverbFreeze(freeze);
-    JT_LOGF("[CC %u:%s] Reverb Freeze = %s\n", control, ccName, freeze ? "ON" : "OFF");
-} break;
-
-case CC::FX_REVERB_EXTRA: {
-    // Type-dependent: for SHIMMER → pitch in semitones (-24..+24)
-    // Bipolar: CC 64 = 0, CC 0 = -24, CC 127 = +24
-    float semi = ((float)value - 64.0f) * (24.0f / 64.0f);
-    setFXReverbExtra(semi);
-    JT_LOGF("[CC %u:%s] Reverb Extra = %.1f\n", control, ccName, semi);
 } break;
 
 // ============================================================================
