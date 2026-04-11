@@ -168,6 +168,7 @@ private:
     // ─── Gate ramp (anti-click) ──────────────────────────────────────────
     float   _rampValue   = 0.0f;    // current ramp level (1.0 when gate open, ramps to 0)
     bool    _ramping     = false;   // true during the 2ms ramp-down after gate close
+    float _lastGateOutput = 0.0f;  // output value frozen at gate-close for ramp
 
     // ─── Parameters ──────────────────────────────────────────────────────
     float        _gateLength = 1.0f;

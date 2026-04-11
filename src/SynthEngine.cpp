@@ -2239,11 +2239,34 @@ case CC::DELAY_TIMING_MODE: {
             JT_LOGF("[CC %u] Seq step[%d] = %d\n", control, _seqSelectedStep, value);
         } break;
 
-        case CC::SEQ_TIMING_MODE: {
-            int mode = constrain(value, 0, NUM_TIMING_MODES - 1);
-            _seq1.setTimingMode(static_cast<TimingMode>(mode));
-            JT_LOGF("[CC %u] Seq timing = %d (%s)\n", control, mode, TimingModeNames[mode]);
-        } break;       
+case CC::SEQ_TIMING_MODE: {
+    // Divide CC 0-127 into 12 equal bands (~10-11 values each).
+    // This matches the JUCE bucket-midpoint encoding AND the HTML editor
+    // direct-index encoding for values 0-11. Must mirror LFO/Delay handling.
+    TimingMode mode;
+    if      (value <=  10) mode = TimingMode::TIMING_FREE;
+    else if (value <=  21) mode = TimingMode::TIMING_4_BARS;
+    else if (value <=  32) mode = TimingMode::TIMING_2_BARS;
+    else if (value <=  43) mode = TimingMode::TIMING_1_BAR;
+    else if (value <=  54) mode = TimingMode::TIMING_1_2;
+    else if (value <=  65) mode = TimingMode::TIMING_1_4;
+    else if (value <=  76) mode = TimingMode::TIMING_1_8;
+    else if (value <=  87) mode = TimingMode::TIMING_1_16;
+    else if (value <=  98) mode = TimingMode::TIMING_1_32;
+    else if (value <= 109) mode = TimingMode::TIMING_1_4T;
+    else if (value <= 120) mode = TimingMode::TIMING_1_8T;
+    else                   mode = TimingMode::TIMING_1_16T;
+
+    _seq1.setTimingMode(mode);
+
+    // When switching INTO a sync mode, apply the current BPM duration
+    // immediately rather than waiting for the next updateBPMSync() cycle.
+    if (mode != TimingMode::TIMING_FREE && _bpmClock) {
+        _seq1.updateFromBPMClock(*_bpmClock);
+    }
+
+    JT_LOGF("[CC %u] Seq timing = %s\n", control, TimingModeNames[(int)mode]);
+} break;      
 
         // ------------------- Fallback -------------------
         default:

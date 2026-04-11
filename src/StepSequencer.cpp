@@ -18,7 +18,9 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- */// =============================================================================
+ */
+
+// =============================================================================
 // StepSequencer.cpp — Block-rate step sequencer (v2 — unipolar steps)
 //
 // KEY CHANGES FROM v1:
@@ -27,6 +29,18 @@
 //   3. Gate close uses a 2ms linear ramp (SEQ_GATE_RAMP_MS) instead of
 //      instant snap to zero. This eliminates the click artefact on Amp mode.
 //   4. Steps default to 0 (CC 0 = no modulation) instead of 64 (old midpoint)
+//
+// BUG FIXES (v2.1):
+//   FIX 1 — Ramp compounding (_output *= _rampValue was called every tick,
+//            causing a geometric fade instead of a linear one). The output
+//            value is now frozen into _lastGateOutput the moment the gate
+//            closes, and the ramp uses  _output = _lastGateOutput * _rampValue
+//            so each tick fades from the same held value.
+//
+//   FIX 2 — SEQ_TIMING_MODE CC decode is in SynthEngine.cpp (see that file).
+//            The constrain(value, 0, 11) there treated CC value as a direct
+//            mode index; it now uses the same proportional bucket decode as
+//            LFO1/LFO2/Delay timing modes.
 //
 // CPU COST: Unchanged — one branch, one lerp, one multiply when active.
 // The ramp adds one comparison + one multiply per tick during the 2ms window.
@@ -46,20 +60,24 @@ StepSequencer::StepSequencer() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tick
+// Tick — called once per engine update loop
 // ─────────────────────────────────────────────────────────────────────────────
 
 void StepSequencer::tick(float deltaMs) {
-    // ── Early exit ────────────────────────────────────────────────────────
+
+    // ── Early exit (disabled or empty) ───────────────────────────────────
     if (!_enabled || _stepCount < 1) {
-        // If we were ramping, let the ramp finish to avoid a click on disable
         if (_ramping) {
+            // Let the ramp finish gracefully even after disable,
+            // to avoid a click from an abrupt output cut.
             _rampValue -= deltaMs / SEQ_GATE_RAMP_MS;
             if (_rampValue <= 0.0f) {
                 _rampValue = 0.0f;
                 _ramping   = false;
             }
-            _output *= _rampValue;  // fade out the last held value
+            // FIX 1: fade from the frozen gate-close value, not from
+            // a value that has already been multiplied down by previous ticks.
+            _output = _lastGateOutput * _rampValue;
             return;
         }
         _output   = 0.0f;
@@ -67,19 +85,20 @@ void StepSequencer::tick(float deltaMs) {
         return;
     }
 
-    // Depth zero = no output, but still advance the sequencer so it stays
-    // in sync (user might increase depth later and expect correct position)
+    // Depth zero = no output, but still advance the sequencer position so it
+    // stays in sync (user may increase depth later and expect correct step).
     const bool hasOutput = (_depth != 0.0f);
 
     // ── Accumulate phase ──────────────────────────────────────────────────
     _phaseMs += deltaMs;
 
+    // Step advance: consume whole step durations, wrapping phase remainder
     while (_phaseMs >= _stepDurationMs) {
         _phaseMs -= _stepDurationMs;
         advanceStep();
     }
 
-    // ── Phase fraction (0.0 … 1.0) ───────────────────────────────────────
+    // Phase fraction within current step: 0.0 (start) … 1.0 (end)
     const float phaseFrac = (_stepDurationMs > 0.0f)
                           ? (_phaseMs / _stepDurationMs)
                           : 0.0f;
@@ -89,7 +108,8 @@ void StepSequencer::tick(float deltaMs) {
     _gateOpen = (phaseFrac < _gateLength);
 
     if (_gateOpen) {
-        // Gate is open — compute the step value
+
+        // Gate open — compute output for this step
         _ramping   = false;
         _rampValue = 1.0f;
 
@@ -102,10 +122,14 @@ void StepSequencer::tick(float deltaMs) {
         float raw;
 
         if (_slide <= 0.0f) {
+            // No slide — hold step value flat
             raw = currentVal;
         } else {
-            // Slide: interpolate toward next step
-            const float nextVal = ccToUnipolar(_stepValues[getNextStepIndex()]);
+            // Slide: linearly interpolate toward the next step value.
+            // t reaches _slide at the end of the gate (not the full step),
+            // so a slide of 1.0 means the value reaches the next step exactly
+            // at gate close.
+            const float nextVal  = ccToUnipolar(_stepValues[getNextStepIndex()]);
             const float gateFrac = (_gateLength > 0.0f)
                                  ? (phaseFrac / _gateLength)
                                  : 0.0f;
@@ -113,26 +137,36 @@ void StepSequencer::tick(float deltaMs) {
             raw = currentVal + t * (nextVal - currentVal);
         }
 
-        // Output = unipolar step value × bipolar depth
+        // Output = unipolar step value × bipolar depth → range ±1.0
         _output = raw * _depth;
 
+        // FIX 1: freeze the output value so the ramp has a stable reference
+        // if the gate closes this tick or on a subsequent tick.
+        _lastGateOutput = _output;
+
     } else {
-        // Gate closed — ramp output to zero over SEQ_GATE_RAMP_MS
+
+        // Gate closed — ramp output to zero over SEQ_GATE_RAMP_MS (anti-click)
         if (wasOpen && !_gateOpen) {
-            // Gate just closed this tick — start the ramp
+            // Gate just closed — begin ramp. _lastGateOutput already holds
+            // the final gate-open value set above.
             _ramping   = true;
             _rampValue = 1.0f;
         }
 
         if (_ramping) {
             _rampValue -= deltaMs / SEQ_GATE_RAMP_MS;
+
             if (_rampValue <= 0.0f) {
+                // Ramp complete
                 _rampValue = 0.0f;
                 _ramping   = false;
                 _output    = 0.0f;
             } else {
-                // Hold the last computed value but fade it
-                _output *= _rampValue;
+                // FIX 1: linear fade from the frozen gate-close value.
+                // Previously _output *= _rampValue compounded each tick
+                // (geometric decay), making the fade faster than intended.
+                _output = _lastGateOutput * _rampValue;
             }
         } else {
             _output = 0.0f;
@@ -141,7 +175,7 @@ void StepSequencer::tick(float deltaMs) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step advance
+// advanceStep — move _currentStep forward by one according to direction mode
 // ─────────────────────────────────────────────────────────────────────────────
 
 void StepSequencer::advanceStep() {
@@ -156,19 +190,21 @@ void StepSequencer::advanceStep() {
         break;
 
     case SEQ_DIR_BOUNCE:
+        // Walk forward or backward; reverse direction at each end.
         _currentStep += _bounceDir;
         if (_currentStep >= _stepCount) {
-            _currentStep = _stepCount - 2;
-            _bounceDir = -1;
-            if (_currentStep < 0) _currentStep = 0;
+            _currentStep = _stepCount - 2;   // one step back from the end
+            _bounceDir   = -1;
+            if (_currentStep < 0) _currentStep = 0;  // guard: only 1 step
         } else if (_currentStep < 0) {
-            _currentStep = 1;
-            _bounceDir = 1;
-            if (_currentStep >= _stepCount) _currentStep = 0;
+            _currentStep = 1;                // one step in from the start
+            _bounceDir   = 1;
+            if (_currentStep >= _stepCount) _currentStep = 0; // guard
         }
         break;
 
     case SEQ_DIR_RANDOM:
+        // Pick any step other than the current one (avoids immediate repeats).
         if (_stepCount > 1) {
             int next;
             do { next = random(0, _stepCount); } while (next == _currentStep);
@@ -183,34 +219,43 @@ void StepSequencer::advanceStep() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Next step index
+// getNextStepIndex — preview the index that advanceStep() would reach next.
+//                    Used by the slide calculation to know the target value.
 // ─────────────────────────────────────────────────────────────────────────────
 
 int StepSequencer::getNextStepIndex() const {
     switch (_direction) {
+
     case SEQ_DIR_FORWARD:
         return (_currentStep + 1) % _stepCount;
+
     case SEQ_DIR_REVERSE:
         return (_currentStep - 1 + _stepCount) % _stepCount;
+
     case SEQ_DIR_BOUNCE: {
         int next = _currentStep + _bounceDir;
-        if (next >= _stepCount) return _stepCount - 2 >= 0 ? _stepCount - 2 : 0;
-        if (next < 0)          return 1 < _stepCount ? 1 : 0;
+        if (next >= _stepCount) return (_stepCount - 2 >= 0) ? _stepCount - 2 : 0;
+        if (next < 0)           return (1 < _stepCount)      ? 1               : 0;
         return next;
     }
+
     case SEQ_DIR_RANDOM:
+        // Random target is unknowable in advance; use the next linear step
+        // as a slide target approximation (slide + random is an edge case).
         return (_currentStep + 1) % _stepCount;
+
     default:
         return (_currentStep + 1) % _stepCount;
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Unipolar conversion — CC 0-127 → 0.0 … 1.0
+// ccToUnipolar — CC 0-127 → 0.0 … 1.0
+//                Marked static; no division guard needed (127 is a constant).
 // ─────────────────────────────────────────────────────────────────────────────
 
 float StepSequencer::ccToUnipolar(uint8_t cc) {
-    return static_cast<float>(cc) / 127.0f;
+    return static_cast<float>(cc) * (1.0f / 127.0f);  // multiply is cheaper than divide
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -219,14 +264,13 @@ float StepSequencer::ccToUnipolar(uint8_t cc) {
 
 void StepSequencer::setEnabled(bool on) {
     if (!on && _enabled) {
-        // Starting disable — begin ramp-down instead of hard cut
-        _ramping = true;
-        _rampValue = 1.0f;
+        // Disabling while running — start ramp-down so output fades cleanly.
+        _ramping        = true;
+        _rampValue      = 1.0f;
+        _lastGateOutput = _output;   // freeze current output as ramp reference
     }
-    _enabled = on;
-    if (!on) {
-        _gateOpen = false;
-    }
+    _enabled  = on;
+    if (!on) _gateOpen = false;
 }
 
 void StepSequencer::setStepCount(int count) {
@@ -254,27 +298,32 @@ void StepSequencer::setSlide(float fraction) {
 
 void StepSequencer::setDirection(SeqDirection dir) {
     _direction = (dir < NUM_SEQ_DIRECTIONS) ? dir : SEQ_DIR_FORWARD;
-    _bounceDir = 1;
+    _bounceDir = 1;   // always reset bounce direction on mode change
 }
 
 void StepSequencer::setDepth(float d) {
-    // Bipolar: -1.0 to +1.0
     _depth = constrain(d, -1.0f, 1.0f);
 }
 
 void StepSequencer::setRate(float hz) {
     _rateHz = constrain(hz, 0.05f, 50.0f);
+    // Only recalculate duration in free-running mode; sync mode duration
+    // is owned by updateFromBPMClock().
     if (_timingMode == TIMING_FREE) recalcDuration();
 }
 
 void StepSequencer::setTimingMode(TimingMode mode) {
     _timingMode = mode;
+    // Restore free-rate duration when returning to free mode.
+    // When switching TO a sync mode, the caller (SynthEngine) is responsible
+    // for calling updateFromBPMClock() immediately after to apply BPM duration.
     if (mode == TIMING_FREE) recalcDuration();
 }
 
 void StepSequencer::updateFromBPMClock(const BPMClockManager& clock) {
+    // No-op in free mode — duration is set by recalcDuration() / setRate().
     if (_timingMode == TIMING_FREE) return;
-    float ms = clock.getTimeForMode(_timingMode);
+    const float ms = clock.getTimeForMode(_timingMode);
     if (ms > 0.0f) _stepDurationMs = ms;
 }
 
@@ -283,19 +332,21 @@ void StepSequencer::setRetrigger(bool on) {
 }
 
 void StepSequencer::reset() {
-    _currentStep = 0;
-    _phaseMs     = 0.0f;
-    _bounceDir   = 1;
-    _gateOpen    = false;
-    _ramping     = false;
-    _rampValue   = 0.0f;
-    _output      = 0.0f;
+    _currentStep    = 0;
+    _phaseMs        = 0.0f;
+    _bounceDir      = 1;
+    _gateOpen       = false;
+    _ramping        = false;
+    _rampValue      = 0.0f;
+    _lastGateOutput = 0.0f;
+    _output         = 0.0f;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// recalcDuration — convert _rateHz to milliseconds per step.
+//                  Only meaningful in TIMING_FREE mode.
+// ─────────────────────────────────────────────────────────────────────────────
+
 void StepSequencer::recalcDuration() {
-    if (_rateHz > 0.0f) {
-        _stepDurationMs = 1000.0f / _rateHz;
-    } else {
-        _stepDurationMs = 1000.0f;
-    }
+    _stepDurationMs = (_rateHz > 0.0f) ? (1000.0f / _rateHz) : 1000.0f;
 }
