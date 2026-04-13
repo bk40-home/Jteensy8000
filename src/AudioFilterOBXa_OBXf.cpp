@@ -223,7 +223,7 @@ struct AudioFilterOBXa::Core
         float cutoffHzRequested = cutoffHz;
 
         // Prewarp
-        float g = tanf(cutoffHz * fsInv * OBXA_PI);
+        float g = tanf(cutoffHzRequested * fsInv * OBXA_PI);
         float lpc = g / (1.f + g);
 
 
@@ -260,17 +260,6 @@ struct AudioFilterOBXa::Core
             default: out = 0.f; break;
             }
         }
-
-        // Detect anomalies
-        bool nonfinite =
-            (!isfinite(y0) || !isfinite(y1) || !isfinite(y2) || !isfinite(y3) || !isfinite(y4) || !isfinite(out) ||
-             !isfinite(state.pole1) || !isfinite(state.pole2) || !isfinite(state.pole3) || !isfinite(state.pole4) ||
-             !isfinite(g) || !isfinite(lpc));
-
-        bool huge =
-            (obxa_is_huge(state.pole1) || obxa_is_huge(state.pole2) ||
-             obxa_is_huge(state.pole3) || obxa_is_huge(state.pole4) ||
-             obxa_is_huge(out) || obxa_is_huge(y0));
 
         // Resonance-dependent volume compensation
         return out * (1.f + state.res4Pole * 0.45f);

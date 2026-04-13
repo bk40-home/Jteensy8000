@@ -54,7 +54,7 @@
 namespace JP8000SyxLoader {
 
 // ── Helper: safe byte read from data block ───────────────────────────────────
-static inline uint8_t safeRead(const uint8_t* data, uint16_t dataLen, uint8_t offset) {
+static inline uint8_t safeRead(const uint8_t* data, uint16_t dataLen, uint16_t offset) {
     return (offset < dataLen) ? data[offset] : 0;
 }
 

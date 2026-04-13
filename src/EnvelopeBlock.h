@@ -51,7 +51,7 @@ public:
     // Delegates directly to AudioEffectEnvelope::isActive().
     //
     // USE THIS — not a separate bool — to determine if a voice is producing audio.
-    bool isActive() const { return _envelope.isActive(); }
+    bool isActive() const { return const_cast<AudioEffectEnvelope&>(_envelope).isActive(); }
 
     // ---- Parameter setters --------------------------------------------------
 

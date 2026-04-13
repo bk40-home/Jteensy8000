@@ -108,6 +108,9 @@ private:
     int16_t _calcSectionY(int16_t sectIdx) const;
     int16_t _calcSectionHeight(int16_t sectIdx) const;
     int16_t _calcExpandedBodyHeight(int16_t sectIdx) const;
+    // Returns the virtual Y of the row containing flatCtrl (pre-scroll coords).
+    // Used by _scrollToCursor() to scroll the exact control row into view.
+    int16_t _calcControlVirtualY(int16_t sectIdx, int16_t flatCtrl) const;
 
     // ---- Control helpers ----
     int16_t _controlCount(int16_t sectIdx) const;

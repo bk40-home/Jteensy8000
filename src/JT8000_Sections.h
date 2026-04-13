@@ -389,13 +389,22 @@ static const SectionDef kSections[SECTION_COUNT] = {
         T(CC::FX_REVERB_BYPASS, "BYPASS"),
         EMPTY, EMPTY, EMPTY
     }, 5 },
+    // Extended reverb — post-tank EQ + shimmer/freeze performance controls.
+    // LOWPASS/HIPASS act on wet output only (different from HI/LO DMP above
+    // which act inside the tank loop and affect tail decay rate).
+    { "Rev Ext", {
+        K(CC::FX_REVERB_SHIMMER,  "SHIMMER"),
+        T(CC::FX_REVERB_FREEZE,   "FREEZE"),
+        K(CC::FX_REVERB_LOWPASS,  "LO PASS"),
+        K(CC::FX_REVERB_HIPASS,   "HI PASS"),
+        EMPTY, EMPTY, EMPTY, EMPTY
+    }, 4 },
     { "Output", {
         K(CC::FX_DRY_MIX,  "DRY"),
         K(CC::FX_JPFX_MIX, "JPFX"),
         EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
     }, 2 },
-    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 }
-}, 5 },
+}, 6 },
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 10 — Velocity

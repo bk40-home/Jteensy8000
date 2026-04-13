@@ -191,7 +191,7 @@ void PresetBrowser::_drawFooter(ILI9341_t3n& tft) {
     // Page counter (centred)
     const int page    = _scrollTop / PBLayout::VISIBLE_ROWS;
     const int maxPage = (_totalCount - 1) / PBLayout::VISIBLE_ROWS;
-    char buf[16];
+    char buf[24];
     snprintf(buf, sizeof(buf), "%d / %d", page + 1, maxPage + 1);
     tft.setTextColor(PBColour::IDX_TEXT, PBColour::FTR_BG);
     tft.setCursor(PBLayout::W / 2 - 20, PBLayout::FTR_Y + 8);
@@ -222,7 +222,7 @@ void PresetBrowser::_drawRow(ILI9341_t3n& tft, int row) {
     // Index — templates: "T0".."T8", bank patches: "00".."31"
     tft.setTextColor(PBColour::IDX_TEXT, bg);
     tft.setCursor(12, y + 8);
-    char idxBuf[5];
+    char idxBuf[13];
     const int templateCount = Presets::presets_templateCount();
     if (idx < templateCount) {
         snprintf(idxBuf, sizeof(idxBuf), "T%d ", idx);

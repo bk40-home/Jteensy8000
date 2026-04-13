@@ -24,7 +24,7 @@
 #include "BPMClockManager.h"
 
 // Human-readable names for UI display
-extern const char* TimingModeNames[NUM_TIMING_MODES] = {
+const char* TimingModeNames[NUM_TIMING_MODES] = {
     "Free",    // TIMING_FREE
     "4 Bars",  // TIMING_4_BARS
     "2 Bars",  // TIMING_2_BARS

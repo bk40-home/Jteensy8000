@@ -164,6 +164,30 @@ public:
     void setReverbBypass(bool bypass);
     bool getReverbBypass() const;
 
+    // Shimmer — pitch-shifted feedback in the tank feedback loop.
+    // 0.0 = off (zero CPU), 1.0 = full shimmer.
+    // Automatically disabled during freeze to prevent runaway escalation.
+    void  setReverbShimmer(float amount);   // clamped 0..1
+    float getReverbShimmer() const;
+
+    // Freeze / infinite hold.
+    // When true: decay = 1.0, input muted, shimmer disabled.
+    // All parameters (size, hidamp, lodamp, shimmer) saved and restored on unfreeze.
+    void  setReverbFreeze(bool frozen);
+    bool  getReverbFreeze() const;
+
+    // Output lowpass filter — applied AFTER the tank on the wet signal only.
+    // 0.0 = bright (no filtering), 1.0 = dark (heavy cut).
+    // Different from hidamp() which acts INSIDE the tank and affects tail decay rate.
+    void  setReverbLowpass(float amount);   // clamped 0..1
+    float getReverbLowpass() const;
+
+    // Output highpass filter — applied AFTER the tank on the wet signal only.
+    // 0.0 = full bass, 1.0 = thin (heavy bass cut).
+    // Different from lodamp() which acts INSIDE the tank.
+    void  setReverbHipass(float amount);    // clamped 0..1
+    float getReverbHipass() const;
+
     // =========================================================================
     // OUTPUT MIX LEVELS
     // =========================================================================
@@ -248,6 +272,10 @@ private:
     float _reverbHiDamp       = 0.5f;   // 0..1
     float _reverbLoDamp       = 0.5f;   // 0..1
     bool  _reverbManualBypass = false;   // hard bypass override
+    float _reverbShimmer      = 0.0f;   // 0..1 shimmer wet amount
+    bool  _reverbFrozen       = false;  // freeze state
+    float _reverbLowpass      = 0.0f;   // 0..1 output LP (post-tank)
+    float _reverbHipass       = 0.0f;   // 0..1 output HP (post-tank)
 
     // -- Output mix levels --
     float _dryMixL    = 1.0f;   // ch0 left

@@ -155,10 +155,14 @@ namespace CC {
     // -------------------------------------------------------------------------
     static constexpr uint8_t FX_REVERB_LODAMP    = 93;  // Reverb low damping
     static constexpr uint8_t FX_REVERB_BYPASS    = 94;  // Reverb bypass toggle (saves CPU)
-    static constexpr uint8_t FX_DELAY_MOD_RATE   = 95;  // Legacy (unused in JPFX)
-    static constexpr uint8_t FX_DELAY_MOD_DEPTH  = 96;  // Legacy (unused in JPFX)
-    static constexpr uint8_t FX_DELAY_INERTIA    = 97;  // Legacy (unused in JPFX)
-    static constexpr uint8_t FX_DELAY_TREBLE     = 98;  // Legacy (unused in JPFX)
+    // New reverb extended controls — repurposed from legacy unused delay CCs.
+    // These are the LIVE performance controls (CC 95-98).
+    // Compile-time reverb params (diffusion, shimmer pitch, reverb pitch, bleed-in)
+    // are set via FXChainBlock constructor defaults — no CC needed.
+    static constexpr uint8_t FX_REVERB_SHIMMER   = 95;  // Shimmer wet amount (0=off, 1=full)
+    static constexpr uint8_t FX_REVERB_FREEZE    = 96;  // Freeze toggle (>63 = frozen)
+    static constexpr uint8_t FX_REVERB_LOWPASS   = 97;  // Output LP (0=bright, 1=dark)
+    static constexpr uint8_t FX_REVERB_HIPASS    = 98;  // Output HP (0=full bass, 1=thin)
     // Note: CC 99-110 used by JPFX (see below)
 
     // -------------------------------------------------------------------------
@@ -452,10 +456,12 @@ namespace CC {
             // FX - Legacy (unused)
             case FX_DELAY_TIME:       return "Delay Time";
             case FX_DELAY_FEEDBACK:   return "Delay FB";
-            case FX_DELAY_MOD_RATE:   return "Dly ModRate";
-            case FX_DELAY_MOD_DEPTH:  return "Dly ModDepth";
-            case FX_DELAY_INERTIA:    return "Dly Inertia";
-            case FX_DELAY_TREBLE:     return "Dly Treble";
+
+            // FX - Reverb extended (CC 95-98)
+            case FX_REVERB_SHIMMER:   return "Rev Shimmer";
+            case FX_REVERB_FREEZE:    return "Rev Freeze";
+            case FX_REVERB_LOWPASS:   return "Rev LowPass";
+            case FX_REVERB_HIPASS:    return "Rev HiPass";
 
             // Global
             case GLIDE_ENABLE:        return "Glide On";

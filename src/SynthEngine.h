@@ -484,6 +484,19 @@ public:
     void setFXReverbBypass(bool bypass);
     bool getFXReverbBypass()      const;
 
+    // Extended reverb controls (CC 95-98)
+    void  setFXReverbShimmer(float amount); // 0..1 shimmer wet amount
+    float getFXReverbShimmer() const;
+
+    void  setFXReverbFreeze(bool frozen);   // save/restore params on toggle
+    bool  getFXReverbFreeze() const;
+
+    void  setFXReverbLowpass(float amount); // 0..1 post-tank output LP
+    float getFXReverbLowpass() const;
+
+    void  setFXReverbHipass(float amount);  // 0..1 post-tank output HP
+    float getFXReverbHipass() const;
+
     // =========================================================================
     // Output mix levels
     // =========================================================================
@@ -740,6 +753,10 @@ private:
     float  _fxReverbRoomSize = 0.5f;
     float  _fxReverbHiDamp   = 0.5f;
     float  _fxReverbLoDamp   = 0.5f;
+    float  _fxReverbShimmer  = 0.0f;   // 0..1 shimmer wet amount
+    bool   _fxReverbFrozen   = false;  // freeze state
+    float  _fxReverbLowpass  = 0.0f;   // 0..1 post-tank output LP
+    float  _fxReverbHipass   = 0.0f;   // 0..1 post-tank output HP
     float  _fxJPFXMixL       = 0.0f;
     float  _fxJPFXMixR       = 0.0f;
     float  _fxReverbMixL     = 0.0f;

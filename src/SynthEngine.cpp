@@ -1437,6 +1437,34 @@ bool SynthEngine::getFXReverbBypass() const {
     return _fxChain.getReverbBypass();
 }
 
+// ============================================================================
+// REVERB EXTENDED CONTROLS (CC 95-98)
+// ============================================================================
+
+void SynthEngine::setFXReverbShimmer(float amount) {
+    _fxReverbShimmer = amount;
+    _fxChain.setReverbShimmer(amount);
+}
+float SynthEngine::getFXReverbShimmer() const { return _fxReverbShimmer; }
+
+void SynthEngine::setFXReverbFreeze(bool frozen) {
+    _fxReverbFrozen = frozen;
+    _fxChain.setReverbFreeze(frozen);
+}
+bool SynthEngine::getFXReverbFreeze() const { return _fxReverbFrozen; }
+
+void SynthEngine::setFXReverbLowpass(float amount) {
+    _fxReverbLowpass = amount;
+    _fxChain.setReverbLowpass(amount);
+}
+float SynthEngine::getFXReverbLowpass() const { return _fxReverbLowpass; }
+
+void SynthEngine::setFXReverbHipass(float amount) {
+    _fxReverbHipass = amount;
+    _fxChain.setReverbHipass(amount);
+}
+float SynthEngine::getFXReverbHipass() const { return _fxReverbHipass; }
+
 
 
 // ---- UI helper getters ----
@@ -1880,6 +1908,32 @@ case CC::FX_REVERB_BYPASS: {
     setFXReverbBypass(bypass);
     JT_LOGF("[CC %u:%s] Reverb Bypass = %s\n", control, ccName, bypass ? "ON" : "OFF");
 } break;
+
+        case CC::FX_REVERB_SHIMMER: {
+            // Quadratic taper applied inside shimmer() — pass norm directly
+            setFXReverbShimmer(norm);
+            JT_LOGF("[CC %u:%s] Reverb Shimmer = %.3f\n", control, ccName, norm);
+        } break;
+
+        case CC::FX_REVERB_FREEZE: {
+            // Toggle: >63 = frozen (infinite hold), <=63 = normal
+            bool frozen = (value > 63);
+            setFXReverbFreeze(frozen);
+            JT_LOGF("[CC %u:%s] Reverb Freeze = %s\n", control, ccName,
+                    frozen ? "ON" : "OFF");
+        } break;
+
+        case CC::FX_REVERB_LOWPASS: {
+            // Post-tank output LP — darkens the reverb without affecting tail decay
+            setFXReverbLowpass(norm);
+            JT_LOGF("[CC %u:%s] Reverb LowPass = %.3f\n", control, ccName, norm);
+        } break;
+
+        case CC::FX_REVERB_HIPASS: {
+            // Post-tank output HP — thins the reverb without affecting tail decay
+            setFXReverbHipass(norm);
+            JT_LOGF("[CC %u:%s] Reverb HiPass = %.3f\n", control, ccName, norm);
+        } break;
 
 
         // ------------------- Supersaw / DC / Ring -------------------

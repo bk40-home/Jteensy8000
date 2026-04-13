@@ -50,12 +50,12 @@ const ControlDef HomeScreen::_emptyControl = { 255, CtrlType::NONE, "" };
 // Constructor
 // =============================================================================
 HomeScreen::HomeScreen()
-    : _display(nullptr), _synth(nullptr)
+    : _cachedCtrlCount(0), _cachedExpandedSect(-1), _cachedScrollY(-1)
+    , _display(nullptr), _synth(nullptr)
     , _redrawStep(1)
     , _layoutDirty(true), _headerDirty(true)
     , _lastCpuPct(-1), _lastHeaderMs(0)
     , _pendingCC(255), _pendingCount(0), _entryWasOpen(false)
-    , _cachedCtrlCount(0), _cachedExpandedSect(-1), _cachedScrollY(-1)
 {
     _cursor.sectionIdx = 0;
     _cursor.controlIdx = -1;
@@ -191,6 +191,52 @@ int16_t HomeScreen::_calcSectionY(int16_t sectIdx) const {
     int16_t y = 0;
     for (int i = 0; i < sectIdx && i < SECTION_COUNT; ++i) y += _calcSectionHeight(i);
     return y;
+}
+
+// =============================================================================
+// _calcControlVirtualY — virtual Y of the row containing a flat control index
+//
+// Replicates the same geometry walk as _buildPositionCache() but returns
+// virtual (pre-scroll) coordinates rather than screen coordinates.
+// Called only on encoder movement so the tiny cost is irrelevant.
+// =============================================================================
+int16_t HomeScreen::_calcControlVirtualY(int16_t sectIdx, int16_t flatCtrl) const
+{
+    if (sectIdx < 0 || sectIdx >= SECTION_COUNT) return 0;
+
+    const SectionDef& sec  = kSections[sectIdx];
+    const int16_t     sectY = _calcSectionY(sectIdx);
+    // body starts after section header + top padding
+    int16_t curY    = sectY + SEC_HDR_H + BODY_PAD_Y;
+    int16_t counter = 0;
+
+    for (int g = 0; g < sec.groupCount; ++g) {
+        const GroupDef& grp = sec.groups[g];
+        if (grp.controlCount == 0) continue;
+
+        curY += GRP_HDR_H;   // group label row
+
+        // Row height for this group — same logic as _calcExpandedBodyHeight
+        int16_t rowH = 0;
+        for (int c = 0; c < grp.controlCount; ++c) {
+            switch (grp.controls[c].type) {
+                case CtrlType::KNOB:   rowH = max(rowH, KNOB_CELL_H);            break;
+                case CtrlType::SELECT: rowH = max(rowH, SEL_CELL_H);             break;
+                case CtrlType::TOGGLE: rowH = max(rowH, TOG_CELL_H);             break;
+                case CtrlType::GRID:   rowH = max(rowH, (int16_t)SGRID_TOTAL_H); break;
+                default: break;
+            }
+        }
+
+        // If flatCtrl lives in this group, return the current row Y
+        if (flatCtrl < counter + grp.controlCount)
+            return curY;
+
+        counter += grp.controlCount;
+        curY    += rowH + GRP_PAD_BOTTOM;
+    }
+
+    return curY;   // fallback: clamp to end of body (should not be reached)
 }
 
 // =============================================================================
@@ -334,10 +380,25 @@ void HomeScreen::_ensureVisible(int16_t virtualY, int16_t h) {
 void HomeScreen::_scrollToCursor() {
     if (_cursor.sectionIdx < 0) return;
     const int16_t sectY = _calcSectionY(_cursor.sectionIdx);
+
     if (_cursor.controlIdx < 0) {
+        // No control selected — keep the section header visible
         _ensureVisible(sectY, SEC_HDR_H);
     } else {
-        _ensureVisible(sectY, min(_calcSectionHeight(_cursor.sectionIdx), CONTENT_H));
+        // Scroll to the virtual Y of the specific control row.
+        // Using the tallest possible cell height so the full row is guaranteed visible.
+        const int16_t ctrlVY = _calcControlVirtualY(_cursor.sectionIdx,
+                                                      _cursor.controlIdx);
+        const int16_t rowH   = max(KNOB_CELL_H, max(SEL_CELL_H, TOG_CELL_H));
+        _ensureVisible(ctrlVY, rowH);
+
+        // If the section header has scrolled off the top as a side-effect,
+        // pin it back — the user needs context of which section they are in.
+        if (_scrollY > sectY) {
+            _scrollY = sectY;
+            _clampScroll();
+            _layoutDirty = true;
+        }
     }
 }
 
@@ -640,8 +701,8 @@ void HomeScreen::_drawHeader(bool full) {
         char buf[12];
         snprintf(buf, sizeof(buf), "CPU:%d%%", cpuNow);
         _display->setTextSize(1);
-        const uint16_t cpuCol = (cpuNow > 80) ? COLOUR_METER_RED :
-                                (cpuNow > 50) ? COLOUR_METER_YELLOW : COLOUR_METER_GREEN;
+        const uint16_t cpuCol = (cpuNow > 95) ? COLOUR_METER_RED :
+                                (cpuNow > 90) ? COLOUR_METER_YELLOW : COLOUR_ACCENT_ORANGE;
         _display->setTextColor(cpuCol, COLOUR_HEADER_BG);
         _display->setCursor(cpuX, 7);
         _display->print(buf);

@@ -82,6 +82,14 @@ FXChainBlock::FXChainBlock()
     _plateReverb.hidamp(_reverbHiDamp);
     _plateReverb.lodamp(_reverbLoDamp);
 
+    // Compile-time reverb parameter defaults — no live CC assigned for these.
+    // Set once here; adjust per patch via kDefaults[] if needed.
+    _plateReverb.diffusion(0.65f);           // dense wash (high diffusion)
+    _plateReverb.shimmerPitchNormalized(1.0f); // +12 semitones (octave up)
+    _plateReverb.pitchSemitones(0);          // no reverb pitch shift
+    _plateReverb.pitchMix(0.0f);             // reverb pitch off by default
+    _plateReverb.freezeBleedIn(0.0f);        // total mute during freeze
+
     // --- Wire audio graph ---
     // JPFX stereo out → reverb stereo in
     _patchJPFXtoReverbL = new AudioConnection(_jpfx, 0, _plateReverb, 0);
@@ -302,6 +310,45 @@ void FXChainBlock::setReverbBypass(bool bypass) {
 }
 
 bool FXChainBlock::getReverbBypass() const { return _reverbManualBypass; }
+
+// ===========================================================================
+// REVERB EXTENDED CONTROLS (CC 95-98)
+// ===========================================================================
+
+// Shimmer: pitch-shifted feedback inside the tank loop.
+// Zero CPU when amount == 0 (PitchShifter early-return guard).
+void FXChainBlock::setReverbShimmer(float amount) {
+    amount = constrain(amount, 0.0f, 1.0f);
+    _reverbShimmer = amount;
+    _plateReverb.shimmer(amount);
+}
+float FXChainBlock::getReverbShimmer() const { return _reverbShimmer; }
+
+// Freeze: saves size/hidamp/lodamp/shimmer, sets decay=1.0, mutes input.
+// All parameters restored automatically on unfreeze.
+void FXChainBlock::setReverbFreeze(bool frozen) {
+    _reverbFrozen = frozen;
+    _plateReverb.freeze(frozen);
+}
+bool FXChainBlock::getReverbFreeze() const { return _reverbFrozen; }
+
+// Output lowpass: post-tank EQ on wet signal only.
+// Does NOT affect tail decay rate (unlike hidamp which is inside the tank).
+void FXChainBlock::setReverbLowpass(float amount) {
+    amount = constrain(amount, 0.0f, 1.0f);
+    _reverbLowpass = amount;
+    _plateReverb.lowpass(amount);
+}
+float FXChainBlock::getReverbLowpass() const { return _reverbLowpass; }
+
+// Output highpass: post-tank EQ on wet signal only.
+// Does NOT affect tail decay rate (unlike lodamp which is inside the tank).
+void FXChainBlock::setReverbHipass(float amount) {
+    amount = constrain(amount, 0.0f, 1.0f);
+    _reverbHipass = amount;
+    _plateReverb.hipass(amount);
+}
+float FXChainBlock::getReverbHipass() const { return _reverbHipass; }
 
 // ===========================================================================
 // OUTPUT MIX LEVELS
