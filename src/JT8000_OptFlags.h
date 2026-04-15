@@ -21,20 +21,73 @@
  */
  #pragma once
 // =============================================================================
-// JT8000_OptFlags.h  —  Compile-time CPU optimisation switches
+// JT8000_OptFlags.h  —  Compile-time feature and CPU optimisation switches
 // =============================================================================
 //
-// Each flag guards a specific optimisation.  Set to 1 to enable, 0 to disable.
-// Disable a flag, rebuild, and measure AudioProcessorUsage() to isolate the
-// contribution of each optimisation.
+// Each flag guards a specific feature or optimisation.  Set to 1 to enable,
+// 0 to disable.  Disable an optimisation flag, rebuild, and measure
+// AudioProcessorUsage() to isolate the contribution of each change.
 //
 // Benchmark procedure (from Jteensy8000.ino loop()):
 //   Serial.printf("CPU: %.1f%%  Mem: %d\n",
 //       AudioProcessorUsage(), AudioMemoryUsageMax());
 //
-// All flags default ON (1).  Turn off one at a time to measure.
-//
 // =============================================================================
+
+// -----------------------------------------------------------------------------
+// FEATURE 1 — Cross Modulation: OSC2 audio → OSC1 FM pitch
+//
+// Adds a 2-slot AudioMixer4 pre-stage inside OscillatorBlock (OSC1 only).
+// OSC2 output is injected at a depth-scaled gain before the FM mixer.
+// Slot 0 of the pre-mixer carries the pitch DC at unity; slot 1 carries
+// OSC2 audio at the cross-mod depth gain.
+//
+// When depth == 0.0 the gain on slot 1 is 0 — no modulation, no audio cost
+// beyond the unconditional AudioMixer4 update (~1 µs/voice at 8 voices).
+//
+// Works with ALL waveform combinations.  Does NOT require sync.
+//
+// CPU COST: +1 AudioMixer4 per voice (8 total) ≈ +0.5% CPU at full depth.
+//           Zero additional cost when depth == 0.
+// -----------------------------------------------------------------------------
+#ifndef JT_OPT_CROSS_MOD
+#define JT_OPT_CROSS_MOD  1   // 1 = enabled (recommended)
+#endif
+
+// Maximum FM swing in octaves at full depth (CC 127).
+// ±2 octaves covers classic JP-8000 cross-mod timbres without going chaotic.
+// Increase to 4.0 for more extreme sounds.
+#ifndef JT_CROSS_MOD_MAX_OCTAVES
+#define JT_CROSS_MOD_MAX_OCTAVES  2.0f
+#endif
+
+// Depth curve: 0 = linear, 1 = exponential (more resolution at low depths).
+#ifndef JT_CROSS_MOD_CURVE
+#define JT_CROSS_MOD_CURVE  0
+#endif
+
+// -----------------------------------------------------------------------------
+// FEATURE 2 — Oscillator Hard Sync: OSC2 (master) → OSC1 (slave) phase reset
+//
+// Sample-accurate sync: when OSC2 phase wraps, OSC1 phase resets to zero at
+// that exact sample.  Implemented via AudioSynthOscSync — a single AudioStream
+// containing both oscillator cores.
+//
+// When sync is ENABLED, VoiceBlock swaps audio connections to route through
+// AudioSynthOscSync instead of the normal OscillatorBlock outputs.
+// When sync is DISABLED, normal OscillatorBlock paths are restored and the
+// AudioSynthOscSync is not in the audio graph.
+//
+// Works with ALL standard waveforms.  PolyBLEP band-limited waveforms are
+// NOT supported in sync mode — hard sync phase resets disrupt PolyBLEP
+// correction.  Raw sync harmonics are the intended sound.
+//
+// CPU COST: AudioSynthOscSync ≈ 2× AudioSynthWaveformJT + sync check.
+//           Equivalent to two oscillators.  Only costs CPU when sync is ON.
+// -----------------------------------------------------------------------------
+#ifndef JT_OPT_OSC_SYNC
+#define JT_OPT_OSC_SYNC  1   // 1 = enabled (recommended)
+#endif
 
 // -----------------------------------------------------------------------------
 // OPT 1 — OBXa filter: hoist powf() out of the per-sample loop.
@@ -96,79 +149,4 @@
 // Must be > 0 to handle float rounding; small enough to be inaudible.
 #ifndef JT_SUPERSAW_IDLE_THRESHOLD
 #define JT_SUPERSAW_IDLE_THRESHOLD  0.001f
-#endif
-
-// =============================================================================
-// JT8000_OptFlags_CrossModSync.h — ADDITIONS for CrossModSync features
-// =============================================================================
-// MERGE THESE INTO JT8000_OptFlags.h AFTER the existing OPT 3 block.
-// Do NOT replace the existing file — append these sections.
-// =============================================================================
-
-// -----------------------------------------------------------------------------
-// OPT 4 — Cross Modulation: OSC2 audio output → OSC1 FM pitch (audio-rate FM)
-//
-// Adds an AudioMixer4 pre-stage before OSC1's _frequencyModMixer slot 0.
-// When depth = 0.0, the mixer passes the static pitch DC at unity — no
-// audible change, minimal CPU cost (one AudioMixer4::update() per voice).
-//
-// When DISABLED (0): No cross-mod pre-mixer is created.  OSC1's pitch DC
-// connects directly to the FM mixer as before.  Zero CPU overhead.
-//
-// When ENABLED (1): The pre-mixer is always in the audio graph (Teensy
-// scheduler is unconditional).  Cost: ~2.5 µs per voice per block (8 voices
-// = ~20 µs total).  When depth is 0.0, slot 1 receives a null block (nothing
-// connected), so the mixer just copies slot 0 through.
-// -----------------------------------------------------------------------------
-#ifndef JT_OPT_CROSS_MOD
-#define JT_OPT_CROSS_MOD  1   // 1 = enabled (recommended)
-#endif
-
-// Cross-mod depth curve selection.
-//   0 = Linear:      depth increases uniformly across CC range.
-//                     Most action in first quarter of knob — gets aggressive fast.
-//   1 = Exponential:  more resolution at low depths where subtle FM lives.
-//                     Musical sweet spot covers more of the knob range.
-//
-// Change this flag and rebuild to compare curves.  Both produce identical
-// output at CC 0 (silent) and CC 127 (full depth).  Only the shape between
-// those endpoints differs.
-#ifndef JT_CROSS_MOD_CURVE
-#define JT_CROSS_MOD_CURVE  1   // 1 = exponential (recommended)
-#endif
-
-// -----------------------------------------------------------------------------
-// OPT 5 — Oscillator Hard Sync: sample-accurate coupled dual oscillator
-//
-// AudioSynthOscSync contains BOTH oscillator phase accumulators in a single
-// AudioStream::update().  On every sample, if the master (OSC2) phase wraps,
-// the slave (OSC1) phase is reset to zero — producing the characteristic
-// hard-sync harmonic tearing.
-//
-// ACTIVATION:
-//   The sync engine is a separate AudioStream object, NOT a modification to
-//   OscillatorBlock.  VoiceBlock swaps audio connections at runtime:
-//     Sync OFF → existing OscillatorBlock path (unchanged, no CPU difference)
-//     Sync ON  → AudioSynthOscSync replaces both oscillator outputs
-//
-//   When this flag is 0, the AudioSynthOscSync class is not compiled at all.
-//   When 1, the class exists but only enters the audio graph when sync is
-//   enabled via CC — no CPU cost when sync is off.
-//
-// LIMITATIONS WHEN SYNC IS ACTIVE:
-//   - Supersaw is not available on OSC1 (forced to standard waveform).
-//   - Band-limited waveforms are not used (sync discontinuity breaks PolyBLEP).
-//   - Glide still works (changes base frequency; sync follows).
-//   - Cross-mod is integrated directly into the sync engine (no separate mixer).
-//   - Feedback comb continues to work (downstream of oscillator output).
-//
-// CPU:
-//   Replaces two AudioSynthWaveformJT::update() calls with one
-//   AudioSynthOscSync::update().  Net cost is similar — two phase accumulators
-//   + two waveform lookups + one comparison per sample.  The 4-input overhead
-//   (FM × 2 + shape × 2) adds ~4 receiveReadOnly() calls (null when not
-//   connected = zero cost).
-// -----------------------------------------------------------------------------
-#ifndef JT_OPT_OSC_SYNC
-#define JT_OPT_OSC_SYNC  1   // 1 = enabled (recommended)
 #endif

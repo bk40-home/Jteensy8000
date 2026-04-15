@@ -19,41 +19,75 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
- #pragma once
+
+#pragma once
+
 // =============================================================================
 // CrossModSync.h — JT-8000 Cross Modulation & Oscillator Hard Sync
 // =============================================================================
 //
-// TWO INDEPENDENT FEATURES IN ONE FILE:
+// TWO FULLY INDEPENDENT FEATURES:
 //
-//   1. CROSS MODULATION (audio-rate FM: OSC2 → OSC1 pitch)
-//      Implemented as an AudioMixer4 pre-stage injected before OSC1's FM mixer
-//      slot 0.  When depth is 0.0, the mixer passes the static pitch DC through
-//      at unity — effectively free beyond the unconditional update() call.
+//   1. CROSS MODULATION  (JT_OPT_CROSS_MOD)
+//      Audio-rate FM: OSC2's output is injected into OSC1's FM pitch path.
+//      This is JP-8000 "OSC CROSS MOD" — works with any waveform combination.
 //
-//   2. OSCILLATOR HARD SYNC (OSC1 slave, OSC2 master)
-//      Sample-accurate sync requires both oscillators' phase accumulators to be
-//      coupled within the same update() call.  AudioSynthOscSync is a single
-//      AudioStream that contains BOTH oscillator cores internally, generating
-//      two output channels (ch0 = OSC1/slave, ch1 = OSC2/master).
+//      Implementation (Option A — direct injection):
+//        OSC2 output → OSC1 _frequencyModMixer slot 0 at a scaled gain.
+//        The pitch DC already feeds slot 0 at gain 1.0.  AudioMixer4 sums
+//        all inputs, so the OSC2 signal adds on top of the static pitch DC
+//        without a dedicated pre-mixer object.  No AudioMixer4 is added.
 //
-//      When sync is DISABLED, VoiceBlock uses the existing separate
-//      OscillatorBlock path (no CPU change).
-//      When sync is ENABLED, VoiceBlock swaps audio connections to route through
-//      AudioSynthOscSync instead.
+//      When depth == 0.0:  OSC1 FM slot 0 gain for OSC2 = 0 → no modulation.
+//      When depth  > 0.0:  OSC2 audio drives OSC1 pitch at a scaled gain.
+//
+//      DOES NOT REQUIRE SYNC.  Works when sync is off, on, or not compiled.
+//
+//   2. OSCILLATOR HARD SYNC  (JT_OPT_OSC_SYNC)
+//      Sample-accurate phase reset: when OSC2 (master) phase wraps, OSC1
+//      (slave) phase is reset to zero at that exact sample.
+//      This is JP-8000 "OSC SYNC" — works with any waveform combination.
+//
+//      Implementation: AudioSynthOscSync is a single AudioStream containing
+//      both oscillator cores.  VoiceBlock swaps audio connections to route
+//      through this engine when sync is enabled.
+//
+//      When sync is OFF:  OscillatorBlock normal path is active.
+//      When sync is ON:   AudioSynthOscSync replaces both oscillator outputs
+//                         in the audio graph.
+//
+//      DOES NOT REQUIRE CROSS MOD.  The two features are independent.
+//      Both features active simultaneously: sync + FM timbres, which is the
+//      classic "JP-8000 sync sweep" sound.
+//
+// CROSS MOD WHEN SYNC IS ACTIVE:
+//   When both features are enabled at the same time, the AudioSynthOscSync
+//   engine handles cross-mod internally (per-sample, in the inner loop).
+//   The external OSC1 FM slot 0 injection is not in the graph during sync
+//   because OscillatorBlock outputs are disconnected.  Cross-mod is still
+//   effective — it just routes through the sync engine instead.
 //
 // COMPILE FLAGS (JT8000_OptFlags.h):
-//   JT_OPT_CROSS_MOD         — master enable for cross-modulation
-//   JT_OPT_OSC_SYNC          — master enable for hard sync
-//   JT_CROSS_MOD_CURVE       — 0 = linear, 1 = exponential depth curve
+//   JT_OPT_CROSS_MOD    — enable cross modulation (independent of sync)
+//   JT_OPT_OSC_SYNC     — enable hard sync (independent of cross mod)
+//   JT_CROSS_MOD_CURVE  — 0 = linear depth curve, 1 = exponential
+//
+// WAVEFORM SUPPORT:
+//   Both features work with sine, saw, square, triangle, pulse, arbitrary,
+//   and sample-and-hold.  PolyBLEP band-limited variants are NOT supported
+//   in sync mode — PolyBLEP correction requires continuous phase tracking
+//   which hard sync disrupts.  Raw sync harmonics are musically correct.
+//   Cross-mod works fine with PolyBLEP waveforms since it only injects an
+//   FM signal; it does not touch the phase accumulator.
 //
 // CPU COST:
-//   Cross-mod:  +1 AudioMixer4 per voice (8 total). ~20 µs/block total.
-//               When depth=0.0 and no audio connected, null block passthrough.
-//   Osc sync:   AudioSynthOscSync replaces two AudioSynthWaveformJT updates
-//               when active.  Net cost is similar — two phase accumulators +
-//               waveform lookups, but in one update() call with sync check.
-//               When sync is OFF, the class is not in the audio graph at all.
+//   Cross-mod:  Zero extra audio objects (Option A — direct injection).
+//               One gain(1, ...) call on depth change.  When depth == 0 the
+//               mixer slot is silent — no block is transmitted through it.
+//   Osc sync:   AudioSynthOscSync runs two phase accumulators + waveform
+//               lookups + one wrap comparison per sample.  Net cost is
+//               equivalent to two separate AudioSynthWaveformJT instances.
+//               When sync is OFF, the engine is not in the audio graph.
 //
 // =============================================================================
 
@@ -65,79 +99,58 @@
 class VoiceBlock;
 
 // =============================================================================
-// PART 1: CROSS MODULATION — AudioMixer4 pre-stage for OSC1 FM input
+// CROSS MODULATION — depth scaling helper
 // =============================================================================
 //
-// SIGNAL FLOW (when cross-mod is active):
+// crossModDepthFromCC() converts a CC 0–127 value to the gain that is applied
+// to OSC2's audio output before it enters OSC1's FM mixer slot 0.
 //
-//   _combinedPitchDc ──► [CrossModPreMixer] slot 0 (gain 1.0, always)
-//   OSC2 output      ──► [CrossModPreMixer] slot 1 (gain = depth × scale)
-//                              │
-//                              ▼
-//                     OSC1 _frequencyModMixer slot 0
-//                              │
-//                              ▼
-//                     (LFO1/LFO2/PitchEnv on slots 1-3 as before)
-//                              │
-//                              ▼
-//                     _mainOsc FM input
+// SCALING RATIONALE:
+//   OSC2 output is int16 audio (±32767, normalised to ±1.0 in the FM mixer).
+//   The FM mixer interprets ±1.0 as ±FM_OCTAVE_RANGE octaves.
+//   Raw OSC2 at unity gain would produce ±10 octave FM — far too extreme.
 //
-// The CrossModPreMixer replaces the direct _combinedPitchDc → FM mixer
-// connection on OSC1 only.  OSC2 is unaffected.
+//   CROSS_MOD_MAX_OCTAVES (default 2.0) is the maximum swing at CC 127.
+//   gain = depth_fraction × (MAX_OCTAVES / FM_OCTAVE_RANGE)
 //
-// DEPTH SCALING:
-//   OSC2 output is int16 audio (±32767).  The FM mixer interprets ±1.0 as
-//   ±FM_OCTAVE_RANGE octaves.  Raw OSC2 at unity gain would produce ±10
-//   octave modulation — far too aggressive.
+//   This function is guarded by JT_OPT_CROSS_MOD only — no dependency on
+//   JT_OPT_OSC_SYNC.
 //
-//   Cross-mod depth CC maps 0–127 to a scaled gain on slot 1:
-//     Linear:      depth = cc_to_norm(cc) × CROSS_MOD_MAX_OCTAVES / FM_OCTAVE_RANGE
-//     Exponential: depth = (e^(cc_to_norm(cc) × k) - 1) / (e^k - 1) × max_scale
-//
-//   CROSS_MOD_MAX_OCTAVES defaults to 2.0 (±2 octave swing at full depth).
-//   Adjustable via compile flag or runtime setter.
-//
-// IMPORTANT:
-//   The cross-mod signal is OSC2's AUDIO output, not its phase.  This is
-//   frequency modulation (not phase modulation).  It flows through the
-//   existing FM path in AudioSynthWaveformJT which uses the integer exp2
-//   approximation — no additional powf() per sample.
 // =============================================================================
 
-#if JT_OPT_CROSS_MOD || JT_OPT_OSC_SYNC
+#if JT_OPT_CROSS_MOD
 
-// Maximum cross-mod swing in octaves at CC 127 (full depth).
-// ±2 octaves is musically useful without being completely chaotic.
-// Increase for more extreme FM sounds.
+// Maximum cross-mod FM swing in octaves at CC 127.
+// ±2 octaves is musically useful; increase for more extreme FM.
 #ifndef JT_CROSS_MOD_MAX_OCTAVES
 #define JT_CROSS_MOD_MAX_OCTAVES  2.0f
 #endif
 
-// Pre-computed scale factor: maps full-scale audio (±1.0 after int16 normalisation)
-// to ±CROSS_MOD_MAX_OCTAVES in the FM mixer's octave space.
-// The FM mixer interprets ±1.0 input as ±FM_OCTAVE_RANGE octaves.
-// To get ±N octaves from a ±1.0 signal: gain = N / FM_OCTAVE_RANGE.
+// Pre-computed scale: maps ±1.0 audio (after int16 normalisation in the FM
+// mixer) to ±CROSS_MOD_MAX_OCTAVES in the FM path's octave space.
+// FM mixer interprets ±1.0 as ±FM_OCTAVE_RANGE octaves, so:
+//   gain = MAX_OCTAVES / FM_OCTAVE_RANGE
 static constexpr float CROSS_MOD_FULL_SCALE =
     JT_CROSS_MOD_MAX_OCTAVES / FM_OCTAVE_RANGE;
 
-/// Convert CC 0–127 to cross-mod mixer gain using the selected curve.
+/// Convert CC 0–127 to the FM mixer gain for cross-mod.
 /// Returns 0.0 at CC 0 (no modulation) and CROSS_MOD_FULL_SCALE at CC 127.
+/// Apply this value directly to OSC1._frequencyModMixer.gain(1, result).
 inline float crossModDepthFromCC(uint8_t cc) {
-    if (cc == 0) return 0.0f;
-    const float norm = (float)cc / 127.0f;
+    if (cc == 0) return 0.0f;                           // Fast path — no mod
+    const float norm = (float)cc / 127.0f;              // Normalise 0..1
 
 #if JT_CROSS_MOD_CURVE == 0
-    // --- Linear curve ---
-    // Simple and predictable.  Most of the musical action is in the first
-    // quarter of the knob range; the upper range gets aggressive fast.
+    // ---- Linear ----
+    // Predictable, most musical action in the lower half of the knob range.
     return norm * CROSS_MOD_FULL_SCALE;
 
 #elif JT_CROSS_MOD_CURVE == 1
-    // --- Exponential curve ---
+    // ---- Exponential ----
     // More resolution at low depths where subtle FM timbres live.
-    // k controls the curve steepness (higher = more exponential).
-    static constexpr float k = 4.0f;
-    static constexpr float denom = expf(k) - 1.0f;  // computed once
+    // k controls curve steepness — higher = more exponential feel.
+    static constexpr float k     = 4.0f;
+    static constexpr float denom = expf(k) - 1.0f;     // Computed once at link time
     const float shaped = (expf(norm * k) - 1.0f) / denom;
     return shaped * CROSS_MOD_FULL_SCALE;
 
@@ -146,62 +159,47 @@ inline float crossModDepthFromCC(uint8_t cc) {
 #endif
 }
 
-#endif // JT_OPT_CROSS_MOD || JT_OPT_OSC_SYNC
+#endif // JT_OPT_CROSS_MOD
 
 
 // =============================================================================
-// PART 2: OSCILLATOR HARD SYNC — Sample-accurate coupled dual oscillator
+// OSCILLATOR HARD SYNC — Sample-accurate coupled dual oscillator
 // =============================================================================
 //
 // AudioSynthOscSync is a 2-output AudioStream.
-//   Output 0 = OSC1 (slave) — phase resets when master wraps.
+//   Output 0 = OSC1 (slave)  — phase resets when master wraps.
 //   Output 1 = OSC2 (master) — runs freely.
 //
-// AUDIO INPUTS (optional):
-//   Input 0 = OSC1 FM modulation signal  (from OSC1's _frequencyModMixer)
-//   Input 1 = OSC2 FM modulation signal  (from OSC2's _frequencyModMixer)
-//   Input 2 = OSC1 shape/PWM signal      (from OSC1's _shapeModMixer)
-//   Input 3 = OSC2 shape/PWM signal      (from OSC2's _shapeModMixer)
+// AUDIO INPUTS (optional, connected by VoiceBlock when sync is enabled):
+//   Input 0 = OSC1 FM modulation  (from OSC1's _frequencyModMixer)
+//   Input 1 = OSC2 FM modulation  (from OSC2's _frequencyModMixer)
+//   Input 2 = OSC1 shape/PWM      (from OSC1's _shapeModMixer)
+//   Input 3 = OSC2 shape/PWM      (from OSC2's _shapeModMixer)
 //
 // SYNC BEHAVIOUR:
-//   On every sample, the master (OSC2) phase accumulator is advanced.
-//   If the master phase wraps (current < previous), the slave (OSC1) phase
-//   accumulator is reset to zero AT THAT EXACT SAMPLE.  The slave's waveform
-//   output for that sample is computed from the reset phase, producing the
-//   characteristic hard-sync harmonic tearing.
+//   Master phase is advanced each sample.  On wrap (current < previous),
+//   slave phase is reset to zero at that exact sample — sample-accurate sync.
+//   The slave's output for that sample is computed from the reset phase,
+//   producing the characteristic hard-sync tearing harmonics.
 //
-// CROSS MODULATION + SYNC:
-//   When both features are active simultaneously, OSC2's output feeds into
-//   OSC1's FM path.  The sync engine handles this internally — the cross-mod
-//   signal is the master's (OSC2) raw sample value, injected into the slave's
-//   phase increment calculation on a per-sample basis.
+// CROSS MODULATION WHEN SYNC IS ACTIVE:
+//   When _crossModDepth > 0, the master's raw sample value is injected into
+//   the slave's FM calculation on a per-sample basis (inside the inner loop).
+//   This is more accurate than the audio-graph approach because it bypasses
+//   the one-block latency of an external AudioMixer4 connection.
+//   VoiceBlock sets this depth from _crossModDepth when enabling sync.
 //
 // WAVEFORM SUPPORT:
-//   Both oscillators support the same waveform types as AudioSynthWaveformJT:
-//   sine, saw, square, triangle, pulse (with shape mod), arbitrary, sample&hold,
-//   and all band-limited variants.
+//   sine, sawtooth, square, triangle, pulse (with shape mod), arbitrary,
+//   sample-and-hold.  Band-limited (PolyBLEP) variants not supported in
+//   sync mode — see header comment above.
 //
-// WHAT THIS CLASS DOES NOT DO:
-//   - Supersaw.  When sync is active, supersaw is not available on OSC1.
-//     The supersaw requires 7 independent phase accumulators; syncing all 7
-//     would produce a very different (and arguably useless) sound.
-//     VoiceBlock should force OSC1 to a standard waveform when sync is enabled.
-//   - Feedback comb.  The comb network is downstream of the oscillator output
-//     and continues to work normally on the sync outputs.
-//   - Glide.  Glide changes the base frequency via .setFrequency() and works
-//     identically — the sync engine reads the current phase_increment.
-//
-// CPU COST:
-//   Two phase accumulators + two waveform lookups + one phase-wrap comparison
-//   per sample.  Essentially the same as running two AudioSynthWaveformJT
-//   instances, plus ~1 cycle per sample for the sync check.
-//
-// DESIGN NOTE:
-//   This class duplicates some waveform generation code from Synth_Waveform.cpp.
-//   This is intentional — extracting the inner loop into a shared function would
-//   add function call overhead per sample (128 calls/block) and prevent the
-//   compiler from keeping phase accumulators in registers across the loop.
-//   The FM exp2 approximation is also inlined for the same reason.
+// DESIGN NOTE — code duplication:
+//   generateSample() duplicates waveform cases from Synth_Waveform.cpp.
+//   This is intentional — extracting into a shared function would add 128
+//   function call overheads per block and prevent the compiler keeping phase
+//   accumulators in registers across the loop.  The FM exp2 approximation is
+//   also inlined for the same reason.
 //
 // =============================================================================
 
@@ -242,24 +240,30 @@ public:
     // SYNC CONTROL
     // =========================================================================
 
-    /// Enable or disable hard sync.  When disabled, both oscillators run
-    /// independently (no phase reset).  The outputs are still valid —
-    /// VoiceBlock can keep this in the graph even when sync is off,
-    /// though switching to separate OscillatorBlocks saves the 4-input
-    /// overhead when sync is not needed.
+    /// Enable or disable hard sync.
+    /// When disabled, both oscillators run independently (no phase reset).
+    /// Outputs are still valid — VoiceBlock disconnects the engine from the
+    /// graph entirely when sync is off to save the 4-input overhead.
     void setSyncEnabled(bool enabled) { _syncEnabled = enabled; }
     bool getSyncEnabled() const       { return _syncEnabled; }
 
     // =========================================================================
     // CROSS MODULATION (integrated — OSC2 output → OSC1 FM, per-sample)
     // =========================================================================
+    //
+    // When the sync engine is active AND cross-mod depth > 0, the master's
+    // raw sample is injected into the slave's FM path inside the inner loop.
+    // This is independent of the external cross-mod injection in VoiceBlock —
+    // when sync is on, the external OscillatorBlock outputs are not in the
+    // graph so the internal path handles cross-mod automatically.
+    //
+    // VoiceBlock::setCrossModDepth() forwards the depth here when sync is on.
 
-    /// Set cross-mod depth.  This is the gain applied to the master's raw
-    /// sample output before it modulates the slave's phase increment.
-    /// Range: 0.0 (off) to CROSS_MOD_FULL_SCALE (full depth).
+    /// Set cross-mod depth for in-engine injection.
+    /// Range: 0.0 (off) → CROSS_MOD_FULL_SCALE (full depth at CC 127).
     /// Use crossModDepthFromCC() to convert from CC value.
-    void setCrossModDepth(float depth) { _crossModDepth = depth; }
-    float getCrossModDepth() const     { return _crossModDepth; }
+    void  setCrossModDepth(float depth) { _crossModDepth = depth; }
+    float getCrossModDepth() const      { return _crossModDepth; }
 
     // =========================================================================
     // SHAPE / PULSE WIDTH
@@ -275,10 +279,10 @@ public:
     // ARBITRARY WAVEFORM
     // =========================================================================
 
-    /// Set OSC1 arbitrary waveform table.
+    /// Set OSC1 arbitrary waveform table pointer.
     void setSlaveArbData(const int16_t* data) { _slaveArbData = data; }
 
-    /// Set OSC2 arbitrary waveform table.
+    /// Set OSC2 arbitrary waveform table pointer.
     void setMasterArbData(const int16_t* data) { _masterArbData = data; }
 
     // =========================================================================
@@ -290,23 +294,23 @@ public:
 private:
     // Audio input queue — 4 slots:
     //   [0] = OSC1 FM mod, [1] = OSC2 FM mod,
-    //   [2] = OSC1 shape mod, [3] = OSC2 shape mod
+    //   [2] = OSC1 shape,  [3] = OSC2 shape
     audio_block_t* inputQueueArray[4];
 
     // ── Slave (OSC1) state ──────────────────────────────────────────────────
-    uint32_t _slavePhase      = 0;        // Phase accumulator
-    uint32_t _slavePhaseInc   = 0;        // Base phase increment (from frequency)
-    int32_t  _slaveMagnitude  = 0;        // Amplitude (0–65536)
+    uint32_t _slavePhase      = 0;
+    uint32_t _slavePhaseInc   = 0;
+    int32_t  _slaveMagnitude  = 0;
     uint8_t  _slaveWaveform   = WAVEFORM_SAWTOOTH;
-    uint32_t _slavePulseWidth = 0x40000000u;  // 50% default
+    uint32_t _slavePulseWidth = 0x40000000u;   // 50% default
     const int16_t* _slaveArbData = nullptr;
-    int16_t  _slaveSampleHold = 0;        // Held value for S&H waveform
+    int16_t  _slaveSampleHold = 0;
 
     // ── Master (OSC2) state ─────────────────────────────────────────────────
-    uint32_t _masterPhase     = 0;
-    uint32_t _masterPhaseInc  = 0;
-    int32_t  _masterMagnitude = 0;
-    uint8_t  _masterWaveform  = WAVEFORM_SAWTOOTH;
+    uint32_t _masterPhase      = 0;
+    uint32_t _masterPhaseInc   = 0;
+    int32_t  _masterMagnitude  = 0;
+    uint8_t  _masterWaveform   = WAVEFORM_SAWTOOTH;
     uint32_t _masterPulseWidth = 0x40000000u;
     const int16_t* _masterArbData = nullptr;
     int16_t  _masterSampleHold = 0;
@@ -314,26 +318,29 @@ private:
     // ── Modulation ──────────────────────────────────────────────────────────
     uint32_t _modulationFactor = 32768;   // FM scaling (octaves × 4096)
     bool     _syncEnabled      = false;
-    float    _crossModDepth    = 0.0f;    // 0.0 = off
+    float    _crossModDepth    = 0.0f;
 
     // ── Internal helpers ────────────────────────────────────────────────────
 
-    /// Generate one sample for the given waveform type at the given phase.
-    /// This is the inner waveform lookup — inlined for performance.
-    /// shape is the per-sample pulse width (from shape modulation or default).
+    /// Generate one waveform sample.  Inlined into update() — compiler keeps
+    /// phase accumulators in registers across the 128-sample loop.
+    /// priorPhase is the phase value before this sample's increment, used
+    /// for sample-and-hold wrap detection.
     static inline int16_t generateSample(
-        uint8_t waveform,
-        uint32_t phase,
-        int32_t magnitude,
-        uint32_t pulseWidth,
+        uint8_t        waveform,
+        uint32_t       phase,
+        int32_t        magnitude,
+        uint32_t       pulseWidth,
         const int16_t* arbdata,
-        int16_t& sampleHold,
-        uint32_t priorPhase
+        int16_t&       sampleHold,
+        uint32_t       priorPhase
     );
 
-    /// Fast integer exp2 approximation for FM — identical to Synth_Waveform.cpp.
-    /// Input: scaled octave count (n = sample × modulation_factor).
+    /// Fast integer exp2 approximation for FM — Laurent de Soras (musicdsp #106).
+    /// Input:  n = sample × modulation_factor  (scaled octave count, int32).
     /// Output: phase increment scale factor (unsigned, 16.16 fixed point).
+    /// Identical to the version in Synth_Waveform.cpp — duplicated to avoid
+    /// function call overhead (128 calls/block) in the inner loop.
     static inline uint32_t fmExp2(int32_t n);
 };
 

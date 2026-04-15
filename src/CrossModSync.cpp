@@ -207,26 +207,33 @@ inline int16_t AudioSynthOscSync::generateSample(
     }
 
     case WAVEFORM_SQUARE: {
-        // 50% duty cycle — high for first half, low for second half
-        return (phase & 0x80000000u) ?
-            (int16_t)(magnitude >> 16) :
-            (int16_t)(-(magnitude >> 16));
+        // magnitude is stored as amp * 65536 (16.16 fixed point).
+        // signed_saturate_rshift(magnitude, 16, 1) extracts a 15-bit amplitude
+        // value (≈32767 at full scale) matching Synth_Waveform.cpp convention.
+        const int16_t mag15 = (int16_t)signed_saturate_rshift(magnitude, 16, 1);
+        return (phase & 0x80000000u) ? -mag15 : mag15;
     }
 
     case WAVEFORM_PULSE: {
-        // Variable duty cycle — pulseWidth determines threshold
-        return (phase < pulseWidth) ?
-            (int16_t)(magnitude >> 16) :
-            (int16_t)(-(magnitude >> 16));
+        // Variable duty cycle — same magnitude scaling as square above.
+        const int16_t mag15 = (int16_t)signed_saturate_rshift(magnitude, 16, 1);
+        return (phase < pulseWidth) ? mag15 : -mag15;
     }
 
     case WAVEFORM_TRIANGLE: {
-        uint32_t phtop = phase >> 30;
-        if (phtop == 1 || phtop == 2) {
-            return (int16_t)(((0xFFFF - (phase >> 15)) * magnitude) >> 16);
+        // Triangle: ramp up in first half, ramp down in second.
+        // signed_multiply_32x16t extracts top 16 bits of phase and multiplies
+        // by magnitude as 32-bit — gives correct ±32767 range at full amp.
+        // Matches the approach in Synth_Waveform.cpp triangle case.
+        int32_t val;
+        if (phase & 0x80000000u) {
+            // Second half: count down from peak to trough
+            val = (int32_t)signed_multiply_32x16t(magnitude, ~phase << 1);
         } else {
-            return (int16_t)((((int32_t)phase >> 15) * magnitude) >> 16);
+            // First half: count up from trough to peak
+            val = (int32_t)signed_multiply_32x16t(magnitude, phase << 1);
         }
+        return (int16_t)val;
     }
 
     case WAVEFORM_ARBITRARY: {
@@ -242,6 +249,32 @@ inline int16_t AudioSynthOscSync::generateSample(
         return (int16_t)multiply_32x32_rshift32(val1 + val2, magnitude);
     }
 
+    case WAVEFORM_TRIANGLE_VARIABLE: {
+        // Variable triangle: pulseWidth controls the rise/fall time ratio.
+        //   pulseWidth == 0x80000000 → symmetric (identical to TRIANGLE).
+        //   pulseWidth < 0x80000000 → fast rise, slow fall (saw-like).
+        //   pulseWidth > 0x80000000 → slow rise, fast fall (reverse saw-like).
+        //
+        // Output ramps between -mag15 and +mag15.
+        // Uses the same magnitude15 convention as square/pulse cases.
+        const int16_t mag15 = (int16_t)signed_saturate_rshift(magnitude, 16, 1);
+        if (phase < pulseWidth) {
+            // Rising segment: normalise phase to 0..1 within this segment,
+            // map to -mag15..+mag15.  64-bit multiply avoids overflow.
+            const int32_t v = (int32_t)(((uint64_t)phase * (uint32_t)(mag15 * 2u)) >> 32)
+                              - (int32_t)mag15;
+            return (int16_t)v;
+        } else {
+            // Falling segment: from +mag15 back down to -mag15.
+            const uint32_t fallPhase = phase - pulseWidth;
+            const uint32_t fallRange = ~pulseWidth;   // 0xFFFFFFFF - pulseWidth
+            if (fallRange == 0) return mag15;         // edge case: pulseWidth at max
+            const int32_t v = (int32_t)mag15
+                              - (int32_t)(((uint64_t)fallPhase * (uint32_t)(mag15 * 2u)) >> 32);
+            return (int16_t)v;
+        }
+    }
+
     case WAVEFORM_SAMPLE_HOLD: {
         // Latch new random value on phase wrap
         if (phase < priorPhase) {
@@ -251,6 +284,8 @@ inline int16_t AudioSynthOscSync::generateSample(
     }
 
     default:
+        // Unsupported waveform (PolyBLEP band-limited variants fall here).
+        // Hard sync disrupts PolyBLEP correction — use standard waveforms.
         return 0;
     }
 }

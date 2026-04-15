@@ -8,11 +8,16 @@
 //   2. ALL pitch modulation (LFO, pitch env, bend, coarse, fine, detune)
 //      flows through the AudioSynthWaveformJT FM input.
 //   3. Pitch DC sources (offset + bend + external) are summed in software
-//      and written to a single AudioSynthWaveformDc.  No AudioMixer4 pre-stage.
-//   4. Glide slides the base frequency via direct .frequency() calls — the
+//      and written to a single AudioSynthWaveformDc.  No AudioMixer4 pre-stage
+//      for DC sources — software addition is free vs running a hardware mixer.
+//   4. Cross-mod (JT_OPT_CROSS_MOD): a 2-slot AudioMixer4 pre-stage sits
+//      between _combinedPitchDc and the FM mixer slot 0.  OSC2 audio feeds
+//      slot 1 of this pre-mixer at a scaled gain.  Slots 1-3 of the main FM
+//      mixer remain reserved for LFO1/LFO2/pitch-env as before.
+//   5. Glide slides the base frequency via direct .frequency() calls — the
 //      combined DC does not change while gliding.
-//   5. No powf() in this file — all arithmetic is addition / multiplication.
-//   6. ALL pitch parameters arrive as SEMITONES — no Hz conversion here.
+//   6. No powf() in this file — all arithmetic is addition / multiplication.
+//   7. ALL pitch parameters arrive as SEMITONES — no Hz conversion here.
 // =============================================================================
 
 #include "OscillatorBlock.h"
@@ -28,69 +33,102 @@ OscillatorBlock::OscillatorBlock(bool enableSupersaw)
     , _baseFreq(440.0f)
 {
     // =========================================================================
-    // COMBINED PITCH DC → FM MIXER
+    // COMBINED PITCH DC
     //
     // A single DC source carries the software sum of:
     //   coarse pitch offset + fine tune + detune + pitch bend + external DC.
-    // All are constant-per-block scalars, so software addition is identical
-    // to a hardware AudioMixer4 pre-stage but costs no ISR time.
+    // All are constant-per-block scalars — software addition is identical
+    // to running a hardware AudioMixer4 pre-stage but costs zero ISR time.
     // =========================================================================
     _combinedPitchDc.amplitude(0.0f);
+    _shapeDc.amplitude(0.0f);
 
-    _patchPitchDcToFM    = new AudioConnection(_combinedPitchDc,    0, _frequencyModMixer, 0);
-    _patchShapeDcToShape = new AudioConnection(_shapeDc,            0, _shapeModMixer,     0);
+    // =========================================================================
+    // PITCH DC ROUTING — with or without cross-mod pre-mixer
+    //
+    // JT_OPT_CROSS_MOD:
+    //   _combinedPitchDc → _crossModPreMixer slot 0 (gain 1.0)
+    //   OSC2 audio       → _crossModPreMixer slot 1 (gain = depth, wired by VoiceBlock)
+    //   _crossModPreMixer output → _frequencyModMixer slot 0
+    //
+    // Without cross-mod:
+    //   _combinedPitchDc → _frequencyModMixer slot 0  (direct, as before)
+    // =========================================================================
+#if JT_OPT_CROSS_MOD
+    // Slot 0: pitch DC passes through at unity — always active
+    _crossModPreMixer.gain(0, 1.0f);
+    // Slot 1: OSC2 audio injection — starts at 0 (no modulation)
+    _crossModPreMixer.gain(1, 0.0f);
+    // Slots 2-3: unused
+    _crossModPreMixer.gain(2, 0.0f);
+    _crossModPreMixer.gain(3, 0.0f);
+
+    _patchPitchDcToCrossMod = new AudioConnection(_combinedPitchDc,  0, _crossModPreMixer,    0);
+    _patchCrossModToFM      = new AudioConnection(_crossModPreMixer,  0, _frequencyModMixer,   0);
+#else
+    // Direct connection — no pre-mixer overhead
+    _patchPitchDcToFM = new AudioConnection(_combinedPitchDc, 0, _frequencyModMixer, 0);
+#endif
+
+    _patchShapeDcToShape = new AudioConnection(_shapeDc, 0, _shapeModMixer, 0);
 
     // =========================================================================
     // FM MIXER SETUP
-    // Slot 0 = combined pitch DC (all static offsets + bend + external).
-    // Slots 1-3 wired by SynthEngine (LFO1 pitch, LFO2 pitch, pitch envelope).
+    //   Slot 0: pitch DC (or pre-mixer output if JT_OPT_CROSS_MOD) — see above
+    //   Slot 1: LFO1 pitch    (wired by SynthEngine at runtime)
+    //   Slot 2: LFO2 pitch    (wired by SynthEngine at runtime)
+    //   Slot 3: Pitch envelope (wired by SynthEngine at runtime)
     // =========================================================================
-    _frequencyModMixer.gain(0, 1.0f);   // Combined pitch DC — unity passthrough
-    _frequencyModMixer.gain(1, 0.0f);   // LFO1 (set by SynthEngine at runtime)
-    _frequencyModMixer.gain(2, 0.0f);   // LFO2 (set by SynthEngine at runtime)
-    _frequencyModMixer.gain(3, 1.0f);   // Pitch envelope (set by SynthEngine)
+    _frequencyModMixer.gain(0, 1.0f);   // Pitch DC / pre-mixer output — unity passthrough
+    _frequencyModMixer.gain(1, 0.0f);   // LFO1  — set by SynthEngine
+    _frequencyModMixer.gain(2, 0.0f);   // LFO2  — set by SynthEngine
+    _frequencyModMixer.gain(3, 1.0f);   // Pitch envelope — set by SynthEngine
 
-    // Shape mod mixer
-    _shapeDc.amplitude(0.0f);
+    // =========================================================================
+    // SHAPE MIXER SETUP
+    //   Slot 0: shape DC (static PWM)
+    //   Slot 1: LFO1 shape (set by SynthEngine)
+    //   Slot 2: LFO2 shape (set by SynthEngine)
+    //   Slot 3: Spare (step sequencer PWM wired here by SynthEngine)
+    // =========================================================================
     _shapeModMixer.gain(0, 1.0f);   // Shape DC
-    _shapeModMixer.gain(1, 0.0f);   // LFO1 shape (set by SynthEngine)
-    _shapeModMixer.gain(2, 0.0f);   // LFO2 shape (set by SynthEngine)
+    _shapeModMixer.gain(1, 0.0f);   // LFO1 shape
+    _shapeModMixer.gain(2, 0.0f);   // LFO2 shape
     _shapeModMixer.gain(3, 0.0f);   // Spare
 
     // =========================================================================
     // MAIN OSCILLATOR
     //
     // frequencyModulation(N) enables the FM input and sets ±1.0 = ±N octaves.
-    // MUST be called BEFORE any phaseModulation() call, which would switch the
-    // oscillator to PM mode and silently ignore all FM pitch sources.
+    // MUST be called BEFORE any phaseModulation() call — PM mode silently
+    // ignores all FM pitch sources.
     // =========================================================================
     _mainOsc.begin(_currentType);
     _mainOsc.amplitude(1.0f);
-    _mainOsc.frequencyModulation(FM_OCTAVE_RANGE);  // ±1.0 = ±10 octaves on FM input
+    _mainOsc.frequencyModulation(FM_OCTAVE_RANGE);   // ±1.0 = ±10 octaves on FM input
 
     _patchFMToOsc    = new AudioConnection(_frequencyModMixer, 0, _mainOsc, 0);  // FM pitch
     _patchShapeToOsc = new AudioConnection(_shapeModMixer,     0, _mainOsc, 1);  // Shape / PWM
 
     // =========================================================================
     // OUTPUT MIXER
-    //   Slot 0: Main oscillator
-    //   Slot 1: Supersaw (OSC1 only; remains 0.0 until supersaw waveform selected)
-    //   Slot 2: Feedback comb output
+    //   Slot 0: Main oscillator (active by default)
+    //   Slot 1: Supersaw       (OSC1 only; 0.0 until supersaw waveform selected)
+    //   Slot 2: Feedback comb  (0.0 until feedback enabled)
     //   Slot 3: Unused
     // =========================================================================
     _patchMainOsc = new AudioConnection(_mainOsc, 0, _outputMix, 0);
-    _outputMix.gain(0, 0.9f);   // Main oscillator (default active)
-    _outputMix.gain(1, 0.0f);   // Supersaw off by default
-    _outputMix.gain(2, 0.0f);   // Feedback comb off by default
-    _outputMix.gain(3, 0.0f);   // Unused
+    _outputMix.gain(0, 0.9f);
+    _outputMix.gain(1, 0.0f);
+    _outputMix.gain(2, 0.0f);
+    _outputMix.gain(3, 0.0f);
 
     // =========================================================================
     // FEEDBACK COMB NETWORK (JP-8000 comb delay)
     //   Comb mixer collects oscillator output + delayed feedback.
-    //   The delay output is also tapped into the main output mixer for the
-    //   filtered/coloured feedback signal.
+    //   Delay output taps into output mixer for the filtered feedback signal.
     // =========================================================================
-    _combMixer.gain(0, 1.0f);   // Main osc signal
+    _combMixer.gain(0, 1.0f);   // Main osc
     _combMixer.gain(1, 0.0f);   // Supersaw (routed when active)
     _combMixer.gain(2, 0.0f);   // Feedback return (off until enabled)
     _combMixer.gain(3, 0.0f);   // Unused
@@ -121,14 +159,14 @@ OscillatorBlock::OscillatorBlock(bool enableSupersaw)
         _patchSupersaw       = new AudioConnection(*_supersaw, 0, _outputMix,  1);
         _patchSupersawToComb = new AudioConnection(*_supersaw, 0, _combMixer,  1);
 
-        // Wire FM mixer → supersaw FM input (same source as _mainOsc FM input)
+        // FM mixer → supersaw FM input (same source as _mainOsc FM — consistent pitch mod)
         _patchFMToSupersaw    = new AudioConnection(_frequencyModMixer, 0, *_supersaw, 0);
-        // Wire shape mixer → supersaw phase-mod input
+        // Shape mixer → supersaw phase-mod input
         _patchShapeToSupersaw = new AudioConnection(_shapeModMixer,     0, *_supersaw, 1);
 
-        // Match FM range to main oscillator — ±1.0 = ±FM_OCTAVE_RANGE octaves
+        // FM range must match main oscillator — ±1.0 = ±FM_OCTAVE_RANGE octaves
         _supersaw->frequencyModulation(FM_OCTAVE_RANGE);
-        // Phase mod: 180° half-cycle swing at full-scale, matching AudioSynthWaveformJT
+        // Phase mod: 180° = half-cycle swing at full-scale, matching AudioSynthWaveformJT
         _supersaw->phaseModulation(180.0f);
 
         _supersaw->setOversample(false);
@@ -220,7 +258,7 @@ void OscillatorBlock::setWaveformType(int type) {
         }
     }
     // NOTE: _outputMix.gain(2) (feedback comb) is managed by setFeedbackAmount(),
-    // not by waveform type, so it is intentionally not touched here.
+    // not by waveform type — intentionally not touched here.
 }
 
 // =============================================================================
@@ -242,7 +280,7 @@ void OscillatorBlock::setAmplitude(float amplitude) {
 void OscillatorBlock::setPitchOffset(float semitones) {
     if (_pitchOffsetSemitones == semitones) return;   // Skip if unchanged
     _pitchOffsetSemitones = semitones;
-    _updateStaticPitchFm();                            // Recombines offset+fine+detune → DC
+    _updateStaticPitchFm();
 }
 
 void OscillatorBlock::setFineTune(float cents) {
@@ -275,6 +313,23 @@ void OscillatorBlock::setSeqPitchOffset(float fmScaledOffset) {
     _updateCombinedPitchDc();
 }
 
+// =============================================================================
+// CROSS MODULATION — pre-mixer depth control (JT_OPT_CROSS_MOD)
+// =============================================================================
+
+#if JT_OPT_CROSS_MOD
+void OscillatorBlock::setCrossModGain(float gain) {
+    // Slot 1 of the pre-mixer carries OSC2 audio at this gain.
+    // gain = 0.0 → no modulation (passes only pitch DC through slot 0).
+    // gain = CROSS_MOD_FULL_SCALE → maximum depth (±JT_CROSS_MOD_MAX_OCTAVES).
+    _crossModPreMixer.gain(1, gain);
+}
+
+AudioMixer4& OscillatorBlock::crossModPreMixerRef() {
+    return _crossModPreMixer;
+}
+#endif
+
 // -----------------------------------------------------------------------------
 // _updateStaticPitchFm — recalculate the FM-scaled sum of coarse + fine + detune
 //
@@ -286,9 +341,8 @@ void OscillatorBlock::_updateStaticPitchFm() {
     // Fine tune: cents → semitones (100 cents = 1 semitone)
     const float fineSemitones = _fineTuneCents * 0.01f;
 
-    // Detune is already in semitones — no Hz conversion needed.
-    // The CC handler in SynthEngine does the Hz→semitone conversion
-    // at the MIDI edge, so we receive clean semitone values here.
+    // Detune is already in semitones.  SynthEngine does Hz→semitone conversion
+    // at the CC edge so we receive clean semitone values here.
     _staticPitchFm = (_pitchOffsetSemitones + fineSemitones + _detuneSemitones)
                      * FM_SEMITONE_SCALE;
 
@@ -335,9 +389,8 @@ void OscillatorBlock::noteOn(float frequency, float velocity) {
         AudioInterrupts();
 
         // _baseFreq stays at the CURRENT glide position for display / queries.
-        // It will be updated to the final target once glide completes.
-        // _combinedPitchDc does not need updating — it holds static offsets;
-        // glide position changes are expressed via direct .frequency() calls.
+        // _combinedPitchDc does not change during glide — LFO/bend/env modulate
+        // on top of the sliding base.
     } else {
         // --- No glide: jump directly to new frequency ---
         _baseFreq       = frequency;
@@ -365,11 +418,8 @@ void OscillatorBlock::noteOn(float frequency, float velocity) {
     _lastVelocity = velocity;
 
     // NOTE: No _updateStaticPitchFm() call needed here.
-    // Detune is now in semitones (frequency-independent), so the FM-scaled
-    // value does not change when the base frequency changes.  The previous
-    // Hz-based detune required recalculation here because the Hz→semitone
-    // conversion was frequency-dependent — that conversion is now done once
-    // at the CC edge in SynthEngine.
+    // Detune is in semitones — frequency-independent, so the FM-scaled value
+    // does not change when the base frequency changes.
 }
 
 void OscillatorBlock::noteOff() {
@@ -401,10 +451,6 @@ void OscillatorBlock::update() {
         _mainOsc.frequency(_glideTargetHz);
         if (_supersaw) _supersaw->setFrequency(_glideTargetHz);
         AudioInterrupts();
-
-        // NOTE: No _updateStaticPitchFm() call needed here.
-        // Detune is in semitones — frequency-independent, so the FM-scaled
-        // value does not change when the base frequency changes.
         return;
     }
 
@@ -430,13 +476,10 @@ void OscillatorBlock::setGlideEnabled(bool enabled) {
 void OscillatorBlock::setGlideTime(float milliseconds) {
     _glideTimeMs = milliseconds;
     if (milliseconds > 0.0f) {
-        // Rate = fraction of remaining distance to cover per update() call.
+        // Rate = fraction of remaining distance per update() call.
         // update() is called once per audio block from VoiceBlock::update().
-        // Using the per-sample count matches the JT4000 behaviour — changing this
-        // would require re-calibrating all preset glide time values.
         // FUTURE: multiply by AUDIO_BLOCK_SAMPLES to correct the 128× implicit
-        //         slowdown (block-rate call vs per-sample divisor), but only
-        //         after all presets have been re-tuned.
+        //         slowdown, but only after all presets have been re-tuned.
         const float samples = (milliseconds / 1000.0f) * AUDIO_SAMPLE_RATE_EXACT;
         _glideRate = 1.0f / samples;
     } else {
