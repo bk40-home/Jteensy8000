@@ -352,6 +352,28 @@ namespace CC {
     // 0 = all in tune;  127 = ±0.5 semitone spread across 8 voices.
     static constexpr uint8_t UNISON_DETUNE = 15;
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // PERFORMANCE LAYER — internal CCs (above MIDI range, not automatable)
+    // Controlled via TFT UI or SysEx. LayerManager handles these directly.
+    //   PERF_MODE:             0..42=Single, 43..84=Layer, 85..127=Split
+    //   PERF_VOICE_SPLIT:      0..127 → 1..7 voices for Layer A (B gets remainder)
+    //   PERF_SPLIT_NOTE:       0..127 = MIDI note split point (Split mode only)
+    //   PERF_BALANCE:          0=A only, 64=equal, 127=B only
+    //   PERF_EDIT_TARGET:      0..42=A, 43..84=B, 85..127=Both
+    //   PERF_MIDI_CHANNEL_A:   CC value v → channel = ((v*16)/128)+1, range 1..16
+    //   PERF_MIDI_CHANNEL_B:   same mapping. JP-8000 convention: 1..16, no omni.
+    //                          Setting both to the same channel = "Dual" performance
+    //                          behaviour (both Parts respond to one controller channel,
+    //                          split/layer rules decide which actually plays the note).
+    // ─────────────────────────────────────────────────────────────────────────
+    static constexpr uint8_t PERF_MODE            = 140;
+    static constexpr uint8_t PERF_VOICE_SPLIT     = 141;
+    static constexpr uint8_t PERF_SPLIT_NOTE      = 142;
+    static constexpr uint8_t PERF_BALANCE         = 143;
+    static constexpr uint8_t PERF_EDIT_TARGET     = 144;
+    static constexpr uint8_t PERF_MIDI_CHANNEL_A  = 145;
+    static constexpr uint8_t PERF_MIDI_CHANNEL_B  = 146;
+
    // -------------------------------------------------------------------------
     // Utility: return human-readable name for a CC
     // -------------------------------------------------------------------------
@@ -491,6 +513,15 @@ namespace CC {
             case SEQ_STEP_SELECT:     return "Seq Step#";
             case SEQ_STEP_VALUE:      return "Seq StpVal";
             case SEQ_TIMING_MODE:     return "Seq Sync";
+
+            // Performance layer (internal CCs 140-144)
+            case PERF_MODE:           return "Perf Mode";
+            case PERF_VOICE_SPLIT:    return "Voice Spl";
+            case PERF_SPLIT_NOTE:     return "Split Pt";
+            case PERF_BALANCE:        return "Layer Bal";
+            case PERF_EDIT_TARGET:    return "Edit Tgt";
+            case PERF_MIDI_CHANNEL_A: return "MIDI Ch A";
+            case PERF_MIDI_CHANNEL_B: return "MIDI Ch B";
 
             default:                  return nullptr;
         }

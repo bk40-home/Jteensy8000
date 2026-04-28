@@ -39,6 +39,8 @@
 #include "HomeScreen.h"
 #include "PresetBrowser.h"
 #include "Presets.h"
+#include "LayerManager.h"
+#include "Performance.h"
 #include "JT8000Colours.h"
 
 // Defined in Jteensy8000.ino
@@ -65,7 +67,7 @@ public:
 
     // ---- Two-phase init (same API as before) ----
     void beginDisplay();
-    void begin(SynthEngine& synth);
+    void begin(SynthEngine& synth, LayerManager* mgr = nullptr);
 
     // ---- Main loop calls (same API as before) ----
     void updateDisplay(SynthEngine& synth);
@@ -103,6 +105,7 @@ private:
     Mode          _mode;
     uint32_t      _lastFrame;
     SynthEngine*  _synthRef;
+    LayerManager* _layerMgr;
 
     // Screens
     HomeScreen    _home;

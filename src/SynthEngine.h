@@ -13,6 +13,7 @@
 #include "DebugTrace.h"
 #include "AKWF_All.h"
 #include "BPMClockManager.h"
+#include "PatchState.h"
 
 using namespace JT8000Map;
 
@@ -156,9 +157,32 @@ public:
     // =========================================================================
     // Lifecycle
     // =========================================================================
+    //
+    // Construction is trivial — NO audio objects are touched, NO connections
+    // made.  Every engine owns its own AudioGraph (LFOs, mixers, step seq)
+    // and its own FXChainBlock; both are constructed as direct members with
+    // default values.  The AudioGraph and FX chain self-register with the
+    // Teensy Audio Library at global construction time, before setup() runs.
+    //
+    // Before calling begin(), you MUST call setVoicePool() so the engine
+    // knows which physical VoiceBlock[] to address.  In the JT-8000 object
+    // graph this is done by LayerManager which owns the single VoicePool
+    // shared by Engine A and Engine B.
+    //
+    // begin() creates AudioConnections — that step requires AudioMemory()
+    // to have been called already.  Failing to follow the order yields a
+    // silent/broken graph with no runtime error.
+    // =========================================================================
     SynthEngine();
-    // Must be called from setup() AFTER AudioMemory() — creates all AudioConnections.
-    // Calling this before AudioMemory() results in silent/broken audio graph.
+    ~SynthEngine();
+
+    // Point this engine at the shared voice pool.  MUST be called before
+    // begin().  The pool pointer is stored, not copied — VoicePool must
+    // outlive this SynthEngine.
+    void setVoicePool(class VoicePool* pool);
+
+    // Must be called from setup() AFTER AudioMemory() AND after setVoicePool().
+    // Creates every AudioConnection for this engine's audio graph.
     void begin();
 
     void noteOn(byte note, float velocity);
@@ -177,10 +201,10 @@ public:
     // Returns the last raw CC value received (0-127), or 0 if never set.
     inline uint8_t getCC(uint8_t cc) const {
         // POLY_MODE and UNISON_DETUNE live above the MIDI range and use
-        // dedicated backing fields — _ccState is not written for these.
+        // dedicated backing fields — _patch.ccState is not written for these.
         if (cc == CC::POLY_MODE) {
             // Encode current poly mode back into a representative CC value
-            switch (_polyMode) {
+            switch ((PolyMode)_patch.polyMode) {
                 case PolyMode::POLY:   return 21;   // midpoint of zone 0-42
                 case PolyMode::MONO:   return 63;   // midpoint of zone 43-84
                 case PolyMode::UNISON: return 106;  // midpoint of zone 85-127
@@ -189,12 +213,12 @@ public:
         }
         if (cc == CC::UNISON_DETUNE) {
             // Encode normalised float back to 0-127 for the UI
-            return (uint8_t)constrain((int)(_unisonDetune * 127.0f), 0, 127);
+            return (uint8_t)constrain((int)(_patch.unisonDetune * 127.0f), 0, 127);
         }
-        return _ccState[cc];  // covers 0-127 (MIDI) and 130+ (internal)
+        return _patch.ccState[cc];  // covers 0-127 (MIDI) and 130+ (internal)
     }
 
-    // Dispatches a CC as if received from MIDI. Also updates _ccState.
+    // Dispatches a CC as if received from MIDI. Also updates _patch.ccState.
     // Use this from the UI encoder/touch handlers.
     inline void setCC(uint8_t cc, uint8_t value) {
         handleControlChange(1, cc, value);
@@ -225,19 +249,36 @@ public:
     //   Applied on next handlePitchBend() call.
     void setPitchBendRange(float semitones);
 
-    float getPitchBendRange()  const { return _pitchBendRange; }
-    float getPitchBendSemis()  const { return _pitchBendSemis; }
+    float getPitchBendRange()  const { return _patch.pitchBendRange; }
+    float getPitchBendSemis()  const { return _patch.pitchBendSemis; }
 
     // -------------------------------------------------------------------------
     // POLY MODE — voice allocation mode (poly / mono / unison)
     // -------------------------------------------------------------------------
     void     setPolyMode(PolyMode mode);
-    PolyMode getPolyMode()         const { return _polyMode; }
+    PolyMode getPolyMode()         const { return (PolyMode)_patch.polyMode; }
 
     // Unison detune spread — only audible in UNISON mode.
     // 0.0 = all voices in perfect unison;  1.0 = full UNISON_MAX_SPREAD_SEMITONES.
     void  setUnisonDetune(float amount);     // 0..1 normalised
-    float getUnisonDetune() const           { return _unisonDetune; }
+    float getUnisonDetune() const           { return _patch.unisonDetune; }
+
+    // -------------------------------------------------------------------------
+    // VOICE RANGE — which slice of the shared 8-voice pool this engine owns.
+    // Used by LayerManager to split voices between layers (hard-partitioned).
+    //
+    // Can be called at any time. Voices leaving the range have their notes
+    // silenced and their modulation gate-slots zeroed so they contribute no
+    // sound and pick up no modulation from this engine's LFOs / sequencer.
+    // Voices entering the range are given the engine's current modulation
+    // depths via _applyModRangeGains() (called from setVoiceRange).
+    //
+    // See _applyModRangeGains() for the gating model that replaces the old
+    // "only wire in-range voices" approach.
+    // -------------------------------------------------------------------------
+    void setVoiceRange(uint8_t first, uint8_t count);
+    uint8_t getFirstVoice() const { return _firstVoice; }
+    uint8_t getVoiceCount() const { return _voiceCount; }
 
     void setOscMix(float osc1Level, float osc2Level);
     void setOsc1Mix(float oscLevel);
@@ -265,8 +306,8 @@ public:
     // ── Cross Modulation & Oscillator Sync ───────────────────────────────
     void  setCrossModDepth(float depth);
     void  setSyncEnabled(bool enabled);
-    float getCrossModDepth() const { return _crossModDepth; }
-    bool  getSyncEnabled()   const { return _syncEnabled; }
+    float getCrossModDepth() const { return _patch.crossModDepth; }
+    bool  getSyncEnabled()   const { return _patch.syncEnabled; }
 
 
     // Returns true if voice slot v is producing audio (including release tail).
@@ -290,10 +331,10 @@ public:
     void setOsc2ArbBank(ArbBank b);
     void setOsc1ArbIndex(uint16_t idx);
     void setOsc2ArbIndex(uint16_t idx);
-    ArbBank  getOsc1ArbBank()  const { return _osc1ArbBank; }
-    ArbBank  getOsc2ArbBank()  const { return _osc2ArbBank; }
-    uint16_t getOsc1ArbIndex() const { return _osc1ArbIndex; }
-    uint16_t getOsc2ArbIndex() const { return _osc2ArbIndex; }
+    ArbBank  getOsc1ArbBank()  const { return _patch.osc1ArbBank; }
+    ArbBank  getOsc2ArbBank()  const { return _patch.osc2ArbBank; }
+    uint16_t getOsc1ArbIndex() const { return _patch.osc1ArbIndex; }
+    uint16_t getOsc2ArbIndex() const { return _patch.osc2ArbIndex; }
 
     // =========================================================================
     // Amp modulation DC offset
@@ -338,20 +379,20 @@ public:
     void  setLFO1PitchDepth(float d);   void  setLFO1FilterDepth(float d);
     void  setLFO1PWMDepth(float d);     void  setLFO1AmpDepth(float d);
     void  setLFO1Delay(float ms);       // Fade-in delay after noteOn
-    float getLFO1PitchDepth()  const { return _lfo1PitchDepth; }
-    float getLFO1FilterDepth() const { return _lfo1FilterDepth; }
-    float getLFO1PWMDepth()    const { return _lfo1PWMDepth; }
-    float getLFO1AmpDepth()    const { return _lfo1AmpDepth; }
-    float getLFO1Delay()       const { return _lfo1DelayMs; }
+    float getLFO1PitchDepth()  const { return _patch.lfo1PitchDepth; }
+    float getLFO1FilterDepth() const { return _patch.lfo1FilterDepth; }
+    float getLFO1PWMDepth()    const { return _patch.lfo1PWMDepth; }
+    float getLFO1AmpDepth()    const { return _patch.lfo1AmpDepth; }
+    float getLFO1Delay()       const { return _patch.lfo1DelayMs; }
 
     void  setLFO2PitchDepth(float d);   void  setLFO2FilterDepth(float d);
     void  setLFO2PWMDepth(float d);     void  setLFO2AmpDepth(float d);
     void  setLFO2Delay(float ms);
-    float getLFO2PitchDepth()  const { return _lfo2PitchDepth; }
-    float getLFO2FilterDepth() const { return _lfo2FilterDepth; }
-    float getLFO2PWMDepth()    const { return _lfo2PWMDepth; }
-    float getLFO2AmpDepth()    const { return _lfo2AmpDepth; }
-    float getLFO2Delay()       const { return _lfo2DelayMs; }
+    float getLFO2PitchDepth()  const { return _patch.lfo2PitchDepth; }
+    float getLFO2FilterDepth() const { return _patch.lfo2FilterDepth; }
+    float getLFO2PWMDepth()    const { return _patch.lfo2PWMDepth; }
+    float getLFO2AmpDepth()    const { return _patch.lfo2AmpDepth; }
+    float getLFO2Delay()       const { return _patch.lfo2DelayMs; }
 
     // =========================================================================
     // NEW: Pitch envelope — separate ADSR that modulates oscillator pitch.
@@ -360,11 +401,11 @@ public:
     void setPitchEnvAttack(float ms);   void setPitchEnvDecay(float ms);
     void setPitchEnvSustain(float l);   void setPitchEnvRelease(float ms);
     void setPitchEnvDepth(float semitones);
-    float getPitchEnvAttack()  const { return _pitchEnvAttack; }
-    float getPitchEnvDecay()   const { return _pitchEnvDecay; }
-    float getPitchEnvSustain() const { return _pitchEnvSustain; }
-    float getPitchEnvRelease() const { return _pitchEnvRelease; }
-    float getPitchEnvDepth()   const { return _pitchEnvDepth; }
+    float getPitchEnvAttack()  const { return _patch.pitchEnvAttack; }
+    float getPitchEnvDecay()   const { return _patch.pitchEnvDecay; }
+    float getPitchEnvSustain() const { return _patch.pitchEnvSustain; }
+    float getPitchEnvRelease() const { return _patch.pitchEnvRelease; }
+    float getPitchEnvDepth()   const { return _patch.pitchEnvDepth; }
 
     // =========================================================================
     // NEW: Velocity sensitivity — three targets matching JP-8000
@@ -374,9 +415,9 @@ public:
     void  setVelocityAmpSens(float s);    // → VCA level scale
     void  setVelocityFilterSens(float s); // → filter cutoff offset (octaves)
     void  setVelocityEnvSens(float s);    // → filter env depth scale
-    float getVelocityAmpSens()    const { return _velAmpSens; }
-    float getVelocityFilterSens() const { return _velFilterSens; }
-    float getVelocityEnvSens()    const { return _velEnvSens; }
+    float getVelocityAmpSens()    const { return _patch.velAmpSens; }
+    float getVelocityFilterSens() const { return _patch.velFilterSens; }
+    float getVelocityEnvSens()    const { return _patch.velEnvSens; }
 
     // =========================================================================
     // Filter
@@ -412,17 +453,17 @@ public:
     float   getFilterEnvAmount()       const;
     float   getFilterKeyTrackAmount()  const;
     float   getFilterOctaveControl()   const;
-    float   getFilterMultimode()       const { return _filterMultimode; }
-    uint8_t getFilterMode()            const { return _filterMode; }
-    uint8_t getFilterEngine()          const { return _filterEngine; }
-    uint8_t getVAFilterType()          const { return _vaFilterType; }
+    float   getFilterMultimode()       const { return _patch.filterMultimode; }
+    uint8_t getFilterMode()            const { return _patch.filterMode; }
+    uint8_t getFilterEngine()          const { return _patch.filterEngine; }
+    uint8_t getVAFilterType()          const { return _patch.vaFilterType; }
     // Low-level bool getters kept for OBXa core and SectionScreen display
-    bool    getFilterTwoPole()         const { return _filterUseTwoPole; }
-    bool    getFilterXpander4Pole()    const { return _filterXpander4Pole; }
-    uint8_t getFilterXpanderMode()     const { return _filterXpanderMode; }
-    bool    getFilterBPBlend2Pole()    const { return _filterBpBlend2Pole; }
-    bool    getFilterPush2Pole()       const { return _filterPush2Pole; }
-    float   getFilterResonanceModDepth() const { return _filterResonaceModDepth; }
+    bool    getFilterTwoPole()         const { return _patch.filterUseTwoPole; }
+    bool    getFilterXpander4Pole()    const { return _patch.filterXpander4Pole; }
+    uint8_t getFilterXpanderMode()     const { return _patch.filterXpanderMode; }
+    bool    getFilterBPBlend2Pole()    const { return _patch.filterBpBlend2Pole; }
+    bool    getFilterPush2Pole()       const { return _patch.filterPush2Pole; }
+    float   getFilterResonanceModDepth() const { return _patch.filterResonaceModDepth; }
 
     // =========================================================================
     // Envelopes
@@ -471,44 +512,21 @@ public:
     const char* getFXDelayEffectName() const;
 
     // =========================================================================
-    // Reverb
+    // Reverb — MOVED to GlobalFX (Phase 3).
+    // Access via LayerManager::getGlobalFX() for get/set of room size,
+    // damping, shimmer, freeze, lowpass, hipass, bypass, and wet mix.
+    // The engine no longer owns any reverb state.
     // =========================================================================
-    void  setFXReverbRoomSize(float size);
-    void  setFXReverbHiDamping(float damp);
-    void  setFXReverbLoDamping(float damp);
-    float getFXReverbRoomSize()   const;
-    float getFXReverbHiDamping()  const;
-    float getFXReverbLoDamping()  const;
-
-    // Bypass reverb to save CPU when not needed
-    void setFXReverbBypass(bool bypass);
-    bool getFXReverbBypass()      const;
-
-    // Extended reverb controls (CC 95-98)
-    void  setFXReverbShimmer(float amount); // 0..1 shimmer wet amount
-    float getFXReverbShimmer() const;
-
-    void  setFXReverbFreeze(bool frozen);   // save/restore params on toggle
-    bool  getFXReverbFreeze() const;
-
-    void  setFXReverbLowpass(float amount); // 0..1 post-tank output LP
-    float getFXReverbLowpass() const;
-
-    void  setFXReverbHipass(float amount);  // 0..1 post-tank output HP
-    float getFXReverbHipass() const;
 
     // =========================================================================
-    // Output mix levels
+    // Output mix levels (dry + JPFX — reverb mix now in GlobalFX)
     // =========================================================================
     void  setFXDryMix(float level);
     void  setFXJPFXMix(float left, float right);
-    void  setFXReverbMix(float left, float right);
 
     float getFXDryMix()     const;
     float getFXJPFXMixL()   const;
     float getFXJPFXMixR()   const;
-    float getFXReverbMixL() const;
-    float getFXReverbMixR() const;
 
     // =========================================================================
     // UI helpers — typed getters for display formatting
@@ -550,11 +568,15 @@ public:
     void setNotifier(NotifyFn fn);
 
     // =========================================================================
-    // Audio graph outputs
+    // Audio graph outputs — always valid, _audio is a direct member.
     // =========================================================================
-    AudioMixer4& getVoiceMixer() { return _voiceMixerFinal; }
+    AudioMixer4& getVoiceMixer() { return _audio.voiceMixerFinal; }
     AudioMixer4& getFXOutL()     { return _fxChain.getOutputLeft(); }
     AudioMixer4& getFXOutR()     { return _fxChain.getOutputRight(); }
+
+    // FX chain access — LayerManager uses this for setBypass() in SINGLE mode.
+    FXChainBlock&       getFXChain()       { return _fxChain; }
+    const FXChainBlock& getFXChain() const { return _fxChain; }
 
     // =========================================================================
     // BPM clock sync
@@ -570,8 +592,8 @@ public:
     void       setDelayTimingMode(TimingMode mode);
     TimingMode getDelayTimingMode() const;
 
-    StepSequencer&       getSeq1()       { return _seq1; }
-    const StepSequencer& getSeq1() const { return _seq1; }
+    StepSequencer&       getSeq1()       { return _audio.seq1; }
+    const StepSequencer& getSeq1() const { return _audio.seq1; }
 
 private:
     // =========================================================================
@@ -586,191 +608,118 @@ private:
     // RAM: 8 × VoiceBlock (~8 KB each) = ~64 KB.
     // =========================================================================
 
-    VoiceBlock  _voices[MAX_VOICES];
+    // =========================================================================
+    // Voice pool access — engines DO NOT own voices. A single VoicePool
+    // (owned by LayerManager) holds the MAX_VOICES VoiceBlock instances.
+    // Each engine addresses the pool by _firstVoice/_voiceCount.
+    //
+    // The _voices pointer is set by setVoicePool() and points at index 0 of
+    // the pool — not at index _firstVoice — so that existing loop patterns
+    //   for (i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+    //       _voices[i].something();
+    // continue to work unchanged.
+    //
+    // Gating mechanism (Option R3 — permanent wiring, slot-gain gating):
+    //   begin() wires this engine's LFOs / step sequencer / voice-mixer slots
+    //   to ALL MAX_VOICES voices. Which of those voices actually hear this
+    //   engine's modulation is controlled by the per-slot gain: in-range
+    //   voices get the configured depth, out-of-range voices get 0. The
+    //   depth-apply helpers (_applyLFO*Gains, _applySeqOutput) walk all 8
+    //   voices and apply either the depth or zero based on range membership.
+    //   This pattern lets setVoiceRange() change the range at runtime with
+    //   no connection surgery — only gain writes.
+    // =========================================================================
+    VoiceBlock* _voices = nullptr;         // pointer into VoicePool::data()
     bool        _gateOpen[MAX_VOICES];
-    byte        _noteToVoice[128];          // note# → voice index lookup
-    uint32_t    _noteTimestamps[MAX_VOICES]; // for LRU voice stealing
-    uint32_t    _clock = 0;                  // monotonic event counter
+    byte        _noteToVoice[128];
+    uint32_t    _noteTimestamps[MAX_VOICES];
+    uint32_t    _clock = 0;
 
-    // Returns voice index, always succeeds (worst case steals oldest held note).
+    uint8_t     _firstVoice  = 0;
+    uint8_t     _voiceCount  = MAX_VOICES;
+
+    // Helper: true if voice index v is currently owned by this engine.
+    // Used by the depth-apply helpers to gate per-voice mixer slot gains.
+    inline bool _voiceInRange(uint8_t v) const {
+        return (v >= _firstVoice) && (v < (uint8_t)(_firstVoice + _voiceCount));
+    }
+
     int _findFreeVoice();
 
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Patch state — one per layer (lightweight, no audio objects)
+    // =========================================================================
+    PatchState _patch;
 
-    // ── Step Sequencer ──────────────────────────────────────────────
-    StepSequencer        _seq1;
-    uint8_t              _seqDestination     = 0;  // LFO_DEST_NONE
-    uint8_t              _seqPrevDestination = 0;  // for cleanup on dest change
-    uint8_t              _seqSelectedStep    = 0;  // CC step editor cursor
-    uint32_t             _lastUpdateMicros   = 0;  // for deltaMs calculation
+    // =========================================================================
+    // Shared audio infrastructure — every engine owns a full AudioGraph.
+    //
+    // Direct-member allocation (not heap): the AudioStream subclasses inside
+    // AudioGraph register with the Audio Library at construction time, which
+    // is before main() when SynthEngine is a global. No null-check needed at
+    // any call site. Heap fragmentation avoided.
+    //
+    // RAM cost: roughly 1–2 KB of object state per AudioGraph plus the cost
+    // of AudioConnection allocations done in begin(). Two AudioGraphs (Engine
+    // A + Engine B) is well within RAM1 budget on Teensy 4.1.
+    // =========================================================================
+    struct AudioGraph {
+        StepSequencer        seq1;
+        uint8_t              seqPrevDestination = 0;
+        uint8_t              seqSelectedStep    = 0;
+        uint32_t             lastUpdateMicros   = 0;
 
-    // Shared DC for sequencer → PWM (shape mixer slot 3) and Amp (ampModMixer slot 3).
-    // Amplitude fixed at 1.0; sequencer value carried by mixer gain().
-    AudioSynthWaveformDc _seqDc;
-    // Global modulation sources
-    // -------------------------------------------------------------------------
-    LFOBlock _lfo1;
-    LFOBlock _lfo2;
+        AudioSynthWaveformDc seqDc;
+        LFOBlock             lfo1;
+        LFOBlock             lfo2;
 
-    // Amp envelope × LFO multiply chain
-    float                _ampModFixedLevel = 1.0f;
-    AudioSynthWaveformDc _ampModFixedDc;
-    AudioSynthWaveformDc _ampModLimitFixedDc;
-    AudioEffectMultiply  _ampMultiply;
-    AudioMixer4          _ampModMixer;       // Fixed DC + LFO1 + LFO2
-    AudioMixer4          _ampModLimiterMixer;
+        AudioSynthWaveformDc ampModFixedDc;
+        AudioSynthWaveformDc ampModLimitFixedDc;
+        AudioEffectMultiply  ampMultiply;
+        AudioMixer4          ampModMixer;
+        AudioMixer4          ampModLimiterMixer;
 
-    // -------------------------------------------------------------------------
-    // Voice mixing — three-stage architecture
-    // -------------------------------------------------------------------------
-    AudioMixer4 _voiceMixerA;      // Voices 0-3
-    AudioMixer4 _voiceMixerB;      // Voices 4-7
-    AudioMixer4 _voiceMixerFinal;  // A + B → FX chain
+        AudioMixer4          voiceMixerA;
+        AudioMixer4          voiceMixerB;
+        AudioMixer4          voiceMixerFinal;
 
-    // -------------------------------------------------------------------------
-    // FX chain
-    // -------------------------------------------------------------------------
+        AudioConnection* voicePatch[MAX_VOICES]                  = {};
+        AudioConnection* voicePatchLFO1ShapeOsc1[MAX_VOICES]     = {};
+        AudioConnection* voicePatchLFO1ShapeOsc2[MAX_VOICES]     = {};
+        AudioConnection* voicePatchLFO1FrequencyOsc1[MAX_VOICES] = {};
+        AudioConnection* voicePatchLFO1FrequencyOsc2[MAX_VOICES] = {};
+        AudioConnection* voicePatchLFO1Filter[MAX_VOICES]        = {};
+        AudioConnection* voicePatchLFO2ShapeOsc1[MAX_VOICES]     = {};
+        AudioConnection* voicePatchLFO2ShapeOsc2[MAX_VOICES]     = {};
+        AudioConnection* voicePatchLFO2FrequencyOsc1[MAX_VOICES] = {};
+        AudioConnection* voicePatchLFO2FrequencyOsc2[MAX_VOICES] = {};
+        AudioConnection* voicePatchLFO2Filter[MAX_VOICES]        = {};
+
+        AudioConnection* patchSeqDcToShapeOsc1[MAX_VOICES]       = {};
+        AudioConnection* patchSeqDcToShapeOsc2[MAX_VOICES]       = {};
+        AudioConnection* patchSeqDcToAmpModMixer      = nullptr;
+
+        AudioConnection* patchAmpModFixedDcToAmpModMixer = nullptr;
+        AudioConnection* patchLFO1ToAmpModMixer        = nullptr;
+        AudioConnection* patchLFO2ToAmpModMixer        = nullptr;
+        AudioConnection* patchAmpModMixerToAmpMultiply = nullptr;
+        AudioConnection* patchVoiceMixerToAmpMultiply  = nullptr;
+        AudioConnection* fxPatchInL                    = nullptr;
+        AudioConnection* fxPatchDryL                   = nullptr;
+        AudioConnection* fxPatchDryR                   = nullptr;
+
+        AudioConnection* patchMixerAToFinal            = nullptr;
+        AudioConnection* patchMixerBToFinal            = nullptr;
+    };
+
+    // Direct member — constructed automatically with default-initialised
+    // AudioStream subclasses, ready for begin() to wire the connections.
+    AudioGraph _audio;
+
+    // =========================================================================
+    // FX chain — independently owned per layer (each layer gets its own FX)
+    // =========================================================================
     FXChainBlock _fxChain;
-
-    // -------------------------------------------------------------------------
-    // Audio patch cables (heap-allocated, persistent)
-    // -------------------------------------------------------------------------
-    AudioConnection* _voicePatch[MAX_VOICES];
-    AudioConnection* _voicePatchLFO1ShapeOsc1[MAX_VOICES];
-    AudioConnection* _voicePatchLFO1ShapeOsc2[MAX_VOICES];
-    AudioConnection* _voicePatchLFO1FrequencyOsc1[MAX_VOICES];
-    AudioConnection* _voicePatchLFO1FrequencyOsc2[MAX_VOICES];
-    AudioConnection* _voicePatchLFO1Filter[MAX_VOICES];
-    AudioConnection* _voicePatchLFO2ShapeOsc1[MAX_VOICES];
-    AudioConnection* _voicePatchLFO2ShapeOsc2[MAX_VOICES];
-    AudioConnection* _voicePatchLFO2FrequencyOsc1[MAX_VOICES];
-    AudioConnection* _voicePatchLFO2FrequencyOsc2[MAX_VOICES];
-    AudioConnection* _voicePatchLFO2Filter[MAX_VOICES];
-
-    // Seq DC → per-voice shape mixer slot 3 (PWM destination)
-    AudioConnection* _patchSeqDcToShapeOsc1[MAX_VOICES];
-    AudioConnection* _patchSeqDcToShapeOsc2[MAX_VOICES];
-    // Seq DC → amp mod mixer slot 3 (Amp destination)
-    AudioConnection* _patchSeqDcToAmpModMixer;
-
-    AudioConnection* _patchAmpModFixedDcToAmpModMixer;
-    AudioConnection* _patchLFO1ToAmpModMixer;
-    AudioConnection* _patchLFO2ToAmpModMixer;
-    AudioConnection* _patchAmpModMixerToAmpMultiply;
-    AudioConnection* _patchVoiceMixerToAmpMultiply;
-    AudioConnection* _fxPatchInL;    // Amp multiply → JPFX left input
-    //AudioConnection* _fxPatchInR;    // Amp multiply → JPFX right input
-    AudioConnection* _fxPatchDryL;   // Amp multiply → dry mixer left
-    AudioConnection* _fxPatchDryR;   // Amp multiply → dry mixer right
-
-    AudioConnection* _patchMixerAToFinal;  // Sub-mixer A → final
-    AudioConnection* _patchMixerBToFinal;  // Sub-mixer B → final
-
-    // =========================================================================
-    // Cached synthesis parameters (typed, for UI getters)
-    // =========================================================================
-
-    // Oscillator
-    int   _osc1Wave = 0,  _osc2Wave = 0;
-    float _osc1PitchSemi = 0.0f, _osc2PitchSemi = 0.0f;
-    // Pitch bend state — shared across all voices.
-    float _pitchBendRange = PITCH_BEND_DEFAULT_SEMITONES;  // ±semitones at wheel extremes
-    float _pitchBendSemis = 0.0f;                          // current bend in semitones
-    float _osc1DetuneHz = 0.0f, _osc2DetuneHz = 0.0f;
-    float _osc1FineCents = 0.0f,  _osc2FineCents = 0.0f;
-    float _osc1Mix = 1.0f,  _osc2Mix = 1.0f;
-    float _subMix = 0.0f,   _noiseMix = 0.0f;
-    float _ring1Mix = 0.0f, _ring2Mix = 0.0f;
-    float _supersawDetune[2] = {0.0f, 0.0f};
-    float _supersawMix[2]    = {0.0f, 0.0f};
-
-    // ---- Poly mode ----
-    PolyMode _polyMode     = PolyMode::POLY;
-    float    _unisonDetune = 0.0f;    // 0..1 normalised spread amount
-    // In UNISON mode, all voices track the same note. _unisonNote stores which.
-    int      _unisonNote   = -1;      // -1 = no note held
-    // In MONO mode, tracks all held keys for legato return-to-previous behaviour.
-    MonoNoteStack _monoStack;
-    float _osc1FreqDc = 0.0f,  _osc2FreqDc = 0.0f;
-    float _osc1ShapeDc = 0.0f, _osc2ShapeDc = 0.0f;
-    float _osc1FeedbackAmount = 0.0f, _osc2FeedbackAmount = 0.0f;
-    float _osc1FeedbackMix    = 0.0f, _osc2FeedbackMix    = 0.0f;
-    float _crossModDepth = 0.0f;
-    bool  _syncEnabled   = false;
-
-    // LFO mirrors
-    float _lfo1Frequency = 0.0f, _lfo2Frequency = 0.0f;
-    float _lfo1Amount    = 0.0f, _lfo2Amount    = 0.0f;
-    int   _lfo1Type = 0,         _lfo2Type = 0;
-    LFODestination _lfo1Dest = (LFODestination)0;
-    LFODestination _lfo2Dest = (LFODestination)0;
-
-    // Filter
-    float   _filterCutoffHz   = 20000.0f;
-    float   _filterResonance  = 0.0f;
-    float   _filterEnvAmount  = 0.0f;
-    float   _filterKeyTrack   = 0.0f;
-    float   _filterOctaves    = 0.0f;
-    float   _filterMultimode  = 0.0f;
-    // Topology mode — mirrors the CC::FILTER_MODE_* enum.
-    // Low-level bool flags below are derived from this and kept in sync.
-    uint8_t _filterMode         = CC::FILTER_MODE_4POLE;
-    // Active filter engine (0=OBXa, 1=VA bank)
-    uint8_t _filterEngine       = CC::FILTER_ENGINE_OBXA;
-    // VA bank topology index (VAFilterType enum)
-    uint8_t _vaFilterType       = 0;   // FILTER_SVF_LP
-    bool    _filterUseTwoPole   = false;
-    bool    _filterXpander4Pole = false;
-    uint8_t _filterXpanderMode  = 0;
-    bool    _filterBpBlend2Pole = false;
-    bool    _filterPush2Pole    = false;
-    float   _filterResModDepth    = 0.0f;
-    float   _filterResonaceModDepth = 0.0f;  // note: intentional spelling kept for ABI
-
-    // Glide
-    bool  _glideEnabled = false;
-    float _glideTimeMs  = 0.0f;
-    float _lastNoteFreq = 0.0f;
-
-    // Arbitrary waveform selection
-    ArbBank  _osc1ArbBank  = ArbBank::BwBlended;
-    ArbBank  _osc2ArbBank  = ArbBank::BwBlended;
-    uint16_t _osc1ArbIndex = 0;
-    uint16_t _osc2ArbIndex = 0;
-
-    // JPFX cached parameters
-    float  _fxBassGain       = 0.0f;
-    float  _fxTrebleGain     = 0.0f;
-    int8_t _fxModEffect      = -1;
-    float  _fxModMix         = 0.5f;
-    float  _fxModRate        = 0.0f;
-    float  _fxModFeedback    = -1.0f;
-    int8_t _fxDelayEffect    = -1;
-    float  _fxDelayMix       = 0.5f;
-    float  _fxDelayFeedback  = -1.0f;
-    float  _fxDelayTime      = 0.0f;
-    float  _fxDryMix         = 1.0f;
-    float  _fxReverbRoomSize = 0.5f;
-    float  _fxReverbHiDamp   = 0.5f;
-    float  _fxReverbLoDamp   = 0.5f;
-    float  _fxReverbShimmer  = 0.0f;   // 0..1 shimmer wet amount
-    bool   _fxReverbFrozen   = false;  // freeze state
-    float  _fxReverbLowpass  = 0.0f;   // 0..1 post-tank output LP
-    float  _fxReverbHipass   = 0.0f;   // 0..1 post-tank output HP
-    float  _fxJPFXMixL       = 0.0f;
-    float  _fxJPFXMixR       = 0.0f;
-    float  _fxReverbMixL     = 0.0f;
-    float  _fxReverbMixR     = 0.0f;
-
-    // =========================================================================
-    // Raw CC state cache — populated by handleControlChange()
-    //   getCC(cc) reads from here; avoids needing per-parameter typed getters
-    //   in the UI layer. Zero-initialized; only valid after first CC receive.
-    // =========================================================================
-    // Size 160: MIDI CCs are 0-127; internal CCs (FX_DRIVE=130) live above.
-    // POLY_MODE(128) & UNISON_DETUNE(129) use dedicated backing fields, not _ccState.
-    static_assert(CC::FX_DRIVE < 160, "FX_DRIVE CC index exceeds _ccState size - expand array");
-    uint8_t _ccState[160] = {};
 
     // =========================================================================
     // BPM / timing
@@ -783,35 +732,34 @@ private:
     NotifyFn _notify = nullptr;
 
     // =========================================================================
-    // NEW: LFO per-destination depth scalars (0..1 each)
+    // LFO delay ramp TRANSIENT state — not patch data, not saveable.
+    // Tracks the in-progress fade-in after a noteOn.
     // =========================================================================
-    float _lfo1PitchDepth  = 0.0f, _lfo1FilterDepth = 0.0f;
-    float _lfo1PWMDepth    = 0.0f, _lfo1AmpDepth    = 0.0f;
-    float _lfo2PitchDepth  = 0.0f, _lfo2FilterDepth = 0.0f;
-    float _lfo2PWMDepth    = 0.0f, _lfo2AmpDepth    = 0.0f;
-
-    void _applySeqOutput();
-    // NEW: LFO delay (fade-in) state — managed in update()
-    float    _lfo1DelayMs    = 0.0f, _lfo2DelayMs    = 0.0f;
     float    _lfo1CurrentAmp = 0.0f, _lfo2CurrentAmp = 0.0f;
     uint32_t _lfo1NoteOnMs   = 0,    _lfo2NoteOnMs   = 0;
     bool     _lfo1Ramping    = false, _lfo2Ramping    = false;
 
-    // NEW: Pitch envelope cached ADSR and depth
-    float _pitchEnvAttack  = 1.0f;
-    float _pitchEnvDecay   = 80.0f;
-    float _pitchEnvSustain = 0.0f;
-    float _pitchEnvRelease = 50.0f;
-    float _pitchEnvDepth   = 0.0f;  // semitones, signed
+    // =========================================================================
+    // Poly mode RUNTIME state — not part of saveable patch
+    // =========================================================================
+    int           _unisonNote = -1;      // -1 = no note held
+    MonoNoteStack _monoStack;
 
-    // NEW: Velocity sensitivity scalars (0..1)
-    float _velAmpSens    = 0.0f;
-    float _velFilterSens = 0.0f;
-    float _velEnvSens    = 0.0f;
-
-    // NEW: Private helpers
+    // =========================================================================
+    // Private helpers
+    // =========================================================================
+    void _applySeqOutput();
     void _applyLFO1Gains();     // Recompute all LFO1 destination mixer gains
     void _applyLFO2Gains();     // Recompute all LFO2 destination mixer gains
     void _applyUnisonDetune();  // Spread detune offsets across voices (UNISON mode)
     void _updateLFODelay();     // Called from update(): handle delay ramps
+
+    // Voice-range gate refresh. Walks all MAX_VOICES voices; for each voice,
+    // all gated mixer slots (voice→mixerA/B, LFO1/2→voice mod mixers, seqDc→
+    // voice shape mixer slot 3, voice→mixerA/B amplitude) are set to their
+    // configured depth if the voice is in this engine's range, or to 0 if it
+    // is not. Called from begin() (baseline zero), from setVoiceRange() when
+    // range changes, and from _applyLFO*Gains/_applySeqOutput which each do
+    // the walk implicitly as part of writing depths.
+    void _applyVoiceRangeGains();
 };

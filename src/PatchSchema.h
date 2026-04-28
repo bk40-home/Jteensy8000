@@ -86,8 +86,12 @@ static constexpr uint8_t kPatchableCCs[] = {
     CC::FX_JPFX_DELAY_FEEDBACK, CC::FX_JPFX_DELAY_TIME,
 
     // ---- FX: Reverb ----
-    CC::FX_REVERB_SIZE, CC::FX_REVERB_DAMP, CC::FX_REVERB_LODAMP,
-    CC::FX_REVERB_MIX, CC::FX_REVERB_BYPASS,
+    //   Reverb CCs have moved to Performance scope (Phase 3 GlobalFX).
+    //   They are serialised per-Performance, not per-Patch. Removing them
+    //   from kPatchableCCs prevents patch files from bloating with
+    //   meaningless per-patch reverb state.
+    //   (Previous list: FX_REVERB_SIZE, FX_REVERB_DAMP, FX_REVERB_LODAMP,
+    //   FX_REVERB_MIX, FX_REVERB_BYPASS.)
 
     // ---- FX: Output mix ----
     CC::FX_DRY_MIX, CC::FX_JPFX_MIX,

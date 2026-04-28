@@ -43,7 +43,7 @@
 #include "JT8000Colours.h"
 #include "TFTMiniWidgets.h"
 #include "TFTWidgets.h"
-
+#include "LayerManager.h"
 
 
 class HomeScreen {
@@ -63,7 +63,7 @@ public:
 
     HomeScreen();
 
-    void begin(ILI9341_t3n* disp, SynthEngine* synth);
+    void begin(ILI9341_t3n* disp, SynthEngine* synth, LayerManager* mgr = nullptr);
     void draw();
     void syncFromEngine();
 
@@ -158,6 +158,7 @@ private:
     static HomeScreen* _instance;
     ILI9341_t3n*   _display;
     SynthEngine*   _synth;
+    LayerManager*  _layerMgr = nullptr;
 
     int            _redrawStep;
     bool           _layoutDirty;                     // structural → full content redraw
@@ -173,6 +174,25 @@ private:
     uint8_t         _pendingCC;
     int             _pendingCount;
     bool            _entryWasOpen;
+
+   // Route CC read through LayerManager if available, else direct to engine
+   uint8_t _getCC(uint8_t cc) const {
+       if (_layerMgr) return _layerMgr->getCC(cc);
+       return _synth ? _synth->getCC(cc) : 0;
+   }
+
+   // Route CC write through LayerManager if available, else direct to engine
+   void _setCC(uint8_t cc, uint8_t value) {
+       if (_layerMgr) { _layerMgr->setCC(cc, value); return; }
+       if (_synth) _synth->setCC(cc, value);
+   }
+
+   // Active engine for named getters (waveform names, filter mode, etc.)
+   // Follows the edit target so Layer B displays its own state.
+   SynthEngine& _engine() const {
+       if (_layerMgr) return _layerMgr->activeEngine();
+       return *_synth;
+   }
 
     static const ControlDef _emptyControl;
 };

@@ -56,7 +56,7 @@
 // ---------------------------------------------------------------------------
 static constexpr int SEC_MAX_GROUPS   = 6;   // max groups per section
 static constexpr int GRP_MAX_CONTROLS = 8;   // max controls per group
-static constexpr int SECTION_COUNT    = 14;  // total sections (matches HTML)
+static constexpr int SECTION_COUNT    = 16;  // total sections (HTML sync pending)
 
 // ---------------------------------------------------------------------------
 // Control type — determines which mini widget is drawn
@@ -117,7 +117,10 @@ inline uint8_t sectionControlCount(const SectionDef& s) {
 #define EMPTY        { 255, CtrlType::NONE, "" }
 
 // =============================================================================
-// SECTION TABLE — 14 sections matching HTML editor SECTIONS[]
+// SECTION TABLE — 16 sections
+// (HTML editor currently has 14; Voice Mode [14] and Global Reverb [15]
+//  are firmware additions from the Phase 2/3 refactor — the HTML editor
+//  needs matching additions as part of the three-codebase sync.)
 // =============================================================================
 static const SectionDef kSections[SECTION_COUNT] = {
 
@@ -128,8 +131,8 @@ static const SectionDef kSections[SECTION_COUNT] = {
     { "Wave & Tuning", {
         S(CC::OSC1_WAVE,         "WAVE"),
         S(CC::OSC1_PITCH_OFFSET, "PITCH"),
-        K(CC::OSC1_FINE_TUNE,    "FINE"),
-        K(CC::OSC1_DETUNE,       "DETUNE"),
+        S(CC::OSC1_FINE_TUNE,    "FINE"),
+        S(CC::OSC1_DETUNE,       "DETUNE"),
         EMPTY, EMPTY, EMPTY, EMPTY
     }, 4 },
     { "Supersaw", {
@@ -163,8 +166,8 @@ static const SectionDef kSections[SECTION_COUNT] = {
     { "Wave & Tuning", {
         S(CC::OSC2_WAVE,         "WAVE"),
         S(CC::OSC2_PITCH_OFFSET, "PITCH"),
-        K(CC::OSC2_FINE_TUNE,    "FINE"),
-        K(CC::OSC2_DETUNE,       "DETUNE"),
+        S(CC::OSC2_FINE_TUNE,    "FINE"),
+        S(CC::OSC2_DETUNE,       "DETUNE"),
         EMPTY, EMPTY, EMPTY, EMPTY
     }, 4 },
     { "Supersaw", {
@@ -381,30 +384,17 @@ static const SectionDef kSections[SECTION_COUNT] = {
         S(CC::DELAY_TIMING_MODE,       "SYNC"),
         EMPTY, EMPTY, EMPTY
     }, 5 },
-    { "Reverb", {
-        K(CC::FX_REVERB_SIZE,   "SIZE"),
-        K(CC::FX_REVERB_DAMP,   "HI DMP"),
-        K(CC::FX_REVERB_LODAMP, "LO DMP"),
-        K(CC::FX_REVERB_MIX,    "MIX"),
-        T(CC::FX_REVERB_BYPASS, "BYPASS"),
-        EMPTY, EMPTY, EMPTY
-    }, 5 },
-    // Extended reverb — post-tank EQ + shimmer/freeze performance controls.
-    // LOWPASS/HIPASS act on wet output only (different from HI/LO DMP above
-    // which act inside the tank loop and affect tail decay rate).
-    { "Rev Ext", {
-        K(CC::FX_REVERB_SHIMMER,  "SHIMMER"),
-        T(CC::FX_REVERB_FREEZE,   "FREEZE"),
-        K(CC::FX_REVERB_LOWPASS,  "LO PASS"),
-        K(CC::FX_REVERB_HIPASS,   "HI PASS"),
-        EMPTY, EMPTY, EMPTY, EMPTY
-    }, 4 },
+    // Reverb and Rev Ext groups REMOVED — they moved to the dedicated
+    // "Global Reverb" section (section 15). Reverb is no longer per-layer
+    // in the firmware; see GlobalFX.h.
     { "Output", {
         K(CC::FX_DRY_MIX,  "DRY"),
         K(CC::FX_JPFX_MIX, "JPFX"),
         EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY
     }, 2 },
-}, 6 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+}, 4 },
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 10 — Velocity
@@ -498,7 +488,71 @@ static const SectionDef kSections[SECTION_COUNT] = {
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 }
 }, 4 },
 
-};  // end kSections[]
+  
+// ─────────────────────────────────────────────────────────────────────────────
+// 14 — Performance (dual-layer)
+//
+// Internal CCs (140-144) — not MIDI-automatable, controlled via TFT UI.
+// LayerManager handles these; HomeScreen routes via LayerManager::getCC/setCC.
+// ─────────────────────────────────────────────────────────────────────────────
+{ "Voice Mode", {
+    { "Layer Mode", {
+        S(CC::PERF_MODE,         "MODE"),
+        S(CC::PERF_EDIT_TARGET,  "EDIT"),
+        S(CC::PERF_MIDI_CHANNEL_A,"CH_A"),
+        S(CC::PERF_MIDI_CHANNEL_B,"CH_B"), EMPTY, EMPTY, EMPTY
+    }, 4 },
+    { "Voice Split", {
+        S(CC::PERF_VOICE_SPLIT,  "VOICES"),
+        S(CC::PERF_SPLIT_NOTE,   "SPLIT"),
+        S(CC::PERF_BALANCE,      "BALANCE"),
+        EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,
+    }, 3 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 }
+}, 2 },
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 15 — Global Reverb
+//
+// Reverb is a SINGLE shared tank used by both layers (Phase 3 GlobalFX move).
+// These CCs are intercepted by LayerManager and routed to _globalFx; they do
+// NOT reach either engine. Because the tank is shared, its state is stored
+// per-Performance, not per-Patch.
+//
+// Groups:
+//   "Tank"    — size / damping / master wet / bypass. The core reverb shape.
+//   "Rev Ext" — shimmer, freeze, post-tank EQ. "Extended" in the JP-8000
+//               sense — these are creative controls beyond the core plate.
+//
+// LOWPASS / HIPASS act on the wet signal AFTER the tank (different from
+// HI DMP / LO DMP which act INSIDE the tank and change decay rate).
+// ─────────────────────────────────────────────────────────────────────────────
+{ "Global Reverb", {
+    { "Tank", {
+        K(CC::FX_REVERB_SIZE,   "SIZE"),
+        K(CC::FX_REVERB_DAMP,   "HI DMP"),
+        K(CC::FX_REVERB_LODAMP, "LO DMP"),
+        K(CC::FX_REVERB_MIX,    "MIX"),
+        T(CC::FX_REVERB_BYPASS, "BYPASS"),
+        EMPTY, EMPTY, EMPTY
+    }, 5 },
+    { "Rev Ext", {
+        K(CC::FX_REVERB_SHIMMER, "SHIMMER"),
+        T(CC::FX_REVERB_FREEZE,  "FREEZE"),
+        K(CC::FX_REVERB_LOWPASS, "LO PASS"),
+        K(CC::FX_REVERB_HIPASS,  "HI PASS"),
+        EMPTY, EMPTY, EMPTY, EMPTY
+    }, 4 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
+    { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 }
+}, 2 },
+};
+// end kSections[]
 
 // ---------------------------------------------------------------------------
 // Clean up shorthand macros — do not leak into other translation units

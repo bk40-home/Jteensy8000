@@ -20,12 +20,19 @@
  * THE SOFTWARE.
  */
  /**
- * Jteensy8000.ino — JT-8000 polyphonic synthesizer  (v6)
+ * Jteensy8000.ino — JT-8000 polyphonic synthesizer  (v7 — dual-layer)
  *
  * Audio path:
- *   SynthEngine (8 voices) → FXChainBlock → mixerI2S{L/R} → I2S → PCM5102A
- *                                         → scopeTap      (waveform capture)
- *                                         → ampUSB{L/R}   → usbOut (DAW monitor)
+ *   LayerManager
+ *     ├─ Layer A: SynthEngine (voices 0..N) → FXChainBlock ─┐
+ *     └─ Layer B: SynthEngine (voices N..7) → FXChainBlock ─┤
+ *                                                            ▼
+ *     Performance Mixer (crossfade) → mixerI2S{L/R} → I2S → PCM5102A
+ *                                   → scopeTap      (waveform capture)
+ *                                   → ampUSB{L/R}   → usbOut (DAW monitor)
+ *
+ *   In SINGLE mode (default at boot), only Layer A is active with all 8
+ *   voices — identical behaviour to the pre-layer v6 architecture.
  *
  * MIDI sources (all share the same handlers):
  *   1. usbMIDI      — USB device MIDI (PC/Mac DAW host)
@@ -72,6 +79,8 @@
 #include <usb_midi.h>
 #include <USBHost_t36.h>
 #include "SynthEngine.h"
+#include "LayerManager.h"
+#include "LayerManager.h"
 //#include "UIPageLayout.h"
 #include "HardwareInterface_MicroDexed.h"
 #include "UIManager_TFT.h"
@@ -144,7 +153,10 @@ AudioConnection* patchOutScope  = nullptr;
 // ---------------------------------------------------------------------------
 // Core objects
 // ---------------------------------------------------------------------------
-SynthEngine                  synth;
+LayerManager                 layers;
+// Convenience pointer: tracks the active edit-target engine.
+// Refreshed every loop() so UI always references the correct layer.
+static SynthEngine*          synth = nullptr;
 HardwareInterface_MicroDexed hw;
 UIManager_TFT                ui;
 BPMClockManager              bpmClock;
@@ -194,9 +206,21 @@ static void printUSBDeviceInfo(bool connected) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// CC echo suppression — prevents feedback loop when DAW mirrors CCs back.
+// Set true while we are sending a CC echo; if a CC arrives while true,
+// it came from our own echo and must not be re-processed.
+// ---------------------------------------------------------------------------
+static volatile bool _suppressEcho = false;
+
 static void onCCHandled(uint8_t cc, uint8_t val) {
     // Echo CC changes back to USB Device MIDI for HTML editor sync.
-    usbMIDI.sendControlChange(cc & 0x7F, val & 0x7F, 1);
+    // Only echo MIDI-range CCs (0-127); internal CCs (128+) are not sendable.
+    if (cc <= 127) {
+        _suppressEcho = true;
+        usbMIDI.sendControlChange(cc & 0x7F, val & 0x7F, 1);
+        _suppressEcho = false;
+    }
 
     // Tell TFT to repaint the matching control (if visible).
     // This is just a dirty-flag set — no drawing happens here.
@@ -218,29 +242,30 @@ static void onNoteOn(byte channel, byte note, byte velocity) {
     midiLog("MIDI", "NoteOn", note, velocity);
     if (velocity == 0) {
         // Velocity-0 NoteOn is a NoteOff (running status optimisation)
-        synth.noteOff(note);
+        layers.noteOff(channel, note);
     } else {
-        synth.noteOn(note, velocity / 127.0f);
+        layers.noteOn(channel, note, velocity / 127.0f);
     }
 }
 
 static void onNoteOff(byte channel, byte note, byte /*velocity*/) {
     midiLog("MIDI", "NoteOff", note, 0);
-    synth.noteOff(note);
+    layers.noteOff(channel, note);
 }
 
 static void onCC(byte channel, byte control, byte value) {
+    // Drop CCs that are echoes of our own sendControlChange (feedback prevention)
+    if (_suppressEcho) return;
     midiLog("MIDI", "CC", control, value);
-    synth.handleControlChange(channel, control, value);
+    layers.handleControlChange(channel, control, value);
 }
 
 // onPitchBend — MIDI pitch bend wheel callback.
 // value = raw 14-bit pitch bend (0..16383, centre = 8192).
-// Forwarded directly to SynthEngine which converts to semitones and applies
-// to all voices via OscillatorBlock::setPitchModulation().
+// Forwarded to LayerManager which routes to active layer(s).
 static void onPitchBend(byte channel, int value) {
     // Teensy MIDI libraries pass pitch bend as int (0..16383, centre 8192).
-    synth.handlePitchBend(channel, (int16_t)value);
+    layers.handlePitchBend(channel, (int16_t)value);
     JT_LOGF("[MIDI] PitchBend ch%u val=%d\n", (unsigned)channel, value);
 }
 
@@ -294,9 +319,9 @@ void setup() {
     AudioMemory(200);
 
     // CRITICAL: Create all internal AudioConnections NOW — after AudioMemory().
-    // SynthEngine is a global object so its constructor ran before setup().
-    // Any AudioConnection built before AudioMemory() is silently broken.
-    synth.begin();
+    // LayerManager calls begin() on both SynthEngine instances internally.
+    // Both engines are global objects so their constructors ran before setup().
+    layers.begin();
 
     // -------------------------------------------------------------------------
     // STEP 3: USB Host MIDI  (keyboard on host port)
@@ -342,16 +367,26 @@ void setup() {
     // STEP 6: Hardware encoders + synth engine
     // -------------------------------------------------------------------------
     hw.begin();
-    ui.begin(synth);
-    synth.setNotifier(onCCHandled);
+    synth = &layers.activeEngine();   // set convenience pointer for UI
+    ui.begin(*synth, &layers);
+    layers.setNotifier(onCCHandled);
 
-    // Load init template BEFORE syncFromEngine so _ccState is populated.
-    // Without this, all CC values are 0 at boot and the display shows wrong values
-    // until the first preset is loaded.
-    //Presets.loadInitTemplateByWave(synth, 1);
+    // Load init preset to both engines BEFORE syncFromEngine so _ccState is
+    // fully populated. Without this the display shows zero for every parameter
+    // until the user manually loads a preset.
+    //
+    // Index 0 = "Init Sine" — the canonical blank-slate starting point.
+    // Both Layer A and B are initialised so dual-layer mode starts clean.
+    // loadFactoryPatch() sends all 95 CCs atomically under AudioNoInterrupts(),
+    // so it is safe to call here with the audio ISR already running.
+    //
+    // NOTE: This does NOT suppress an incoming JUCE session-restore CC dump.
+    // If JUCE connects after boot and replays a previous POLY_MODE = UNISON,
+    // that will overwrite the init state. Fix is in the JUCE plugin (separate pass).
+    Presets::presets_loadByGlobalIndex(layers.layerA(), 0, /*midiCh=*/1);
+    Presets::presets_loadByGlobalIndex(layers.layerB(), 0, /*midiCh=*/1);
 
-
-    ui.syncFromEngine(synth);
+    ui.syncFromEngine(*synth);
 
     // -------------------------------------------------------------------------
     // STEP 7: Unmute PCM5102A — LAST, after I2S DMA is running.
@@ -365,22 +400,24 @@ void setup() {
     // -------------------------------------------------------------------------
     bpmClock.setInternalBPM(120.0f);
     bpmClock.setClockSource(CLOCK_INTERNAL);
-    synth.setBPMClock(&bpmClock);
+    layers.setBPMClock(&bpmClock);
 
     // -------------------------------------------------------------------------
     // STEP 9: Audio patch cords (AFTER AudioMemory)
     // -------------------------------------------------------------------------
-    patchMixerI2SL = new AudioConnection(synth.getFXOutL(), 0, mixerI2SL, 0);
-    patchMixerI2SR = new AudioConnection(synth.getFXOutR(), 0, mixerI2SR, 0);
+    // Audio output comes from LayerManager's performance mixer which combines
+    // both layers' stereo outputs with crossfade balance control.
+    patchMixerI2SL = new AudioConnection(layers.getPerfOutL(), 0, mixerI2SL, 0);
+    patchMixerI2SR = new AudioConnection(layers.getPerfOutR(), 0, mixerI2SR, 0);
     patchUSBInL    = new AudioConnection(usbIn, 0, mixerI2SL, 1);
     patchUSBInR    = new AudioConnection(usbIn, 1, mixerI2SR, 1);
     patchOutL      = new AudioConnection(mixerI2SL, 0, i2sOut, 0);
     patchOutR      = new AudioConnection(mixerI2SR, 0, i2sOut, 1);
-    patchAmpUSBL   = new AudioConnection(synth.getFXOutL(), 0, ampUSBL, 0);
-    patchAmpUSBR   = new AudioConnection(synth.getFXOutR(), 0, ampUSBR, 0);
+    patchAmpUSBL   = new AudioConnection(layers.getPerfOutL(), 0, ampUSBL, 0);
+    patchAmpUSBR   = new AudioConnection(layers.getPerfOutR(), 0, ampUSBR, 0);
     patchOutUSBL   = new AudioConnection(ampUSBL, 0, usbOut, 0);
     patchOutUSBR   = new AudioConnection(ampUSBR, 0, usbOut, 1);
-    patchOutScope  = new AudioConnection(synth.getFXOutL(), 0, scopeTap, 0);
+    patchOutScope  = new AudioConnection(layers.getPerfOutL(), 0, scopeTap, 0);
 
     // Gain settings
     mixerI2SL.gain(0, 1.0f);   // Synth → I2S L
@@ -436,15 +473,16 @@ void loop() {
     // Drain the MIDI log ring (safe outside handlers)
     midiLogFlush();
 
-    // Synth update: voice management, LFO, etc.
-    synth.update();
+    // Synth update: voice management, LFO, etc. (both layers if dual mode)
+    layers.update();
+    synth = &layers.activeEngine();   // refresh convenience pointer
 
     // Encoder + button poll
     hw.update();
 
     // UI input: touch + encoders → actions
-    ui.pollInputs(hw, synth);
+    ui.pollInputs(hw, *synth);
 
     // UI display: rate-limited to ~30 fps internally
-    ui.updateDisplay(synth);
+    ui.updateDisplay(*synth);
 }
