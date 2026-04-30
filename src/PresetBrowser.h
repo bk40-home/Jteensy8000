@@ -75,24 +75,24 @@ namespace PBLayout {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Colour palette — BGR565 pre-swapped for ILI9341 BGR panel
+// Colour palette — standard RGB565 via JT8000Colours.h
 // ─────────────────────────────────────────────────────────────────────────────
 namespace PBColour {
-    static constexpr uint16_t BG        = COLOUR_BACKGROUND;
-    static constexpr uint16_t HDR_BG    = 0x30E2;  // dark navy header
-    static constexpr uint16_t HDR_TEXT  = COLOUR_TEXT;
-    static constexpr uint16_t ROW_BG    = COLOUR_HEADER_BG;
-    static constexpr uint16_t ROW_ALT   = 0x30E2;
-    static constexpr uint16_t SEL_BG    = 0xCCA0;  // teal-cyan selection
-    static constexpr uint16_t SEL_TEXT  = 0xFFFF;
-    static constexpr uint16_t ROW_TEXT  = 0xD617;  // light grey
-    static constexpr uint16_t IDX_TEXT  = COLOUR_TEXT_DIM;
-    static constexpr uint16_t FTR_BG    = 0x30E2;
-    static constexpr uint16_t BTN_BG    = 0x6206;  // dark blue-grey button
-    static constexpr uint16_t BTN_TEXT  = COLOUR_TEXT;
-    static constexpr uint16_t BTN_SEL   = COLOUR_ACCENT_ORANGE;  // active target highlight
-    static constexpr uint16_t CANCEL_BG = COLOUR_ACCENT;
-    static constexpr uint16_t BORDER    = 0x51A5;
+    static constexpr uint16_t BG        = COLOUR_BACKGROUND;       // #101428  deep navy
+    static constexpr uint16_t HDR_BG    = COLOUR_HEADER_BG;        // #19233C  dark navy panel
+    static constexpr uint16_t HDR_TEXT  = COLOUR_TEXT;              // #D2D7E1  warm off-white
+    static constexpr uint16_t ROW_BG    = COLOUR_SURFACE;          // #111620  section body fill
+    static constexpr uint16_t ROW_ALT   = COLOUR_SURFACE2;         // #161C28  alternating row
+    static constexpr uint16_t SEL_BG    = COLOUR_ACCENT_ORANGE;    // #FFA000  selected row
+    static constexpr uint16_t SEL_TEXT  = COLOUR_BACKGROUND;       // #101428  dark text on orange
+    static constexpr uint16_t ROW_TEXT  = COLOUR_TEXT;              // #D2D7E1  standard text
+    static constexpr uint16_t IDX_TEXT  = COLOUR_TEXT_DIM;          // #787D8C  steel grey index
+    static constexpr uint16_t FTR_BG    = COLOUR_HEADER_BG;        // #19233C  footer panel
+    static constexpr uint16_t BTN_BG    = COLOUR_SURFACE3;         // #1C2436  button resting bg
+    static constexpr uint16_t BTN_TEXT  = COLOUR_TEXT;              // #D2D7E1  button label
+    static constexpr uint16_t BTN_SEL   = COLOUR_ACCENT_ORANGE;    // #FFA000  active target
+    static constexpr uint16_t CANCEL_BG = COLOUR_ACCENT_RED;       // #FF1C18  cancel (functional)
+    static constexpr uint16_t BORDER    = COLOUR_BORDER;           // #2D3750  blue-grey borders
 }
 
 // =============================================================================

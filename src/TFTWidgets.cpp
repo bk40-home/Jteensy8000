@@ -1,479 +1,460 @@
+/* Audio Library for Teensy
+ * Copyright (c) 2025, Kris Bishop, bishopkris40@hotmail.com
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 // TFTWidgets.cpp
 // =============================================================================
-// Implementation of all JT-8000 TFT widget classes.
-// See TFTWidgets.h for design notes and class documentation.
+// Implementations for all JT-8000 TFT widgets.
+// See TFTWidgets.h for class/namespace documentation.
+//
+// PERFORMANCE NOTES:
+//   - Each draw clears only its own cell rect (no fillScreen)
+//   - Arc drawing uses fillCircle dots at 6-degree steps (45 dots for 270 deg)
+//     -> ~45 SPI transactions for a full knob redraw
+//   - At 30 MHz SPI each fillCircle(r=2) is ~0.02 ms -> full knob < 1 ms
+//   - Text uses built-in 6x8 font (textSize=1), no external fonts loaded
 // =============================================================================
 
 #include "TFTWidgets.h"
-
-// =============================================================================
-// Global theme instance — all widgets reference this via gTheme
-// =============================================================================
-TFTTheme gTheme;
+#include <math.h>
 
 
 // =============================================================================
-// TFTWidget — abstract base
+// Colour aliases — single source from JT8000Colours.h
+//
+// Every widget in this file reads colour through these constexprs.
+// To retheme: change values here (or in JT8000Colours.h). Nothing else to touch.
 // =============================================================================
+static constexpr float PI_F     = 3.14159265f;
+static constexpr float D_TO_RAD = PI_F / 180.0f;
 
-TFTWidget::TFTWidget(int16_t x, int16_t y, int16_t w, int16_t h)
-    : _x(x), _y(y), _w(w), _h(h)
-    , _dirty(true)      // start dirty: first draw paints the widget
-    , _visible(true)
-    , _display(nullptr)
-{}
+// Background tones (darkest to lightest)
+static constexpr uint16_t COL_BACKGROUND = COLOUR_BACKGROUND;    // #101428  deep charcoal-navy
+static constexpr uint16_t COL_BG         = COLOUR_SURFACE;       // #111620  section body fill
+static constexpr uint16_t COL_BG2        = COLOUR_SURFACE2;      // #161C28  group / card bg
+static constexpr uint16_t COL_SURFACE3   = COLOUR_SURFACE3;      // #1C2436  hover / pressed
+static constexpr uint16_t COL_HEADER     = COLOUR_HEADER_BG;     // #19233C  dark navy panel
 
-void TFTWidget::setDisplay(ILI9341_t3n* display) {
-    _display = display;
-}
+// Text
+static constexpr uint16_t COL_TEXT       = COLOUR_TEXT;           // #D2D7E1  warm off-white
+static constexpr uint16_t COL_TEXT_HI    = COLOUR_TEXT_HI;        // #C8D8F4  bright white
+static constexpr uint16_t COL_TEXT_DIM   = COLOUR_TEXT_DIM;       // #787D8C  steel grey
+static constexpr uint16_t COL_TEXT_MUT   = COLOUR_TEXT_MUTED;     // #3E5070  very dim
 
-void TFTWidget::draw() {
-    // Guard: skip if nothing to do or hardware not ready
-    if (!_dirty || !_visible || !_display) return;
-    doDraw();
-    _dirty = false;
-}
+// Accent
+static constexpr uint16_t COL_ACCENT     = COLOUR_ACCENT_ORANGE; // #FFA000  amber orange
+static constexpr uint16_t COL_ACCENT_H   = COLOUR_ACCENT_HI;     // #FFA040  bright orange
+static constexpr uint16_t COL_ACCENT_D   = COLOUR_ACCENT_DIM;    // #6A3508  dim orange
 
-void TFTWidget::markDirty()        { _dirty = true; }
-bool TFTWidget::isDirty()   const  { return _dirty;   }
-bool TFTWidget::isVisible() const  { return _visible; }
+// Functional (not decorative — keep distinct)
+static constexpr uint16_t COL_RED        = COLOUR_ACCENT_RED;    // #FF1C18  cancel / alert
+static constexpr uint16_t COL_CONFIRM    = 0x1C06;               // #1A8030  confirm green (RGB565)
+static constexpr uint16_t COL_BORDER     = COLOUR_BORDER;        // #2D3750  blue-grey borders
 
-void TFTWidget::setVisible(bool v) {
-    _visible = v;
-    markDirty();
-}
-
-bool TFTWidget::onTouch(int16_t x, int16_t y) {
-    return hitTest(x, y);
-}
-
-int16_t TFTWidget::getX() const { return _x; }
-int16_t TFTWidget::getY() const { return _y; }
-int16_t TFTWidget::getW() const { return _w; }
-int16_t TFTWidget::getH() const { return _h; }
-
-bool TFTWidget::hitTest(int16_t x, int16_t y) const {
-    return (x >= _x && x < _x + _w &&
-            y >= _y && y < _y + _h);
-}
-
-void TFTWidget::clearRect(uint16_t colour) {
-    if (_display) _display->fillRect(_x, _y, _w, _h, colour);
-}
-
-void TFTWidget::drawTextCentred(const char* text, uint16_t colour,
-                                uint8_t fontSize, int16_t dy) {
-    if (!text || !_display) return;
-    _display->setTextSize(fontSize);
-    _display->setTextColor(colour);
-    const int16_t textW = (int16_t)(strlen(text) * 6 * fontSize);
-    const int16_t cx    = _x + (_w - textW) / 2;
-    const int16_t cy    = _y + (_h / 2) - (4 * fontSize) + dy;
-    _display->setCursor(cx, cy);
-    _display->print(text);
-}
-
-void TFTWidget::drawTextAt(int16_t lx, int16_t ly, const char* text,
-                           uint16_t colour, uint8_t fontSize) {
-    if (!text || !_display) return;
-    _display->setTextSize(fontSize);
-    _display->setTextColor(colour);
-    _display->setCursor(lx, ly);
-    _display->print(text);
-}
-
-void TFTWidget::drawTextRight(int16_t rx, int16_t ly, const char* text,
-                              uint16_t colour, uint8_t fontSize) {
-    if (!text || !_display) return;
-    const int16_t textW = (int16_t)(strlen(text) * 6 * fontSize);
-    drawTextAt(rx - textW, ly, text, colour, fontSize);
-}
+using namespace MiniLayout;
 
 
 // =============================================================================
-// TFTButton
+// Shared arc drawing — used by MiniKnob
 // =============================================================================
 
-TFTButton::TFTButton(int16_t x, int16_t y, int16_t w, int16_t h,
-                     const char* label, Style style)
-    : TFTWidget(x, y, w, h)
-    , _label(label)
-    , _style(style)
-    , _pressed(false)
-    , _callback(nullptr)
-{}
-
-void TFTButton::setLabel(const char* label) {
-    if (label == _label) return;
-    _label = label;
-    markDirty();
-}
-
-void TFTButton::setCallback(Callback cb) { _callback = cb; }
-
-void TFTButton::triggerCallback() {
-    if (_callback) _callback();
-}
-
-bool TFTButton::onTouch(int16_t x, int16_t y) {
-    if (!hitTest(x, y)) return false;
-    if (!_pressed) {
-        _pressed = true;
-        markDirty();    // repaint with pressed colour immediately
-    }
-    return true;
-}
-
-void TFTButton::onTouchRelease(int16_t x, int16_t y) {
-    if (!_pressed) return;
-    _pressed = false;
-    markDirty();
-    // Fire only when finger lifts inside bounds (slide-out = cancel)
-    if (hitTest(x, y) && _callback) _callback();
-}
-
-void TFTButton::doDraw() {
-    if (!_display) return;
-
-    // Background colour: pressed overrides style
-    uint16_t bgCol;
-    if (_pressed) {
-        bgCol = gTheme.buttonPress;
-    } else {
-        switch (_style) {
-            case STYLE_CONFIRM: bgCol = gTheme.keyConfirm;  break;
-            case STYLE_CANCEL:  bgCol = gTheme.accent;      break;
-            default:            bgCol = gTheme.buttonNormal; break;
-        }
-    }
-
-    // Filled rounded rect (r=4) + border
-    _display->fillRect(_x, _y, _w, _h, bgCol);
-    _display->drawRect(_x, _y, _w, _h, gTheme.border);
-
-    // Centred label text
-    if (_label) {
-        const uint16_t textCol = _pressed ? gTheme.bg : gTheme.buttonText;
-        drawTextCentred(_label, textCol, 1);
-    }
-}
-
-
-// =============================================================================
-// TFTRadioGroup
-// =============================================================================
-
-TFTRadioGroup::TFTRadioGroup(int16_t x, int16_t y, int16_t w, int16_t h)
-    : TFTWidget(x, y, w, h)
-    , _numOptions(0)
-    , _selected(-1)
-    , _callback(nullptr)
+// Draw a thick arc from startDeg over sweepDeg (degrees, knob-relative).
+// 0 deg = 7 o'clock (start of 270 deg sweep). Positive = clockwise.
+// Screen CW convention: 0 deg = 12 o'clock, 90 deg = 3 o'clock.
+static void drawArcSegment(ILI9341_t3n& d, int16_t cx, int16_t cy,
+                           float startDeg, float sweepDeg,
+                           int16_t radius, int16_t thickness,
+                           uint16_t colour)
 {
-    // Zero per-cell dirty arrays; full paint on first draw()
-    for (int i = 0; i < RADIO_MAX_OPTIONS; ++i) {
-        _optionDirty[i] = true;
-        _labels[i]      = nullptr;
+    const float baseAngle = 225.0f;  // 7 o'clock in screen-CW degrees from 12
+    const float step      = 6.0f;
+    const float r         = (float)(radius - thickness);
+
+    for (float a = startDeg; a <= sweepDeg + 0.1f; a += step) {
+        const float screenDeg = baseAngle + a;
+        const float rad = screenDeg * D_TO_RAD;
+        const int16_t px = cx + (int16_t)(r * sinf(rad));
+        const int16_t py = cy - (int16_t)(r * cosf(rad));
+        d.fillCircle(px, py, thickness, colour);
     }
 }
 
-void TFTRadioGroup::setOptions(const char* const* labels, int count) {
-    _numOptions = (count < RADIO_MAX_OPTIONS) ? count : RADIO_MAX_OPTIONS;
-    for (int i = 0; i < _numOptions; ++i) _labels[i] = labels[i];
-    // Force full repaint on option change
-    markDirty();
-    for (int i = 0; i < _numOptions; ++i) _optionDirty[i] = true;
-}
-
-void TFTRadioGroup::setSelected(int index, bool fireCallback) {
-    if (index < 0 || index >= _numOptions) return;
-    if (index == _selected) return;
-
-    const int prev = _selected;
-    _selected = index;
-
-    // Only dirty the two cells that actually changed
-    if (prev >= 0 && prev < _numOptions) _optionDirty[prev] = true;
-    _optionDirty[index] = true;
-    _dirty = true;  // signal TFTWidget::draw() to call doDraw()
-
-    if (fireCallback && _callback) _callback(_selected);
-}
-
-int  TFTRadioGroup::getSelected()     const { return _selected; }
-void TFTRadioGroup::setCallback(Callback cb) { _callback = cb; }
-
-bool TFTRadioGroup::onTouch(int16_t x, int16_t y) {
-    if (!hitTest(x, y) || _numOptions == 0) return false;
-
-    const int16_t cellW = _w / _numOptions;
-    const int     idx   = (x - _x) / cellW;
-
-    if (idx >= 0 && idx < _numOptions) {
-        setSelected(idx, /*fireCallback=*/true);
-    }
-    return true;
-}
-
-void TFTRadioGroup::doDraw() {
-    if (_numOptions == 0 || !_display) return;
-
-    const int16_t cellW = _w / _numOptions;
-    const int16_t midY  = _y + _h / 2;
-    const int16_t circR = 5;    // radio circle radius (px)
-    const uint8_t fSize = 1;
-
-    for (int i = 0; i < _numOptions; ++i) {
-        if (!_optionDirty[i]) continue;   // skip unchanged cells
-
-        const bool    sel   = (i == _selected);
-        const int16_t cellX = _x + i * cellW;
-
-        // Clear cell background
-        _display->fillRect(cellX, _y, cellW, _h, gTheme.bg);
-
-        const int16_t cx = cellX + 4 + circR;   // circle X centre
-
-        // Radio circle — filled=selected, outline=unselected
-        if (sel) {
-            _display->fillCircle(cx, midY, circR, gTheme.radioFill);
-            _display->drawCircle(cx, midY, circR, gTheme.radioBorder);
-        } else {
-            _display->fillCircle(cx, midY, circR, gTheme.bg);
-            _display->drawCircle(cx, midY, circR, gTheme.radioBorder);
-        }
-
-        // Label text to the right of the circle
-        if (_labels[i]) {
-            const int16_t  labelX = cx + circR + 3;
-            const int16_t  labelY = midY - 4 * fSize;
-            const uint16_t col    = sel ? gTheme.radioFill : gTheme.textDim;
-            _display->setTextSize(fSize);
-            _display->setTextColor(col, gTheme.bg);  // 2-arg: spaces over cell background
-            _display->setCursor(labelX, labelY);
-            _display->print(_labels[i]);
-        }
-
-        _optionDirty[i] = false;
-    }
-}
-
-
-// =============================================================================
-// TFTParamRow
-// =============================================================================
-
-TFTParamRow::TFTParamRow(int16_t x, int16_t y, int16_t w, int16_t h,
-                         uint8_t cc, const char* name, uint16_t colour)
-    : TFTWidget(x, y, w, h)
-    , _cc(cc)
-    , _colour(colour)
-    , _selected(false)
-    , _rawValue(0)
-    , _onTap(nullptr)
+// Draw the pointer dot at the current value position on the arc.
+static void drawPointerDot(ILI9341_t3n& d, int16_t cx, int16_t cy,
+                           uint8_t value, int16_t radius, int16_t arcW,
+                           uint16_t colour)
 {
-    // Copy name to avoid storing a pointer to transient data
-    strncpy(_name, name ? name : "---", PROW_NAME_LEN - 1);
-    _name[PROW_NAME_LEN - 1] = '\0';
-    _valText[0] = '\0';
+    const float screenDeg = 225.0f + (value / 127.0f) * 270.0f;
+    const float rad = screenDeg * D_TO_RAD;
+    const float r   = (float)(radius - arcW);
+    const int16_t px = cx + (int16_t)(r * sinf(rad));
+    const int16_t py = cy - (int16_t)(r * cosf(rad));
+    d.fillCircle(px, py, KNOB_DOT_R, colour);
 }
 
-void TFTParamRow::setCallback(TapCallback cb) { _onTap = cb; }
 
-void TFTParamRow::setValue(uint8_t rawValue, const char* text) {
-    bool changed = false;
+// =============================================================================
+// MiniKnob
+// =============================================================================
 
-    if (rawValue != _rawValue) {
-        _rawValue = rawValue;
-        changed   = true;
+void MiniKnob::draw(ILI9341_t3n& d, int16_t x, int16_t y,
+                    uint8_t value, const char* label, const char* valText,
+                    bool selected)
+{
+    // Clear cell
+    d.fillRect(x, y, KNOB_CELL_W, KNOB_CELL_H, COL_BG);
+
+    // Knob centre — horizontally centred, pushed to top of cell
+    const int16_t cx = x + KNOB_CELL_W / 2;
+    const int16_t cy = y + 4 + KNOB_RADIUS;
+
+    // Knob body circle (dark fill + border)
+    d.fillCircle(cx, cy, KNOB_RADIUS, COL_HEADER);
+    d.drawCircle(cx, cy, KNOB_RADIUS, selected ? COL_ACCENT : COL_BORDER);
+
+    // Arc track (full 270 deg, dim)
+    drawArcSegment(d, cx, cy, 0.0f, 270.0f, KNOB_RADIUS, KNOB_ARC_W, COL_ACCENT_D);
+
+    // Arc fill (proportional to value)
+    if (value > 0) {
+        const float fillSweep = (value / 127.0f) * 270.0f;
+        const uint16_t arcCol = selected ? COL_ACCENT_H : COL_ACCENT;
+        drawArcSegment(d, cx, cy, 0.0f, fillSweep, KNOB_RADIUS, KNOB_ARC_W, arcCol);
     }
 
-    // Build candidate text in local buffer then compare
-    char newText[PROW_VAL_LEN];
-    if (text && text[0]) {
-        strncpy(newText, text, PROW_VAL_LEN - 1);
-        newText[PROW_VAL_LEN - 1] = '\0';
+    // Pointer dot at arc end
+    drawPointerDot(d, cx, cy, value, KNOB_RADIUS, KNOB_ARC_W,
+                   selected ? COL_ACCENT_H : COL_ACCENT);
+
+    // Label (centred below knob, dim uppercase)
+    if (label && label[0]) {
+        const int16_t labelY = cy + KNOB_RADIUS + 2;
+        const int16_t labelW = (int16_t)(strlen(label) * 6);
+        const int16_t labelX = cx - labelW / 2;
+        d.setTextSize(1);
+        d.setTextColor(selected ? COL_ACCENT : COL_TEXT_DIM, COL_BG);
+        d.setCursor(labelX, labelY);
+        d.print(label);
+    }
+
+    // Value text (centred below label, orange)
+    if (valText && valText[0]) {
+        const int16_t valY = cy + KNOB_RADIUS + 12;
+        const int16_t valW = (int16_t)(strlen(valText) * 6);
+        const int16_t valX = cx - valW / 2;
+        d.setTextSize(1);
+        d.setTextColor(COL_ACCENT, COL_BG);
+        d.setCursor(valX, valY);
+        d.print(valText);
+    }
+
+    // Selection highlight border
+    if (selected) {
+        d.drawRect(x, y, KNOB_CELL_W, KNOB_CELL_H, COL_ACCENT);
+    }
+}
+
+void MiniKnob::drawArcOnly(ILI9341_t3n& d, int16_t x, int16_t y,
+                           uint8_t value, bool selected)
+{
+    const int16_t cx = x + KNOB_CELL_W / 2;
+    const int16_t cy = y + 4 + KNOB_RADIUS;
+
+    // Clear the arc ring region
+    const int16_t clearR = KNOB_RADIUS + 2;
+    d.fillRect(cx - clearR, cy - clearR, clearR * 2, clearR * 2, COL_HEADER);
+    d.drawCircle(cx, cy, KNOB_RADIUS, selected ? COL_ACCENT : COL_BORDER);
+
+    // Full dim track
+    drawArcSegment(d, cx, cy, 0.0f, 270.0f, KNOB_RADIUS, KNOB_ARC_W, COL_ACCENT_D);
+
+    // Fill
+    if (value > 0) {
+        const float fillSweep = (value / 127.0f) * 270.0f;
+        drawArcSegment(d, cx, cy, 0.0f, fillSweep, KNOB_RADIUS, KNOB_ARC_W,
+                       selected ? COL_ACCENT_H : COL_ACCENT);
+    }
+
+    // Pointer dot
+    drawPointerDot(d, cx, cy, value, KNOB_RADIUS, KNOB_ARC_W,
+                   selected ? COL_ACCENT_H : COL_ACCENT);
+}
+
+
+// =============================================================================
+// MiniSelect
+// =============================================================================
+
+void MiniSelect::draw(ILI9341_t3n& d, int16_t x, int16_t y,
+                      const char* label, const char* valText,
+                      bool selected)
+{
+    // Clear cell
+    d.fillRect(x, y, SEL_CELL_W, SEL_CELL_H, COL_BG);
+
+    // Label (top, dim uppercase)
+    if (label && label[0]) {
+        d.setTextSize(1);
+        d.setTextColor(selected ? COL_ACCENT : COL_TEXT_DIM, COL_BG);
+        d.setCursor(x + 2, y + 1);
+        d.print(label);
+    }
+
+    // Dropdown box
+    const int16_t boxY = y + SEL_CELL_H - SEL_BOX_H;
+    const uint16_t boxBorder = selected ? COL_ACCENT : COL_BORDER;
+    const uint16_t boxBg     = COL_BACKGROUND;
+
+    d.fillRect(x + 1, boxY, SEL_CELL_W - 2, SEL_BOX_H, boxBg);
+    d.drawRect(x + 1, boxY, SEL_CELL_W - 2, SEL_BOX_H, boxBorder);
+
+    // Value text inside box (orange, left-aligned with padding)
+    if (valText && valText[0]) {
+        d.setTextSize(1);
+        d.setTextColor(COL_ACCENT, boxBg);
+        d.setCursor(x + 4, boxY + 4);
+
+        // Truncate if text is too wide for box
+        const int16_t maxChars = (SEL_CELL_W - 18) / 6;
+        char truncBuf[16];
+        strncpy(truncBuf, valText, sizeof(truncBuf) - 1);
+        truncBuf[sizeof(truncBuf) - 1] = '\0';
+        if ((int)strlen(truncBuf) > maxChars && maxChars > 0) {
+            truncBuf[maxChars] = '\0';
+        }
+        d.print(truncBuf);
+    }
+
+    // Dropdown arrow (right side of box, dim)
+    d.setTextSize(1);
+    d.setTextColor(COL_TEXT_MUT, boxBg);
+    d.setCursor(x + SEL_CELL_W - 12, boxY + 4);
+    d.print("\x19");  // down-arrow character
+
+    // Selection highlight
+    if (selected) {
+        d.drawRect(x, y, SEL_CELL_W, SEL_CELL_H, COL_ACCENT);
+    }
+}
+
+
+// =============================================================================
+// MiniToggle
+// =============================================================================
+
+void MiniToggle::draw(ILI9341_t3n& d, int16_t x, int16_t y,
+                      const char* label, bool isOn, bool selected)
+{
+    // Clear cell
+    d.fillRect(x, y, TOG_CELL_W, TOG_CELL_H, COL_BG);
+
+    // Label (centred, dim uppercase)
+    if (label && label[0]) {
+        const int16_t labelW = (int16_t)(strlen(label) * 6);
+        const int16_t labelX = x + (TOG_CELL_W - labelW) / 2;
+        d.setTextSize(1);
+        d.setTextColor(selected ? COL_ACCENT : COL_TEXT_DIM, COL_BG);
+        d.setCursor(labelX, y + 1);
+        d.print(label);
+    }
+
+    // Pill shape
+    const int16_t pillX = x + (TOG_CELL_W - TOG_PILL_W) / 2;
+    const int16_t pillY = y + TOG_CELL_H - TOG_PILL_H - 1;
+
+    if (isOn) {
+        // Active: filled orange pill
+        d.fillRect(pillX, pillY, TOG_PILL_W, TOG_PILL_H, COL_ACCENT_D);
+        d.drawRect(pillX, pillY, TOG_PILL_W, TOG_PILL_H, COL_ACCENT);
+
+        d.setTextSize(1);
+        d.setTextColor(COL_ACCENT_H, COL_ACCENT_D);
+        d.setCursor(pillX + (TOG_PILL_W - 12) / 2, pillY + 3);
+        d.print("ON");
     } else {
-        snprintf(newText, PROW_VAL_LEN, "%d", (int)rawValue);
+        // Inactive: dim border pill
+        d.fillRect(pillX, pillY, TOG_PILL_W, TOG_PILL_H, COL_BACKGROUND);
+        d.drawRect(pillX, pillY, TOG_PILL_W, TOG_PILL_H, COL_BORDER);
+
+        d.setTextSize(1);
+        d.setTextColor(COL_TEXT_MUT, COL_BACKGROUND);
+        d.setCursor(pillX + (TOG_PILL_W - 18) / 2, pillY + 3);
+        d.print("OFF");
     }
 
-    if (strncmp(newText, _valText, PROW_VAL_LEN) != 0) {
-        strncpy(_valText, newText, PROW_VAL_LEN - 1);
-        _valText[PROW_VAL_LEN - 1] = '\0';
-        changed = true;
-    }
-
-    if (changed) markDirty();
-}
-
-void TFTParamRow::configure(uint8_t cc, const char* name, uint16_t colour) {
-    bool changed = false;
-
-    if (_cc != cc)         { _cc = cc;         changed = true; }
-    if (_colour != colour) { _colour = colour; changed = true; }
-
-    char newName[PROW_NAME_LEN];
-    strncpy(newName, name ? name : "---", PROW_NAME_LEN - 1);
-    newName[PROW_NAME_LEN - 1] = '\0';
-
-    if (strncmp(newName, _name, PROW_NAME_LEN) != 0) {
-        strncpy(_name, newName, PROW_NAME_LEN);
-        changed = true;
-    }
-
-    if (changed) {
-        _rawValue   = 0;
-        _valText[0] = '\0';
-        markDirty();
+    // Selection highlight
+    if (selected) {
+        d.drawRect(x, y, TOG_CELL_W, TOG_CELL_H, COL_ACCENT);
     }
 }
-
-void TFTParamRow::setSelected(bool sel) {
-    if (sel == _selected) return;
-    _selected = sel;
-    markDirty();
-}
-
-bool    TFTParamRow::isSelected() const { return _selected; }
-uint8_t TFTParamRow::getCC()      const { return _cc;       }
-
-bool TFTParamRow::onTouch(int16_t x, int16_t y) {
-    if (_cc == 255 || !hitTest(x, y)) return false;
-    if (_onTap) _onTap(_cc);
-    return true;
-}
-
-void TFTParamRow::doDraw() {
-    if (!_display) return;
-
-    // ---- Layout geometry ----
-    static constexpr int16_t PAD      = 4;   // left/right inner padding
-    static constexpr int16_t BAR_H    = 4;   // value bar height (px) — thin accent line
-    static constexpr int16_t NAME_Y   = 5;   // name text baseline offset from row top
-    static constexpr int16_t VAL_Y    = 5;   // value text baseline — same row as name
-    const int16_t contentH = _h - 1;         // 1 px gap between rows (bottom separator)
-
-    // Background: amber when selected, dark panel otherwise
-    const uint16_t bgCol   = _selected ? gTheme.selectedBg : gTheme.headerBg;
-    const uint16_t textCol = _selected ? gTheme.textOnSelect : gTheme.textNormal;
-    const uint16_t dimCol  = _selected ? gTheme.textOnSelect : gTheme.textDim;
-    // Bar/value colour: always use the accent unless selected (inverted)
-    const uint16_t barCol  = _selected ? gTheme.textOnSelect : _colour;
-
-    // Row background + bottom separator line
-    _display->fillRect(_x, _y, _w, contentH, bgCol);
-    _display->drawFastHLine(_x, _y + contentH, _w, gTheme.border);
-
-    // Empty slot — just a centred dash, no bar
-    if (_cc == 255) {
-        _display->setTextSize(1);
-        _display->setTextColor(dimCol, bgCol);
-        _display->setCursor(_x + PAD, _y + NAME_Y);
-        _display->print("---");
-        return;
-    }
-
-    // ---- Parameter name (left-aligned) ----
-    _display->setTextSize(1);
-    _display->setTextColor(textCol, bgCol);
-    _display->setCursor(_x + PAD, _y + NAME_Y);
-    _display->print(_name);
-
-    // ---- Value text (right-aligned, coloured) ----
-    // Nudge right-align: leave space for the ">" edit arrow (6px) + PAD
-    if (_valText[0]) {
-        const int16_t valW  = (int16_t)(strlen(_valText) * 6);
-        const int16_t valX  = _x + _w - PAD - 8 - valW;
-        _display->setTextColor(barCol, bgCol);
-        _display->setCursor(valX, _y + VAL_Y);
-        _display->print(_valText);
-    }
-
-    // ---- Edit indicator arrow (far right, dim) ----
-    _display->setTextColor(dimCol, bgCol);
-    _display->setCursor(_x + _w - PAD - 6, _y + VAL_Y);
-    _display->print(">");
-
-    // ---- Value bar — bottom of content area ----
-    // Track is the full inner width.  Fill is proportional to rawValue (0..127).
-    // Bar sits 2 px above the separator line.
-    const int16_t barY    = _y + contentH - BAR_H - 2;
-    const int16_t barMaxW = _w - 2 * PAD;
-    const int16_t barFill = (int16_t)((int32_t)barMaxW * _rawValue / 127);
-
-    // Draw track first (full width, dark), then overlay fill (coloured)
-    _display->fillRect(_x + PAD, barY, barMaxW, BAR_H, gTheme.barTrack);
-    if (barFill > 0) {
-        _display->fillRect(_x + PAD, barY, barFill, BAR_H, barCol);
-    }
-}
-
 
 
 // =============================================================================
-// TFTSectionTile
+// MiniSliderGrid — step sequencer as vertical sliders (unipolar 0-127)
 // =============================================================================
 
-TFTSectionTile::TFTSectionTile(int16_t x, int16_t y, int16_t w, int16_t h,
-                               const SectionDef& section)
-    : TFTWidget(x, y, w, h)
-    , _section(section)
-    , _pressed(false)
-    , _callback(nullptr)
-{}
+void MiniSliderGrid::draw(ILI9341_t3n& d, int16_t x, int16_t y, int16_t w,
+                          uint8_t stepCount, const uint8_t values[16],
+                          int8_t selectedStep, int8_t playingStep)
+{
+    if (stepCount == 0) stepCount = 1;
+    if (stepCount > 16) stepCount = 16;
 
-void TFTSectionTile::setCallback(Callback cb) { _callback = cb; }
-void TFTSectionTile::activate() { if (_callback) _callback(); }
+    const int16_t totalH = SGRID_TOTAL_H;
 
-bool TFTSectionTile::onTouch(int16_t x, int16_t y) {
-    if (!hitTest(x, y)) return false;
-    if (!_pressed) { _pressed = true; markDirty(); }
-    return true;
+    // Clear grid area
+    d.fillRect(x, y, w, totalH, COL_BG);
+
+    // Per-step column width — fill available width evenly
+    const int16_t cellW = (w - 2) / stepCount;
+    if (cellW < 4) return;  // too narrow to draw
+
+    const int16_t trackH   = SGRID_SLIDER_H;
+    const int16_t trackTop = y;
+
+    for (uint8_t i = 0; i < stepCount; ++i) {
+        const int16_t cx      = x + 1 + i * cellW;
+        const int16_t sliderX = cx + 1;
+        const int16_t sliderW = cellW - 2;
+
+        // Slider track background
+        d.fillRect(sliderX, trackTop, sliderW, trackH, COL_BACKGROUND);
+        d.drawRect(sliderX, trackTop, sliderW, trackH, COL_BORDER);
+
+        // Fill from bottom — unipolar: 0 = empty, 127 = full
+        if (values[i] > 0) {
+            const int16_t fillH  = (int16_t)((int32_t)values[i] * (trackH - 2) / 127);
+            const int16_t fillY  = trackTop + trackH - 1 - fillH;
+            const uint16_t fillCol = (i == selectedStep) ? COL_ACCENT_H : COL_ACCENT;
+            d.fillRect(sliderX + 1, fillY, sliderW - 2, fillH, fillCol);
+
+            // Thumb indicator at top of fill
+            const int16_t thumbY = fillY - SGRID_THUMB_H / 2;
+            if (thumbY >= trackTop) {
+                d.fillRect(sliderX, thumbY, sliderW, SGRID_THUMB_H, fillCol);
+            }
+        }
+
+        // Playing step: bright top/bottom border lines
+        if (i == playingStep) {
+            d.drawFastHLine(sliderX, trackTop, sliderW, COL_ACCENT_H);
+            d.drawFastHLine(sliderX, trackTop + trackH - 1, sliderW, COL_ACCENT_H);
+        }
+
+        // Selected step: orange border around the whole slider
+        if (i == selectedStep) {
+            d.drawRect(sliderX - 1, trackTop - 1, sliderW + 2, trackH + 2, COL_ACCENT);
+        }
+
+        // Step number below slider
+        char numBuf[4];
+        snprintf(numBuf, sizeof(numBuf), "%d", i + 1);
+        const int16_t numW = (int16_t)(strlen(numBuf) * 6);
+        const int16_t numX = cx + (cellW - numW) / 2;
+        const int16_t numY = trackTop + trackH + 2;
+        d.setTextSize(1);
+        const uint16_t numCol = (i == playingStep)  ? COL_ACCENT_H :
+                                (i == selectedStep) ? COL_ACCENT    : COL_TEXT_MUT;
+        d.setTextColor(numCol, COL_BG);
+        d.setCursor(numX, numY);
+        d.print(numBuf);
+    }
 }
 
-void TFTSectionTile::onTouchRelease(int16_t x, int16_t y) {
-    if (!_pressed) return;
-    _pressed = false;
-    markDirty();
-    if (hitTest(x, y) && _callback) _callback();
+int8_t MiniSliderGrid::hitTestStep(int16_t gridX, int16_t gridY, int16_t gridW,
+                                   uint8_t stepCount, int16_t tx, int16_t ty)
+{
+    if (stepCount == 0) return -1;
+    if (stepCount > 16) stepCount = 16;
+
+    const int16_t totalH = SGRID_TOTAL_H;
+
+    if (ty < gridY || ty >= gridY + totalH) return -1;
+    if (tx < gridX || tx >= gridX + gridW)  return -1;
+
+    const int16_t cellW = (gridW - 2) / stepCount;
+    if (cellW <= 0) return -1;
+
+    const int16_t relX = tx - gridX - 1;
+    const int8_t step  = (int8_t)(relX / cellW);
+    return (step >= 0 && step < (int8_t)stepCount) ? step : -1;
 }
 
-void TFTSectionTile::doDraw() {
-    if (!_display) return;
 
-    // ---- Background ----
-    // Pressed: section colour at low brightness (flash feedback)
-    // Normal: very dark navy to contrast against the accent bar
-    const uint16_t bgCol = _pressed ? (uint16_t)0x2124 : (uint16_t)0x10A3;
+// =============================================================================
+// SectionHeader — collapsible section bar
+// =============================================================================
 
-    _display->fillRect(_x, _y, _w, _h, bgCol);
+void SectionHeader::draw(ILI9341_t3n& d, int16_t x, int16_t y, int16_t w,
+                         const char* label, bool expanded, bool highlighted)
+{
+    const uint16_t bgCol = highlighted ? COL_BG2 : COL_HEADER;
 
-    // ---- Accent bar — 3 px thick at top, full section colour ----
-    // Makes sections instantly colour-identifiable at a glance
-    _display->fillRect(_x, _y, _w, 3, gTheme.accent);
+    // Background
+    d.fillRect(x, y, w, SEC_HDR_H, bgCol);
 
-    // ---- Outer border — section colour if pressed, dim border otherwise ----
-    _display->drawRect(_x, _y, _w, _h, _pressed ? gTheme.buttonPress : gTheme.border);
+    // Bottom border
+    d.drawFastHLine(x, y + SEC_HDR_H - 1, w, COL_BORDER);
 
-    // ---- Section label — centred vertically in the space below the bar ----
-    _display->setTextSize(1);
-    _display->setTextColor(gTheme.keyText, bgCol);
-    const int16_t labelW = (int16_t)(strlen(_section.label) * 6);
-    // Centre label in lower portion (below the 3px accent bar)
-    const int16_t labelY = _y + 3 + (_h - 3 - 16) / 2;
-    _display->setCursor(_x + (_w - labelW) / 2, labelY);
-    _display->print(_section.label);
+    // Orange LED dot (left side)
+    const int16_t ledX = x + SEC_PAD_X;
+    const int16_t ledY = y + SEC_HDR_H / 2;
+    d.fillCircle(ledX, ledY, SEC_LED_R, COL_ACCENT);
 
-    // // ---- Page count hint — small, dim, below label ----
-    // if (_section.pageCount > 0) {
-    //     char hint[5];
-    //     snprintf(hint, sizeof(hint), "%dp", _section.pageCount);
-    //     const int16_t hintW = (int16_t)(strlen(hint) * 6);
-    //     _display->setTextColor(gTheme.textDim, bgCol);
-    //     _display->setCursor(_x + (_w - hintW) / 2, labelY + 10);
-    //     _display->print(hint);
-    // }
+    // Section title text
+    if (label && label[0]) {
+        d.setTextSize(1);
+        d.setTextColor(highlighted ? COL_ACCENT : COL_TEXT_HI, bgCol);
+        d.setCursor(ledX + SEC_LED_R + 6, y + (SEC_HDR_H - 8) / 2);
+        d.print(label);
+    }
+
+    // Chevron (right side)
+    d.setTextSize(1);
+    d.setTextColor(COL_TEXT_MUT, bgCol);
+    d.setCursor(x + w - SEC_PAD_X - 8, y + (SEC_HDR_H - 8) / 2);
+    d.print(expanded ? "\x19" : "\x1A");
 }
 
+
+// =============================================================================
+// GroupHeader — small group label with underline
+// =============================================================================
+
+void GroupHeader::draw(ILI9341_t3n& d, int16_t x, int16_t y, int16_t w,
+                       const char* label)
+{
+    // Clear
+    d.fillRect(x, y, w, GRP_HDR_H, COL_BG);
+
+    // Label text (dim, uppercase, small)
+    if (label && label[0]) {
+        d.setTextSize(1);
+        d.setTextColor(COL_TEXT_MUT, COL_BG);
+        d.setCursor(x + 2, y + 1);
+        d.print(label);
+    }
+
+    // Subtle underline
+    d.drawFastHLine(x, y + GRP_HDR_H - 1, w, COL_BACKGROUND);
+}
 
 
 // =============================================================================
@@ -518,7 +499,6 @@ void TFTNumericEntry::openNumeric(const char* title, const char* unit,
     _digitBuf[0] = '\0';
     _digitCount  = 0;
     _editing     = false;
-    // Pre-set negative flag from current value so ± key reflects reality on first open
     _negative    = (currentVal < 0);
 
     _fullRedraw  = true;
@@ -569,41 +549,32 @@ bool TFTNumericEntry::isOpen()  const { return _mode != MODE_CLOSED; }
 TFTNumericEntry::Mode TFTNumericEntry::getMode() const { return _mode; }
 
 // ---------------------------------------------------------------------------
-// onEncoderDelta() — scroll the enum list while it is open.
-//
-// delta > 0 = scroll towards later (higher-index) items
-// delta < 0 = scroll towards earlier items
-//
-// Moves the highlighted selection by |delta| items, clamped to valid range,
-// then scrolls the viewport to keep the selection visible.
-// Redraws only the list region — not the full screen.
+// onEncoderDelta — scroll the enum list while it is open.
+// delta > 0 = later items, delta < 0 = earlier items.
 // ---------------------------------------------------------------------------
 void TFTNumericEntry::onEncoderDelta(int delta) {
     if (_mode != MODE_ENUM || delta == 0 || _numEnumOptions == 0) return;
 
-    // Move selection, clamp to [0, numOptions-1]
     const int newSel = constrain(_selectedEnum + delta, 0, _numEnumOptions - 1);
-    if (newSel == _selectedEnum) return;   // already at limit
+    if (newSel == _selectedEnum) return;
 
     _selectedEnum = newSel;
-
-    // Scroll viewport to keep selection visible
     _scrollToSelection();
-
-    // Redraw list only — avoids full-screen repaint noise every encoder step
-    _drawEnumList();
+    _drawEnumList();    // partial redraw — list region only
 }
-void TFTNumericEntry::close()         { _mode = MODE_CLOSED; }
+
+void TFTNumericEntry::close() { _mode = MODE_CLOSED; }
+
 
 // ---- Full-screen draw -------------------------------------------------------
 
 void TFTNumericEntry::_drawFull() {
-    _display->fillScreen(gTheme.bg);
+    _display->fillScreen(COL_BACKGROUND);
 
     // Title bar
-    _display->fillRect(0, 0, SW, TB_Height, gTheme.headerBg);
+    _display->fillRect(0, 0, SW, TB_HEIGHT, COL_HEADER);
     _display->setTextSize(2);
-    _display->setTextColor(gTheme.textNormal, gTheme.headerBg);
+    _display->setTextColor(COL_TEXT, COL_HEADER);
     _display->setCursor(6, 7);
     _display->print(_titleBuf);
 
@@ -619,18 +590,18 @@ void TFTNumericEntry::_drawFull() {
 }
 
 void TFTNumericEntry::_drawCancelButton(bool pressed) {
-    const uint16_t bg = pressed ? gTheme.buttonPress : gTheme.accent;
-    _display->fillRect(CANCEL_X, CANCEL_Y, CANCEL_Width, CANCEL_Height, bg);
+    const uint16_t bg = pressed ? COL_ACCENT_H : COL_RED;
+    _display->fillRect(CANCEL_X, CANCEL_Y, CANCEL_WIDTH, CANCEL_HEIGHT, bg);
     _display->setTextSize(1);
-    _display->setTextColor(gTheme.buttonText, bg);
-    const int16_t lx = CANCEL_X + (CANCEL_Width - 6 * 6) / 2;
+    _display->setTextColor(COL_TEXT, bg);
+    const int16_t lx = CANCEL_X + (CANCEL_WIDTH - 6 * 6) / 2;
     _display->setCursor(lx, 11);
     _display->print("Cancel");
 }
 
 void TFTNumericEntry::_drawValueBox() {
-    _display->fillRect(KP_X, VB_Y, KP_Width, VB_Height, gTheme.entryBg);
-    _display->drawRect(KP_X, VB_Y, KP_Width, VB_Height, gTheme.border);
+    _display->fillRect(KP_X, VB_Y, KP_WIDTH, VB_HEIGHT, COL_BG);
+    _display->drawRect(KP_X, VB_Y, KP_WIDTH, VB_HEIGHT, COL_BORDER);
 
     // Build display string: digits (or hint) + unit
     char dispBuf[ENTRY_MAX_DIGITS + ENTRY_UNIT_LEN + 2];
@@ -638,18 +609,18 @@ void TFTNumericEntry::_drawValueBox() {
     if (!_editing || _digitCount == 0) {
         // Hint mode: show current value dimmed
         snprintf(dispBuf, sizeof(dispBuf), "%d %s", _currentVal, _unitBuf);
-        _display->setTextColor(gTheme.textDim, gTheme.entryBg);
+        _display->setTextColor(COL_TEXT_DIM, COL_BG);
     } else {
         // Editing: show sign prefix + digits + unit
         snprintf(dispBuf, sizeof(dispBuf), "%s%s %s",
                  (_negative ? "-" : ""), _digitBuf, _unitBuf);
-        _display->setTextColor(gTheme.entryText, gTheme.entryBg);
+        _display->setTextColor(COL_TEXT_HI, COL_BG);
     }
 
     _display->setTextSize(2);
-    const int16_t tw = (int16_t)(strlen(dispBuf) * 12);  // 6px × 2 per char
-    const int16_t tx = KP_X + (KP_Width - tw) / 2;
-    const int16_t ty = VB_Y + (VB_Height - 14) / 2;
+    const int16_t tw = (int16_t)(strlen(dispBuf) * 12);
+    const int16_t tx = KP_X + (KP_WIDTH - tw) / 2;
+    const int16_t ty = VB_Y + (VB_HEIGHT - 14) / 2;
     _display->setCursor(tx, ty);
     _display->print(dispBuf);
 }
@@ -659,55 +630,54 @@ void TFTNumericEntry::_drawKeypad() {
     const int digits[3][3] = { {7,8,9}, {4,5,6}, {1,2,3} };
     for (int row = 0; row < 3; ++row) {
         for (int col = 0; col < 3; ++col) {
-            const int16_t kx = KP_X + col * (KEY_Width + KEY_GAP);
-            const int16_t ky = KP_Y + row * (KEY_Height + KEY_GAP);
-            _drawKey(kx, ky, KEY_Width, KEY_Height, _digitStr(digits[row][col]),
-                     gTheme.keyBg, false);
+            const int16_t kx = KP_X + col * (KEY_WIDTH + KEY_GAP);
+            const int16_t ky = KP_Y + row * (KEY_HEIGHT + KEY_GAP);
+            _drawKey(kx, ky, KEY_WIDTH, KEY_HEIGHT, _digitStr(digits[row][col]),
+                     COL_SURFACE3, false);
         }
     }
 
     // Bottom row: layout depends on whether negative values are possible.
-    // When minVal < 0 we show [0] [±] [←] [OK] to allow sign entry.
-    // When minVal >= 0 we show the original wider [0] [←] [OK].
     if (_minVal < 0) {
-        // Highlight ± key in amber when currently negative
-        const uint16_t signBg = _negative ? COLOUR_SELECTED : gTheme.keyBg;
-        _drawKey(KP_X,                                              BR_Y, BRS_0_Width,  KEY_Height, "0",  gTheme.keyBg,    false);
-        _drawKey(KP_X + BRS_0_Width + KEY_GAP,                     BR_Y, BRS_S_Width,  KEY_Height, "+/-",signBg,          false);
-        _drawKey(KP_X + BRS_0_Width + BRS_S_Width + 2*KEY_GAP,     BR_Y, BRS_BK_Width, KEY_Height, "<-", gTheme.keyBackspace, false);
-        _drawKey(KP_X + BRS_0_Width + BRS_S_Width + BRS_BK_Width + 3*KEY_GAP, BR_Y, BRS_CO_Width, KEY_Height, "OK", gTheme.keyConfirm, false);
+        // Highlight +/- key in orange when currently negative
+        const uint16_t signBg = _negative ? COL_ACCENT : COL_SURFACE3;
+        _drawKey(KP_X,                                               BR_Y, BRS_0_WIDTH,  KEY_HEIGHT, "0",   COL_SURFACE3, false);
+        _drawKey(KP_X + BRS_0_WIDTH + KEY_GAP,                      BR_Y, BRS_S_WIDTH,  KEY_HEIGHT, "+/-", signBg,       false);
+        _drawKey(KP_X + BRS_0_WIDTH + BRS_S_WIDTH + 2*KEY_GAP,      BR_Y, BRS_BK_WIDTH, KEY_HEIGHT, "<-",  COL_BG2,      false);
+        _drawKey(KP_X + BRS_0_WIDTH + BRS_S_WIDTH + BRS_BK_WIDTH + 3*KEY_GAP,
+                                                                     BR_Y, BRS_CO_WIDTH, KEY_HEIGHT, "OK",  COL_CONFIRM,  false);
     } else {
-        _drawKey(KP_X,                                          BR_Y, BR0_Width,  KEY_Height, "0",  gTheme.keyBg,       false);
-        _drawKey(KP_X + BR0_Width + KEY_GAP,                    BR_Y, BRBK_Width, KEY_Height, "<-", gTheme.keyBackspace, false);
-        _drawKey(KP_X + BR0_Width + BRBK_Width + 2*KEY_GAP,    BR_Y, BRCO_Width, KEY_Height, "OK", gTheme.keyConfirm,  false);
+        _drawKey(KP_X,                                       BR_Y, BR0_WIDTH,  KEY_HEIGHT, "0",  COL_SURFACE3, false);
+        _drawKey(KP_X + BR0_WIDTH + KEY_GAP,                 BR_Y, BRBK_WIDTH, KEY_HEIGHT, "<-", COL_BG2,      false);
+        _drawKey(KP_X + BR0_WIDTH + BRBK_WIDTH + 2*KEY_GAP, BR_Y, BRCO_WIDTH, KEY_HEIGHT, "OK", COL_CONFIRM,  false);
     }
 }
 
 void TFTNumericEntry::_drawKey(int16_t kx, int16_t ky, int16_t kw, int16_t kh,
                                const char* label, uint16_t bgCol, bool pressed) {
-    const uint16_t bg = pressed ? gTheme.buttonPress : bgCol;
+    const uint16_t bg = pressed ? COL_ACCENT_H : bgCol;
     _display->fillRect(kx, ky, kw, kh, bg);
-    _display->drawRect(kx, ky, kw, kh, gTheme.keyBorder);
+    _display->drawRect(kx, ky, kw, kh, COL_BORDER);
     _display->setTextSize(1);
-    _display->setTextColor(gTheme.keyText, bg);  // 2-arg: spaces over key background
+    _display->setTextColor(COL_TEXT, bg);
     const int16_t tw = (int16_t)(strlen(label) * 6);
     _display->setCursor(kx + (kw - tw) / 2, ky + (kh - 8) / 2);
     _display->print(label);
 }
 
 /*static*/ const char* TFTNumericEntry::_digitStr(int d) {
-    // Note: static buffer — not reentrant; fine here (single-threaded UI)
     static char buf[2] = "0";
     buf[0] = '0' + (char)d;
     return buf;
 }
 
+
 // ---- Numeric touch handler --------------------------------------------------
 
 void TFTNumericEntry::_handleNumericTouch(int16_t x, int16_t y) {
     // Cancel button
-    if (x >= CANCEL_X && x < CANCEL_X + CANCEL_Width &&
-        y >= CANCEL_Y && y < CANCEL_Y + CANCEL_Height) {
+    if (x >= CANCEL_X && x < CANCEL_X + CANCEL_WIDTH &&
+        y >= CANCEL_Y && y < CANCEL_Y + CANCEL_HEIGHT) {
         close();
         return;
     }
@@ -716,57 +686,40 @@ void TFTNumericEntry::_handleNumericTouch(int16_t x, int16_t y) {
     const int digits[3][3] = { {7,8,9}, {4,5,6}, {1,2,3} };
     for (int row = 0; row < 3; ++row) {
         for (int col = 0; col < 3; ++col) {
-            const int16_t kx = KP_X + col * (KEY_Width + KEY_GAP);
-            const int16_t ky = KP_Y + row * (KEY_Height + KEY_GAP);
-            if (x >= kx && x < kx + KEY_Width && y >= ky && y < ky + KEY_Height) {
+            const int16_t kx = KP_X + col * (KEY_WIDTH + KEY_GAP);
+            const int16_t ky = KP_Y + row * (KEY_HEIGHT + KEY_GAP);
+            if (x >= kx && x < kx + KEY_WIDTH && y >= ky && y < ky + KEY_HEIGHT) {
                 _appendDigit(digits[row][col]);
                 return;
             }
         }
     }
 
-    // Bottom row — layout depends on whether negative entry is allowed.
-    // Two distinct layouts share the same Y band (BR_Y).
+    // Bottom row — layout depends on whether negative entry is allowed
     if (_minVal < 0) {
-        // --- Sign-key layout: [0] [±/-] [<-] [OK] ---
-        // Pre-compute X boundaries for each button.
-        const int16_t x0Start  = KP_X;
-        const int16_t xSignStart = x0Start  + BRS_0_Width  + KEY_GAP;
-        const int16_t xBkStart   = xSignStart + BRS_S_Width  + KEY_GAP;
-        const int16_t xOkStart   = xBkStart   + BRS_BK_Width + KEY_GAP;
+        const int16_t x0Start   = KP_X;
+        const int16_t xSignStart = x0Start   + BRS_0_WIDTH  + KEY_GAP;
+        const int16_t xBkStart   = xSignStart + BRS_S_WIDTH  + KEY_GAP;
+        const int16_t xOkStart   = xBkStart   + BRS_BK_WIDTH + KEY_GAP;
 
-        if (y >= BR_Y && y < BR_Y + KEY_Height) {
-            if (x >= x0Start && x < x0Start + BRS_0_Width) {
-                _appendDigit(0);
-                return;
-            }
-            if (x >= xSignStart && x < xSignStart + BRS_S_Width) {
-                _toggleSign();
-                _valueDirty = true;
-                return;
-            }
-            if (x >= xBkStart && x < xBkStart + BRS_BK_Width) {
-                _backspace();
-                return;
-            }
-            if (x >= xOkStart) {
-                _confirm();
-                return;
-            }
+        if (y >= BR_Y && y < BR_Y + KEY_HEIGHT) {
+            if (x >= x0Start && x < x0Start + BRS_0_WIDTH)     { _appendDigit(0);  return; }
+            if (x >= xSignStart && x < xSignStart + BRS_S_WIDTH){ _toggleSign(); _valueDirty = true; return; }
+            if (x >= xBkStart && x < xBkStart + BRS_BK_WIDTH)  { _backspace();     return; }
+            if (x >= xOkStart)                                   { _confirm();       return; }
         }
     } else {
-        // --- Standard layout: [0] [<-] [OK] ---
-        if (y >= BR_Y && y < BR_Y + KEY_Height) {
-            if (x >= KP_X && x < KP_X + BR0_Width) {
+        if (y >= BR_Y && y < BR_Y + KEY_HEIGHT) {
+            if (x >= KP_X && x < KP_X + BR0_WIDTH) {
                 _appendDigit(0);
                 return;
             }
-            if (x >= KP_X + BR0_Width + KEY_GAP &&
-                x < KP_X + BR0_Width + KEY_GAP + BRBK_Width) {
+            if (x >= KP_X + BR0_WIDTH + KEY_GAP &&
+                x < KP_X + BR0_WIDTH + KEY_GAP + BRBK_WIDTH) {
                 _backspace();
                 return;
             }
-            if (x >= KP_X + BR0_Width + BRBK_Width + 2*KEY_GAP) {
+            if (x >= KP_X + BR0_WIDTH + BRBK_WIDTH + 2*KEY_GAP) {
                 _confirm();
                 return;
             }
@@ -775,16 +728,15 @@ void TFTNumericEntry::_handleNumericTouch(int16_t x, int16_t y) {
 }
 
 void TFTNumericEntry::_toggleSign() {
-    // Only allow sign toggle when negative values are in range.
     if (_minVal >= 0) return;
-    _negative    = !_negative;
-    _valueDirty  = true;
+    _negative   = !_negative;
+    _valueDirty = true;
 }
 
 void TFTNumericEntry::_appendDigit(int d) {
-    if (_digitCount >= ENTRY_MAX_DIGITS - 1) return;  // buffer full
+    if (_digitCount >= ENTRY_MAX_DIGITS - 1) return;
 
-    // First keypress: clear hint and start fresh (overwrite mode)
+    // First keypress: clear hint and start fresh
     if (!_editing) {
         _digitBuf[0] = '\0';
         _digitCount  = 0;
@@ -808,7 +760,7 @@ void TFTNumericEntry::_appendDigit(int d) {
 void TFTNumericEntry::_backspace() {
     if (_digitCount > 0) {
         _digitBuf[--_digitCount] = '\0';
-        if (_digitCount == 0) _editing = false;  // back to hint mode
+        if (_digitCount == 0) _editing = false;
         _valueDirty = true;
     }
 }
@@ -816,42 +768,40 @@ void TFTNumericEntry::_backspace() {
 void TFTNumericEntry::_confirm() {
     int val;
     if (_editing && _digitCount > 0) {
-        // Parse magnitude from digit buffer, then apply sign.
         val = atoi(_digitBuf);
         if (_negative) val = -val;
-        // Clamp to valid range (handles both positive and negative bounds).
         val = constrain(val, _minVal, _maxVal);
     } else {
-        val = _currentVal;  // no digits typed → keep current value unchanged
+        val = _currentVal;  // no digits typed -> keep current value
     }
     close();
     if (_callback) _callback(val);
 }
 
+
 // ---- Enum list helpers ------------------------------------------------------
 
 void TFTNumericEntry::_drawEnumList() {
-    const int listY = TB_Height + 2;
+    const int listY = TB_HEIGHT + 2;
     const int listH = EN_BTN_Y - listY - 2;
 
-    _display->fillRect(0, listY, SW, listH, gTheme.bg);
+    _display->fillRect(0, listY, SW, listH, COL_BACKGROUND);
 
     for (int r = 0; r < EN_ROWS; ++r) {
-        const int     idx = _scrollOffset + r;
+        const int idx = _scrollOffset + r;
         if (idx >= _numEnumOptions) break;
 
-        const int16_t ry  = listY + r * EN_ROW_Height;
+        const int16_t ry  = listY + r * EN_ROW_HEIGHT;
         const bool    sel = (idx == _selectedEnum);
 
-        _display->fillRect(0, ry, SW, EN_ROW_Height - 1,
-                           sel ? gTheme.selectedBg : gTheme.bg);
+        _display->fillRect(0, ry, SW, EN_ROW_HEIGHT - 1,
+                           sel ? COL_ACCENT : COL_BACKGROUND);
 
         if (_enumLabels[idx]) {
             _display->setTextSize(2);
-            // 2-arg: spaces render over correct row background
-            _display->setTextColor(sel ? gTheme.textOnSelect : gTheme.textNormal,
-                                   sel ? gTheme.selectedBg  : gTheme.bg);
-            _display->setCursor(10, ry + (EN_ROW_Height - 14) / 2);
+            _display->setTextColor(sel ? COL_BACKGROUND : COL_TEXT,
+                                   sel ? COL_ACCENT     : COL_BACKGROUND);
+            _display->setCursor(10, ry + (EN_ROW_HEIGHT - 14) / 2);
             _display->print(_enumLabels[idx]);
         }
     }
@@ -859,15 +809,15 @@ void TFTNumericEntry::_drawEnumList() {
 
 void TFTNumericEntry::_drawEnumButtons() {
     // Confirm (right)
-    _display->fillRect(180, EN_BTN_Y, 130, 30, gTheme.keyConfirm);
+    _display->fillRect(180, EN_BTN_Y, 130, 30, COL_CONFIRM);
     _display->setTextSize(1);
-    _display->setTextColor(gTheme.buttonText, gTheme.keyConfirm);
+    _display->setTextColor(COL_TEXT, COL_CONFIRM);
     _display->setCursor(212, EN_BTN_Y + 11);
     _display->print("Confirm");
 
     // Cancel (left)
-    _display->fillRect(10, EN_BTN_Y, 130, 30, gTheme.accent);
-    _display->setTextColor(gTheme.buttonText, gTheme.accent);
+    _display->fillRect(10, EN_BTN_Y, 130, 30, COL_RED);
+    _display->setTextColor(COL_TEXT, COL_RED);
     _display->setCursor(42, EN_BTN_Y + 11);
     _display->print("Cancel");
 }
@@ -886,11 +836,11 @@ void TFTNumericEntry::_handleEnumTouch(int16_t x, int16_t y) {
         return;
     }
 
-    // List rows — tap to select; swipe detection handled at higher level
-    const int listY = TB_Height + 2;
+    // List rows — tap to select
+    const int listY = TB_HEIGHT + 2;
     for (int r = 0; r < EN_ROWS; ++r) {
-        const int16_t ry = listY + r * EN_ROW_Height;
-        if (y >= ry && y < ry + EN_ROW_Height) {
+        const int16_t ry = listY + r * EN_ROW_HEIGHT;
+        if (y >= ry && y < ry + EN_ROW_HEIGHT) {
             const int idx = _scrollOffset + r;
             if (idx < _numEnumOptions && idx != _selectedEnum) {
                 _selectedEnum = idx;
@@ -908,424 +858,4 @@ void TFTNumericEntry::_scrollToSelection() {
         _scrollOffset = _selectedEnum - EN_ROWS + 1;
     }
     if (_scrollOffset < 0) _scrollOffset = 0;
-}
-
-
-// =============================================================================
-// TFTScreen
-// =============================================================================
-
-TFTScreen::TFTScreen()
-    : _display(nullptr), _numWidgets(0), _bgColour(0x0000)
-{}
-
-void TFTScreen::setDisplay(ILI9341_t3n* display) {
-    _display = display;
-    for (int i = 0; i < _numWidgets; ++i) {
-        if (_widgets[i]) _widgets[i]->setDisplay(display);
-    }
-}
-
-void TFTScreen::setBackground(uint16_t colour) { _bgColour = colour; }
-
-bool TFTScreen::addWidget(TFTWidget* widget) {
-    if (_numWidgets >= MAX_WIDGETS || !widget) return false;
-    widget->setDisplay(_display);
-    _widgets[_numWidgets++] = widget;
-    return true;
-}
-
-void TFTScreen::markAllDirty() {
-    for (int i = 0; i < _numWidgets; ++i) {
-        if (_widgets[i]) _widgets[i]->markDirty();
-    }
-}
-
-void TFTScreen::clearAndRedraw() {
-    if (_display) _display->fillScreen(_bgColour);
-    markAllDirty();
-}
-
-void TFTScreen::draw() {
-    // Cost proportional to dirty-widget count, not total count
-    for (int i = 0; i < _numWidgets; ++i) {
-        if (_widgets[i]) _widgets[i]->draw();
-    }
-}
-
-bool TFTScreen::onTouch(int16_t x, int16_t y) {
-    // First widget that claims the event stops routing
-    for (int i = 0; i < _numWidgets; ++i) {
-        if (_widgets[i] && _widgets[i]->onTouch(x, y)) return true;
-    }
-    return false;
-}
-
-void TFTScreen::onTouchRelease(int16_t x, int16_t y) {
-    // Broadcast to all widgets so buttons always restore normal appearance
-    for (int i = 0; i < _numWidgets; ++i) {
-        if (_widgets[i]) _widgets[i]->onTouchRelease(x, y);
-    }
-}
-
-int TFTScreen::numWidgets() const { return _numWidgets; }
-
-
-// =============================================================================
-// TFTScreenManager
-// =============================================================================
-
-TFTScreenManager::TFTScreenManager()
-    : _display(nullptr), _stackDepth(0)
-{}
-
-void TFTScreenManager::setDisplay(ILI9341_t3n* display) {
-    _display = display;
-    _numericEntry.setDisplay(display);
-}
-
-bool TFTScreenManager::push(TFTScreen* screen) {
-    if (_stackDepth >= SCREEN_STACK_DEPTH || !screen) return false;
-    screen->setDisplay(_display);
-    screen->clearAndRedraw();   // full clear + all widgets dirty
-    _stack[_stackDepth++] = screen;
-    return true;
-}
-
-bool TFTScreenManager::pop() {
-    if (_stackDepth <= 1) return false;  // never pop root screen
-    --_stackDepth;
-    // Restore the revealed screen with a full repaint (pixels were overwritten)
-    if (_stack[_stackDepth - 1]) {
-        _stack[_stackDepth - 1]->clearAndRedraw();
-    }
-    return true;
-}
-
-TFTScreen* TFTScreenManager::topScreen() {
-    return (_stackDepth > 0) ? _stack[_stackDepth - 1] : nullptr;
-}
-
-int TFTScreenManager::stackDepth() const { return _stackDepth; }
-
-TFTNumericEntry& TFTScreenManager::numericEntry() { return _numericEntry; }
-bool             TFTScreenManager::isEntryOpen()  const { return _numericEntry.isOpen(); }
-
-void TFTScreenManager::update(bool newTouch, int16_t tx, int16_t ty,
-                               bool newRelease, int16_t rx, int16_t ry) {
-    // Entry overlay takes full priority over the screen stack
-    if (_numericEntry.isOpen()) {
-        _numericEntry.draw();
-        if (newTouch) _numericEntry.onTouch(tx, ty);
-        return;
-    }
-
-    // Normal screen
-    TFTScreen* top = topScreen();
-    if (!top) return;
-
-    top->draw();
-    if (newTouch)   top->onTouch(tx, ty);
-    if (newRelease) top->onTouchRelease(rx, ry);
-}
-
-
-// =============================================================================
-// TFTKnob
-// =============================================================================
-
-TFTKnob::TFTKnob(int16_t x, int16_t y, int16_t w, int16_t h,
-                 uint8_t cc, const char* name, uint16_t colour)
-    : TFTWidget(x, y, w, h)
-    , _cc(cc)
-    , _colour(colour)
-    , _selected(false)
-    , _rawValue(0)
-    , _onTap(nullptr)
-{
-    strncpy(_name, name ? name : "---", PROW_NAME_LEN - 1);
-    _name[PROW_NAME_LEN - 1] = '\0';
-    _valText[0] = '\0';
-}
-
-void TFTKnob::setCallback(TapCallback cb) { _onTap = cb; }
-
-void TFTKnob::setValue(uint8_t rawValue, const char* text) {
-    bool changed = (rawValue != _rawValue);
-    _rawValue = rawValue;
-
-    char newText[PROW_VAL_LEN];
-    if (text && text[0]) {
-        strncpy(newText, text, PROW_VAL_LEN - 1);
-        newText[PROW_VAL_LEN - 1] = '\0';
-    } else {
-        snprintf(newText, PROW_VAL_LEN, "%d", (int)rawValue);
-    }
-    if (strncmp(newText, _valText, PROW_VAL_LEN) != 0) {
-        strncpy(_valText, newText, PROW_VAL_LEN - 1);
-        _valText[PROW_VAL_LEN - 1] = '\0';
-        changed = true;
-    }
-    if (changed) markDirty();
-}
-
-void TFTKnob::configure(uint8_t cc, const char* name, uint16_t colour) {
-    bool changed = false;
-    if (_cc != cc)         { _cc = cc;         changed = true; }
-    if (_colour != colour) { _colour = colour; changed = true; }
-    char newName[PROW_NAME_LEN];
-    strncpy(newName, name ? name : "---", PROW_NAME_LEN - 1);
-    newName[PROW_NAME_LEN - 1] = '\0';
-    if (strncmp(newName, _name, PROW_NAME_LEN) != 0) {
-        strncpy(_name, newName, PROW_NAME_LEN);
-        changed = true;
-    }
-    if (changed) markDirty();
-}
-
-void TFTKnob::setSelected(bool sel) {
-    if (sel != _selected) { _selected = sel; markDirty(); }
-}
-bool    TFTKnob::isSelected() const { return _selected; }
-uint8_t TFTKnob::getCC()      const { return _cc; }
-
-bool TFTKnob::onTouch(int16_t x, int16_t y) {
-    if (!hitTest(x, y) || _cc == 255) return false;
-    if (_onTap) _onTap(_cc);
-    return true;
-}
-
-// Draw a thick arc segment as a series of filled circles along a circular path.
-// angleDeg is the fill angle measured clockwise from the 7-o'clock start (−135°).
-// The arc sweeps 270° total (−135° to +135° in standard math coords).
-void TFTKnob::_drawArc(int16_t cx, int16_t cy, float fillAngle, uint16_t col) {
-    // Arc spans from startDeg to startDeg+fillAngle, measured in screen coords
-    // (y-axis points down, so clockwise is positive in screen space).
-    // We approximate the arc with small filled circles spaced 3° apart.
-    const float startDeg = -225.0f;  // 7 o'clock in math coords (CCW from +x)
-    const float stepDeg  = 3.0f;
-    const float endDeg   = startDeg + fillAngle;
-    const float r        = (float)(KNOB_R - ARC_W);
-    const float pi180    = 3.14159265f / 180.0f;
-
-    for (float a = startDeg; a <= endDeg; a += stepDeg) {
-        const float rad = a * pi180;
-        const int16_t px = cx + (int16_t)(r * cosf(rad));
-        const int16_t py = cy - (int16_t)(r * sinf(rad));  // y-axis flip for screen
-        _display->fillCircle(px, py, ARC_W, col);
-    }
-}
-
-void TFTKnob::doDraw() {
-    if (!_display) return;
-
-    // Layout: knob centred horizontally, pushed toward top of bounding rect
-    const int16_t cx   = _x + _w / 2;
-    const int16_t cy   = _y + 6 + KNOB_R;   // 6px top padding
-
-    // Colours
-    const uint16_t bgCol   = gTheme.bg;
-    const uint16_t arcCol  = _selected ? gTheme.selectedBg : _colour;
-    const uint16_t textCol = _selected ? _colour : gTheme.textNormal;
-    const uint16_t dimCol  = gTheme.textDim;
-
-    // Clear bounding rect
-    _display->fillRect(_x, _y, _w, _h, bgCol);
-
-    if (_cc == 255) {
-        // Empty slot — draw a dim dash
-        _display->setTextSize(1);
-        _display->setTextColor(dimCol, bgCol);
-        _display->setCursor(cx - 3, cy);
-        _display->print("-");
-        return;
-    }
-
-    // ---- Knob body ----
-    // Outer ring (border)
-    _display->drawCircle(cx, cy, KNOB_R,       gTheme.border);
-    // Inner fill (dark)
-    _display->fillCircle(cx, cy, KNOB_R - 1,   gTheme.headerBg);
-
-    // ---- Arc track (full 270°, dark) ----
-    _drawArc(cx, cy, 270.0f, gTheme.barTrack);
-
-    // ---- Arc fill (proportional to value) ----
-    if (_rawValue > 0) {
-        const float fillAngle = (_rawValue / 127.0f) * 270.0f;
-        _drawArc(cx, cy, fillAngle, arcCol);
-    }
-
-    // ---- Pointer dot — small filled circle at the arc end position ----
-    {
-        const float pointerAngle = -225.0f + (_rawValue / 127.0f) * 270.0f;
-        const float rad  = pointerAngle * (3.14159265f / 180.0f);
-        const float pr   = (float)(KNOB_R - ARC_W);
-        const int16_t px = cx + (int16_t)(pr * cosf(rad));
-        const int16_t py = cy - (int16_t)(pr * sinf(rad));
-        _display->fillCircle(px, py, ARC_W + 1, arcCol);
-    }
-
-    // ---- Label (centred below knob) ----
-    const int16_t labelY = cy + KNOB_R + 3;
-    _display->setTextSize(1);
-    _display->setTextColor(textCol, bgCol);
-    const int16_t nameW = (int16_t)(strlen(_name) * 6);
-    _display->setCursor(cx - nameW / 2, labelY);
-    _display->print(_name);
-
-    // ---- Value text (centred below label) ----
-    if (_valText[0]) {
-        const int16_t valY = labelY + 10;
-        _display->setTextSize(1);
-        _display->setTextColor(arcCol, bgCol);
-        const int16_t valW = (int16_t)(strlen(_valText) * 6);
-        _display->setCursor(cx - valW / 2, valY);
-        _display->print(_valText);
-    }
-
-    // ---- Selection ring ----
-    if (_selected) {
-        _display->drawRect(_x + 1, _y + 1, _w - 2, _h - 2, gTheme.selectedBg);
-    }
-}
-
-
-// =============================================================================
-// TFTSlider
-// =============================================================================
-
-TFTSlider::TFTSlider(int16_t x, int16_t y, int16_t w, int16_t h,
-                     uint8_t cc, const char* name, uint16_t colour)
-    : TFTWidget(x, y, w, h)
-    , _cc(cc)
-    , _colour(colour)
-    , _selected(false)
-    , _rawValue(0)
-    , _onTap(nullptr)
-{
-    strncpy(_name, name ? name : "---", PROW_NAME_LEN - 1);
-    _name[PROW_NAME_LEN - 1] = '\0';
-    _valText[0] = '\0';
-}
-
-void TFTSlider::setCallback(TapCallback cb) { _onTap = cb; }
-
-void TFTSlider::setValue(uint8_t rawValue, const char* text) {
-    bool changed = (rawValue != _rawValue);
-    _rawValue = rawValue;
-
-    char newText[PROW_VAL_LEN];
-    if (text && text[0]) {
-        strncpy(newText, text, PROW_VAL_LEN - 1);
-        newText[PROW_VAL_LEN - 1] = '\0';
-    } else {
-        snprintf(newText, PROW_VAL_LEN, "%d", (int)rawValue);
-    }
-    if (strncmp(newText, _valText, PROW_VAL_LEN) != 0) {
-        strncpy(_valText, newText, PROW_VAL_LEN - 1);
-        _valText[PROW_VAL_LEN - 1] = '\0';
-        changed = true;
-    }
-    if (changed) markDirty();
-}
-
-void TFTSlider::configure(uint8_t cc, const char* name, uint16_t colour) {
-    bool changed = false;
-    if (_cc != cc)         { _cc = cc;         changed = true; }
-    if (_colour != colour) { _colour = colour; changed = true; }
-    char newName[PROW_NAME_LEN];
-    strncpy(newName, name ? name : "---", PROW_NAME_LEN - 1);
-    newName[PROW_NAME_LEN - 1] = '\0';
-    if (strncmp(newName, _name, PROW_NAME_LEN) != 0) {
-        strncpy(_name, newName, PROW_NAME_LEN);
-        changed = true;
-    }
-    if (changed) markDirty();
-}
-
-void TFTSlider::setSelected(bool sel) {
-    if (sel != _selected) { _selected = sel; markDirty(); }
-}
-bool    TFTSlider::isSelected() const { return _selected; }
-uint8_t TFTSlider::getCC()      const { return _cc; }
-
-int16_t TFTSlider::_trackX() const { return _x + LABEL_W + 4; }
-int16_t TFTSlider::_trackW() const { return _w - LABEL_W - VAL_W - 8; }
-
-int16_t TFTSlider::trackTouchValue(int16_t tx) const {
-    const int16_t tX = _trackX();
-    const int16_t tW = _trackW();
-    if (tx < tX || tx >= tX + tW) return -1;
-    const int16_t clamped = tx - tX;
-    return (int16_t)((int32_t)clamped * 127 / tW);
-}
-
-bool TFTSlider::onTouch(int16_t x, int16_t y) {
-    if (!hitTest(x, y) || _cc == 255) return false;
-    // Touch on track = direct value set; touch elsewhere = open entry overlay
-    const int16_t tv = trackTouchValue(x);
-    if (tv >= 0) {
-        // Direct track touch — caller (SectionScreen) reads trackTouchValue
-        // We still fire the tap callback so SectionScreen knows which CC changed
-        if (_onTap) _onTap(_cc);
-    } else {
-        if (_onTap) _onTap(_cc);
-    }
-    return true;
-}
-
-void TFTSlider::doDraw() {
-    if (!_display) return;
-
-    const int16_t tX  = _trackX();
-    const int16_t tW  = _trackW();
-    const int16_t midY = _y + _h / 2;
-
-    const uint16_t bgCol   = _selected ? gTheme.selectedBg : gTheme.bg;
-    const uint16_t textCol = _selected ? gTheme.textOnSelect : gTheme.textNormal;
-    const uint16_t fillCol = _selected ? gTheme.textOnSelect : _colour;
-    const uint16_t dimCol  = _selected ? gTheme.textOnSelect : gTheme.textDim;
-
-    // Background + bottom separator
-    _display->fillRect(_x, _y, _w, _h - 1, bgCol);
-    _display->drawFastHLine(_x, _y + _h - 1, _w, gTheme.border);
-
-    if (_cc == 255) {
-        _display->setTextSize(1);
-        _display->setTextColor(dimCol, bgCol);
-        _display->setCursor(_x + 4, midY - 4);
-        _display->print("---");
-        return;
-    }
-
-    // ---- Label (left column, vertically centred) ----
-    _display->setTextSize(1);
-    _display->setTextColor(textCol, bgCol);
-    _display->setCursor(_x + 4, midY - 4);
-    _display->print(_name);
-
-    // ---- Track (full background, then coloured fill) ----
-    const int16_t trackY = midY - TRACK_H / 2;
-    _display->fillRect(tX, trackY, tW, TRACK_H, gTheme.barTrack);
-
-    const int16_t fillW = (int16_t)((int32_t)_rawValue * tW / 127);
-    if (fillW > 0) {
-        _display->fillRect(tX, trackY, fillW, TRACK_H, fillCol);
-    }
-
-    // ---- Thumb (vertical bar at fill position) ----
-    const int16_t thumbX = tX + fillW - THUMB_W / 2;
-    const int16_t thumbY = midY - THUMB_H / 2;
-    _display->fillRect(thumbX, thumbY, THUMB_W, THUMB_H, fillCol);
-    _display->drawRect(thumbX, thumbY, THUMB_W, THUMB_H, gTheme.textNormal);
-
-    // ---- Value text (right column, vertically centred) ----
-    if (_valText[0]) {
-        const int16_t valX = tX + tW + 4;
-        _display->setTextSize(1);
-        _display->setTextColor(fillCol, bgCol);
-        _display->setCursor(valX, midY - 4);
-        _display->print(_valText);
-    }
 }

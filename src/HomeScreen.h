@@ -41,7 +41,6 @@
 #include "SynthEngine.h"
 #include "JT8000_Sections.h"
 #include "JT8000Colours.h"
-#include "TFTMiniWidgets.h"
 #include "TFTWidgets.h"
 #include "LayerManager.h"
 
