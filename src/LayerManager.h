@@ -45,6 +45,9 @@
 #include "VoicePool.h"
 #include "GlobalFX.h"
 #include "CCDefs.h"
+#include "CCCache.h"      // Phase 2 — per-layer/per-scope CC cache
+
+class SysExAdapter;       // Phase 1 — forward decl for setSysExSnoop()
 
 // Performance mode — how layers are used
 enum class PerfMode : uint8_t {
@@ -174,6 +177,29 @@ public:
     // =========================================================================
     void setNotifier(SynthEngine::NotifyFn fn);
 
+    // =========================================================================
+    // SysEx CC snoop (Phase 1) — registered by Jteensy8000 in setup(). When
+    // set, handleControlChange() forwards every incoming CC to the adapter so
+    // it can keep its SysEx-only abstraction state (FX Mod/Delay enable+
+    // variation memory) consistent with whatever's coming in from hardware.
+    // Pass nullptr to disable (default).
+    // =========================================================================
+    void setSysExSnoop(SysExAdapter* adapter) { _sysExSnoop = adapter; }
+
+    // =========================================================================
+    // Per-layer / per-scope CC cache (Phase 2) — backs SysEx GET_PARAM and
+    // BANK_DUMP. Updated automatically by every CC dispatch through
+    // handleControlChange(); also updated by SysExAdapter for engine-direct
+    // paths that bypass the channel-filtered handler.
+    //
+    // cacheCC:    write a (layer, cc, value) tuple into the cache. layer is
+    //             one of SyxProto::kLayer{A,B,Perf,GlobalFx}.
+    // getCachedCC: read the most recent value for (layer, cc). Returns
+    //             CCCache::kUnset (0xFF) if the slot has never been written.
+    // =========================================================================
+    void    cacheCC    (uint8_t layer, uint8_t cc, uint8_t value);
+    uint8_t getCachedCC(uint8_t layer, uint8_t cc) const;
+
 private:
     // =========================================================================
     // Shared voice pool — declared BEFORE _engineA/_engineB so it is fully
@@ -289,6 +315,14 @@ private:
     static constexpr uint8_t CC_PERF_EDIT_TARGET     = CC::PERF_EDIT_TARGET;
     static constexpr uint8_t CC_PERF_MIDI_CHANNEL_A  = CC::PERF_MIDI_CHANNEL_A;
     static constexpr uint8_t CC_PERF_MIDI_CHANNEL_B  = CC::PERF_MIDI_CHANNEL_B;
+
+    // SysEx adapter back-reference for CC snoop (Phase 1). nullptr until
+    // Jteensy8000 wires it in setup(). See setSysExSnoop().
+    SysExAdapter* _sysExSnoop = nullptr;
+
+    // CC cache (Phase 2) — populated by every CC dispatch through this class.
+    // ~272 bytes; see CCCache.h for layout.
+    CCCache::Storage _ccCache;
 
 public:
     // =========================================================================

@@ -6,6 +6,8 @@
 
 #include "LayerManager.h"
 #include "DebugTrace.h"
+#include "SysExAdapter.h"   // Phase 1 — for snoopCC() forward access
+#include "SyxProtocol.h"    // Phase 2 — for kLayerA/B/Perf/GlobalFx constants
 
 // =============================================================================
 // Constructor — no AudioConnections here (same rule as SynthEngine).
@@ -33,6 +35,13 @@ LayerManager::LayerManager()
 // =============================================================================
 void LayerManager::begin()
 {
+    // --- Reset cache (Phase 2) -------------------------------------------
+    // CC cache starts empty. Live CC dispatch + SysEx writes populate it.
+    // Boot patch loads bypass our handleControlChange() (call engine
+    // handlers directly), so the editor pre-populates the cache on connect
+    // by sending SET_PARAM for every UI-displayed param.
+    _ccCache.reset();
+
     // --- Hand both engines a pointer to the shared pool -------------------
     // This replaces the old setSharedVoicePool() hack where Engine B borrowed
     // Engine A's voices. The pool is a first-class member of LayerManager
@@ -213,6 +222,25 @@ void LayerManager::noteOff(byte channel, byte note)
 // =============================================================================
 void LayerManager::handleControlChange(byte channel, byte control, byte value)
 {
+    // --- SysEx adapter CC snoop (Phase 1) ------------------------------------
+    // Runs first so the adapter sees every CC, including those generated
+    // internally (e.g. by Patch::applyTo). The adapter only inspects a handful
+    // of conflated CCs (103/106/107/109) for its abstraction state — branch
+    // is cheap when not registered.
+    if (_sysExSnoop) _sysExSnoop->snoopCC(control, value);
+
+    // --- CC cache (Phase 2): perf and global-FX scope ------------------------
+    // Both share the _isPerfCC() predicate in the current firmware (it covers
+    // performance CCs 140..146 AND the reverb CCs). cacheCC() routes to the
+    // right slot internally based on CC number.
+    if (_isPerfCC(control)) {
+        if (control >= CCCache::kPerfCcBase) {
+            cacheCC(SyxProto::kLayerPerf, control, value);
+        } else {
+            cacheCC(SyxProto::kLayerGlobalFx, control, value);
+        }
+    }
+
     // --- Performance CCs: handled here, no channel filter --------------------
     if (_isPerfCC(control)) {
         switch (control) {
@@ -326,8 +354,16 @@ void LayerManager::handleControlChange(byte channel, byte control, byte value)
         case EditTarget::BOTH:    routeToA = aMatches; routeToB = bMatches; break;
     }
 
-    if (routeToA) _engineA.handleControlChange(channel, control, value);
-    if (routeToB) _engineB.handleControlChange(channel, control, value);
+    // Update cache (Phase 2) before dispatch so the slot reflects intent
+    // even if the engine handler is later refactored to defer state changes.
+    if (routeToA) {
+        cacheCC(SyxProto::kLayerA, control, value);
+        _engineA.handleControlChange(channel, control, value);
+    }
+    if (routeToB) {
+        cacheCC(SyxProto::kLayerB, control, value);
+        _engineB.handleControlChange(channel, control, value);
+    }
 
     // Fire notifier once if we routed anywhere. Skipping it on "channel
     // matched but edit target rejected" is deliberate — the UI shouldn't
@@ -739,5 +775,52 @@ void LayerManager::setCC(uint8_t cc, uint8_t value) {
                 _engineB.handleControlChange(1, cc, value);
                 break;
         }
+    }
+}
+
+// =============================================================================
+// CC cache (Phase 2) — write/read a slot per layer + scope.
+//
+// Patch CCs (0..127) live in patchA[] / patchB[] indexed by raw CC number.
+// Performance CCs (140..146) and the sparse GlobalFX CC numbers are packed
+// into compact arrays via the helpers in CCCache.h. Writes outside the
+// expected layout (e.g. an unrecognised CC) are silently dropped — keeps the
+// API forgiving so callers don't have to care about the routing.
+// =============================================================================
+void LayerManager::cacheCC(uint8_t layer, uint8_t cc, uint8_t value) {
+    switch (layer) {
+        case SyxProto::kLayerA:
+            if (cc < 128) _ccCache.patchA[cc] = value;
+            break;
+        case SyxProto::kLayerB:
+            if (cc < 128) _ccCache.patchB[cc] = value;
+            break;
+        case SyxProto::kLayerPerf: {
+            const uint8_t i = CCCache::perfIndex(cc);
+            if (i != 0xFF) _ccCache.perf[i] = value;
+        } break;
+        case SyxProto::kLayerGlobalFx: {
+            const uint8_t i = CCCache::gfxIndex(cc);
+            if (i != 0xFF) _ccCache.gfx[i] = value;
+        } break;
+        default: break;
+    }
+}
+
+uint8_t LayerManager::getCachedCC(uint8_t layer, uint8_t cc) const {
+    switch (layer) {
+        case SyxProto::kLayerA:
+            return (cc < 128) ? _ccCache.patchA[cc] : CCCache::kUnset;
+        case SyxProto::kLayerB:
+            return (cc < 128) ? _ccCache.patchB[cc] : CCCache::kUnset;
+        case SyxProto::kLayerPerf: {
+            const uint8_t i = CCCache::perfIndex(cc);
+            return (i != 0xFF) ? _ccCache.perf[i] : CCCache::kUnset;
+        }
+        case SyxProto::kLayerGlobalFx: {
+            const uint8_t i = CCCache::gfxIndex(cc);
+            return (i != 0xFF) ? _ccCache.gfx[i] : CCCache::kUnset;
+        }
+        default: return CCCache::kUnset;
     }
 }

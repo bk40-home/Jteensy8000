@@ -294,6 +294,13 @@ void setup() {
     Serial.begin(115200);
     delay(200);   // Let power rail settle before touching SPI or I2C
 
+    if (CrashReport) {
+    Serial.println("=== CRASH REPORT ===");
+    Serial.print(CrashReport);
+    Serial.println("=== END ===");
+    CrashReport.clear();
+}
+
     Serial.println("[JT8000] Boot start");
 
     // -------------------------------------------------------------------------
