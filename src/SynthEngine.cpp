@@ -1522,20 +1522,20 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         case CC::OSC1_WAVE: {
             WaveformType t = waveformFromCC(value);
             setOsc1Waveform((int)t);
-            JT_CC_LOG("[CC %u:%s] OSC1 Waveform -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t);
+            JT_LOGF("[CC %u:%s] OSC1 Waveform -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t);
         } break;
 
         case CC::OSC2_WAVE: {
             WaveformType t = waveformFromCC(value);
             setOsc2Waveform((int)t);
-            JT_CC_LOG("[CC %u:%s] OSC2 Waveform -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t);
+            JT_LOGF("[CC %u:%s] OSC2 Waveform -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t);
         } break;
 
         // ------------------- Mod Wheel (example: LFO1 frequency) -------------------
         case 1: { // MIDI ModWheel
             float hz = JT8000Map::cc_to_lfo_hz(value);
             setLFO1Frequency(hz);
-            JT_CC_LOG("[CC %u:ModWheel] LFO1 Freq = %.4f Hz\n", control, hz);
+            JT_LOGF("[CC %u:ModWheel] LFO1 Freq = %.4f Hz\n", control, hz);
         } break;
 
         // ------------------- Filter main -------------------
@@ -1543,7 +1543,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             float hz = JT8000Map::cc_to_obxa_cutoff_hz(value);
             hz = fminf(fmaxf(hz, CUTOFF_MIN_HZ), CUTOFF_MAX_HZ);
             setFilterCutoff(hz);
-            JT_CC_LOG("[CC %u:%s] Cutoff = %.2f Hz\n", control, ccName, hz);
+            JT_LOGF("[CC %u:%s] Cutoff = %.2f Hz\n", control, ccName, hz);
         } break;
 
         case CC::FILTER_RESONANCE: {
@@ -1552,28 +1552,18 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             // the VA engine receives the full 0..1 range.
             float r = JT8000Map::cc_to_resonance(value, _filterEngine);
             setFilterResonance(r);
-<<<<<<< Updated upstream
             JT_LOGF("[CC %u:%s] Resonance = %.4f (engine %u)\n", control, ccName, r, _filterEngine);
-=======
-            JT_CC_LOG("[CC %u:%s] Resonance = %.4f (engine %u)\n", control, ccName, r, _patch.filterEngine);
->>>>>>> Stashed changes
         } break;
 
         // ------------------- Amp envelope -------------------
         case CC::AMP_ATTACK: {
             float ms = CCtoTime(value);
-<<<<<<< Updated upstream
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setAmpAttack(ms);
             JT_LOGF("[CC %u:%s] Amp Attack = %.2f ms\n", control, ccName, ms);
-=======
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setAmpAttack(ms);
-            JT_CC_LOG("[CC %u:%s] Amp Attack = %.2f ms\n", control, ccName, ms);
->>>>>>> Stashed changes
         } break;
 
         case CC::AMP_DECAY: {
             float ms = CCtoTime(value);
-<<<<<<< Updated upstream
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setAmpDecay(ms);
             JT_LOGF("[CC %u:%s] Amp Decay = %.2f ms\n", control, ccName, ms);
         } break;
@@ -1581,43 +1571,23 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         case CC::AMP_SUSTAIN: {
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setAmpSustain(norm);
             JT_LOGF("[CC %u:%s] Amp Sustain = %.3f\n", control, ccName, norm);
-=======
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setAmpDecay(ms);
-            JT_CC_LOG("[CC %u:%s] Amp Decay = %.2f ms\n", control, ccName, ms);
-        } break;
-
-        case CC::AMP_SUSTAIN: {
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setAmpSustain(norm);
-            JT_CC_LOG("[CC %u:%s] Amp Sustain = %.3f\n", control, ccName, norm);
->>>>>>> Stashed changes
         } break;
 
         case CC::AMP_RELEASE: {
             float ms = CCtoTime(value);
-<<<<<<< Updated upstream
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setAmpRelease(ms);
             JT_LOGF("[CC %u:%s] Amp Release = %.2f ms\n", control, ccName, ms);
-=======
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setAmpRelease(ms);
-            JT_CC_LOG("[CC %u:%s] Amp Release = %.2f ms\n", control, ccName, ms);
->>>>>>> Stashed changes
         } break;
 
         // ------------------- Filter envelope -------------------
         case CC::FILTER_ENV_ATTACK: {
             float ms = CCtoTime(value);
-<<<<<<< Updated upstream
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setFilterAttack(ms);
             JT_LOGF("[CC %u:%s] Filt Env Attack = %.2f ms\n", control, ccName, ms);
-=======
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setFilterAttack(ms);
-            JT_CC_LOG("[CC %u:%s] Filt Env Attack = %.2f ms\n", control, ccName, ms);
->>>>>>> Stashed changes
         } break;
 
         case CC::FILTER_ENV_DECAY: {
             float ms = CCtoTime(value);
-<<<<<<< Updated upstream
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setFilterDecay(ms);
             JT_LOGF("[CC %u:%s] Filt Env Decay = %.2f ms\n", control, ccName, ms);
         } break;
@@ -1625,26 +1595,12 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         case CC::FILTER_ENV_SUSTAIN: {
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setFilterSustain(norm);
             JT_LOGF("[CC %u:%s] Filt Env Sustain = %.3f\n", control, ccName, norm);
-=======
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setFilterDecay(ms);
-            JT_CC_LOG("[CC %u:%s] Filt Env Decay = %.2f ms\n", control, ccName, ms);
-        } break;
-
-        case CC::FILTER_ENV_SUSTAIN: {
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setFilterSustain(norm);
-            JT_CC_LOG("[CC %u:%s] Filt Env Sustain = %.3f\n", control, ccName, norm);
->>>>>>> Stashed changes
         } break;
 
         case CC::FILTER_ENV_RELEASE: {
             float ms = CCtoTime(value);
-<<<<<<< Updated upstream
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setFilterRelease(ms);
             JT_LOGF("[CC %u:%s] Filt Env Release = %.2f ms\n", control, ccName, ms);
-=======
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setFilterRelease(ms);
-            JT_CC_LOG("[CC %u:%s] Filt Env Release = %.2f ms\n", control, ccName, ms);
->>>>>>> Stashed changes
         } break;
 
         // ------------------- Coarse pitch (stepped) -------------------
@@ -1656,7 +1612,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             else if (value <= 101) semis = +12.0f;
             else                   semis = +24.0f;
             setOsc1PitchOffset(semis);
-            JT_CC_LOG("[CC %u:%s] OSC1 Coarse = %.1f semitones\n", control, ccName, semis);
+            JT_LOGF("[CC %u:%s] OSC1 Coarse = %.1f semitones\n", control, ccName, semis);
         } break;
 
         case CC::OSC2_PITCH_OFFSET: {
@@ -1667,7 +1623,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             else if (value <= 101) semis = +12.0f;
             else                   semis = +24.0f;
             setOsc2PitchOffset(semis);
-            JT_CC_LOG("[CC %u:%s] OSC2 Coarse = %.1f semitones\n", control, ccName, semis);
+            JT_LOGF("[CC %u:%s] OSC2 Coarse = %.1f semitones\n", control, ccName, semis);
         } break;
 
         // ------------------- Detune / Fine -------------------
@@ -1676,58 +1632,57 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         case CC::OSC1_DETUNE: {
             float d = (value == 64) ? 0.0f : (norm * 2.0f - 1.0f) * 12.0f;
             setOsc1Detune(d);
-            JT_CC_LOG("[CC %u:%s] OSC1 Detune = %.2f Hz\n", control, ccName, d);
+            JT_LOGF("[CC %u:%s] OSC1 Detune = %.2f Hz\n", control, ccName, d);
         } break;
         case CC::OSC2_DETUNE: {
             float d = (value == 64) ? 0.0f : (norm * 2.0f - 1.0f) * 12.0f;
             setOsc2Detune(d);
-            JT_CC_LOG("[CC %u:%s] OSC2 Detune = %.2f Hz\n", control, ccName, d);
+            JT_LOGF("[CC %u:%s] OSC2 Detune = %.2f Hz\n", control, ccName, d);
         } break;
         case CC::OSC1_FINE_TUNE: {
             float c = (value == 64) ? 0.0f : norm * 200.0f - 100.0f;
             setOsc1FineTune(c);
-            JT_CC_LOG("[CC %u:%s] OSC1 Fine = %.1f cents\n", control, ccName, c);
+            JT_LOGF("[CC %u:%s] OSC1 Fine = %.1f cents\n", control, ccName, c);
         } break;
         case CC::OSC2_FINE_TUNE: {
             float c = (value == 64) ? 0.0f : norm * 200.0f - 100.0f;
             setOsc2FineTune(c);
-            JT_CC_LOG("[CC %u:%s] OSC2 Fine = %.1f cents\n", control, ccName, c);
+            JT_LOGF("[CC %u:%s] OSC2 Fine = %.1f cents\n", control, ccName, c);
         } break;
 
         // ------------------- Osc mix + taps -------------------
         case CC::OSC1_FEEDBACK_AMOUNT: {
             float a = norm;
             setOsc1FeedbackAmount(norm);
-            JT_CC_LOG("[CC %u:%s] Osc1 feedback amount = %.3f \n", control, ccName, a);
+            JT_LOGF("[CC %u:%s] Osc1 feedback amount = %.3f \n", control, ccName, a);
         } break;
 
         case CC::OSC2_FEEDBACK_AMOUNT: {
             float a = norm;
             setOsc2FeedbackAmount(norm);
-            JT_CC_LOG("[CC %u:%s] Osc2 feedback amount = %.3f \n", control, ccName, a);
+            JT_LOGF("[CC %u:%s] Osc2 feedback amount = %.3f \n", control, ccName, a);
         } break;
 
         case CC::OSC1_FEEDBACK_MIX: {
             float a = norm;
             setOsc1FeedbackMix(norm);
-            JT_CC_LOG("[CC %u:%s] Osc1 feedback mix = %.3f \n", control, ccName, a);
+            JT_LOGF("[CC %u:%s] Osc1 feedback mix = %.3f \n", control, ccName, a);
         } break;
 
          case CC::OSC2_FEEDBACK_MIX: {
             float a = norm;
             setOsc2FeedbackMix(norm);
-            JT_CC_LOG("[CC %u:%s] Osc2 feedback mix = %.3f \n", control, ccName, a);
+            JT_LOGF("[CC %u:%s] Osc2 feedback mix = %.3f \n", control, ccName, a);
         } break;
 
         // ------------------- Osc mix + taps -------------------
         case CC::OSC_MIX_BALANCE: {
             float l = 1.0f - norm, r = norm;
             setOscMix(l, r);
-            JT_CC_LOG("[CC %u:%s] Osc Mix balance L=%.3f R=%.3f\n", control, ccName, l, r);
+            JT_LOGF("[CC %u:%s] Osc Mix balance L=%.3f R=%.3f\n", control, ccName, l, r);
         } break;
 
         case CC::OSC1_MIX: {
-<<<<<<< Updated upstream
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setOsc1Mix(norm);
             _osc1Mix = norm;
             JT_LOGF("[CC %u:%s] OSC1 Mix = %.3f\n", control, ccName, norm);
@@ -1737,39 +1692,28 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setOsc2Mix(norm);
             _osc2Mix = norm;
             JT_LOGF("[CC %u:%s] OSC2 Mix = %.3f\n", control, ccName, norm);
-=======
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setOsc1Mix(norm);
-            _patch.osc1Mix = norm;
-            JT_CC_LOG("[CC %u:%s] OSC1 Mix = %.3f\n", control, ccName, norm);
         } break;
 
-        case CC::OSC2_MIX: {
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setOsc2Mix(norm);
-            _patch.osc2Mix = norm;
-            JT_CC_LOG("[CC %u:%s] OSC2 Mix = %.3f\n", control, ccName, norm);
->>>>>>> Stashed changes
-        } break;
-
-        case CC::SUB_MIX:   { setSubMix(norm);   JT_CC_LOG("[CC %u:%s] Sub Mix   = %.3f\n", control, ccName, norm); } break;
-        case CC::NOISE_MIX: { setNoiseMix(norm); JT_CC_LOG("[CC %u:%s] Noise Mix = %.3f\n", control, ccName, norm); } break;
+        case CC::SUB_MIX:   { setSubMix(norm);   JT_LOGF("[CC %u:%s] Sub Mix   = %.3f\n", control, ccName, norm); } break;
+        case CC::NOISE_MIX: { setNoiseMix(norm); JT_LOGF("[CC %u:%s] Noise Mix = %.3f\n", control, ccName, norm); } break;
 
         // ------------------- Filter modulation -------------------
         case CC::FILTER_ENV_AMOUNT: {
             float a = norm * 2.0f - 1.0f;
             setFilterEnvAmount(a);
-            JT_CC_LOG("[CC %u:%s] Filt Env Amount = %.3f\n", control, ccName, a);
+            JT_LOGF("[CC %u:%s] Filt Env Amount = %.3f\n", control, ccName, a);
         } break;
 
         case CC::FILTER_KEY_TRACK: {
             float k = norm * 2.0f - 1.0f;
             setFilterKeyTrackAmount(k);
-            JT_CC_LOG("[CC %u:%s] KeyTrack = %.3f\n", control, ccName, k);
+            JT_LOGF("[CC %u:%s] KeyTrack = %.3f\n", control, ccName, k);
         } break;
 
         case CC::FILTER_OCTAVE_CONTROL: {
             float o = norm * 10.0f;
             setFilterOctaveControl(o);
-            JT_CC_LOG("[CC %u:%s] Filter Octave = %.3f\n", control, ccName, o);
+            JT_LOGF("[CC %u:%s] Filter Octave = %.3f\n", control, ccName, o);
         } break;
 
         // --- OBXa Filter Extended Controls ---
@@ -1777,7 +1721,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         // Multimode blend: CC 0-127 → 0.0-1.0 (LP4 → HP via pole mixing)
         case CC::FILTER_OBXA_MULTIMODE: {
             setFilterMultimode(norm);
-            JT_CC_LOG("[CC %u:%s] Multimode = %.3f\n", control, ccName, norm);
+            JT_LOGF("[CC %u:%s] Multimode = %.3f\n", control, ccName, norm);
         } break;
 
         // Single topology selector — clears conflicting flags automatically.
@@ -1787,7 +1731,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
                 (int)value * (int)CC::FILTER_MODE_COUNT / 128, 0,
                 (int)CC::FILTER_MODE_COUNT - 1);
             setFilterMode(mode);
-            JT_CC_LOG("[CC %u:%s] FilterMode = %u\n", control, ccName, mode);
+            JT_LOGF("[CC %u:%s] FilterMode = %u\n", control, ccName, mode);
         } break;
 
         // Filter engine select: 0 = OBXa, 1 = VA bank.
@@ -1796,7 +1740,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             const uint8_t eng = (value >= 64) ? CC::FILTER_ENGINE_VA
                                               : CC::FILTER_ENGINE_OBXA;
             setFilterEngine(eng);
-            JT_CC_LOG("[CC %u:%s] FilterEngine = %u\n", control, ccName, eng);
+            JT_LOGF("[CC %u:%s] FilterEngine = %u\n", control, ccName, eng);
         } break;
 
         // VA bank topology: CC 0-127 mapped into FILTER_COUNT equal buckets.
@@ -1804,33 +1748,33 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             const uint8_t vt = (uint8_t)constrain(
                 (int)value * (int)FILTER_COUNT / 128, 0, (int)FILTER_COUNT - 1);
             setVAFilterType(vt);
-            JT_CC_LOG("[CC %u:%s] VAFilterType = %u\n", control, ccName, vt);
+            JT_LOGF("[CC %u:%s] VAFilterType = %u\n", control, ccName, vt);
         } break;
 
         // Xpander sub-mode (0..14): only meaningful when FilterMode == XPANDER_M
         case CC::FILTER_OBXA_XPANDER_MODE: {
             const uint8_t mode = (uint8_t)constrain((int)value * 15 / 128, 0, 14);
             setFilterXpanderMode(mode);
-            JT_CC_LOG("[CC %u:%s] XpanderMode = %u\n", control, ccName, mode);
+            JT_LOGF("[CC %u:%s] XpanderMode = %u\n", control, ccName, mode);
         } break;
 
         // Resonance modulation depth: CC 0-127 → 0.0-1.0
         case CC::FILTER_OBXA_RES_MOD_DEPTH: {
             setFilterResonanceModDepth(norm);
-            JT_CC_LOG("[CC %u:%s] ResModDepth = %.3f\n", control, ccName, norm);
+            JT_LOGF("[CC %u:%s] ResModDepth = %.3f\n", control, ccName, norm);
         } break;
 
         // ------------------- LFO1 -------------------
-        case CC::LFO1_FREQ:        { float hz = JT8000Map::cc_to_lfo_hz(value); setLFO1Frequency(hz); JT_CC_LOG("[CC %u:%s] LFO1 Freq = %.4f Hz\n", control, ccName, hz); } break;
-        case CC::LFO1_DEPTH:       { setLFO1Amount(norm); JT_CC_LOG("[CC %u:%s] LFO1 Depth = %.3f\n", control, ccName, norm); } break;
-        case CC::LFO1_DESTINATION: { int d = JT8000Map::lfoDestFromCC(value); setLFO1Destination((LFODestination)d); JT_CC_LOG("[CC %u:%s] LFO1 Dest = %d\n", control, ccName, d); } break;
-        case CC::LFO1_WAVEFORM:    { WaveformType t = waveformFromCC(value); setLFO1Waveform((int)t); JT_CC_LOG("[CC %u:%s] LFO1 Wave -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t); } break;
+        case CC::LFO1_FREQ:        { float hz = JT8000Map::cc_to_lfo_hz(value); setLFO1Frequency(hz); JT_LOGF("[CC %u:%s] LFO1 Freq = %.4f Hz\n", control, ccName, hz); } break;
+        case CC::LFO1_DEPTH:       { setLFO1Amount(norm); JT_LOGF("[CC %u:%s] LFO1 Depth = %.3f\n", control, ccName, norm); } break;
+        case CC::LFO1_DESTINATION: { int d = JT8000Map::lfoDestFromCC(value); setLFO1Destination((LFODestination)d); JT_LOGF("[CC %u:%s] LFO1 Dest = %d\n", control, ccName, d); } break;
+        case CC::LFO1_WAVEFORM:    { WaveformType t = waveformFromCC(value); setLFO1Waveform((int)t); JT_LOGF("[CC %u:%s] LFO1 Wave -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t); } break;
 
         // ------------------- LFO2 -------------------
-        case CC::LFO2_FREQ:        { float hz = JT8000Map::cc_to_lfo_hz(value); setLFO2Frequency(hz); JT_CC_LOG("[CC %u:%s] LFO2 Freq = %.4f Hz\n", control, ccName, hz); } break;
-        case CC::LFO2_DEPTH:       { setLFO2Amount(norm); JT_CC_LOG("[CC %u:%s] LFO2 Depth = %.3f\n", control, ccName, norm); } break;
-        case CC::LFO2_DESTINATION: { int d = JT8000Map::lfoDestFromCC(value); setLFO2Destination((LFODestination)d); JT_CC_LOG("[CC %u:%s] LFO2 Dest = %d\n", control, ccName, d); } break;
-        case CC::LFO2_WAVEFORM:    { WaveformType t = waveformFromCC(value); setLFO2Waveform((int)t); JT_CC_LOG("[CC %u:%s] LFO2 Wave -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t); } break;
+        case CC::LFO2_FREQ:        { float hz = JT8000Map::cc_to_lfo_hz(value); setLFO2Frequency(hz); JT_LOGF("[CC %u:%s] LFO2 Freq = %.4f Hz\n", control, ccName, hz); } break;
+        case CC::LFO2_DEPTH:       { setLFO2Amount(norm); JT_LOGF("[CC %u:%s] LFO2 Depth = %.3f\n", control, ccName, norm); } break;
+        case CC::LFO2_DESTINATION: { int d = JT8000Map::lfoDestFromCC(value); setLFO2Destination((LFODestination)d); JT_LOGF("[CC %u:%s] LFO2 Dest = %d\n", control, ccName, d); } break;
+        case CC::LFO2_WAVEFORM:    { WaveformType t = waveformFromCC(value); setLFO2Waveform((int)t); JT_LOGF("[CC %u:%s] LFO2 Wave -> %s (%d)\n", control, ccName, waveformShortName(t), (int)t); } break;
 
         
         // ============================================================================
@@ -1842,13 +1786,13 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         case CC::FX_BASS_GAIN: {
             float dB = (norm * 24.0f) - 12.0f; // 0..1 → -12..+12 dB
             setFXBassGain(dB);
-            JT_CC_LOG("[CC %u:%s] Bass = %.1f dB\n", control, ccName, dB);
+            JT_LOGF("[CC %u:%s] Bass = %.1f dB\n", control, ccName, dB);
         } break;
 
         case CC::FX_TREBLE_GAIN: {
             float dB = (norm * 24.0f) - 12.0f; // 0..1 → -12..+12 dB
             setFXTrebleGain(dB);
-            JT_CC_LOG("[CC %u:%s] Treble = %.1f dB\n", control, ccName, dB);
+            JT_LOGF("[CC %u:%s] Treble = %.1f dB\n", control, ccName, dB);
         } break;
 
         // --- JPFX Modulation Effects ---
@@ -1861,19 +1805,19 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
                 if (variation > 10) variation = 10;
             }
             setFXModEffect(variation);
-            JT_CC_LOG("[CC %u:%s] Mod Effect = %d (%s)\n", 
+            JT_LOGF("[CC %u:%s] Mod Effect = %d (%s)\n", 
                     control, ccName, variation, getFXModEffectName());
         } break;
 
         case CC::FX_MOD_MIX: {
             setFXModMix(norm);
-            JT_CC_LOG("[CC %u:%s] Mod Mix = %.3f\n", control, ccName, norm);
+            JT_LOGF("[CC %u:%s] Mod Mix = %.3f\n", control, ccName, norm);
         } break;
 
         case CC::FX_MOD_RATE: {
             float hz = norm * 20.0f; // 0..1 → 0..20 Hz
             setFXModRate(hz);
-            JT_CC_LOG("[CC %u:%s] Mod Rate = %.2f Hz\n", control, ccName, hz);
+            JT_LOGF("[CC %u:%s] Mod Rate = %.2f Hz\n", control, ccName, hz);
         } break;
 
         case CC::FX_MOD_FEEDBACK: {
@@ -1883,7 +1827,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
                 fb = ((value - 1) / 126.0f) * 0.99f;
             }
             setFXModFeedback(fb);
-            JT_CC_LOG("[CC %u:%s] Mod FB = %.3f\n", control, ccName, fb);
+            JT_LOGF("[CC %u:%s] Mod FB = %.3f\n", control, ccName, fb);
         } break;
 
         // --- JPFX Delay Effects ---
@@ -1895,13 +1839,13 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
                 if (variation > 4) variation = 4;
             }
             setFXDelayEffect(variation);
-            JT_CC_LOG("[CC %u:%s] Delay Effect = %d (%s)\n", 
+            JT_LOGF("[CC %u:%s] Delay Effect = %d (%s)\n", 
                     control, ccName, variation, getFXDelayEffectName());
         } break;
 
         case CC::FX_JPFX_DELAY_MIX: {
             setFXDelayMix(norm);
-            JT_CC_LOG("[CC %u:%s] Delay Mix = %.3f\n", control, ccName, norm);
+            JT_LOGF("[CC %u:%s] Delay Mix = %.3f\n", control, ccName, norm);
         } break;
 
         case CC::FX_JPFX_DELAY_FEEDBACK: {
@@ -1911,19 +1855,19 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
                 fb = ((value - 1) / 126.0f) * 0.99f;
             }
             setFXDelayFeedback(fb);
-            JT_CC_LOG("[CC %u:%s] Delay FB = %.3f\n", control, ccName, fb);
+            JT_LOGF("[CC %u:%s] Delay FB = %.3f\n", control, ccName, fb);
         } break;
 
         case CC::FX_JPFX_DELAY_TIME: {
             float ms = norm * 1500.0f; // 0..1 → 0..1500 ms
             setFXDelayTime(ms);
-            JT_CC_LOG("[CC %u:%s] Delay Time = %.1f ms\n", control, ccName, ms);
+            JT_LOGF("[CC %u:%s] Delay Time = %.1f ms\n", control, ccName, ms);
         } break;
 
         // --- JPFX Dry Mix ---
         case CC::FX_DRY_MIX: {
             setFXDryMix(norm);
-            JT_CC_LOG("[CC %u:%s] Dry Mix = %.3f\n", control, ccName, norm);
+            JT_LOGF("[CC %u:%s] Dry Mix = %.3f\n", control, ccName, norm);
         } break;
         case CC::FX_REVERB_SIZE: {
     setFXReverbRoomSize(norm);
@@ -1935,7 +1879,6 @@ case CC::FX_REVERB_DAMP: {
     JT_LOGF("[CC %u:%s] Reverb HiDamp = %.3f\n", control, ccName, norm);
 } break;
 
-<<<<<<< Updated upstream
 case CC::FX_REVERB_LODAMP: {
     setFXReverbLoDamping(norm);
     JT_LOGF("[CC %u:%s] Reverb LoDamp = %.3f\n", control, ccName, norm);
@@ -1990,21 +1933,14 @@ case CC::FX_REVERB_BYPASS: {
             // Post-tank output HP — thins the reverb without affecting tail decay
             setFXReverbHipass(norm);
             JT_LOGF("[CC %u:%s] Reverb HiPass = %.3f\n", control, ccName, norm);
-=======
-        case CC::FX_JPFX_MIX: {
-            // FX_JPFX_MIX controls the JPFX output level
-            float mix = norm;
-            setFXJPFXMix(mix, mix);
-            JT_CC_LOG("[CC %u:%s] JPFX Mix = %.3f\n", control, ccName, mix);
->>>>>>> Stashed changes
         } break;
 
 
         // ------------------- Supersaw / DC / Ring -------------------
-        case CC::SUPERSAW1_DETUNE: { setSupersawDetune(0, norm); JT_CC_LOG("[CC %u:%s] Supersaw1 Detune = %.3f\n", control, ccName, norm); } break;
-        case CC::SUPERSAW1_MIX:    { setSupersawMix(0, norm);    JT_CC_LOG("[CC %u:%s] Supersaw1 Mix    = %.3f\n", control, ccName, norm); } break;
-        case CC::SUPERSAW2_DETUNE: { setSupersawDetune(1, norm); JT_CC_LOG("[CC %u:%s] Supersaw2 Detune = %.3f\n", control, ccName, norm); } break;
-        case CC::SUPERSAW2_MIX:    { setSupersawMix(1, norm);    JT_CC_LOG("[CC %u:%s] Supersaw2 Mix    = %.3f\n", control, ccName, norm); } break;
+        case CC::SUPERSAW1_DETUNE: { setSupersawDetune(0, norm); JT_LOGF("[CC %u:%s] Supersaw1 Detune = %.3f\n", control, ccName, norm); } break;
+        case CC::SUPERSAW1_MIX:    { setSupersawMix(0, norm);    JT_LOGF("[CC %u:%s] Supersaw1 Mix    = %.3f\n", control, ccName, norm); } break;
+        case CC::SUPERSAW2_DETUNE: { setSupersawDetune(1, norm); JT_LOGF("[CC %u:%s] Supersaw2 Detune = %.3f\n", control, ccName, norm); } break;
+        case CC::SUPERSAW2_MIX:    { setSupersawMix(1, norm);    JT_LOGF("[CC %u:%s] Supersaw2 Mix    = %.3f\n", control, ccName, norm); } break;
 
         // OSC1/2 FREQ DC — static pitch offset injected into the FM mixer.
         // Unipolar: CC=0 → no shift, CC=127 → +24 semitones (2 octaves up).
@@ -2022,27 +1958,27 @@ case CC::FX_REVERB_BYPASS: {
         case CC::OSC1_FREQ_DC: {
             const float dcAmp = norm * DC_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;
             setOsc1FrequencyDcAmp(dcAmp);
-            JT_CC_LOG("[CC %u:%s] Osc1 Freq DC %.0f semitones (amp %.4f)\n",
+            JT_LOGF("[CC %u:%s] Osc1 Freq DC %.0f semitones (amp %.4f)\n",
                     control, ccName, norm * DC_PITCH_MAX_SEMITONES, dcAmp);
         } break;
-        case CC::OSC1_SHAPE_DC: { setOsc1ShapeDcAmp(norm); JT_CC_LOG("[CC %u:%s] Osc1 Shape DC = %.3f\n", control, ccName, norm); } break;
+        case CC::OSC1_SHAPE_DC: { setOsc1ShapeDcAmp(norm); JT_LOGF("[CC %u:%s] Osc1 Shape DC = %.3f\n", control, ccName, norm); } break;
         case CC::OSC2_FREQ_DC: {
             const float dcAmp = norm * DC_PITCH_MAX_SEMITONES * FM_SEMITONE_SCALE;
             setOsc2FrequencyDcAmp(dcAmp);
-            JT_CC_LOG("[CC %u:%s] Osc2 Freq DC %.0f semitones (amp %.4f)\n",
+            JT_LOGF("[CC %u:%s] Osc2 Freq DC %.0f semitones (amp %.4f)\n",
                     control, ccName, norm * DC_PITCH_MAX_SEMITONES, dcAmp);
         } break;
-        case CC::OSC2_SHAPE_DC: { setOsc2ShapeDcAmp(norm); JT_CC_LOG("[CC %u:%s] Osc2 Shape DC = %.3f\n", control, ccName, norm); } break;
+        case CC::OSC2_SHAPE_DC: { setOsc2ShapeDcAmp(norm); JT_LOGF("[CC %u:%s] Osc2 Shape DC = %.3f\n", control, ccName, norm); } break;
 
-        case CC::RING1_MIX: { setRing1Mix(norm); JT_CC_LOG("[CC %u:%s] Ring1 Mix = %.3f\n", control, ccName, norm); } break;
-        case CC::RING2_MIX: { setRing2Mix(norm); JT_CC_LOG("[CC %u:%s] Ring2 Mix = %.3f\n", control, ccName, norm); } break;
+        case CC::RING1_MIX: { setRing1Mix(norm); JT_LOGF("[CC %u:%s] Ring1 Mix = %.3f\n", control, ccName, norm); } break;
+        case CC::RING2_MIX: { setRing2Mix(norm); JT_LOGF("[CC %u:%s] Ring2 Mix = %.3f\n", control, ccName, norm); } break;
 
         // ------------------- Cross Modulation & Oscillator Sync -------------------
         case CC::OSC_CROSS_MOD_DEPTH: {
 #if JT_OPT_OSC_SYNC
             const float depth = crossModDepthFromCC(value);
             setCrossModDepth(depth);
-            JT_CC_LOG("[CC %u:%s] XMod Depth = %.4f (CC %u)\n", control, ccName, depth, value);
+            JT_LOGF("[CC %u:%s] XMod Depth = %.4f (CC %u)\n", control, ccName, depth, value);
 #endif
         } break;
 
@@ -2050,7 +1986,7 @@ case CC::FX_REVERB_BYPASS: {
 #if JT_OPT_OSC_SYNC
             const bool enabled = (value > 0);
             setSyncEnabled(enabled);
-            JT_CC_LOG("[CC %u:%s] Osc Sync = %s\n", control, ccName, enabled ? "ON" : "OFF");
+            JT_LOGF("[CC %u:%s] Osc Sync = %s\n", control, ccName, enabled ? "ON" : "OFF");
 #endif
         } break;
 
@@ -2062,7 +1998,7 @@ case CC::FX_REVERB_BYPASS: {
             if (bankIdx >= numBanks) bankIdx = numBanks - 1;
             ArbBank bank = static_cast<ArbBank>(bankIdx);
             setOsc1ArbBank(bank);
-            JT_CC_LOG("[CC %u:%s] OSC1 Bank -> %s (%u)\n", control, ccName, akwf_bankName(bank), bankIdx);
+            JT_LOGF("[CC %u:%s] OSC1 Bank -> %s (%u)\n", control, ccName, akwf_bankName(bank), bankIdx);
         } break;
 
         case CC::OSC2_ARB_BANK: {
@@ -2071,7 +2007,7 @@ case CC::FX_REVERB_BYPASS: {
             if (bankIdx >= numBanks) bankIdx = numBanks - 1;
             ArbBank bank = static_cast<ArbBank>(bankIdx);
             setOsc2ArbBank(bank);
-            JT_CC_LOG("[CC %u:%s] OSC2 Bank -> %s (%u)\n", control, ccName, akwf_bankName(bank), bankIdx);
+            JT_LOGF("[CC %u:%s] OSC2 Bank -> %s (%u)\n", control, ccName, akwf_bankName(bank), bankIdx);
         } break;
 
         // ------------------- Arbitrary waveform table index ----------------------
@@ -2083,7 +2019,7 @@ case CC::FX_REVERB_BYPASS: {
                 if (idx >= count) idx = count - 1;
             }
             setOsc1ArbIndex(idx);
-            JT_CC_LOG("[CC %u:%s] OSC1 Table -> %u/%u\n", control, ccName, idx, count);
+            JT_LOGF("[CC %u:%s] OSC1 Table -> %u/%u\n", control, ccName, idx, count);
         } break;
 
         case CC::OSC2_ARB_INDEX: {
@@ -2094,37 +2030,25 @@ case CC::FX_REVERB_BYPASS: {
                 if (idx >= count) idx = count - 1;
             }
             setOsc2ArbIndex(idx);
-            JT_CC_LOG("[CC %u:%s] OSC2 Table -> %u/%u\n", control, ccName, idx, count);
+            JT_LOGF("[CC %u:%s] OSC2 Table -> %u/%u\n", control, ccName, idx, count);
         } break;
 
         // ------------------- Glide -------------------
         case CC::GLIDE_ENABLE: {
-<<<<<<< Updated upstream
             _glideEnabled = (value >= 1);
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setGlideEnabled(_glideEnabled);
             JT_LOGF("[CC %u:%s] Glide Enabled = %d\n", control, ccName, (int)_glideEnabled);
-=======
-            _patch.glideEnabled = (value >= 1);
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setGlideEnabled(_patch.glideEnabled);
-            JT_CC_LOG("[CC %u:%s] Glide Enabled = %d\n", control, ccName, (int)_patch.glideEnabled);
->>>>>>> Stashed changes
         } break;
 
         case CC::GLIDE_TIME: {
             float ms = CCtoTime(value);
-<<<<<<< Updated upstream
             _glideTimeMs = ms;
             for (int i=0; i<MAX_VOICES; ++i) _voices[i].setGlideTime(ms);
             JT_LOGF("[CC %u:%s] Glide Time = %.2f ms\n", control, ccName, ms);
-=======
-            _patch.glideTimeMs = ms;
-            for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setGlideTime(ms);
-            JT_CC_LOG("[CC %u:%s] Glide Time = %.2f ms\n", control, ccName, ms);
->>>>>>> Stashed changes
         } break;
 
         //AMP_MOD_FIXED_LEVEL
-        case CC::AMP_MOD_FIXED_LEVEL: { SetAmpModFixedLevel(norm); JT_CC_LOG("[CC %u:%s] Amp mod fixed level = %.3f\n", control, ccName, norm); } break;
+        case CC::AMP_MOD_FIXED_LEVEL: { SetAmpModFixedLevel(norm); JT_LOGF("[CC %u:%s] Amp mod fixed level = %.3f\n", control, ccName, norm); } break;
 
 case CC::BPM_CLOCK_SOURCE: {
     // 0-63 = Internal, 64-127 = External
@@ -2133,7 +2057,7 @@ case CC::BPM_CLOCK_SOURCE: {
         _bpmClock->setClockSource(useExternal ? 
             ClockSource::CLOCK_EXTERNAL_MIDI : 
             ClockSource::CLOCK_INTERNAL);
-        JT_CC_LOG("[CC %u:%s] Clock Source = %s\n", 
+        JT_LOGF("[CC %u:%s] Clock Source = %s\n", 
                 control, ccName, useExternal ? "EXTERNAL" : "INTERNAL");
     }
     
@@ -2145,7 +2069,7 @@ case CC::BPM_INTERNAL_TEMPO: {
     float bpm = 40.0f + (value / 127.0f) * (300.0f - 40.0f);
     if (_bpmClock) {
         _bpmClock->setInternalBPM(bpm);
-        JT_CC_LOG("[CC %u:%s] Internal BPM = %.1f\n", control, ccName, bpm);
+        JT_LOGF("[CC %u:%s] Internal BPM = %.1f\n", control, ccName, bpm);
     }
     break;
 }
@@ -2167,7 +2091,7 @@ case CC::LFO1_TIMING_MODE: {
     else if (value >= 121 && value <= 127) mode = TimingMode::TIMING_1_16T;
     
     setLFO1TimingMode(mode);
-    JT_CC_LOG("[CC %u:%s] LFO1 Timing = %s\n", 
+    JT_LOGF("[CC %u:%s] LFO1 Timing = %s\n", 
             control, ccName, TimingModeNames[(int)mode]);
     break;
 }
@@ -2189,7 +2113,7 @@ case CC::LFO2_TIMING_MODE: {
     else if (value >= 121 && value <= 127) mode = TimingMode::TIMING_1_16T;
     
     setLFO2TimingMode(mode);
-    JT_CC_LOG("[CC %u:%s] LFO2 Timing = %s\n", 
+    JT_LOGF("[CC %u:%s] LFO2 Timing = %s\n", 
             control, ccName, TimingModeNames[(int)mode]);
     break;
 }
@@ -2211,7 +2135,7 @@ case CC::DELAY_TIMING_MODE: {
     else if (value >= 121 && value <= 127) mode = TimingMode::TIMING_1_16T;
     
     setDelayTimingMode(mode);
-    JT_CC_LOG("[CC %u:%s] Delay Timing = %s\n", 
+    JT_LOGF("[CC %u:%s] Delay Timing = %s\n", 
             control, ccName, TimingModeNames[(int)mode]);
     break;
 }
@@ -2222,46 +2146,46 @@ case CC::DELAY_TIMING_MODE: {
         // Each CC maps to a 0..1 depth for a specific LFO→destination lane.
         // Final mixer gain = masterAmount * depthScalar.
 
-        case CC::LFO1_PITCH_DEPTH:  { setLFO1PitchDepth(norm);  JT_CC_LOG("[CC %u] LFO1 Pitch depth %.3f\n",  control, norm); } break;
-        case CC::LFO1_FILTER_DEPTH: { setLFO1FilterDepth(norm); JT_CC_LOG("[CC %u] LFO1 Filter depth %.3f\n", control, norm); } break;
-        case CC::LFO1_PWM_DEPTH:    { setLFO1PWMDepth(norm);    JT_CC_LOG("[CC %u] LFO1 PWM depth %.3f\n",    control, norm); } break;
-        case CC::LFO1_AMP_DEPTH:    { setLFO1AmpDepth(norm);    JT_CC_LOG("[CC %u] LFO1 Amp depth %.3f\n",    control, norm); } break;
+        case CC::LFO1_PITCH_DEPTH:  { setLFO1PitchDepth(norm);  JT_LOGF("[CC %u] LFO1 Pitch depth %.3f\n",  control, norm); } break;
+        case CC::LFO1_FILTER_DEPTH: { setLFO1FilterDepth(norm); JT_LOGF("[CC %u] LFO1 Filter depth %.3f\n", control, norm); } break;
+        case CC::LFO1_PWM_DEPTH:    { setLFO1PWMDepth(norm);    JT_LOGF("[CC %u] LFO1 PWM depth %.3f\n",    control, norm); } break;
+        case CC::LFO1_AMP_DEPTH:    { setLFO1AmpDepth(norm);    JT_LOGF("[CC %u] LFO1 Amp depth %.3f\n",    control, norm); } break;
         case CC::LFO1_DELAY:
         {   // CC 0-127 → 0-4000 ms delay before LFO reaches full depth
             const float ms = norm * 4000.0f;
             setLFO1Delay(ms);
-            JT_CC_LOG("[CC %u] LFO1 Delay %.0f ms\n", control, ms);
+            JT_LOGF("[CC %u] LFO1 Delay %.0f ms\n", control, ms);
         } break;
 
-        case CC::LFO2_PITCH_DEPTH:  { setLFO2PitchDepth(norm);  JT_CC_LOG("[CC %u] LFO2 Pitch depth %.3f\n",  control, norm); } break;
-        case CC::LFO2_FILTER_DEPTH: { setLFO2FilterDepth(norm); JT_CC_LOG("[CC %u] LFO2 Filter depth %.3f\n", control, norm); } break;
-        case CC::LFO2_PWM_DEPTH:    { setLFO2PWMDepth(norm);    JT_CC_LOG("[CC %u] LFO2 PWM depth %.3f\n",    control, norm); } break;
-        case CC::LFO2_AMP_DEPTH:    { setLFO2AmpDepth(norm);    JT_CC_LOG("[CC %u] LFO2 Amp depth %.3f\n",    control, norm); } break;
+        case CC::LFO2_PITCH_DEPTH:  { setLFO2PitchDepth(norm);  JT_LOGF("[CC %u] LFO2 Pitch depth %.3f\n",  control, norm); } break;
+        case CC::LFO2_FILTER_DEPTH: { setLFO2FilterDepth(norm); JT_LOGF("[CC %u] LFO2 Filter depth %.3f\n", control, norm); } break;
+        case CC::LFO2_PWM_DEPTH:    { setLFO2PWMDepth(norm);    JT_LOGF("[CC %u] LFO2 PWM depth %.3f\n",    control, norm); } break;
+        case CC::LFO2_AMP_DEPTH:    { setLFO2AmpDepth(norm);    JT_LOGF("[CC %u] LFO2 Amp depth %.3f\n",    control, norm); } break;
         case CC::LFO2_DELAY:
         {   const float ms = norm * 4000.0f;
             setLFO2Delay(ms);
-            JT_CC_LOG("[CC %u] LFO2 Delay %.0f ms\n", control, ms);
+            JT_LOGF("[CC %u] LFO2 Delay %.0f ms\n", control, ms);
         } break;
 
         // =================== NEW: Pitch envelope ===================
         // ADSR times share the same cc_to_time_ms() mapping as amp/filter envs.
         // DEPTH is bipolar: CC64 = 0 semitones; 0 = -24; 127 = +24.
 
-        case CC::PITCH_ENV_ATTACK:  { setPitchEnvAttack(CCtoTime(value));  JT_CC_LOG("[CC %u] PEnv Attack %.1f ms\n",  control, CCtoTime(value)); } break;
-        case CC::PITCH_ENV_DECAY:   { setPitchEnvDecay(CCtoTime(value));   JT_CC_LOG("[CC %u] PEnv Decay %.1f ms\n",   control, CCtoTime(value)); } break;
-        case CC::PITCH_ENV_SUSTAIN: { setPitchEnvSustain(norm);            JT_CC_LOG("[CC %u] PEnv Sustain %.3f\n",    control, norm);            } break;
-        case CC::PITCH_ENV_RELEASE: { setPitchEnvRelease(CCtoTime(value)); JT_CC_LOG("[CC %u] PEnv Release %.1f ms\n", control, CCtoTime(value)); } break;
+        case CC::PITCH_ENV_ATTACK:  { setPitchEnvAttack(CCtoTime(value));  JT_LOGF("[CC %u] PEnv Attack %.1f ms\n",  control, CCtoTime(value)); } break;
+        case CC::PITCH_ENV_DECAY:   { setPitchEnvDecay(CCtoTime(value));   JT_LOGF("[CC %u] PEnv Decay %.1f ms\n",   control, CCtoTime(value)); } break;
+        case CC::PITCH_ENV_SUSTAIN: { setPitchEnvSustain(norm);            JT_LOGF("[CC %u] PEnv Sustain %.3f\n",    control, norm);            } break;
+        case CC::PITCH_ENV_RELEASE: { setPitchEnvRelease(CCtoTime(value)); JT_LOGF("[CC %u] PEnv Release %.1f ms\n", control, CCtoTime(value)); } break;
         case CC::PITCH_ENV_DEPTH:
         {   // Bipolar: CC 64 = 0 semis, 0 = -24, 127 = +24
             const float semis = ((float)value - 64.0f) * (24.0f / 64.0f);
             setPitchEnvDepth(semis);
-            JT_CC_LOG("[CC %u] PEnv Depth %.1f semitones\n", control, semis);
+            JT_LOGF("[CC %u] PEnv Depth %.1f semitones\n", control, semis);
         } break;
 
         // =================== NEW: Velocity sensitivity ===================
-        case CC::VELOCITY_AMP_SENS:    { setVelocityAmpSens(norm);    JT_CC_LOG("[CC %u] Vel Amp Sens %.3f\n",    control, norm); } break;
-        case CC::VELOCITY_FILTER_SENS: { setVelocityFilterSens(norm); JT_CC_LOG("[CC %u] Vel Filter Sens %.3f\n", control, norm); } break;
-        case CC::VELOCITY_ENV_SENS:    { setVelocityEnvSens(norm);    JT_CC_LOG("[CC %u] Vel Env Sens %.3f\n",    control, norm); } break;
+        case CC::VELOCITY_AMP_SENS:    { setVelocityAmpSens(norm);    JT_LOGF("[CC %u] Vel Amp Sens %.3f\n",    control, norm); } break;
+        case CC::VELOCITY_FILTER_SENS: { setVelocityFilterSens(norm); JT_LOGF("[CC %u] Vel Filter Sens %.3f\n", control, norm); } break;
+        case CC::VELOCITY_ENV_SENS:    { setVelocityEnvSens(norm);    JT_LOGF("[CC %u] Vel Env Sens %.3f\n",    control, norm); } break;
 
         // PITCH_BEND_RANGE: CC 0..127 → 0..PITCH_BEND_MAX_SEMITONES (24).
         // Default = 2 semitones (standard MIDI keyboard).
@@ -2269,7 +2193,7 @@ case CC::DELAY_TIMING_MODE: {
         case CC::PITCH_BEND_RANGE: {
             const float rangeSemis = norm * PITCH_BEND_MAX_SEMITONES;
             setPitchBendRange(rangeSemis);
-            JT_CC_LOG("[CC %u:%s] Bend range = ±%.1f semitones\n", control, ccName, rangeSemis);
+            JT_LOGF("[CC %u:%s] Bend range = ±%.1f semitones\n", control, ccName, rangeSemis);
         } break;
 
         // ------------------- Poly / Mono / Unison -------------------
@@ -2278,13 +2202,13 @@ case CC::DELAY_TIMING_MODE: {
             PolyMode pm = (value <= 42) ? PolyMode::POLY :
                           (value <= 84) ? PolyMode::MONO : PolyMode::UNISON;
             setPolyMode(pm);
-            JT_CC_LOG("[CC %u:%s] → %s\n", control, ccName,
+            JT_LOGF("[CC %u:%s] → %s\n", control, ccName,
                 pm == PolyMode::POLY ? "POLY" : pm == PolyMode::MONO ? "MONO" : "UNISON");
         } break;
 
         case CC::UNISON_DETUNE: {
             setUnisonDetune(norm);
-            JT_CC_LOG("[CC %u:%s] Unison detune = %.3f\n", control, ccName, norm);
+            JT_LOGF("[CC %u:%s] Unison detune = %.3f\n", control, ccName, norm);
         } break;
 
         // ------------------- Drive / Saturation -------------------
@@ -2293,7 +2217,7 @@ case CC::DELAY_TIMING_MODE: {
         case CC::FX_DRIVE: {
             const float driveNorm = norm;  // 0..1
             _fxChain.setDrive(driveNorm);
-            JT_CC_LOG("[CC %u:%s] Drive = %.3f\n", control, ccName, driveNorm);
+            JT_LOGF("[CC %u:%s] Drive = %.3f\n", control, ccName, driveNorm);
         } break;
 
 
@@ -2301,18 +2225,12 @@ case CC::DELAY_TIMING_MODE: {
         // Step Sequencer
         // ─────────────────────────────────────────────────────────────
         case CC::SEQ_ENABLE: {
-<<<<<<< Updated upstream
             _seq1.setEnabled(value >= 64);
             JT_LOGF("[CC %u] Seq enable = %s\n", control, value >= 64 ? "ON" : "OFF");
-=======
-            _audio.seq1.setEnabled(value >= 64);
-            JT_CC_LOG("[CC %u] Seq enable = %s\n", control, value >= 64 ? "ON" : "OFF");
->>>>>>> Stashed changes
         } break;
 
         case CC::SEQ_STEPS: {
             int steps = 1 + (value * 15 / 127);  // 0-127 → 1-16
-<<<<<<< Updated upstream
             _seq1.setStepCount(steps);
             JT_LOGF("[CC %u] Seq steps = %d\n", control, steps);
         } break;
@@ -2325,43 +2243,19 @@ case CC::DELAY_TIMING_MODE: {
         case CC::SEQ_SLIDE: {
             _seq1.setSlide(norm);
             JT_LOGF("[CC %u] Seq slide = %.0f%%\n", control, norm * 100.0f);
-=======
-            _audio.seq1.setStepCount(steps);
-            JT_CC_LOG("[CC %u] Seq steps = %d\n", control, steps);
-        } break;
-
-        case CC::SEQ_GATE_LENGTH: {
-            _audio.seq1.setGateLength(norm);
-            JT_CC_LOG("[CC %u] Seq gate = %.0f%%\n", control, norm * 100.0f);
-        } break;
-
-        case CC::SEQ_SLIDE: {
-            _audio.seq1.setSlide(norm);
-            JT_CC_LOG("[CC %u] Seq slide = %.0f%%\n", control, norm * 100.0f);
->>>>>>> Stashed changes
         } break;
 
         case CC::SEQ_DIRECTION: {
             int dir = (value * 3) / 127;  // 0-127 → 0-3
-<<<<<<< Updated upstream
             _seq1.setDirection(static_cast<SeqDirection>(dir));
             JT_LOGF("[CC %u] Seq dir = %d (%s)\n", control, dir, SeqDirectionNames[dir]);
-=======
-            _audio.seq1.setDirection(static_cast<SeqDirection>(dir));
-            JT_CC_LOG("[CC %u] Seq dir = %d (%s)\n", control, dir, SeqDirectionNames[dir]);
->>>>>>> Stashed changes
         } break;
 
         case CC::SEQ_RATE: {
             // Exponential mapping: 0.1 Hz to 20 Hz
             float hz = 0.1f * powf(200.0f, norm);
-<<<<<<< Updated upstream
             _seq1.setRate(hz);
             JT_LOGF("[CC %u] Seq rate = %.2f Hz\n", control, hz);
-=======
-            _audio.seq1.setRate(hz);
-            JT_CC_LOG("[CC %u] Seq rate = %.2f Hz\n", control, hz);
->>>>>>> Stashed changes
         } break;
 
         case CC::SEQ_DEPTH: {
@@ -2373,19 +2267,13 @@ case CC::DELAY_TIMING_MODE: {
             } else {
                 bipolar = (static_cast<float>(value) / 127.0f) * 2.0f - 1.0f;
             }
-<<<<<<< Updated upstream
             _seq1.setDepth(bipolar);
             JT_LOGF("[CC %u] Seq depth = %.3f (bipolar)\n", control, bipolar);
-=======
-            _audio.seq1.setDepth(bipolar);
-            JT_CC_LOG("[CC %u] Seq depth = %.3f (bipolar)\n", control, bipolar);
->>>>>>> Stashed changes
         } break;
 
         case CC::SEQ_DESTINATION: {
             int dest = (value * 4) / 127;  // 0-127 → 0-4 (None/Pitch/Filter/PWM/Amp)
             dest = constrain(dest, 0, NUM_LFO_DESTS - 1);
-<<<<<<< Updated upstream
             _seqDestination = dest;
             JT_LOGF("[CC %u] Seq dest = %d (%s)\n", control, dest, LFODestNames[dest]);
         } break;
@@ -2403,25 +2291,6 @@ case CC::DELAY_TIMING_MODE: {
         case CC::SEQ_STEP_VALUE: {
             _seq1.setStepValue(_seqSelectedStep, value);
             JT_LOGF("[CC %u] Seq step[%d] = %d\n", control, _seqSelectedStep, value);
-=======
-            _patch.seqDestination = dest;
-            JT_CC_LOG("[CC %u] Seq dest = %d (%s)\n", control, dest, LFODestNames[dest]);
-        } break;
-
-        case CC::SEQ_RETRIGGER: {
-            _audio.seq1.setRetrigger(value >= 64);
-            JT_CC_LOG("[CC %u] Seq retrigger = %s\n", control, value >= 64 ? "ON" : "OFF");
-        } break;
-
-        case CC::SEQ_STEP_SELECT: {
-            _audio.seqSelectedStep = constrain(value, 0, SEQ_MAX_STEPS - 1);
-            JT_CC_LOG("[CC %u] Seq step select = %d\n", control, _audio.seqSelectedStep);
-        } break;
-
-        case CC::SEQ_STEP_VALUE: {
-            _audio.seq1.setStepValue(_audio.seqSelectedStep, value);
-            JT_CC_LOG("[CC %u] Seq step[%d] = %d\n", control, _audio.seqSelectedStep, value);
->>>>>>> Stashed changes
         } break;
 
 case CC::SEQ_TIMING_MODE: {
@@ -2450,12 +2319,12 @@ case CC::SEQ_TIMING_MODE: {
         _seq1.updateFromBPMClock(*_bpmClock);
     }
 
-    JT_CC_LOG("[CC %u] Seq timing = %s\n", control, TimingModeNames[(int)mode]);
+    JT_LOGF("[CC %u] Seq timing = %s\n", control, TimingModeNames[(int)mode]);
 } break;      
 
         // ------------------- Fallback -------------------
         default:
-            JT_CC_LOG("[CC %u:%s] Unmapped value=%u\n", control, ccName, value);
+            JT_LOGF("[CC %u:%s] Unmapped value=%u\n", control, ccName, value);
             break;
     }
 

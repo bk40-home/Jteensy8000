@@ -46,31 +46,6 @@
 #define JT_DEBUG_TRACE 1   // Set to 0 to strip all logs at compile time
 #endif
 
-// =============================================================================
-// JT_CC_LOG — separate gate for CC handler logs.
-//
-// CC handlers run on the MIDI handler stack (i.e. inside usbMIDI.read()) and
-// the same handlers fire dozens of times per second when a JUCE-style editor
-// is connected and dumping its session.  Each Serial.printf can block on the
-// USB-CDC TX ring under flood, which stalls loop() and causes USB MIDI
-// inbound buffers to back up — the documented "MIDI handler must not call
-// Serial.print*" rule applies.
-//
-// Set JT_LOG_CC_HANDLERS = 0 (default) to compile out CC-handler logs while
-// leaving lifecycle / structural JT_LOGFs intact.  Set to 1 only when actively
-// debugging a CC-handler path.
-// =============================================================================
-#ifndef JT_LOG_CC_HANDLERS
-#define JT_LOG_CC_HANDLERS 0
-#endif
-
-#if JT_DEBUG_TRACE && JT_LOG_CC_HANDLERS
-  #define JT_CC_LOG(fmt, ...) \
-      do { Serial.printf(fmt, ##__VA_ARGS__); } while (0)
-#else
-  #define JT_CC_LOG(fmt, ...) do {} while (0)
-#endif
-
 #if JT_DEBUG_TRACE
   // Standard log — immediate serial output
   #define JT_LOGF(fmt, ...) \
@@ -109,6 +84,4 @@
   #define JT_LOGNL()                      do {} while (0)
   #define JT_LOGF_RATE(interval_ms, ...)  do {} while (0)
   #define JT_SETF_WITH_LOG(v, n, l)       do { (v) = (n); } while (0)
-  // JT_CC_LOG already defined above as a no-op when JT_LOG_CC_HANDLERS == 0,
-  // and JT_DEBUG_TRACE == 0 forces JT_LOG_CC_HANDLERS off via the inner test.
 #endif
