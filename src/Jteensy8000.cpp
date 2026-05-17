@@ -72,12 +72,42 @@
 #include <usb_midi.h>
 #include <USBHost_t36.h>
 #include "SynthEngine.h"
+<<<<<<< Updated upstream
+=======
+#include "LayerManager.h"
+
+>>>>>>> Stashed changes
 //#include "UIPageLayout.h"
 #include "HardwareInterface_MicroDexed.h"
 #include "UIManager_TFT.h"
 #include "Presets.h"
 //#include "AudioScopeTap.h"
 #include "BPMClockManager.h"
+#include "SysExAdapter.h"       // Phase 1 — SysEx receive path for editor protocol
+#include "SyxProtocol.h"       // SyxProto:: layer IDs used in onCCHandled echo
+#include "CCDefs.h"             // CC:: reverb constants used in onCCHandled scope check
+
+// ---------------------------------------------------------------------------
+// Teensy 4.x core symbols used for boot diagnostics.
+//
+// external_psram_size — set by Teensyduino startup.c when PSRAM chips are
+//   detected on the QSPI pads.  0 = no PSRAM, 8 = one 8 MB chip, 16 = two
+//   8 MB chips.  Marked weak in case a future Teensyduino drops it; if so
+//   the address is null and the boot diagnostic just prints "0 MB".
+//
+// _heap_start / _heap_end / __brkval — linker / runtime symbols that
+//   describe the bounds of the malloc heap.  __brkval is the current top
+//   of the heap; nullptr means malloc has not yet been called, in which
+//   case the top equals _heap_start.
+//
+// All declared at file scope (not inside setup()) so that the C++ name
+// mangling rules pick up the C linkage correctly.
+// ---------------------------------------------------------------------------
+extern "C" uint8_t external_psram_size __attribute__((weak));
+extern "C" unsigned long _heap_start;
+extern "C" uint32_t set_arm_clock(uint32_t frequency);  // declared in Teensyduino core, not a header
+extern "C" unsigned long _heap_end;
+extern "C" char *__brkval;
 
 // ---------------------------------------------------------------------------
 // PCM5102A mute pin — wire to XSMT on DAC board
@@ -149,6 +179,10 @@ HardwareInterface_MicroDexed hw;
 UIManager_TFT                ui;
 BPMClockManager              bpmClock;
 
+// Phase 1 — SysEx adapter bridges the editor protocol to LayerManager.
+// Must be after `layers` because the constructor takes a reference to it.
+SysExAdapter                 syxAdapter(layers);
+
 // ---------------------------------------------------------------------------
 // USB Host MIDI  (keyboard → Teensy USB-A host port)
 // ---------------------------------------------------------------------------
@@ -194,9 +228,77 @@ static void printUSBDeviceInfo(bool connected) {
     }
 }
 
+<<<<<<< Updated upstream
 static void onCCHandled(uint8_t cc, uint8_t val) {
     // Echo CC changes back to USB Device MIDI for HTML editor sync.
     usbMIDI.sendControlChange(cc & 0x7F, val & 0x7F, 1);
+=======
+// ---------------------------------------------------------------------------
+// CC echo suppression — prevents feedback loop when DAW mirrors CCs back.
+// Set true while we are sending a CC echo; if a CC arrives while true,
+// it came from our own echo and must not be re-processed.
+//
+// IMPORTANT BEHAVIOUR NOTE (May 2026 — JUCE feedback investigation):
+//   The _suppressEcho flag is true only during the few microseconds while
+//   usbMIDI.sendControlChange() queues bytes.  The DAW's echo of that CC
+//   arrives milliseconds later, by which time _suppressEcho is already
+//   false again — so the flag does NOT actually suppress DAW echoes.
+//
+//   When a JUCE editor is connected and configured to echo received CCs
+//   back to the synth (a common default for parameter mirroring), this
+//   creates a fast feedback storm: every parameter change ping-pongs
+//   between Teensy and JUCE, with each round multiplying the work.
+//   Symptom: synth crashes within seconds of JUCE connect, runs for
+//   hours on DIN MIDI alone.
+//
+//   The proper fix is to thread a CCSource tag through the dispatch
+//   chain and only echo to USB Device when the source was NOT USB Device.
+//   That refactor is pending; for now CC echo to USB Device is DISABLED
+//   below, breaking the loop entirely.  The cost is that a JUCE editor
+//   no longer sees Teensy-side encoder/touch changes mirrored back —
+//   acceptable for testing the hypothesis.
+// ---------------------------------------------------------------------------
+static volatile bool _suppressEcho = false;
+
+static void onCCHandled(uint8_t cc, uint8_t val) {
+    // ---- SysEx PARAM_VALUE echo (firmware → editor) -------------------------
+    // Replaces the old raw-CC echo (which was disabled to prevent feedback).
+    // The JUCE plugin's handleIncomingSysEx already parses PARAM_VALUE and
+    // updates APVTS with _suppressEcho, so no bounce-back occurs.
+    //
+    // Layer routing:
+    //   Performance CCs (140..146)        → kLayerPerf
+    //   Global FX CCs (reverb 70-98)      → kLayerGlobalFx
+    //   Patch CCs (everything else)       → current edit target (A/B/Both)
+    //
+    // notifyLocalCC no-ops silently if the CC is not in ParamMap (e.g.
+    // internal-only CCs above the map range), so this is always safe to call.
+    {
+        uint8_t layer;
+        // Performance CCs live above MIDI range (140+)
+        if (cc >= 140 && cc <= 146) {
+            layer = SyxProto::kLayerPerf;
+        }
+        // Global FX (reverb) CCs — match the same predicate LayerManager uses
+        else if (cc == CC::FX_REVERB_SIZE   || cc == CC::FX_REVERB_DAMP    ||
+                 cc == CC::FX_REVERB_LODAMP || cc == CC::FX_REVERB_MIX     ||
+                 cc == CC::FX_REVERB_BYPASS || cc == CC::FX_REVERB_SHIMMER ||
+                 cc == CC::FX_REVERB_FREEZE || cc == CC::FX_REVERB_LOWPASS ||
+                 cc == CC::FX_REVERB_HIPASS) {
+            layer = SyxProto::kLayerGlobalFx;
+        }
+        // Patch-scope — use current edit target
+        else {
+            switch (layers.getEditTarget()) {
+                case EditTarget::LAYER_A: layer = SyxProto::kLayerA;    break;
+                case EditTarget::LAYER_B: layer = SyxProto::kLayerB;    break;
+                case EditTarget::BOTH:    layer = SyxProto::kLayerBoth; break;
+                default:                  layer = SyxProto::kLayerA;    break;
+            }
+        }
+        syxAdapter.notifyLocalCC(layer, cc, val);
+    }
+>>>>>>> Stashed changes
 
     // Tell TFT to repaint the matching control (if visible).
     // This is just a dirty-flag set — no drawing happens here.
@@ -236,12 +338,27 @@ static void onCC(byte channel, byte control, byte value) {
 
 // onPitchBend — MIDI pitch bend wheel callback.
 // value = raw 14-bit pitch bend (0..16383, centre = 8192).
+<<<<<<< Updated upstream
 // Forwarded directly to SynthEngine which converts to semitones and applies
 // to all voices via OscillatorBlock::setPitchModulation().
 static void onPitchBend(byte channel, int value) {
     // Teensy MIDI libraries pass pitch bend as int (0..16383, centre 8192).
     synth.handlePitchBend(channel, (int16_t)value);
     JT_LOGF("[MIDI] PitchBend ch%u val=%d\n", (unsigned)channel, value);
+=======
+// Forwarded to LayerManager which routes to active layer(s).
+//
+// MIDI handler — must NOT call Serial.print* (rule [R3] above and the
+// note in DebugTrace.h).  Pitch bend can stream at >100 messages/sec
+// during a wheel sweep from a JUCE plugin; printf would block on the
+// USB-CDC TX ring and stall loop().  Use the midiLog() ring instead,
+// which is bounded and drained outside handler context.
+static void onPitchBend(byte channel, int value) {
+    // Teensy MIDI libraries pass pitch bend as int (0..16383, centre 8192).
+    layers.handlePitchBend(channel, (int16_t)value);
+    // Optional: enqueue a rate-limited record into midiLog().  Don't call
+    // Serial.printf here.
+>>>>>>> Stashed changes
 }
 
 // Real-time clock messages — forwarded to BPMClockManager only (no logging —
@@ -263,13 +380,110 @@ static void onUSBHostRealTime(uint8_t byte) {
 }
 
 // ===========================================================================
+// SysEx handler — Phase 1 editor protocol
+//
+// Fired by usbMIDI, midiHost, and midi1 when a complete SysEx message
+// arrives.  Delegates to SysExAdapter which validates the JT-8000 envelope
+// and dispatches SET_PARAM / GET_PARAM / BANK_DUMP_REQUEST / BANK_DUMP.
+//
+// IMPORTANT: Teensy MIDI libraries pass the FULL message including F0 and F7.
+// Length includes both framing bytes.
+//
+// Each MIDI library has a slightly different callback signature:
+//   usbMIDI:     void(uint8_t *data, unsigned int size)
+//   USBHost_t36: void(const uint8_t *data, uint16_t length, bool complete)
+//   MIDI lib:    void(byte *data, unsigned size)
+// ===========================================================================
+
+// USB Device MIDI callback (JUCE plugin connects here)
+static void onSysEx(uint8_t* data, unsigned int len) {
+    syxAdapter.handleSysEx(data, (size_t)len);
+}
+
+// USB Host MIDI callback (external controller on USB-A host port)
+static void onSysExHost(const uint8_t* data, uint16_t len, bool /*complete*/) {
+    syxAdapter.handleSysEx(data, (size_t)len);
+}
+
+// DIN MIDI callback (FortySevenEffects library, hardware serial port)
+static void onSysExDIN(byte* data, unsigned len) {
+    syxAdapter.handleSysEx(data, (size_t)len);
+}
+
+// SysEx reply sender — registered with SysExAdapter so it can respond to
+// GET_PARAM and BANK_DUMP_REQUEST without knowing which port to use.
+// Sends via USB Device MIDI (the same port the JUCE plugin connects to).
+//
+// usbMIDI.sendSysEx expects (length, data, hasF0F7):
+//   hasF0F7=true means the data array already contains F0 at start and F7
+//   at end — sendSysEx transmits them verbatim. SysExAdapter always builds
+//   complete F0..F7 messages, so we pass true.
+static void syxSend(const uint8_t* data, size_t len) {
+    usbMIDI.sendSysEx((unsigned int)len, data, /*hasBeginEnd=*/true);
+}
+
+// ===========================================================================
 // setup()
 // ===========================================================================
 void setup() {
     Serial.begin(115200);
     delay(200);   // Let power rail settle before touching SPI or I2C
 
+<<<<<<< Updated upstream
+=======
+    // -------------------------------------------------------------------------
+    // DIAGNOSTICS — print before any other setup() work so they are visible
+    // even if a later step blocks or crashes.
+    // -------------------------------------------------------------------------
+
+    // CrashReport persists across reboot on Teensy 4.x and captures hard
+    // faults, watchdog timeouts, and stack overflows.  Print before clearing
+    // so the next reboot loop is debuggable.  Cleared at the END of setup()
+    // (search for "CrashReport.clear" near the bottom of this function) so a
+    // crash mid-setup leaves the report intact for the following boot.
+    if (CrashReport) {
+        Serial.println(F("======== CRASH REPORT ========"));
+        Serial.print(CrashReport);
+        Serial.println(F("=============================="));
+    }
+
+    // Cortex-M7 FPU: enable Flush-To-Zero (FZ, bit 24) and Default-NaN
+    // (DN, bit 25).  By default the M7 traps subnormal float operations to
+    // microcode at ~50× normal cost.  Audio DSP filter state (Moog ladder
+    // integrators, IIR feedback paths) decays into subnormal range during
+    // long silent gaps; FZ flushes those to +0.0 in hardware, eliminating
+    // the slowdown.  Audibly indistinguishable; CPU win is large.
+    {
+        uint32_t fpscr;
+        __asm__ volatile ("vmrs %0, fpscr" : "=r"(fpscr));
+        fpscr |= (1u << 24) | (1u << 25);
+        __asm__ volatile ("vmsr fpscr, %0" : : "r"(fpscr));
+    }
+
+    // Restore the project's design CPU clock.  Must precede AudioMemory()
+    // so the audio ISR's first dispatch is at the intended rate.
+    //set_arm_clock(816000000);
+
+>>>>>>> Stashed changes
     Serial.println("[JT8000] Boot start");
+    Serial.printf("[JT8000] CPU = %lu MHz\n",
+                  (unsigned long)F_CPU_ACTUAL / 1000000UL);
+
+    // Memory diagnostics — confirm PSRAM presence and heap headroom before
+    // any further allocation.  The new performance branch allocates ~1.2 MB
+    // of PSRAM at global construction time (2× JPFX delay buffers + 1×
+    // reverb pool); if no PSRAM chip is installed those fall back to RAM
+    // heap and may fail silently.
+    {
+        Serial.printf("[JT8000] PSRAM size = %u MB\n",
+                      (unsigned)external_psram_size);
+
+        const uintptr_t heapTop = (__brkval == nullptr)
+                                ? (uintptr_t)&_heap_start
+                                : (uintptr_t)__brkval;
+        const uintptr_t heapFree = (uintptr_t)&_heap_end - heapTop;
+        Serial.printf("[JT8000] Heap free  = %u bytes\n", (unsigned)heapFree);
+    }
 
     // -------------------------------------------------------------------------
     // STEP 1: Display (SPI) — BEFORE AudioMemory to avoid DMA bus conflicts.
@@ -308,8 +522,16 @@ void setup() {
     midiHost.setHandleControlChange(onCC);
     midiHost.setHandlePitchChange(onPitchBend);    // pitch wheel
     midiHost.setHandleRealTimeSystem(onUSBHostRealTime);
+    midiHost.setHandleSysEx(onSysExHost);            // Phase 1 — editor SysEx
 
     Serial.println("[JT8000] USB Host MIDI configured");
+    delay(200);  // Let USB host stack settle before polling
+
+    set_arm_clock(720000000);
+
+    Serial.println("[JT8000] Boot start");
+    Serial.printf("[JT8000] CPU = %lu MHz\n",
+                  (unsigned long)F_CPU_ACTUAL / 1000000UL);
 
     // -------------------------------------------------------------------------
     // STEP 4: USB Device MIDI  (DAW/PC connected to Teensy micro-USB)
@@ -319,6 +541,7 @@ void setup() {
     usbMIDI.setHandleControlChange(onCC);
     usbMIDI.setHandlePitchChange(onPitchBend);    // pitch wheel
     usbMIDI.setHandleRealTimeSystem(onUSBHostRealTime);
+    usbMIDI.setHandleSystemExclusive(onSysEx);     // Phase 1 — editor SysEx
 
     Serial.println("[JT8000] USB Device MIDI configured");
 
@@ -335,6 +558,7 @@ void setup() {
     midi1.setHandleStop(onMIDIStop);
     midi1.setHandleContinue(onMIDIContinue);
     midi1.turnThruOff();  // disable software MIDI-thru (would re-send to Serial1)
+    midi1.setHandleSystemExclusive(onSysExDIN);    // Phase 1 — editor SysEx
 
     Serial.println("[JT8000] DIN MIDI (Serial1) configured");
 
@@ -342,6 +566,7 @@ void setup() {
     // STEP 6: Hardware encoders + synth engine
     // -------------------------------------------------------------------------
     hw.begin();
+<<<<<<< Updated upstream
     ui.begin(synth);
     synth.setNotifier(onCCHandled);
 
@@ -349,9 +574,42 @@ void setup() {
     // Without this, all CC values are 0 at boot and the display shows wrong values
     // until the first preset is loaded.
     //Presets.loadInitTemplateByWave(synth, 1);
+=======
+    synth = &layers.activeEngine();   // set convenience pointer for UI
+    ui.begin(*synth, &layers);
+
+    // Phase 1 — connect SysExAdapter CC snoop to LayerManager BEFORE preset
+    // load so the cache is populated as the init patch CCs flow through.
+    // The snoop only reads — it never sends, so this is safe pre-enumeration.
+    layers.setSysExSnoop(&syxAdapter);
+    Serial.println("[JT8000] SysEx adapter snoop wired");
+
+    // Load init preset to both engines BEFORE syncFromEngine so _ccState is
+    // fully populated. Without this the display shows zero for every parameter
+    // until the user manually loads a preset.
+    //
+    // Index 0 = "Init Sine" — the canonical blank-slate starting point.
+    // Both Layer A and B are initialised so dual-layer mode starts clean.
+    // loadFactoryPatch() sends all 95 CCs atomically under AudioNoInterrupts(),
+    // so it is safe to call here with the audio ISR already running.
+    //
+    // IMPORTANT: the notifier and SysEx sender are NOT yet registered. This
+    // prevents the ~90 init CCs from flooding usbMIDI.sendSysEx() before USB
+    // has fully enumerated (which caused watchdog resets).
+    Presets::presets_loadByGlobalIndex(layers.layerA(), 0, /*midiCh=*/1);
+    Presets::presets_loadByGlobalIndex(layers.layerB(), 0, /*midiCh=*/1);
+>>>>>>> Stashed changes
 
 
     ui.syncFromEngine(synth);
+
+    // NOW register the notifier and SysEx sender — preset load is done, USB
+    // is enumerated, no more CC floods.  From this point on, every CC change
+    // (TFT, encoder, incoming MIDI) triggers a PARAM_VALUE echo to the editor
+    // and a TFT repaint via ui.notifyCC.
+    layers.setNotifier(onCCHandled);
+    syxAdapter.setSender(syxSend);
+    Serial.println("[JT8000] SysEx sender + notifier active");
 
     // -------------------------------------------------------------------------
     // STEP 7: Unmute PCM5102A — LAST, after I2S DMA is running.
@@ -392,6 +650,13 @@ void setup() {
 
     Serial.println("[JT8000] Ready");
 
+    // Setup completed without crashing — clear the crash report so the
+    // next boot doesn't re-print this stale fault.  If we crash before
+    // reaching here, the report stays intact for the following boot.
+    CrashReport.clear();
+    Serial.println("[JT8000] Setup complete");
+
+    
 
         
 }
@@ -421,6 +686,7 @@ void loop() {
     while (usbMIDI.read()) {}    // USB Device MIDI messages
     midi1.read();                // DIN MIDI (MIDI library reads one message per call)
 
+    
     // ---- USB Host connection state polling ----
     // USBHost_t36 does not fire a connect callback for MIDIDevice, so we poll.
     // Run every 256 loops (~every 2-5 ms at typical loop rate) to keep overhead
@@ -432,6 +698,24 @@ void loop() {
             printUSBDeviceInfo(nowConnected);
         }
     }
+
+    // ── Serial Diagnostics (comment out this entire block to disable) ────────
+{
+    static uint32_t lastDiag = 0;
+    static uint32_t loopCount = 0;
+    loopCount++;
+    const uint32_t now = millis();
+    if ((now - lastDiag) >= 10000) {
+        if (Serial.availableForWrite() > 80) {
+            Serial.printf("[DIAG] CPU:%.1f%% pk:%.1f%% | i16:%d max:%d| lps:%lu\n",
+                AudioProcessorUsage(), AudioProcessorUsageMax(),
+                AudioMemoryUsage(), AudioMemoryUsageMax(),loopCount);
+        }
+        lastDiag = now;
+        loopCount = 0;
+    }
+}
+// ── End Serial Diagnostics ───────────────────────────────────────────────
 
     // Drain the MIDI log ring (safe outside handlers)
     midiLogFlush();
@@ -446,5 +730,10 @@ void loop() {
     ui.pollInputs(hw, synth);
 
     // UI display: rate-limited to ~30 fps internally
+<<<<<<< Updated upstream
     ui.updateDisplay(synth);
 }
+=======
+    ui.updateDisplay(*synth);
+}
+>>>>>>> Stashed changes
