@@ -29,6 +29,7 @@ UIManager_TFT::UIManager_TFT()
     , _mode(Mode::HOME)
     , _lastFrame(0)
     , _synthRef(nullptr)
+    , _layerMgr(nullptr)
     , _currentPresetIdx(0)
     , _scopeFullFirstFrame(true)
 {
@@ -72,10 +73,11 @@ void UIManager_TFT::beginDisplay() {
 // =============================================================================
 // begin() — wire screens.  Call AFTER AudioMemory() and synth init.
 // =============================================================================
-void UIManager_TFT::begin(SynthEngine& synth) {
+void UIManager_TFT::begin(SynthEngine& synth, LayerManager* mgr) {
     _synthRef = &synth;
+    _layerMgr = mgr;
     _instance = this;
-    _home.begin(&_display, &synth);
+    _home.begin(&_display, &synth, _layerMgr);
     _home.markFullRedraw();
 }
 
@@ -142,6 +144,7 @@ void UIManager_TFT::pollInputs(HardwareInterface_MicroDexed& hw, SynthEngine& sy
 
         case Mode::BROWSER:
             if (dL) _browser.onEncoder(dL);
+            if (dR) _browser.onEncoderRight(dR);  // R encoder cycles load target
             if (bL == HW::PRESS_SHORT) {
                 _browser.onEncoderPress();
                 if (!_browser.isOpen()) _goHome();
@@ -192,14 +195,32 @@ void UIManager_TFT::_goHome() { _setMode(Mode::HOME); }
 void UIManager_TFT::_openBrowser() {
     if (!_synthRef) return;
     _display.fillScreen(COLOUR_BACKGROUND);
+
+    // Initial load target follows the LayerManager edit target (or A if none)
+    EditTarget initialTarget = EditTarget::LAYER_A;
+    if (_layerMgr) {
+        initialTarget = _layerMgr->getEditTarget();
+    }
+
     _browser.open(_synthRef, _currentPresetIdx,
-        [](int globalIdx) {
+        [](int globalIdx, EditTarget target) {
             if (!_instance || !_instance->_synthRef) return;
-            Presets::presets_loadByGlobalIndex(*_instance->_synthRef, globalIdx);
+
+            if (_instance->_layerMgr) {
+                // Dual-layer: load to the selected target layer
+                Performance::loadPresetToLayer(
+                    *_instance->_layerMgr, globalIdx, target);
+            } else {
+                // Single-engine fallback
+                Presets::presets_loadByGlobalIndex(
+                    *_instance->_synthRef, globalIdx);
+            }
+
             _instance->_currentPresetIdx = globalIdx;
             _instance->syncFromEngine(*_instance->_synthRef);
             _instance->_goHome();
-        });
+        },
+        initialTarget);
     _mode = Mode::BROWSER;
 }
 

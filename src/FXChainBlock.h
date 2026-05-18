@@ -1,4 +1,5 @@
 /* Audio Library for Teensy
+ * Copyright (c) 2025, Paul Stoffregen, paul@pjrc.com
  * Copyright (c) 2025, Kris Bishop, bishopkris40@hotmail.com
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,30 +20,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
- /*
+
+/*
  * FXChainBlock.h
  * ==============
- * JP-8000-style stereo FX chain: tone → modulation/delay (JPFX) → reverb.
+ * JP-8000-style per-layer stereo FX chain: tone → modulation/delay (JPFX).
+ *
+ * Post-Phase-3 scope: this class handles ONLY per-layer effects (EQ, drive,
+ * mod, delay). Reverb used to live here but is now shared across layers in
+ * GlobalFX — see GlobalFX.h. LayerManager intercepts all reverb CCs and
+ * routes them to the single global instance, saving ~10% CPU per disabled
+ * layer tank and matching JP-8000 Performance-mode behaviour.
  *
  * SIGNAL FLOW:
  *
- *   Amp out (L/R) ──────────────────────────────────────────► Mixer ch0 (dry)
+ *   Amp out (L/R) ─────────────────────────────► Mixer ch0 (dry)
  *         │
  *         ▼
  *       JPFX  (tone shelf, drive, chorus/flanger/phaser, delay)
  *         │
- *         ├──────────────────────────────────────────────────► Mixer ch1 (JPFX direct)
- *         │
- *         ▼
- *    PlateReverb  (bypassed automatically when mix = 0 → saves ~10% CPU)
- *         │
- *         └──────────────────────────────────────────────────► Mixer ch2 (reverb wet)
+ *         └────────────────────────────────────► Mixer ch1 (JPFX wet)
+ *
+ *   The mixer's stereo output goes TWO places, wired by LayerManager:
+ *     (a) into the perf mixer (this layer's main output)
+ *     (b) into GlobalFX's reverb-send input (one of two layer taps)
  *
  * MIXER CHANNEL MAP (both L and R):
  *   0 = Dry  (wired from SynthEngine amp output, outside this class)
  *   1 = JPFX wet
- *   2 = Reverb wet
- *   3 = Unused / available for expansion
+ *   2 = Unused (was reverb wet pre-Phase-3)
+ *   3 = Unused
  *
  * MODULATION VARIATIONS (11):
  *   0  Chorus 1      3  Flanger 1     6  Phaser 1     9  Phaser 4
@@ -54,12 +61,13 @@
  *   1  Mono Long     3  Pan R→L
  *
  * CPU NOTES:
- *   - Reverb is auto-bypassed (bypass_set(true)) when both mix channels are
- *     below REVERB_MIX_THRESHOLD.  Re-enabled as soon as mix rises again.
- *     Effect tails are preserved because we don't gate on note activity.
- *   - JPFX modulation/delay buffers are only allocated once in the constructor.
- *   - All parameter clamping is done at the setter boundary; the audio update
- *     path sees only valid values.
+ *   - setBypass(true) silences the output-mixer gains (dry + JPFX).
+ *     JPFX itself still ticks but its input is silent (upstream amp muted),
+ *     so it processes zeros and costs near-zero CPU. Used by LayerManager
+ *     to idle Layer B in SINGLE mode.
+ *   - JPFX modulation/delay buffers are only allocated once in the ctor.
+ *   - All parameter clamping is done at the setter boundary; the audio
+ *     update path sees only valid values.
  */
 
 #pragma once
@@ -68,183 +76,149 @@
 #include "Audio.h"
 #include "AudioEffectJPFX.h"
 #include "BPMClockManager.h"        // for updateFromBPMClock / TimingMode
-#include "AudioEffectPlateReverbJT.h" // JT-8000 plate reverb
+// NOTE: AudioEffectPlateReverbJT no longer included — reverb moved to GlobalFX
+// (Phase 3). Translation units that need the PlateReverb type should include
+// GlobalFX.h.
 
-// ---------------------------------------------------------------------------
-// Minimum mixer gain treated as "active" for the reverb bypass decision.
-// Below this the reverb is bypassed to save CPU.
-// ---------------------------------------------------------------------------
-static constexpr float REVERB_MIX_THRESHOLD = 0.001f;
-
-class FXChainBlock {
+class FXChainBlock
+{
 public:
     FXChainBlock();
     ~FXChainBlock();
 
-    // =========================================================================
-    // TONE CONTROL  (JPFX low/high shelf)
-    // =========================================================================
+    // ========================================================================
+    // Audio-graph accessors
+    // ========================================================================
+    // LayerManager wires these into the perf mixer AND into GlobalFX's send
+    // inputs — one AudioStream output can feed multiple AudioConnections.
+    //
+    // Return type is the concrete AudioMixer4& (not AudioStream&) so callers
+    // that want the derived type — e.g. SynthEngine::getFXOutL/R declared as
+    // AudioMixer4& — can forward the reference without a downcast. Callers
+    // that only need AudioStream& (the AudioConnection ctor's destination
+    // parameter) still work, since AudioMixer4 → AudioStream is an implicit
+    // upcast.
+    AudioMixer4& getOutputLeft()  { return _mixerOutL; }
+    AudioMixer4& getOutputRight() { return _mixerOutR; }
 
-    // Bass low-shelf gain, ±12 dB
-    void  setBassGain(float dB);
+    // JPFX reference — SynthEngine wires amp output into JPFX input directly;
+    // the dry path is branched off inside SynthEngine before reaching JPFX.
+    AudioEffectJPFX& getJPFX() { return _jpfx; }
+
+    // Dry input landing points — mixer ch0 on each side. SynthEngine wires
+    // the amp output here in addition to feeding JPFX.
+    //
+    // Intentionally aliases _mixerOutL/R (same mixer as getOutputLeft/Right).
+    // The dry signal is injected on slot 0 of the output mixer; the FX-chain's
+    // wet stages write to other slots of the same mixer. Kept as a separately
+    // named accessor so wiring code reads by role, not by implementation.
+    AudioMixer4& getDryInputL() { return _mixerOutL; }
+    AudioMixer4& getDryInputR() { return _mixerOutR; }
+
+    // =========================================================================
+    // TONE  (EQ + drive — pass straight through to JPFX)
+    // =========================================================================
+    void  setDrive(float amount);   // 0..1
+    void  setBassGain(float dB);    // ±12 dB low-shelf
+    void  setTrebleGain(float dB);  // ±12 dB high-shelf
+    float getDrive()      const;
     float getBassGain()   const;
-
-    // Treble high-shelf gain, ±12 dB
-    void  setTrebleGain(float dB);
     float getTrebleGain() const;
 
-    // Pre-tone soft/hard saturation.
-    //   0.0       = bypass
-    //   0.0..0.5  = soft clip (tanh)
-    //   0.5..1.0  = hard clip
-    void  setDrive(float norm);     // clamped 0..1
-    float getDrive() const;
+    // =========================================================================
+    // MODULATION  (chorus / flanger / phaser)
+    // =========================================================================
+    void setModEffect(int8_t variation);   // -1=off, 0..10
+    void setModMix(float mix);             // 0..1 dry/wet
+    void setModRate(float hz);             // 0=use preset, else override
+    void setModFeedback(float fb);         // -1=use preset, 0..0.99
+
+    int8_t      getModEffect()     const;
+    float       getModMix()        const;
+    float       getModRate()       const;
+    float       getModFeedback()   const;
+    const char* getModEffectName() const;
 
     // =========================================================================
-    // MODULATION EFFECTS  (chorus / flanger / phaser, 11 variations)
+    // DELAY
     // =========================================================================
+    void setDelayEffect(int8_t variation);   // -1=off, 0..4
+    void setDelayMix(float mix);             // 0..1
+    void setDelayFeedback(float fb);         // -1=use preset, 0..0.99
+    void setDelayTime(float ms);             // 0=use preset, else override
 
-    // variation: -1 = off,  0..10 = preset (see header comment for names)
-    void   setModEffect(int8_t variation);
-    int8_t getModEffect()     const;
-    const char* getModEffectName() const;   // returns "Off" or preset name
+    int8_t      getDelayEffect()     const;
+    float       getDelayMix()        const;
+    float       getDelayFeedback()   const;
+    float       getDelayTime()       const;
+    const char* getDelayEffectName() const;
 
-    // Wet level (0 = dry only, 1 = full wet)
-    void  setModMix(float mix);             // clamped 0..1
-    float getModMix() const;
-
-    // LFO rate override.  0 = use preset value.
-    void  setModRate(float hz);             // clamped 0..20 Hz
-    float getModRate() const;
-
-    // Feedback override.  -1 = use preset value.
-    void  setModFeedback(float fb);         // clamped -1..0.99
-    float getModFeedback() const;
-
-    // =========================================================================
-    // DELAY EFFECTS  (mono / panning, 5 variations)
-    // =========================================================================
-
-    // variation: -1 = off,  0..4 = preset (see header comment for names)
-    void   setDelayEffect(int8_t variation);
-    int8_t getDelayEffect()     const;
-    const char* getDelayEffectName() const; // returns "Off" or preset name
-
-    // Wet level (0 = dry only, 1 = full wet)
-    void  setDelayMix(float mix);           // clamped 0..1
-    float getDelayMix() const;
-
-    // Feedback override.  -1 = use preset value.
-    void  setDelayFeedback(float fb);       // clamped -1..0.99
-    float getDelayFeedback() const;
-
-    // Delay time override in ms.  0 = use preset value.
-    void  setDelayTime(float ms);           // clamped 0..1500 ms
-    float getDelayTime() const;
-
-    // BPM-sync helper — forwards directly to JPFX
-    void updateFromBPMClock(const BPMClockManager& bpmClock);
-    void      setDelayTimingMode(TimingMode mode);
+    // BPM-sync helper — forwards directly to JPFX.
+    void       updateFromBPMClock(const BPMClockManager& bpmClock);
+    void       setDelayTimingMode(TimingMode mode);
     TimingMode getDelayTimingMode() const;
 
     // =========================================================================
-    // REVERB  (AudioEffectPlateReverbJT)
+    // REVERB — MOVED to GlobalFX (Phase 3). See GlobalFX.h / LayerManager.h.
+    //
+    // No per-layer reverb state, setters, or getters remain on this class.
+    // LayerManager intercepts reverb CCs before they reach any engine and
+    // routes them to the shared GlobalFX instance.
     // =========================================================================
 
-    void  setReverbRoomSize(float size);    // clamped 0..1
-    float getReverbRoomSize() const;
-
-    void  setReverbHiDamping(float damp);   // clamped 0..1 (high-freq absorption)
-    float getReverbHiDamping() const;
-
-    void  setReverbLoDamping(float damp);   // clamped 0..1 (low-freq absorption)
-    float getReverbLoDamping() const;
-
-    // Hard bypass override (in addition to the auto-bypass on mix=0)
-    void setReverbBypass(bool bypass);
-    bool getReverbBypass() const;
-
-    // Shimmer — pitch-shifted feedback in the tank feedback loop.
-    // 0.0 = off (zero CPU), 1.0 = full shimmer.
-    // Automatically disabled during freeze to prevent runaway escalation.
-    void  setReverbShimmer(float amount);   // clamped 0..1
-    float getReverbShimmer() const;
-
-    // Freeze / infinite hold.
-    // When true: decay = 1.0, input muted, shimmer disabled.
-    // All parameters (size, hidamp, lodamp, shimmer) saved and restored on unfreeze.
-    void  setReverbFreeze(bool frozen);
-    bool  getReverbFreeze() const;
-
-    // Output lowpass filter — applied AFTER the tank on the wet signal only.
-    // 0.0 = bright (no filtering), 1.0 = dark (heavy cut).
-    // Different from hidamp() which acts INSIDE the tank and affects tail decay rate.
-    void  setReverbLowpass(float amount);   // clamped 0..1
-    float getReverbLowpass() const;
-
-    // Output highpass filter — applied AFTER the tank on the wet signal only.
-    // 0.0 = full bass, 1.0 = thin (heavy bass cut).
-    // Different from lodamp() which acts INSIDE the tank.
-    void  setReverbHipass(float amount);    // clamped 0..1
-    float getReverbHipass() const;
-
     // =========================================================================
-    // OUTPUT MIX LEVELS
+    // OUTPUT MIX  (dry + JPFX — reverb mix now in GlobalFX)
     // =========================================================================
-
-    // Dry signal level per channel (mixer ch0)
     void  setDryMix(float left, float right);
     float getDryMixL() const;
     float getDryMixR() const;
 
-    // JPFX wet level per channel (mixer ch1)
     void  setJPFXMix(float left, float right);
     float getJPFXMixL() const;
     float getJPFXMixR() const;
 
-    // Reverb wet level per channel (mixer ch2).
-    // Setting both to 0 triggers auto-bypass of the reverb.
-    void  setReverbMix(float left, float right);
-    float getReverbMixL() const;
-    float getReverbMixR() const;
-
     // =========================================================================
-    // AUDIO GRAPH ACCESS  (for wiring in SynthEngine)
+    // FULL-CHAIN BYPASS  — used by LayerManager to idle Layer B in SINGLE mode
     // =========================================================================
-
-    // Stereo output mixers — wire these to the DAC output stage
-    AudioMixer4& getOutputLeft()    { return _mixerOutL; }
-    AudioMixer4& getOutputRight()   { return _mixerOutR; }
-
-    // JPFX input — wire the amp output here (SynthEngine sets up ch0 dry too)
-    AudioEffectJPFX& getJPFXInput() { return _jpfx; }
+    //
+    // When true: output mixer gains for dry (ch0) and JPFX wet (ch1) are
+    // zeroed so this layer's audio output goes silent. Cached mix values
+    // are preserved, so setBypass(false) restores the exact program state.
+    //
+    // JPFX still runs on the audio thread (the Teensy library has no per-
+    // object bypass hook), but its input is silent in SINGLE mode because
+    // SynthEngine's voice output is muted upstream — so it processes zeros
+    // at near-zero CPU cost in practice.
+    //
+    // While bypassed, setDryMix / setJPFXMix update the cached values but
+    // do NOT write through to the mixer gains. Preset loads under bypass
+    // therefore apply cleanly on unbypass (applyCachedMixGains).
+    //
+    // Reverb is no longer our concern. GlobalFX has its own bypass logic
+    // driven by master wet level and its own manual bypass override.
+    // =========================================================================
+    void setBypass(bool bypass);
+    bool getBypass() const { return _fullBypass; }
 
 private:
     // =========================================================================
-    // AUDIO OBJECTS  (order matters: Teensy Audio Library processes in
-    //                 declaration order within an AudioStream subclass, but
-    //                 here they are separate objects so ordering is flexible)
+    // AUDIO OBJECTS
     // =========================================================================
+    AudioEffectJPFX _jpfx;           // Tone / mod / delay engine (per layer)
 
-    AudioEffectJPFX            _jpfx;          // Tone / mod / delay engine
-    AudioEffectPlateReverbJT _plateReverb;   // stereo plate reverb
-
-    // 4-channel stereo output mixers
-    //   ch0 = dry  ch1 = JPFX wet  ch2 = reverb wet  ch3 = spare
+    // 4-channel stereo output mixers.
+    //   Pre-Phase-3:  ch0=dry, ch1=JPFX wet, ch2=reverb wet, ch3=spare.
+    //   Post-Phase-3: ch0=dry, ch1=JPFX wet, ch2 and ch3 unused.
     AudioMixer4 _mixerOutL;
     AudioMixer4 _mixerOutR;
 
     // =========================================================================
-    // AUDIO PATCH CORDS  (heap-allocated so the graph is wired at run time)
+    // AUDIO PATCH CORDS — heap-allocated so the graph is wired at run time.
     // =========================================================================
-
-    AudioConnection* _patchJPFXtoReverbL;   // JPFX L → reverb in L
-    AudioConnection* _patchJPFXtoReverbR;   // JPFX R → reverb in R
-    AudioConnection* _patchJPFXtoMixerL;    // JPFX L → mixer ch1 L
-    AudioConnection* _patchJPFXtoMixerR;    // JPFX R → mixer ch1 R
-    AudioConnection* _patchReverbToMixerL;  // Reverb L → mixer ch2 L
-    AudioConnection* _patchReverbToMixerR;  // Reverb R → mixer ch2 R
+    AudioConnection* _patchJPFXtoMixerL = nullptr;    // JPFX L → mixer ch1 L
+    AudioConnection* _patchJPFXtoMixerR = nullptr;    // JPFX R → mixer ch1 R
     // Note: dry path (ch0) is wired from SynthEngine, not here.
+    // Note: reverb patch cords removed — reverb moved to GlobalFX (Phase 3).
 
     // =========================================================================
     // CACHED PARAMETER STATE
@@ -267,30 +241,22 @@ private:
     float  _delayFeedback = -1.0f; // -1=use preset, 0..0.99
     float  _delayTime     = 0.0f;  // ms (0=use preset)
 
-    // -- Reverb --
-    float _reverbRoomSize     = 0.5f;   // 0..1
-    float _reverbHiDamp       = 0.5f;   // 0..1
-    float _reverbLoDamp       = 0.5f;   // 0..1
-    bool  _reverbManualBypass = false;   // hard bypass override
-    float _reverbShimmer      = 0.0f;   // 0..1 shimmer wet amount
-    bool  _reverbFrozen       = false;  // freeze state
-    float _reverbLowpass      = 0.0f;   // 0..1 output LP (post-tank)
-    float _reverbHipass       = 0.0f;   // 0..1 output HP (post-tank)
-
-    // -- Output mix levels --
+    // -- Output mix levels (reverb removed, now in GlobalFX) --
     float _dryMixL    = 1.0f;   // ch0 left
     float _dryMixR    = 1.0f;   // ch0 right
     float _jpfxMixL   = 0.0f;   // ch1 left
     float _jpfxMixR   = 0.0f;   // ch1 right
-    float _reverbMixL = 0.0f;   // ch2 left
-    float _reverbMixR = 0.0f;   // ch2 right
+
+    // -- Full-chain bypass state --
+    // When true, setDryMix / setJPFXMix update the cache only; the mixer
+    // gains stay at 0 until setBypass(false) calls applyCachedMixGains().
+    bool  _fullBypass = false;
 
     // =========================================================================
     // PRIVATE HELPERS
     // =========================================================================
 
-    // Re-evaluate reverb bypass state after any mix or manual-bypass change.
-    // Bypasses when both channels are silent (saves ~10% CPU); restores as
-    // soon as either channel rises above REVERB_MIX_THRESHOLD.
-    void updateReverbBypass();
+    // Write the cached mix values through to the live mixer gains.
+    // Called from setBypass(false) to restore state after a bypass.
+    void applyCachedMixGains();
 };

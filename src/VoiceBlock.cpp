@@ -42,19 +42,6 @@ VoiceBlock::VoiceBlock()
     _patchCables[15] = new AudioConnection(_pitchEnvDc, 0, _pitchEnvelope.input(), 0);
 
     // =========================================================================
-    // CROSS MODULATION — permanent cable: OSC2 audio → OSC1 pitch pre-mixer
-    //
-    // OSC2 output feeds slot 1 of _osc1's _crossModPreMixer.
-    // The pre-mixer sits between _combinedPitchDc and _frequencyModMixer slot 0,
-    // so OSC2's audio sums into OSC1's FM path at whatever gain setCrossModGain()
-    // sets.  Initial gain is 0.0 (set in OscillatorBlock constructor) — silent
-    // until setCrossModDepth() is called with a non-zero value.
-    // =========================================================================
-#if JT_OPT_CROSS_MOD
-    _patchCrossModFM = new AudioConnection(_osc2.output(), 0, _osc1.crossModPreMixerRef(), 1);
-#endif
-
-    // =========================================================================
     // MIXER GAINS
     // =========================================================================
     _oscMixer.gain(0, _kMaxMixerGain);  // OSC1
@@ -247,6 +234,11 @@ void VoiceBlock::setGlideEnabled(bool enabled) {
 void VoiceBlock::setGlideTime(float milliseconds) {
     _osc1.setGlideTime(milliseconds);
     _osc2.setGlideTime(milliseconds);
+}
+
+void VoiceBlock::setGlideFromFreq(float hz) {
+    _osc1.setGlideFromFreq(hz);
+    _osc2.setGlideFromFreq(hz);
 }
 
 void VoiceBlock::setOsc1ShapeDcAmp(float amplitude) { _osc1.setShapeDcAmp(amplitude); }
@@ -454,24 +446,14 @@ float VoiceBlock::getOsc2FeedbackAmount() const { return _osc2.getFeedbackAmount
 // =========================================================================
 
 void VoiceBlock::setCrossModDepth(float depth) {
-    _crossModDepth = depth;   // Always store regardless of compile flags
-
-#if JT_OPT_CROSS_MOD
-    // depth is a normalised 0..1 float (converted from CC by SynthEngine).
-    // Apply CROSS_MOD_FULL_SCALE directly to get the FM pre-mixer gain.
-    // No round-trip back through CC — that would double-scale and compress
-    // the range to near zero.
-    // Drives the pre-mixer unconditionally: sync ON or OFF.
-    // When sync is ON, _osc2 is removed from the graph so slot 1 is silent;
-    // the sync engine's internal path handles cross-mod in that case.
-    _osc1.setCrossModGain(depth * CROSS_MOD_FULL_SCALE);
-#endif
-
+    _crossModDepth = depth;
 #if JT_OPT_OSC_SYNC
-    // Forward to sync engine so both-features-active works correctly.
     if (_syncActive) {
         _syncEngine.setCrossModDepth(depth);
     }
+    // When sync is off, cross-mod has no effect — it requires the sync
+    // engine's per-sample FM injection.  Standalone cross-mod via a
+    // pre-mixer on OscillatorBlock is a future enhancement.
 #endif
 }
 

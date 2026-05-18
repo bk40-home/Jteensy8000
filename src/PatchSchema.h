@@ -86,8 +86,12 @@ static constexpr uint8_t kPatchableCCs[] = {
     CC::FX_JPFX_DELAY_FEEDBACK, CC::FX_JPFX_DELAY_TIME,
 
     // ---- FX: Reverb ----
-    CC::FX_REVERB_SIZE, CC::FX_REVERB_DAMP, CC::FX_REVERB_LODAMP,
-    CC::FX_REVERB_MIX, CC::FX_REVERB_BYPASS,
+    //   Reverb CCs have moved to Performance scope (Phase 3 GlobalFX).
+    //   They are serialised per-Performance, not per-Patch. Removing them
+    //   from kPatchableCCs prevents patch files from bloating with
+    //   meaningless per-patch reverb state.
+    //   (Previous list: FX_REVERB_SIZE, FX_REVERB_DAMP, FX_REVERB_LODAMP,
+    //   FX_REVERB_MIX, FX_REVERB_BYPASS.)
 
     // ---- FX: Output mix ----
     CC::FX_DRY_MIX, CC::FX_JPFX_MIX,
@@ -101,6 +105,22 @@ static constexpr uint8_t kPatchableCCs[] = {
     CC::RING1_MIX, CC::RING2_MIX,
     CC::OSC1_FREQ_DC, CC::OSC1_SHAPE_DC,
     CC::OSC2_FREQ_DC, CC::OSC2_SHAPE_DC,
+
+    // ---- Cross Modulation / Sync ----
+    CC::OSC_CROSS_MOD_DEPTH, CC::OSC_SYNC_ENABLE,
+
+    // ---- Pitch Bend ----
+    CC::PITCH_BEND_RANGE,
+
+    // ---- Extended Reverb (Performance-scope on firmware, but needed ----
+    // ---- here so patch save/load round-trips correctly when reverb  ----
+    // ---- settings are bundled with a patch export.)                  ----
+    CC::FX_REVERB_SHIMMER, CC::FX_REVERB_FREEZE,
+    CC::FX_REVERB_LOWPASS, CC::FX_REVERB_HIPASS,
+
+    // ---- Arbitrary Waveforms ----
+    CC::OSC1_ARB_BANK, CC::OSC2_ARB_BANK,
+    CC::OSC1_ARB_INDEX, CC::OSC2_ARB_INDEX,
 };
 
 static constexpr int kPatchableCount =

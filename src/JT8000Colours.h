@@ -76,7 +76,6 @@
 
 // ---- Functional colours (not decorative — keep distinct) ----
 #define COLOUR_ACCENT_RED   0xF8E3  // #FF1C18  cancel / alert / destructive
-#define COLOUR_ACCENT       COLOUR_ACCENT_RED  // backward compat for TFTWidgets
 #define COLOUR_BORDER       0x29AA  // #2D3750  blue-grey borders
 
 // ---------------------------------------------------------------------------

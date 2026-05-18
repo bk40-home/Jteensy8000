@@ -73,9 +73,10 @@ HomeScreen::HomeScreen()
 // begin / markFullRedraw / syncFromEngine / entry access
 // =============================================================================
 
-void HomeScreen::begin(ILI9341_t3n* disp, SynthEngine* synth) {
+   void HomeScreen::begin(ILI9341_t3n* disp, SynthEngine* synth, LayerManager* mgr) {
     _display  = disp;
     _synth    = synth;
+    _layerMgr = mgr;
     _instance = this;
     _entry.setDisplay(disp);
     markFullRedraw();
@@ -632,7 +633,7 @@ void HomeScreen::_drawControl(int16_t sectIdx, int16_t flatCtrl,
     if (ctrl.cc == 255 || ctrl.type == CtrlType::NONE) return;
     if (!_synth || !_display) return;
 
-    const uint8_t rawVal = _synth->getCC(ctrl.cc);
+    const uint8_t rawVal = _getCC(ctrl.cc);
     const bool selected  = (_cursor.sectionIdx == sectIdx &&
                             _cursor.controlIdx == flatCtrl);
 
@@ -661,12 +662,12 @@ void HomeScreen::_drawControl(int16_t sectIdx, int16_t flatCtrl,
             break;
         }
         case CtrlType::GRID: {
-            const StepSequencer& seq = _synth->getSeq1();
+            const StepSequencer& seq = _engine().getSeq1();
             uint8_t stepVals[16];
             const uint8_t stepCount = (uint8_t)constrain(seq.getStepCount(), 1, 16);
             for (uint8_t i = 0; i < 16; ++i)
                 stepVals[i] = (i < stepCount) ? seq.getStepValue(i) : 0;
-            const int8_t selStep  = (int8_t)(_synth->getCC(CC::SEQ_STEP_SELECT) & 0x0F);
+            const int8_t selStep  = (int8_t)(_getCC(CC::SEQ_STEP_SELECT) & 0x0F);
             const int8_t playStep = (int8_t)seq.getCurrentStep();
             MiniSliderGrid::draw(*_display, screenX, screenY,
                                  SW - 2 * BODY_PAD_X, stepCount, stepVals,
@@ -714,7 +715,7 @@ void HomeScreen::_drawVoiceDots() {
     const int16_t baseX = 54;
     const int16_t baseY = HEADER_H / 2;
     for (int v = 0; v < MAX_VOICES && v < 8; ++v) {
-        const bool active = _synth->isVoiceActive(v);
+        const bool active = _engine().isVoiceActive(v);
         if (active == _prevVoiceActive[v]) continue;
         _prevVoiceActive[v] = active;
         const int16_t dotX = baseX + v * (VOICE_DOT_R * 2 + VOICE_DOT_GAP);
@@ -872,21 +873,21 @@ bool HomeScreen::onTouch(int16_t x, int16_t y) {
 
                             if (ctrl.type == CtrlType::TOGGLE && _synth) {
                                 // Toggle: flip immediately
-                                uint8_t cur = _synth->getCC(ctrl.cc);
-                                _synth->setCC(ctrl.cc, (cur > 63) ? 0 : 127);
+                                uint8_t cur = _getCC(ctrl.cc);
+                                _setCC(ctrl.cc, (cur > 63) ? 0 : 127);
                                 _markControlDirty(flatCtrl);
                             } else if (ctrl.type == CtrlType::GRID && _synth) {
                                 // Grid: hit-test to find which step was tapped
                                 // Use screen-space X and the cached/calculated grid position
                                 const int16_t gridScreenY = CONTENT_Y + (bodyY - _scrollY);
-                                const StepSequencer& seq = _synth->getSeq1();
+                                const StepSequencer& seq = _engine().getSeq1();
                                 const uint8_t stepCount = (uint8_t)constrain(seq.getStepCount(), 1, 16);
                                 const int8_t tapped = MiniSliderGrid::hitTestStep(
                                     ctrlX, gridScreenY, SW - 2 * BODY_PAD_X,
                                     stepCount, x, y);
                                 if (tapped >= 0) {
                                     // Select this step
-                                    _synth->setCC(CC::SEQ_STEP_SELECT, (uint8_t)tapped);
+                                    _setCC(CC::SEQ_STEP_SELECT, (uint8_t)tapped);
                                     _markControlDirty(flatCtrl);
                                     // Open numeric entry for step VALUE
                                     _pendingCC = CC::SEQ_STEP_VALUE;
@@ -896,7 +897,7 @@ bool HomeScreen::onTouch(int16_t x, int16_t y) {
                                     _entry.openNumeric(title, "", 0, 127, (int)stepVal,
                                         [](int val) {
                                             if (!_instance || !_instance->_synth) return;
-                                            _instance->_synth->setCC(CC::SEQ_STEP_VALUE,
+                                            _instance->_setCC(CC::SEQ_STEP_VALUE,
                                                 (uint8_t)constrain(val, 0, 127));
                                             _instance->_markAllControlsDirty();
                                         });
@@ -938,24 +939,24 @@ void HomeScreen::_adjustValue(int16_t sectIdx, int16_t flatCtrl, int delta) {
 
     if (ctrl.type == CtrlType::TOGGLE) {
         // Toggle: any delta flips state
-        uint8_t cur = _synth->getCC(ctrl.cc);
-        _synth->setCC(ctrl.cc, (cur > 63) ? 0 : 127);
+        uint8_t cur = _getCC(ctrl.cc);
+        _setCC(ctrl.cc, (cur > 63) ? 0 : 127);
 
     } else if (ctrl.type == CtrlType::GRID) {
         // Grid: Encoder R adjusts the VALUE of the currently SELECTED step.
         // The selected step index is in SEQ_STEP_SELECT.
         // The value to adjust is SEQ_STEP_VALUE.
-        const uint8_t selStep = _synth->getCC(CC::SEQ_STEP_SELECT) & 0x0F;
-        const uint8_t curVal  = _synth->getSeq1().getStepValue(selStep);
+        const uint8_t selStep = _getCC(CC::SEQ_STEP_SELECT) & 0x0F;
+        const uint8_t curVal  = _engine().getSeq1().getStepValue(selStep);
         int16_t newVal = (int16_t)curVal + delta;
         // First set which step we're editing, then set its value
-        _synth->setCC(CC::SEQ_STEP_SELECT, selStep);
-        _synth->setCC(CC::SEQ_STEP_VALUE, (uint8_t)constrain(newVal, 0, 127));
+        _setCC(CC::SEQ_STEP_SELECT, selStep);
+        _setCC(CC::SEQ_STEP_VALUE, (uint8_t)constrain(newVal, 0, 127));
 
     } else {
         // Knob/Select: adjust the control's own CC
-        int16_t newVal = (int16_t)_synth->getCC(ctrl.cc) + delta;
-        _synth->setCC(ctrl.cc, (uint8_t)constrain(newVal, 0, 127));
+        int16_t newVal = (int16_t)_getCC(ctrl.cc) + delta;
+        _setCC(ctrl.cc, (uint8_t)constrain(newVal, 0, 127));
     }
 }
 
@@ -969,15 +970,15 @@ void HomeScreen::_openEntry(int16_t sectIdx, int16_t flatCtrl) {
 
     if (ctrl.type == CtrlType::GRID) {
         // Grid: open numeric entry for the currently selected step's VALUE
-        const uint8_t selStep = _synth->getCC(CC::SEQ_STEP_SELECT) & 0x0F;
-        const uint8_t stepVal = _synth->getSeq1().getStepValue(selStep);
+        const uint8_t selStep = _getCC(CC::SEQ_STEP_SELECT) & 0x0F;
+        const uint8_t stepVal = _engine().getSeq1().getStepValue(selStep);
         _pendingCC = CC::SEQ_STEP_VALUE;
         char title[16];
         snprintf(title, sizeof(title), "Step %d", selStep + 1);
         _entry.openNumeric(title, "", 0, 127, (int)stepVal,
             [](int val) {
                 if (!_instance || !_instance->_synth) return;
-                _instance->_synth->setCC(CC::SEQ_STEP_VALUE,
+                _instance->_setCC(CC::SEQ_STEP_VALUE,
                     (uint8_t)constrain(val, 0, 127));
                 _instance->_markAllControlsDirty();
             });
@@ -1026,6 +1027,40 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
         case CC::FX_DRIVE: opts = kDrive; count = 3; break;
         case CC::SEQ_DIRECTION: opts = kSeqDir; count = 4; break;
         case CC::SEQ_DESTINATION: opts = kSeqDest; count = 5; break;
+        case CC::PERF_MODE: { static const char* k[]={"Single","Layer","Split"}; opts=k; count=3; } break;
+        case CC::PERF_EDIT_TARGET: { static const char* k[]={"Layer A","Layer B","Both"}; opts=k; count=3; } break;
+        case CC::PERF_VOICE_SPLIT: { static const char* k[]={"1+7","2+6","3+5","4+4","5+3","6+2","7+1"}; opts=k; count=7; } break;
+        case CC::PERF_SPLIT_NOTE: {
+            // Build note name list — C-1 to G9 (128 notes)
+            static char noteNames[128][5];
+            static const char* notePtrs[128];
+            static bool built = false;
+            if (!built) {
+                static const char* nn[] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+                for (int i = 0; i < 128; ++i) {
+                    snprintf(noteNames[i], 5, "%s%d", nn[i%12], (i/12)-1);
+                    notePtrs[i] = noteNames[i];
+                }
+                built = true;
+            }
+            opts = notePtrs; count = 128;
+        } break;
+        case CC::PERF_BALANCE: { static const char* k[]={"A only","A > B","A+B equal","B > A","B only"}; opts=k; count=5; } break;
+        case CC::PERF_MIDI_CHANNEL_A:
+        case CC::PERF_MIDI_CHANNEL_B: {
+            // 16-channel dropdown. Built once, reused for both CCs.
+            static char chNames[16][6];
+            static const char* chPtrs[16];
+            static bool chBuilt = false;
+            if (!chBuilt) {
+                for (int i = 0; i < 16; ++i) {
+                    snprintf(chNames[i], 6, "Ch %d", i + 1);
+                    chPtrs[i] = chNames[i];
+                }
+                chBuilt = true;
+            }
+            opts = chPtrs; count = 16;
+        } break;
         case CC::FILTER_ENGINE: { static const char* k[]={"OBXa","VA Bank"}; opts=k; count=CC::FILTER_ENGINE_COUNT; } break;
         case CC::FILTER_MODE: { static const char* k[]={"4-Pole LP","2-Pole LP","2-Pole BP","2-Pole Push","Xpander","Xpander+M"}; opts=k; count=CC::FILTER_MODE_COUNT; } break;
         case CC::VA_FILTER_TYPE: opts = kVAFilterNames; count = (int)FILTER_COUNT; break;
@@ -1033,12 +1068,21 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
         default: opts = kOnOff; count = 2; break;
     }
 
-    const uint8_t rawVal = _synth->getCC(cc);
+    const uint8_t rawVal = _getCC(cc);
     int curIdx;
     if (isOscWave) {
         WaveformType wt = waveformFromCC(rawVal); curIdx = 0;
         for (int i = 0; i < (int)numWaveformsAll; ++i) { if (waveformListAll[i] == wt) { curIdx = i; break; } }
     } else if (cc == CC::POLY_MODE) { curIdx = (rawVal <= 42) ? 0 : (rawVal <= 84) ? 1 : 2; }
+    else if (cc == CC::PERF_MODE) { curIdx = (rawVal <= 42) ? 0 : (rawVal <= 84) ? 1 : 2; }
+    else if (cc == CC::PERF_EDIT_TARGET) { curIdx = (rawVal <= 42) ? 0 : (rawVal <= 84) ? 1 : 2; }
+    else if (cc == CC::PERF_VOICE_SPLIT) { curIdx = constrain((int)rawVal * 7 / 128, 0, 6); }
+    else if (cc == CC::PERF_SPLIT_NOTE) { curIdx = constrain((int)rawVal, 0, 127); }
+    else if (cc == CC::PERF_BALANCE) { curIdx = (rawVal < 26) ? 0 : (rawVal < 58) ? 1 : (rawVal < 70) ? 2 : (rawVal < 102) ? 3 : 4; }
+    else if (cc == CC::PERF_MIDI_CHANNEL_A || cc == CC::PERF_MIDI_CHANNEL_B) {
+        // Firmware decode: channel = ((v * 16) / 128) + 1. curIdx is 0-based.
+        curIdx = constrain(((int)rawVal * 16) / 128, 0, 15);
+    }
     else if (isFxMod) { curIdx = (rawVal == 0) ? 0 : constrain(((int)(rawVal-1)*11)/127+1, 1, 11); }
     else if (isFxDelay) { curIdx = (rawVal == 0) ? 0 : constrain(((int)(rawVal-1)*5)/127+1, 1, 5); }
     else if (cc == CC::FX_DRIVE) { curIdx = (rawVal < 16) ? 0 : (rawVal < 64) ? 1 : 2; }
@@ -1058,6 +1102,23 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
             if (s->_pendingCC==CC::OSC1_WAVE||s->_pendingCC==CC::OSC2_WAVE) {
                 ccVal = (idx>=0&&idx<(int)numWaveformsAll) ? ccFromWaveform(waveformListAll[idx]) : 0;
             } else if (s->_pendingCC==CC::POLY_MODE) { static const uint8_t m[]={21,63,106}; ccVal=(idx>=0&&idx<3)?m[idx]:0;
+            } else if (s->_pendingCC==CC::PERF_MODE) { static const uint8_t m[]={21,63,106}; ccVal=(idx>=0&&idx<3)?m[idx]:0;
+            } else if (s->_pendingCC==CC::PERF_EDIT_TARGET) { static const uint8_t m[]={21,63,106}; ccVal=(idx>=0&&idx<3)?m[idx]:0;
+            } else if (s->_pendingCC==CC::PERF_VOICE_SPLIT) { ccVal=(uint8_t)constrain(idx*128/7, 0, 127);
+            } else if (s->_pendingCC==CC::PERF_SPLIT_NOTE) { ccVal=(uint8_t)constrain(idx, 0, 127);
+            } else if (s->_pendingCC==CC::PERF_BALANCE) { static const uint8_t m[]={0,32,64,96,127}; ccVal=(idx>=0&&idx<5)?m[idx]:64;
+            } else if (s->_pendingCC==CC::PERF_MIDI_CHANNEL_A || s->_pendingCC==CC::PERF_MIDI_CHANNEL_B) {
+                // Per-channel bucket centres. Using a LUT rather than a
+                // formula so round-tripping through ccToChoiceIndex is
+                // stable — the firmware uses truncating integer division
+                // (v * 16) / 128 which rounds down to a bucket; we emit
+                // the CENTRE of each bucket so the chosen channel comes
+                // back correctly on the next read.
+                static const uint8_t m[] = {
+                    4, 12, 20, 28, 36, 44, 52, 60,
+                    68, 76, 84, 92, 100, 108, 116, 124
+                };
+                ccVal = (idx >= 0 && idx < 16) ? m[idx] : 4;
             } else if (s->_pendingCC==CC::FX_MOD_EFFECT) { static const uint8_t m[]={0,6,17,28,40,51,62,74,85,96,108,127}; ccVal=(idx>=0&&idx<12)?m[idx]:0;
             } else if (s->_pendingCC==CC::FX_JPFX_DELAY_EFFECT) { static const uint8_t m[]={0,13,38,64,89,114}; ccVal=(idx>=0&&idx<6)?m[idx]:0;
             } else if (s->_pendingCC==CC::FX_DRIVE) { static const uint8_t m[]={0,32,96}; ccVal=(idx>=0&&idx<3)?m[idx]:0;
@@ -1067,7 +1128,7 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
             // Sequencer destination: firmware uses (v*4)/127 → 5 buckets
             } else if (s->_pendingCC==CC::SEQ_DESTINATION) { static const uint8_t m[]={0,32,64,96,127}; ccVal=(idx>=0&&idx<5)?m[idx]:0;
             } else { ccVal=(uint8_t)((idx*128+(128/s->_pendingCount)/2)/s->_pendingCount); }
-            s->_synth->setCC(s->_pendingCC, ccVal);
+            s->_setCC(s->_pendingCC, ccVal);
             s->_markAllControlsDirty();  // preset/enum change may affect display text
         });
 }
@@ -1075,31 +1136,31 @@ void HomeScreen::_openEnumEntry(uint8_t cc, const char* title) {
 void HomeScreen::_openNumericEntry(uint8_t cc, const char* title) {
     if (!_synth) return;
     using namespace JT8000Map;
-    const char* unit = ""; int minV = 0, maxV = 127, curV = (int)_synth->getCC(cc);
+    const char* unit = ""; int minV = 0, maxV = 127, curV = (int)_getCC(cc);
     switch (cc) {
-        case CC::FILTER_CUTOFF: unit="Hz"; minV=20; maxV=18000; curV=(int)_synth->getFilterCutoff(); break;
+        case CC::FILTER_CUTOFF: unit="Hz"; minV=20; maxV=18000; curV=(int)_engine().getFilterCutoff(); break;
         case CC::AMP_ATTACK: case CC::AMP_DECAY: case CC::AMP_RELEASE:
         case CC::FILTER_ENV_ATTACK: case CC::FILTER_ENV_DECAY: case CC::FILTER_ENV_RELEASE:
         case CC::PITCH_ENV_ATTACK: case CC::PITCH_ENV_DECAY: case CC::PITCH_ENV_RELEASE:
-            unit="ms"; minV=1; maxV=11880; curV=(int)cc_to_time_ms(_synth->getCC(cc)); break;
+            unit="ms"; minV=1; maxV=11880; curV=(int)cc_to_time_ms(_getCC(cc)); break;
         case CC::AMP_SUSTAIN: case CC::FILTER_ENV_SUSTAIN: case CC::PITCH_ENV_SUSTAIN:
-            unit="%"; minV=0; maxV=100; curV=(int)(_synth->getCC(cc)*100/127); break;
+            unit="%"; minV=0; maxV=100; curV=(int)(_getCC(cc)*100/127); break;
         case CC::LFO1_FREQ: case CC::LFO2_FREQ:
-            unit="Hz"; minV=0; maxV=39; curV=(int)cc_to_lfo_hz(_synth->getCC(cc)); break;
+            unit="Hz"; minV=0; maxV=39; curV=(int)cc_to_lfo_hz(_getCC(cc)); break;
         case CC::FX_BASS_GAIN: case CC::FX_TREBLE_GAIN:
-            unit="dB"; minV=-12; maxV=12; curV=(int)((_synth->getCC(cc)/127.0f)*24.0f-12.0f); break;
+            unit="dB"; minV=-12; maxV=12; curV=(int)((_getCC(cc)/127.0f)*24.0f-12.0f); break;
         case CC::BPM_INTERNAL_TEMPO:
-            unit="BPM"; minV=20; maxV=300; curV=(int)(20.0f+(_synth->getCC(cc)/127.0f)*280.0f); break;
+            unit="BPM"; minV=20; maxV=300; curV=(int)(20.0f+(_getCC(cc)/127.0f)*280.0f); break;
         case CC::OSC1_PITCH_OFFSET: case CC::OSC2_PITCH_OFFSET:
-            unit="st"; minV=-24; maxV=24; curV=(int)(_synth->getCC(cc)*48/127-24); break;
+            unit="st"; minV=-24; maxV=24; curV=(int)(_getCC(cc)*48/127-24); break;
         case CC::OSC1_FINE_TUNE: case CC::OSC2_FINE_TUNE:
-            unit="ct"; minV=-100; maxV=100; curV=(int)(_synth->getCC(cc)*200/127-100); break;
+            unit="ct"; minV=-100; maxV=100; curV=(int)(_getCC(cc)*200/127-100); break;
         case CC::PITCH_ENV_DEPTH:
-            unit="st"; minV=-12; maxV=12; curV=(int)((_synth->getCC(cc)-64)*12/63); break;
+            unit="st"; minV=-12; maxV=12; curV=(int)((_getCC(cc)-64)*12/63); break;
         case CC::PITCH_BEND_RANGE:
-            unit="st"; minV=0; maxV=24; curV=(int)(_synth->getCC(cc)*24/127); break;
+            unit="st"; minV=0; maxV=24; curV=(int)(_getCC(cc)*24/127); break;
         case CC::FX_DRIVE:
-            unit="%"; minV=0; maxV=100; curV=(int)(_synth->getCC(cc)*100/127); break;
+            unit="%"; minV=0; maxV=100; curV=(int)(_getCC(cc)*100/127); break;
         default: break;
     }
     _pendingCC = cc;
@@ -1126,7 +1187,7 @@ void HomeScreen::_openNumericEntry(uint8_t cc, const char* title) {
                 case CC::FX_DRIVE: ccVal=(uint8_t)(humanVal*127/100); break;
                 default: ccVal=(uint8_t)constrain(humanVal,0,127); break;
             }
-            s->_synth->setCC(tcc, ccVal);
+            s->_setCC(tcc, ccVal);
             s->_markAllControlsDirty();
         });
 }
@@ -1138,29 +1199,70 @@ void HomeScreen::_openNumericEntry(uint8_t cc, const char* title) {
 const char* HomeScreen::_enumTextForCC(uint8_t cc) const {
     if (!_synth) return nullptr;
     switch (cc) {
-        case CC::OSC1_WAVE: return _synth->getOsc1WaveformName();
-        case CC::OSC2_WAVE: return _synth->getOsc2WaveformName();
-        case CC::LFO1_WAVEFORM: return _synth->getLFO1WaveformName();
-        case CC::LFO2_WAVEFORM: return _synth->getLFO2WaveformName();
-        case CC::LFO1_DESTINATION: return _synth->getLFO1DestinationName();
-        case CC::LFO2_DESTINATION: return _synth->getLFO2DestinationName();
+        case CC::OSC1_WAVE: return _engine().getOsc1WaveformName();
+        case CC::OSC2_WAVE: return _engine().getOsc2WaveformName();
+        case CC::LFO1_WAVEFORM: return _engine().getLFO1WaveformName();
+        case CC::LFO2_WAVEFORM: return _engine().getLFO2WaveformName();
+        case CC::LFO1_DESTINATION: return _engine().getLFO1DestinationName();
+        case CC::LFO2_DESTINATION: return _engine().getLFO2DestinationName();
         case CC::GLIDE_ENABLE: case CC::SEQ_ENABLE: case CC::SEQ_RETRIGGER:
         case CC::OSC_SYNC_ENABLE:
-            return (_synth->getCC(cc) > 63) ? "On" : "Off";
-        case CC::FX_REVERB_BYPASS: return _synth->getFXReverbBypass() ? "Bypass" : "Active";
-        case CC::FILTER_ENGINE: return (_synth->getFilterEngine()==CC::FILTER_ENGINE_VA) ? "VA Bank" : "OBXa";
-        case CC::FILTER_MODE: { static const char* k[]={"4-Pole LP","2-Pole LP","2-Pole BP","2-Pole Push","Xpander","Xpander+M"}; return ((_synth->getFilterMode())<CC::FILTER_MODE_COUNT)?k[_synth->getFilterMode()]:"?"; }
-        case CC::VA_FILTER_TYPE: { const uint8_t vt=_synth->getVAFilterType(); return (vt<(uint8_t)FILTER_COUNT)?kVAFilterNames[vt]:"?"; }
-        case CC::FILTER_OBXA_XPANDER_MODE: { static const char* k[]={"LP4","LP3","LP2","LP1","HP3","HP2","HP1","BP4","BP2","N2","PH3","HP2+LP1","HP3+LP1","N2+LP1","PH3+LP1"}; return (_synth->getFilterXpanderMode()<15)?k[_synth->getFilterXpanderMode()]:"?"; }
-        case CC::FX_MOD_EFFECT: return _synth->getFXModEffectName();
-        case CC::FX_JPFX_DELAY_EFFECT: return _synth->getFXDelayEffectName();
-        case CC::POLY_MODE: { const uint8_t v=_synth->getCC(CC::POLY_MODE); return (v<=42)?"Poly":(v<=84)?"Mono":"Unison"; }
-        case CC::FX_DRIVE: { const uint8_t v=_synth->getCC(CC::FX_DRIVE); return (v<16)?"Bypass":(v<64)?"Soft Clip":"Hard Clip"; }
-        case CC::SEQ_DIRECTION: { static const char* k[]={"Forward","Reverse","Bounce","Random"}; return k[constrain((int)(_synth->getCC(cc)*3)/127,0,3)]; }
-        case CC::SEQ_DESTINATION: { static const char* k[]={"None","Pitch","Filter","PWM","Amp"}; return k[constrain((int)(_synth->getCC(cc)*4)/127,0,4)]; }
+            return (_getCC(cc) > 63) ? "On" : "Off";
+        case CC::FX_REVERB_BYPASS: {
+            // Reverb lives globally now. Read bypass state from LayerManager's
+            // shared GlobalFX instance rather than the per-layer engine.
+            const bool bypassed = _layerMgr ? _layerMgr->getGlobalFX().getReverbBypass() : false;
+            return bypassed ? "Bypass" : "Active";
+        }
+        case CC::FILTER_ENGINE: return (_engine().getFilterEngine()==CC::FILTER_ENGINE_VA) ? "VA Bank" : "OBXa";
+        case CC::FILTER_MODE: { static const char* k[]={"4-Pole LP","2-Pole LP","2-Pole BP","2-Pole Push","Xpander","Xpander+M"}; return ((_engine().getFilterMode())<CC::FILTER_MODE_COUNT)?k[_engine().getFilterMode()]:"?"; }
+        case CC::VA_FILTER_TYPE: { const uint8_t vt=_engine().getVAFilterType(); return (vt<(uint8_t)FILTER_COUNT)?kVAFilterNames[vt]:"?"; }
+        case CC::FILTER_OBXA_XPANDER_MODE: { static const char* k[]={"LP4","LP3","LP2","LP1","HP3","HP2","HP1","BP4","BP2","N2","PH3","HP2+LP1","HP3+LP1","N2+LP1","PH3+LP1"}; return (_engine().getFilterXpanderMode()<15)?k[_engine().getFilterXpanderMode()]:"?"; }
+        case CC::FX_MOD_EFFECT: return _engine().getFXModEffectName();
+        case CC::FX_JPFX_DELAY_EFFECT: return _engine().getFXDelayEffectName();
+        case CC::POLY_MODE: { const uint8_t v=_getCC(CC::POLY_MODE); return (v<=42)?"Poly":(v<=84)?"Mono":"Unison"; }
+        case CC::FX_DRIVE: { const uint8_t v=_getCC(CC::FX_DRIVE); return (v<16)?"Bypass":(v<64)?"Soft Clip":"Hard Clip"; }
+        case CC::SEQ_DIRECTION: { static const char* k[]={"Forward","Reverse","Bounce","Random"}; return k[constrain((int)(_getCC(cc)*3)/127,0,3)]; }
+        case CC::SEQ_DESTINATION: { static const char* k[]={"None","Pitch","Filter","PWM","Amp"}; return k[constrain((int)(_getCC(cc)*4)/127,0,4)]; }
         case CC::LFO1_TIMING_MODE: case CC::LFO2_TIMING_MODE: case CC::DELAY_TIMING_MODE: case CC::SEQ_TIMING_MODE:
-            { static const char* k[]={"Free","1/1","1/2","1/4","1/8","1/16","1/1T","1/2T","1/4T","1/8T","1/16T","1/32"}; return k[constrain(_synth->getCC(cc)*12/128,0,11)]; }
-        case CC::BPM_CLOCK_SOURCE: return (_synth->getCC(cc)>63)?"MIDI":"Internal";
+            { static const char* k[]={"Free","1/1","1/2","1/4","1/8","1/16","1/1T","1/2T","1/4T","1/8T","1/16T","1/32"}; return k[constrain(_getCC(cc)*12/128,0,11)]; }
+        case CC::BPM_CLOCK_SOURCE: return (_getCC(cc)>63)?"MIDI":"Internal";
+        case CC::PERF_MODE: { const uint8_t v=_getCC(cc); return (v<=42)?"Single":(v<=84)?"Layer":"Split"; }
+        case CC::PERF_EDIT_TARGET: { const uint8_t v=_getCC(cc); return (v<=42)?"Layer A":(v<=84)?"Layer B":"Both"; }
+        case CC::PERF_VOICE_SPLIT: {
+            static char vsBuf[8];
+            uint8_t va = constrain((int)_getCC(cc) * 7 / 128 + 1, 1, 7);
+            snprintf(vsBuf, sizeof(vsBuf), "%d+%d", va, 8 - va);
+            return vsBuf;
+        }
+        case CC::PERF_SPLIT_NOTE: {
+            static char snBuf[8];
+            static const char* nn[] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+            uint8_t n = _getCC(cc);
+            snprintf(snBuf, sizeof(snBuf), "%s%d", nn[n % 12], (n / 12) - 1);
+            return snBuf;
+        }
+        case CC::PERF_BALANCE: {
+            static char blBuf[8];
+            uint8_t v = _getCC(cc);
+            if (v < 60)       snprintf(blBuf, sizeof(blBuf), "A %d", 64 - v);
+            else if (v > 68)  snprintf(blBuf, sizeof(blBuf), "%d B", v - 64);
+            else              snprintf(blBuf, sizeof(blBuf), "= AB");
+            return blBuf;
+        }
+        case CC::PERF_MIDI_CHANNEL_A:
+        case CC::PERF_MIDI_CHANNEL_B: {
+            // Firmware encodes CC → channel via ((v * 16) / 128) + 1.
+            // Render buffer is shared with the PERF_SPLIT_NOTE case's snBuf
+            // below? No — PERF_SPLIT_NOTE has its own. Use a local static
+            // buffer here. The two cases can share a single buffer because
+            // only one can be on-screen at a time in the redraw loop.
+            static char chBuf[8];
+            const uint8_t raw = _getCC(cc);
+            const uint8_t chan = (raw * 16) / 128 + 1;
+            snprintf(chBuf, sizeof(chBuf), "Ch %u", (unsigned)chan);
+            return chBuf;
+        }
         default: return nullptr;
     }
 }
@@ -1172,7 +1274,9 @@ const char* HomeScreen::_enumTextForCC(uint8_t cc) const {
             cc==CC::POLY_MODE||cc==CC::FX_MOD_EFFECT||cc==CC::FX_JPFX_DELAY_EFFECT||cc==CC::FILTER_ENGINE||
             cc==CC::FILTER_MODE||cc==CC::VA_FILTER_TYPE||cc==CC::FILTER_OBXA_XPANDER_MODE||cc==CC::FX_DRIVE||
             cc==CC::SEQ_ENABLE||cc==CC::SEQ_RETRIGGER||cc==CC::SEQ_DIRECTION||cc==CC::SEQ_DESTINATION||cc==CC::SEQ_TIMING_MODE||
-            cc==CC::OSC_SYNC_ENABLE);
+            cc==CC::OSC_SYNC_ENABLE||
+            cc==CC::PERF_MODE||cc==CC::PERF_EDIT_TARGET||cc==CC::PERF_VOICE_SPLIT||cc==CC::PERF_SPLIT_NOTE||cc==CC::PERF_BALANCE||
+            cc==CC::PERF_MIDI_CHANNEL_A||cc==CC::PERF_MIDI_CHANNEL_B);
 }
 
 /*static*/ bool HomeScreen::_isToggleCC(uint8_t cc) {

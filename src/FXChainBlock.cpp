@@ -19,18 +19,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
- /*
- * FXChainBlock.cpp
- * ================
- * See FXChainBlock.h for signal-flow diagram and design notes.
- *
- *                JPFX Direct ───────↗
+
+/*
+ * FXChainBlock.cpp — see FXChainBlock.h for signal-flow diagram.
  *
  * MIXER CHANNELS:
- *   Channel 0: Dry (from amp, pre-JPFX)
- *   Channel 1: JPFX wet output (can bypass reverb)
+ *   Channel 0: Dry (from SynthEngine amp, pre-JPFX)
+ *   Channel 1: JPFX wet output
+ *   Channel 2: unused (was reverb wet pre-Phase-3; reverb is now in GlobalFX)
+ *   Channel 3: unused
+ *
  * Parameter clamping is done once at the setter boundary so the audio
- * update path never sees out-of-range values.  All constexpr name tables
+ * update path never sees out-of-range values. All constexpr name tables
  * live here in the translation unit; the header only declares the interface.
  */
 
@@ -38,8 +38,8 @@
 
 // ---------------------------------------------------------------------------
 // Effect name tables — must stay in sync with AudioEffectJPFX enum order.
-// Stored in flash (PROGMEM would need F() wrappers everywhere, so plain
-// const char* in .rodata is the pragmatic choice for Teensy 4.1).
+// Stored in flash via const char* in .rodata (PROGMEM would need F()
+// wrappers everywhere; this is the pragmatic choice for Teensy 4.1).
 // ---------------------------------------------------------------------------
 
 // 11 modulation presets (index 0..10)
@@ -71,51 +71,31 @@ static const char* const DELAY_EFFECT_NAMES[5] = {
 // ---------------------------------------------------------------------------
 
 FXChainBlock::FXChainBlock()
-    : _jpfx(), _plateReverb()
+    : _jpfx()
 {
-    // --- Reverb defaults ---
-    // Start bypassed so the expensive reverb DSP is off until the user
-    // raises the reverb mix.  updateReverbBypass() manages this thereafter.
-    _plateReverb.bypass_set(true);
-    _plateReverb.mix(1.0f);             // Fully wet; dry is handled by _mixerOutL/R
-    _plateReverb.size(_reverbRoomSize);
-    _plateReverb.hidamp(_reverbHiDamp);
-    _plateReverb.lodamp(_reverbLoDamp);
+    // --- Wire audio graph -------------------------------------------------
+    // JPFX stereo out → output mixer ch1 (JPFX wet).
+    // Ch0 (dry) wired from SynthEngine, not here.
+    // Ch2 (formerly reverb wet) now unused — GlobalFX wires the shared
+    //   reverb wet into the perf mixer directly.
+    _patchJPFXtoMixerL = new AudioConnection(_jpfx, 0, _mixerOutL, 1);
+    _patchJPFXtoMixerR = new AudioConnection(_jpfx, 1, _mixerOutR, 1);
 
-    // Compile-time reverb parameter defaults — no live CC assigned for these.
-    // Set once here; adjust per patch via kDefaults[] if needed.
-    _plateReverb.diffusion(0.65f);           // dense wash (high diffusion)
-    _plateReverb.shimmerPitchNormalized(1.0f); // +12 semitones (octave up)
-    _plateReverb.pitchSemitones(0);          // no reverb pitch shift
-    _plateReverb.pitchMix(0.0f);             // reverb pitch off by default
-    _plateReverb.freezeBleedIn(0.0f);        // total mute during freeze
-
-    // --- Wire audio graph ---
-    // JPFX stereo out → reverb stereo in
-    _patchJPFXtoReverbL = new AudioConnection(_jpfx, 0, _plateReverb, 0);
-    _patchJPFXtoReverbR = new AudioConnection(_jpfx, 1, _plateReverb, 1);
-
-    // JPFX stereo out → output mixer ch1 (JPFX direct / pre-reverb wet)
-    _patchJPFXtoMixerL  = new AudioConnection(_jpfx, 0, _mixerOutL, 1);
-    _patchJPFXtoMixerR  = new AudioConnection(_jpfx, 1, _mixerOutR, 1);
-
-    // Reverb stereo out → output mixer ch2 (reverb wet)
-    _patchReverbToMixerL = new AudioConnection(_plateReverb, 0, _mixerOutL, 2);
-    _patchReverbToMixerR = new AudioConnection(_plateReverb, 1, _mixerOutR, 2);
-
-    // --- Output mixer defaults ---
-    // Ch0 (dry) gain is 1.0; it is wired from SynthEngine, not here.
+    // --- Output mixer defaults --------------------------------------------
+    // Ch0 (dry) gain at 1.0; the dry signal is live as soon as SynthEngine
+    // wires amp output into ch0. Ch1 (JPFX wet) starts at 0 — user raises
+    // it when enabling FX.
     _mixerOutL.gain(0, 1.0f);   // dry
-    _mixerOutL.gain(1, 0.0f);   // JPFX wet (off until user enables FX)
-    _mixerOutL.gain(2, 0.0f);   // reverb wet
-    _mixerOutL.gain(3, 0.0f);   // spare
+    _mixerOutL.gain(1, 0.0f);   // JPFX wet
+    _mixerOutL.gain(2, 0.0f);   // unused
+    _mixerOutL.gain(3, 0.0f);   // unused
 
     _mixerOutR.gain(0, 1.0f);
     _mixerOutR.gain(1, 0.0f);
     _mixerOutR.gain(2, 0.0f);
     _mixerOutR.gain(3, 0.0f);
 
-    // --- JPFX defaults (all effects off) ---
+    // --- JPFX defaults (all effects off) ----------------------------------
     _jpfx.setSaturation(0.0f);
     _jpfx.setBassGain(0.0f);
     _jpfx.setTrebleGain(0.0f);
@@ -126,17 +106,13 @@ FXChainBlock::FXChainBlock()
 }
 
 // ---------------------------------------------------------------------------
-// Destructor — release audio patch cords
+// Destructor — release audio patch cords. Reverb cords removed (now in GlobalFX).
 // ---------------------------------------------------------------------------
 
 FXChainBlock::~FXChainBlock()
 {
-    delete _patchJPFXtoReverbL;
-    delete _patchJPFXtoReverbR;
     delete _patchJPFXtoMixerL;
     delete _patchJPFXtoMixerR;
-    delete _patchReverbToMixerL;
-    delete _patchReverbToMixerR;
 }
 
 // ===========================================================================
@@ -192,7 +168,7 @@ void FXChainBlock::setModMix(float mix) {
 
 void FXChainBlock::setModRate(float hz) {
     if (hz < 0.0f)  hz = 0.0f;
-    if (hz > 20.0f) hz = 20.0f;   // Cap prevents metallic/aliasing artefacts
+    if (hz > 20.0f) hz = 20.0f;   // cap prevents metallic/aliasing artefacts
     _modRate = hz;
     _jpfx.setModRate(hz);
 }
@@ -206,8 +182,8 @@ void FXChainBlock::setModFeedback(float fb) {
 
 int8_t      FXChainBlock::getModEffect()   const { return _modEffect;   }
 float       FXChainBlock::getModMix()      const { return _modMix;      }
-float       FXChainBlock::getModRate()     const { return _modRate;      }
-float       FXChainBlock::getModFeedback() const { return _modFeedback;  }
+float       FXChainBlock::getModRate()     const { return _modRate;     }
+float       FXChainBlock::getModFeedback() const { return _modFeedback; }
 
 const char* FXChainBlock::getModEffectName() const {
     if (_modEffect < 0 || _modEffect > 10) return "Off";
@@ -254,15 +230,15 @@ void FXChainBlock::setDelayTime(float ms) {
 
 int8_t      FXChainBlock::getDelayEffect()   const { return _delayEffect;   }
 float       FXChainBlock::getDelayMix()      const { return _delayMix;      }
-float       FXChainBlock::getDelayFeedback() const { return _delayFeedback;  }
-float       FXChainBlock::getDelayTime()     const { return _delayTime;      }
+float       FXChainBlock::getDelayFeedback() const { return _delayFeedback; }
+float       FXChainBlock::getDelayTime()     const { return _delayTime;     }
 
 const char* FXChainBlock::getDelayEffectName() const {
     if (_delayEffect < 0 || _delayEffect > 4) return "Off";
     return DELAY_EFFECT_NAMES[_delayEffect];
 }
 
-// BPM-sync helpers — forward directly to JPFX
+// BPM-sync helpers — forward directly to JPFX.
 void FXChainBlock::updateFromBPMClock(const BPMClockManager& bpmClock) {
     _jpfx.updateFromBPMClock(bpmClock);
 }
@@ -276,135 +252,88 @@ TimingMode FXChainBlock::getDelayTimingMode() const {
 }
 
 // ===========================================================================
-// REVERB
+// REVERB — MOVED to GlobalFX (Phase 3). See GlobalFX.h / LayerManager.h.
+// No reverb code lives in this class anymore.
 // ===========================================================================
-
-void FXChainBlock::setReverbRoomSize(float size) {
-    if (size < 0.0f) size = 0.0f;
-    if (size > 1.0f) size = 1.0f;
-    _reverbRoomSize = size;
-    _plateReverb.size(size);
-}
-
-void FXChainBlock::setReverbHiDamping(float damp) {
-    if (damp < 0.0f) damp = 0.0f;
-    if (damp > 1.0f) damp = 1.0f;
-    _reverbHiDamp = damp;
-    _plateReverb.hidamp(damp);
-}
-
-void FXChainBlock::setReverbLoDamping(float damp) {
-    if (damp < 0.0f) damp = 0.0f;
-    if (damp > 1.0f) damp = 1.0f;
-    _reverbLoDamp = damp;
-    _plateReverb.lodamp(damp);
-}
-
-float FXChainBlock::getReverbRoomSize()  const { return _reverbRoomSize; }
-float FXChainBlock::getReverbHiDamping() const { return _reverbHiDamp;   }
-float FXChainBlock::getReverbLoDamping() const { return _reverbLoDamp;   }
-
-void FXChainBlock::setReverbBypass(bool bypass) {
-    _reverbManualBypass = bypass;
-    updateReverbBypass();
-}
-
-bool FXChainBlock::getReverbBypass() const { return _reverbManualBypass; }
-
-// ===========================================================================
-// REVERB EXTENDED CONTROLS (CC 95-98)
-// ===========================================================================
-
-// Shimmer: pitch-shifted feedback inside the tank loop.
-// Zero CPU when amount == 0 (PitchShifter early-return guard).
-void FXChainBlock::setReverbShimmer(float amount) {
-    amount = constrain(amount, 0.0f, 1.0f);
-    _reverbShimmer = amount;
-    _plateReverb.shimmer(amount);
-}
-float FXChainBlock::getReverbShimmer() const { return _reverbShimmer; }
-
-// Freeze: saves size/hidamp/lodamp/shimmer, sets decay=1.0, mutes input.
-// All parameters restored automatically on unfreeze.
-void FXChainBlock::setReverbFreeze(bool frozen) {
-    _reverbFrozen = frozen;
-    _plateReverb.freeze(frozen);
-}
-bool FXChainBlock::getReverbFreeze() const { return _reverbFrozen; }
-
-// Output lowpass: post-tank EQ on wet signal only.
-// Does NOT affect tail decay rate (unlike hidamp which is inside the tank).
-void FXChainBlock::setReverbLowpass(float amount) {
-    amount = constrain(amount, 0.0f, 1.0f);
-    _reverbLowpass = amount;
-    _plateReverb.lowpass(amount);
-}
-float FXChainBlock::getReverbLowpass() const { return _reverbLowpass; }
-
-// Output highpass: post-tank EQ on wet signal only.
-// Does NOT affect tail decay rate (unlike lodamp which is inside the tank).
-void FXChainBlock::setReverbHipass(float amount) {
-    amount = constrain(amount, 0.0f, 1.0f);
-    _reverbHipass = amount;
-    _plateReverb.hipass(amount);
-}
-float FXChainBlock::getReverbHipass() const { return _reverbHipass; }
 
 // ===========================================================================
 // OUTPUT MIX LEVELS
+// ===========================================================================
+//
+// Each mix setter updates the cached value unconditionally, but only writes
+// through to the live mixer hardware when the chain is not fully bypassed.
+// This lets callers (presets, UI, MIDI CCs) freely change mix values while
+// Layer B is idle in SINGLE mode; when LayerManager un-bypasses the chain,
+// applyCachedMixGains() pushes every cached value out to the mixer in one
+// shot so the program state is exactly what was requested.
+//
+// Reverb mix is no longer handled here — FX_REVERB_MIX is intercepted by
+// LayerManager and writes to GlobalFX as the global master wet level.
 // ===========================================================================
 
 void FXChainBlock::setDryMix(float left, float right) {
     _dryMixL = left;
     _dryMixR = right;
-    _mixerOutL.gain(0, left);
-    _mixerOutR.gain(0, right);
+    if (!_fullBypass) {
+        _mixerOutL.gain(0, left);
+        _mixerOutR.gain(0, right);
+    }
 }
 
 void FXChainBlock::setJPFXMix(float left, float right) {
     _jpfxMixL = left;
     _jpfxMixR = right;
-    _mixerOutL.gain(1, left);
-    _mixerOutR.gain(1, right);
+    if (!_fullBypass) {
+        _mixerOutL.gain(1, left);
+        _mixerOutR.gain(1, right);
+    }
 }
 
-void FXChainBlock::setReverbMix(float left, float right) {
-    _reverbMixL = left;
-    _reverbMixR = right;
-    _mixerOutL.gain(2, left);
-    _mixerOutR.gain(2, right);
-    // Re-evaluate bypass: saving ~10% CPU when both channels are 0
-    updateReverbBypass();
-}
-
-float FXChainBlock::getDryMixL()    const { return _dryMixL;    }
-float FXChainBlock::getDryMixR()    const { return _dryMixR;    }
-float FXChainBlock::getJPFXMixL()   const { return _jpfxMixL;   }
-float FXChainBlock::getJPFXMixR()   const { return _jpfxMixR;   }
-float FXChainBlock::getReverbMixL() const { return _reverbMixL; }
-float FXChainBlock::getReverbMixR() const { return _reverbMixR; }
+float FXChainBlock::getDryMixL()  const { return _dryMixL;  }
+float FXChainBlock::getDryMixR()  const { return _dryMixR;  }
+float FXChainBlock::getJPFXMixL() const { return _jpfxMixL; }
+float FXChainBlock::getJPFXMixR() const { return _jpfxMixR; }
 
 // ===========================================================================
-// PRIVATE — reverb bypass decision
+// FULL-CHAIN BYPASS — used by LayerManager to idle Layer B in SINGLE mode.
+// ===========================================================================
+//
+// When engaged: zero the live mixer gains for dry (ch0) and JPFX (ch1) so
+// this layer's entire audio output goes silent. Cached values (_dryMixL/R,
+// _jpfxMixL/R) are preserved, so setBypass(false) → applyCachedMixGains()
+// restores the exact program state.
+//
+// Reverb is NOT touched here — it's shared between layers in GlobalFX and
+// has its own bypass logic driven by master wet level + manual override.
+// ===========================================================================
+void FXChainBlock::setBypass(bool bypass) {
+    if (bypass == _fullBypass) return;   // no-op if already in the requested state
+    _fullBypass = bypass;
+
+    if (bypass) {
+        // Zero the live mixer gains. Cached values untouched so unbypass
+        // restores them exactly.
+        _mixerOutL.gain(0, 0.0f);  _mixerOutR.gain(0, 0.0f);   // dry
+        _mixerOutL.gain(1, 0.0f);  _mixerOutR.gain(1, 0.0f);   // JPFX wet
+        // Ch2/3 already 0 (reverb removed, nothing to touch).
+    } else {
+        // Restore mixer gains from cached values.
+        applyCachedMixGains();
+    }
+}
+
+// ===========================================================================
+// PRIVATE HELPERS
 // ===========================================================================
 
 /*
- * updateReverbBypass()
+ * applyCachedMixGains()
  *
- * Bypasses the PlateReverb when it would produce no output, saving ~10% CPU.
- *
- * Rules:
- *   bypass = _reverbManualBypass  OR  (L mix < threshold AND R mix < threshold)
- *
- * Why we don't gate on note activity:
- *   Reverb must keep running through the tail after note-off; gating on audio
- *   level would cut the tail abruptly.  Gating on mix=0 is safe because setting
- *   mix to 0 means the user explicitly wants no reverb — there is no tail to
- *   preserve.
+ * Writes the cached mix values through to the live mixer gains.
+ * Called from setBypass(false) to restore state after a bypass.
+ * Ch2 and ch3 (formerly reverb / spare) stay at 0 — they're unused now.
  */
-void FXChainBlock::updateReverbBypass() {
-    const bool reverbWanted = !_reverbManualBypass &&
-                              (_reverbMixL > REVERB_MIX_THRESHOLD ||
-                               _reverbMixR > REVERB_MIX_THRESHOLD);
-    _plateReverb.bypass_set(!reverbWanted);
+void FXChainBlock::applyCachedMixGains() {
+    _mixerOutL.gain(0, _dryMixL);   _mixerOutR.gain(0, _dryMixR);
+    _mixerOutL.gain(1, _jpfxMixL);  _mixerOutR.gain(1, _jpfxMixR);
 }

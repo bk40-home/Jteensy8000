@@ -1,10 +1,18 @@
-// PresetBrowser.h
+#pragma once
 // =============================================================================
-// Full-screen preset browser modal for the JT-8000.
+// PresetBrowser.h — Full-screen preset list with layer target selector
+// =============================================================================
+//
+// Updated for dual-layer support:
+//   - Load target: A / B / Both — selects which layer receives the preset.
+//   - Target buttons in footer replace the old two-button layout.
+//   - Header shows current target as visual feedback.
+//   - All existing behaviour preserved: encoder scroll, tap-to-select,
+//     double-tap-to-confirm, PREV/NEXT paging, CANCEL.
 //
 // Layout (320 × 240 px):
 //   ┌──────────────────────────────────────┐
-//   │  PRESET BROWSER            [CANCEL]  │  ← header  28 px
+//   │  PRESET BROWSER  [→ A]     [CANCEL]  │  ← header  28 px
 //   ├──────────────────────────────────────┤
 //   │► 00 PORTAPAD                         │  ← selected (highlighted)
 //   │  01 CHROME PD                        │
@@ -14,32 +22,22 @@
 //   │  05 TAPESTORM                        │
 //   │  06 TIBEPIUM                         │
 //   ├──────────────────────────────────────┤
-//   │  [◄ PREV]              [NEXT ►]      │  ← footer  30 px
+//   │ [◄PV] [A] [B] [AB] [NX►]            │  ← footer  30 px
 //   └──────────────────────────────────────┘
 //
-// Interaction:
-//   Encoder delta  → scroll cursor up/down (wraps)
-//   Encoder press  → confirm and close
-//   Tap CANCEL     → close without loading
-//   Tap PREV/NEXT  → page up/down (7 patches at a time)
-//   Tap row once   → move cursor
-//   Tap row twice  → confirm and close
-//
-// Usage:
-//   PresetBrowser _browser;
-//   _browser.open(synth, currentIdx);        // open
-//   if (_browser.isOpen()) {
-//       _browser.draw(tft);                  // call every frame
-//       _browser.onEncoder(delta);           // encoder input
-//       _browser.onTouch(tx, ty);            // touch input
-//   }
+// Interaction (new):
+//   Tap [A] / [B] / [AB]  → set load target layer
+//   Encoder R              → cycle target: A → B → AB → A
+//   (all other interactions unchanged from original)
 // =============================================================================
 
-#pragma once
 #include "ILI9341_t3n.h"
 #include "Presets.h"
 #include "SynthEngine.h"
 #include "JT8000Colours.h"
+
+// Forward declaration — avoids circular include with LayerManager.h
+enum class EditTarget : uint8_t;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Layout constants
@@ -54,8 +52,22 @@ namespace PBLayout {
     static constexpr uint16_t LIST_Y       = HDR_H;
     static constexpr uint16_t LIST_H       = VISIBLE_ROWS * ROW_H;   // 182 px
     static constexpr uint16_t FTR_Y        = LIST_Y + LIST_H;        // 210
-    static constexpr uint16_t BTN_W        = 80;
     static constexpr uint16_t BTN_H        = FTR_H - 4;
+
+    // Footer button widths and positions (5 buttons across 320 px)
+    //   [◄PV 52px] [A 40px] [B 40px] [AB 44px] [NX► 52px]  + gaps
+    static constexpr uint16_t PREV_X       = 4;
+    static constexpr uint16_t PREV_W       = 52;
+    static constexpr uint16_t TGT_A_X      = 62;
+    static constexpr uint16_t TGT_A_W      = 40;
+    static constexpr uint16_t TGT_B_X      = 108;
+    static constexpr uint16_t TGT_B_W      = 40;
+    static constexpr uint16_t TGT_AB_X     = 154;
+    static constexpr uint16_t TGT_AB_W     = 44;
+    static constexpr uint16_t NEXT_X       = W - 52 - 4;
+    static constexpr uint16_t NEXT_W       = 52;
+
+    // Header cancel button
     static constexpr uint16_t CANCEL_W     = 70;
     static constexpr uint16_t CANCEL_X     = W - CANCEL_W - 4;
     static constexpr uint16_t CANCEL_Y     = 2;
@@ -63,51 +75,68 @@ namespace PBLayout {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Colour palette — BGR565 pre-swapped for ILI9341 BGR panel
-// Formula: send = ((B>>3)<<11)|((G>>2)<<5)|(R>>3)
+// Colour palette — standard RGB565 via JT8000Colours.h
 // ─────────────────────────────────────────────────────────────────────────────
 namespace PBColour {
-    // All values are BGR565 — R and B are pre-swapped to compensate for MADCTL_BGR.
-    static constexpr uint16_t BG        = COLOUR_BACKGROUND;      // #101428 bg
-    static constexpr uint16_t HDR_BG    = 0x30E2;  // #141C32 dark navy header
-    static constexpr uint16_t HDR_TEXT  = COLOUR_TEXT;
-    static constexpr uint16_t ROW_BG    = COLOUR_HEADER_BG;       // dark panel rows
-    static constexpr uint16_t ROW_ALT   = 0x30E2;  // #161C30 alt row slightly lighter
-    static constexpr uint16_t SEL_BG    = 0xCCA0;  // #0096C8 teal-cyan selection
-    static constexpr uint16_t SEL_TEXT  = 0xFFFF;  // white text on teal
-    static constexpr uint16_t ROW_TEXT  = 0xD617;  // #BEC3D2 light grey preset name
-    static constexpr uint16_t IDX_TEXT  = COLOUR_TEXT_DIM;        // index number
-    static constexpr uint16_t FTR_BG    = 0x30E2;  // #141C32 dark navy footer
-    static constexpr uint16_t BTN_BG    = 0x6206;  // #324164 dark blue-grey button
-    static constexpr uint16_t BTN_TEXT  = COLOUR_TEXT;
-    static constexpr uint16_t CANCEL_BG = COLOUR_ACCENT;          // red cancel
-    static constexpr uint16_t BORDER    = 0x51A5;  // #2D3750 steel separator
+    static constexpr uint16_t BG        = COLOUR_BACKGROUND;       // #101428  deep navy
+    static constexpr uint16_t HDR_BG    = COLOUR_HEADER_BG;        // #19233C  dark navy panel
+    static constexpr uint16_t HDR_TEXT  = COLOUR_TEXT;              // #D2D7E1  warm off-white
+    static constexpr uint16_t ROW_BG    = COLOUR_SURFACE;          // #111620  section body fill
+    static constexpr uint16_t ROW_ALT   = COLOUR_SURFACE2;         // #161C28  alternating row
+    static constexpr uint16_t SEL_BG    = COLOUR_ACCENT_ORANGE;    // #FFA000  selected row
+    static constexpr uint16_t SEL_TEXT  = COLOUR_BACKGROUND;       // #101428  dark text on orange
+    static constexpr uint16_t ROW_TEXT  = COLOUR_TEXT;              // #D2D7E1  standard text
+    static constexpr uint16_t IDX_TEXT  = COLOUR_TEXT_DIM;          // #787D8C  steel grey index
+    static constexpr uint16_t FTR_BG    = COLOUR_HEADER_BG;        // #19233C  footer panel
+    static constexpr uint16_t BTN_BG    = COLOUR_SURFACE3;         // #1C2436  button resting bg
+    static constexpr uint16_t BTN_TEXT  = COLOUR_TEXT;              // #D2D7E1  button label
+    static constexpr uint16_t BTN_SEL   = COLOUR_ACCENT_ORANGE;    // #FFA000  active target
+    static constexpr uint16_t CANCEL_BG = COLOUR_ACCENT_RED;       // #FF1C18  cancel (functional)
+    static constexpr uint16_t BORDER    = COLOUR_BORDER;           // #2D3750  blue-grey borders
 }
 
 // =============================================================================
 class PresetBrowser {
 public:
-    // Callback: called when user confirms a selection
-    using LoadCallback = void(*)(int globalIndex);
+    // Callback: called when user confirms a selection.
+    // globalIndex = preset index, target = which layer to load to.
+    using LoadCallback = void(*)(int globalIndex, EditTarget target);
+
+    // Legacy callback (no target) — for backward compatibility
+    using LoadCallbackLegacy = void(*)(int globalIndex);
 
     PresetBrowser() = default;
 
     // -------------------------------------------------------------------------
     // open() — show the browser.
-    // startIdx  — currently loaded patch index (pre-selects cursor)
-    // loadCb    — called on confirm; if nullptr, presets_loadByGlobalIndex used
+    // startIdx    — currently loaded patch index (pre-selects cursor)
+    // loadCb      — called on confirm with (index, target)
+    // editTarget  — initial load target (default LAYER_A)
     // -------------------------------------------------------------------------
-    void open(SynthEngine* synth, int startIdx = 0, LoadCallback loadCb = nullptr);
+    void open(SynthEngine* synth, int startIdx = 0,
+              LoadCallback loadCb = nullptr,
+              EditTarget editTarget = (EditTarget)0);
+
     void close();
 
     bool isOpen()   const;
     int  selected() const;
 
+    // Current load target
+    EditTarget getLoadTarget() const { return _loadTarget; }
+    void       setLoadTarget(EditTarget t);
+
+    // Cycle load target: A → B → Both → A
+    void cycleLoadTarget();
+
     // Call every frame while isOpen() — only repaints changed rows
     void draw(ILI9341_t3n& tft);
 
-    // delta = +1 (down) or -1 (up); wraps around
+    // L encoder: delta = +1 (down) or -1 (up); wraps around
     void onEncoder(int delta);
+
+    // R encoder: cycle load target
+    void onEncoderRight(int delta);
 
     // Confirm selected preset and close
     void onEncoderPress();
@@ -119,21 +148,24 @@ private:
     // ---- Draw helpers ----
     void _drawHeader(ILI9341_t3n& tft);
     void _drawFooter(ILI9341_t3n& tft);
-    void _drawRow(ILI9341_t3n& tft, int row);          // row = slot 0..VISIBLE_ROWS-1
-    void _drawRowForIdx(ILI9341_t3n& tft, int idx);    // by global preset index
+    void _drawRow(ILI9341_t3n& tft, int row);
+    void _drawRowForIdx(ILI9341_t3n& tft, int idx);
 
     // ---- Helpers ----
     int  _clampScrollTop(int st) const;
     void _loadPreset(int idx);
+    const char* _targetLabel() const;
 
     // ---- Members ----
     SynthEngine*  _synth       = nullptr;
     LoadCallback  _loadCb      = nullptr;
     bool          _open        = false;
-    bool          _dirty       = false;     // true → full redraw needed
+    bool          _dirty       = false;
+    bool          _footerDirty = false;     // redraw footer only (target change)
     int           _totalCount  = 0;
     int           _cursorIdx   = 0;
     int           _scrollTop   = 0;
-    int           _prevCursor  = -1;        // for partial redraw
+    int           _prevCursor  = -1;
     int           _prevScroll  = -1;
+    EditTarget    _loadTarget  = (EditTarget)0;  // LAYER_A
 };
