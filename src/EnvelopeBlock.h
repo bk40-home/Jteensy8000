@@ -32,7 +32,7 @@
 // Do NOT maintain separate boolean flags — they will go stale.
 // =============================================================================
 
-#include "effect_envelope.h"
+#include "effect_envelope_jt.h"
 #include "Audio.h"
 
 class EnvelopeBlock {
@@ -51,7 +51,7 @@ public:
     // Delegates directly to AudioEffectEnvelope::isActive().
     //
     // USE THIS — not a separate bool — to determine if a voice is producing audio.
-    bool isActive() const { return const_cast<AudioEffectEnvelope&>(_envelope).isActive(); }
+    bool isActive() const { return const_cast<AudioEffectEnvelopeJT&>(_envelope).isActive(); }
 
     // ---- Parameter setters --------------------------------------------------
 
@@ -69,7 +69,7 @@ public:
     float getReleaseTime()   const { return _releaseTime; }
 
 private:
-    AudioEffectEnvelope _envelope;
+    AudioEffectEnvelopeJT _envelope;
 
     // Cached parameter values for UI readback — avoids reading hardware registers.
     float _attackTime   = 0.01f;
