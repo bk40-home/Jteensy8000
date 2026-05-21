@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
- // =============================================================================
+// =============================================================================
 // EnvelopeBlock.cpp — ADSR envelope wrapper implementation
 // =============================================================================
 
@@ -27,26 +27,18 @@
 
 // ---- Lifecycle --------------------------------------------------------------
 
-void EnvelopeBlock::noteOn() {
-    _envelope.noteOn();
-}
-
-void EnvelopeBlock::noteOff() {
-    _envelope.noteOff();
-}
+void EnvelopeBlock::noteOn()  { _envelope.noteOn(); }
+void EnvelopeBlock::noteOff() { _envelope.noteOff(); }
 
 // ---- Audio routing ----------------------------------------------------------
 
-AudioStream& EnvelopeBlock::input() {
-    return _envelope;
-}
+AudioStream& EnvelopeBlock::input()  { return _envelope; }
+AudioStream& EnvelopeBlock::output() { return _envelope; }
 
-AudioStream& EnvelopeBlock::output() {
-    return _envelope;
-}
-
-// ---- Parameter setters ------------------------------------------------------
+// ---- ADSR setters -----------------------------------------------------------
 // Each setter caches the value for UI readback AND writes to the hardware.
+// Live-update safe: calling during an active stage recalculates slope without
+// clicking or restarting (see AudioEffectEnvelopeJT).
 
 void EnvelopeBlock::setAttackTime(float milliseconds) {
     _attackTime = milliseconds;
@@ -73,4 +65,24 @@ void EnvelopeBlock::setADSR(float attack, float decay, float sustain, float rele
     setDecayTime(decay);
     setSustainLevel(sustain);
     setReleaseTime(release);
+}
+
+// ---- Curve setters ----------------------------------------------------------
+// Exponent is cached here for UI readback and forwarded directly to the engine.
+// The engine clamps the value to [0.05, 10.0] — we store whatever comes in
+// so getters round-trip the exact value the caller supplied.
+
+void EnvelopeBlock::setAttackCurve(float exponent) {
+    _attackCurve = exponent;
+    _envelope.setAttackCurve(exponent);
+}
+
+void EnvelopeBlock::setDecayCurve(float exponent) {
+    _decayCurve = exponent;
+    _envelope.setDecayCurve(exponent);
+}
+
+void EnvelopeBlock::setReleaseCurve(float exponent) {
+    _releaseCurve = exponent;
+    _envelope.setReleaseCurve(exponent);
 }

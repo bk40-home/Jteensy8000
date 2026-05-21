@@ -11,115 +11,107 @@
 #include "effect_envelope_jt.h"
 
 // ===========================================================================
-//  recalcSlope — recompute inc_hires from current mult_hires toward target
+//  initSlope — compute geometric-series increment and per-chunk factor
 //
-//  Called when:
-//    • a state transition fires (same as stock)
-//    • a setter is called while that stage is already running (NEW)
+//  The geometric series:  inc * (1 + r + r^2 + ... + r^(N-1)) = range
+//  Solving:  inc = range * (r - 1) / (r^N - 1)
 //
-//  The curve exponent warps the remaining normalised time position so that
-//  the slope is steeper or shallower.  When curve == 1.0 this collapses to
-//  the stock linear calculation with zero extra cost (powf is skipped).
+//  When curve==1.0, r=1.0 and the series reduces to N*inc = range,
+//  giving the stock linear slope with zero extra cost.
 //
-//  The warp is applied once here — the per-sample inner loop stays the same
-//  cheap multiply-and-accumulate as the stock code.  This means the curve is
-//  a piecewise-linear approximation to the true power curve, which is
-//  perceptually indistinguishable at audio rates and costs nothing per sample.
+//  When curve!=1.0, r = exp(alpha/N) where alpha is derived from the
+//  curve exponent.  The factor r is very close to 1.0 (e.g. 0.9997),
+//  so one float multiply per chunk is cheap and numerically stable.
+//
+//  This is called ONCE per state transition or live parameter change.
+//  Cost: one expf() + one powf() when curved; nothing when linear.
 // ===========================================================================
-void AudioEffectEnvelopeJT::recalcSlope(int32_t target, uint16_t remaining, float curve)
+void AudioEffectEnvelopeJT::initSlope(int32_t start, int32_t target,
+                                      uint16_t chunks, float curve)
 {
-    if (remaining == 0) {
-        // no time left — snap to target instantly
+    // set mult_hires to the starting level for this stage
+    mult_hires = start;
+
+    if (chunks == 0) {
+        // no time — snap to target instantly
         mult_hires = target;
         inc_hires  = 0;
+        inc_factor = 1.0f;
         return;
     }
 
-    if (curve != 1.0f) {
-        // -----------------------------------------------------------------
-        //  Curved slope approximation:
-        //  Figure out what fraction of this stage has already elapsed,
-        //  warp both the current and next-chunk positions through the
-        //  power curve, then derive the linear increment that connects them.
-        //
-        //  This is evaluated ONCE per setter call / state transition,
-        //  NOT per sample.  Cost: two powf() calls at transition time.
-        // -----------------------------------------------------------------
-        float total;
+    int32_t range = target - start;
 
-        // determine which stage we are in to get the total count
-        switch (state) {
-            case ENV_ATTACK:  total = (float)attack_count;          break;
-            case ENV_DECAY:   total = (float)decay_count;           break;
-            case ENV_RELEASE: total = (float)release_count;         break;
-            case ENV_FORCED:  total = (float)release_forced_count;  break;
-            default:          total = (float)remaining;             break;
-        }
+    if (range == 0) {
+        // start == target — nothing to ramp
+        inc_hires  = 0;
+        inc_factor = 1.0f;
+        return;
+    }
 
-        if (total < 1.0f) total = 1.0f;  // guard against zero
+    float alpha = curveToAlpha(curve);
 
-        // normalised position: 0.0 = stage start, 1.0 = stage end
-        float elapsed   = total - (float)remaining;
-        float t_now     = elapsed / total;
-        float t_next    = (elapsed + 1.0f) / total;
-        if (t_next > 1.0f) t_next = 1.0f;
+    // --- linear: curve==1.0 -> alpha==0 -> factor==1.0 ---
+    // Use a small dead-zone to avoid expf/powf for nearly-linear curves
+    if (fabsf(alpha) < 0.01f) {
+        inc_hires  = range / (int32_t)chunks;
+        inc_factor = 1.0f;
+        return;
+    }
 
-        // warp through power curve
-        float w_now  = applyCurve(t_now,  curve);
-        float w_next = applyCurve(t_next, curve);
+    // --- curved: geometric series ---
+    float N  = (float)chunks;
+    float r  = expf(alpha / N);           // per-chunk multiplier (~0.9995..1.0005)
+    float rN = powf(r, N);                // r^N — total ratio over entire stage
 
-        // the full amplitude range this stage covers
-        int32_t start_val = (state == ENV_ATTACK)
-                          ? 0                     // attack always starts from silence
-                          : (int32_t)0x40000000;  // decay/release start from unity
+    // inc_initial = range * (r - 1) / (r^N - 1)
+    // Guard against rN==1.0 (shouldn't happen given alpha dead-zone above)
+    float denom = rN - 1.0f;
+    if (fabsf(denom) < 1e-9f) {
+        // degenerate — fall back to linear
+        inc_hires  = range / (int32_t)chunks;
+        inc_factor = 1.0f;
+        return;
+    }
 
-        int32_t range = target - start_val;
+    float inc_f = (float)range * (r - 1.0f) / denom;
+    inc_hires  = (int32_t)inc_f;
+    inc_factor = r;
 
-        // where we should be now vs next chunk, in fixed-point
-        int32_t val_now  = start_val + (int32_t)((float)range * w_now);
-        int32_t val_next = start_val + (int32_t)((float)range * w_next);
-
-        // snap mult_hires to the curve and set slope for next chunk
-        mult_hires = val_now;
-        inc_hires  = val_next - val_now;
-    } else {
-        // -----------------------------------------------------------------
-        //  Linear slope — identical to stock behaviour, zero extra cost.
-        // -----------------------------------------------------------------
-        inc_hires = (target - mult_hires) / (int32_t)remaining;
+    // If initial inc rounds to zero but range is non-zero, force a minimum
+    // so the envelope still moves (very long stages with strong curve)
+    if (inc_hires == 0) {
+        inc_hires = (range > 0) ? 1 : -1;
     }
 }
 
 
 // ===========================================================================
 //  noteOn — begin or re-trigger the envelope
-//
-//  Three paths:
-//    1. Idle / delay / instant retrigger → start from silence
-//    2. Already in forced release        → do nothing (let it finish)
-//    3. Any other active state           → enter forced release first
 // ===========================================================================
 void AudioEffectEnvelopeJT::noteOn(void)
 {
     __disable_irq();
 
     if (state == ENV_IDLE || state == ENV_DELAY || release_forced_count == 0) {
-        // --- path 1: clean start from silence ---
-        mult_hires = 0;
+        // clean start from silence
         count = delay_count;
         if (count > 0) {
-            state     = ENV_DELAY;
-            inc_hires = 0;
+            state      = ENV_DELAY;
+            mult_hires = 0;
+            inc_hires  = 0;
+            inc_factor = 1.0f;
         } else {
             state = ENV_ATTACK;
             count = attack_count;
-            recalcSlope(0x40000000, count, attack_curve);
+            initSlope(0, 0x40000000, count, attack_curve);
         }
     } else if (state != ENV_FORCED) {
-        // --- path 3: force-release current level before re-attack ---
+        // force-release current level before re-attack (always linear)
         state = ENV_FORCED;
         count = release_forced_count;
-        inc_hires = (-mult_hires) / (int32_t)count;  // always linear for forced
+        inc_hires  = (-mult_hires) / (int32_t)count;
+        inc_factor = 1.0f;
     }
 
     __enable_irq();
@@ -136,7 +128,7 @@ void AudioEffectEnvelopeJT::noteOff(void)
     if (state != ENV_RELEASE && state != ENV_IDLE && state != ENV_FORCED) {
         state = ENV_RELEASE;
         count = release_count;
-        recalcSlope(0, count, release_curve);
+        initSlope(mult_hires, 0, count, release_curve);
     }
 
     __enable_irq();
@@ -146,43 +138,31 @@ void AudioEffectEnvelopeJT::noteOff(void)
 // ===========================================================================
 //  Live parameter setters
 //
-//  Each setter stores the new duration / level AND, if that stage is
-//  currently running, recalculates the slope so the change is heard
-//  immediately without restarting the envelope.
+//  Each setter stores the new duration/level AND, if that stage is currently
+//  active, recalculates the slope so the change is heard immediately.
 // ===========================================================================
 
 void AudioEffectEnvelopeJT::delay(float milliseconds)
 {
     delay_count = milliseconds2count(milliseconds);
-    // delay stage has no slope — nothing to recalculate live
 }
 
 void AudioEffectEnvelopeJT::attack(float milliseconds)
 {
     uint16_t newCount = milliseconds2count(milliseconds);
-    if (newCount == 0) newCount = 1;  // prevent divide-by-zero
+    if (newCount == 0) newCount = 1;
 
     __disable_irq();
     attack_count = newCount;
 
     if (state == ENV_ATTACK) {
-        // --- live update: scale remaining time proportionally ---
-        //  If old attack was 100 chunks and we were at chunk 60 (40 left),
-        //  and new attack is 200 chunks, remaining becomes 80.
-        //  This keeps the envelope at the same proportional position.
-        float progress = (count > 0 && attack_count > 0)
-                       ? 1.0f - ((float)count / (float)attack_count)
-                       : 0.0f;
-
-        // clamp — can overshoot if old count was very small
-        if (progress < 0.0f) progress = 0.0f;
-        if (progress > 1.0f) progress = 1.0f;
-
-        count = (uint16_t)((1.0f - progress) * (float)newCount);
-        if (count == 0) count = 1;
-        attack_count = newCount;  // store again after calculation
-
-        recalcSlope(0x40000000, count, attack_curve);
+        // Recompute slope from current mult_hires to unity over remaining time.
+        // Scale 'count' proportionally to preserve the envelope's position.
+        uint16_t remaining = count;
+        if (remaining > newCount) remaining = newCount;
+        if (remaining == 0) remaining = 1;
+        count = remaining;
+        initSlope(mult_hires, 0x40000000, count, attack_curve);
     }
 
     __enable_irq();
@@ -191,7 +171,6 @@ void AudioEffectEnvelopeJT::attack(float milliseconds)
 void AudioEffectEnvelopeJT::hold(float milliseconds)
 {
     hold_count = milliseconds2count(milliseconds);
-    // hold stage has no slope — flat at unity, nothing to recalculate
 }
 
 void AudioEffectEnvelopeJT::decay(float milliseconds)
@@ -202,17 +181,12 @@ void AudioEffectEnvelopeJT::decay(float milliseconds)
     __disable_irq();
 
     if (state == ENV_DECAY) {
-        float progress = (count > 0 && decay_count > 0)
-                       ? 1.0f - ((float)count / (float)decay_count)
-                       : 0.0f;
-        if (progress < 0.0f) progress = 0.0f;
-        if (progress > 1.0f) progress = 1.0f;
-
-        count = (uint16_t)((1.0f - progress) * (float)newCount);
-        if (count == 0) count = 1;
+        uint16_t remaining = count;
+        if (remaining > newCount) remaining = newCount;
+        if (remaining == 0) remaining = 1;
+        count = remaining;
         decay_count = newCount;
-
-        recalcSlope(sustain_mult, count, decay_curve);
+        initSlope(mult_hires, sustain_mult, count, decay_curve);
     } else {
         decay_count = newCount;
     }
@@ -231,12 +205,13 @@ void AudioEffectEnvelopeJT::sustain(float level)
     sustain_mult = newMult;
 
     if (state == ENV_SUSTAIN) {
-        // --- snap to new sustain level immediately ---
+        // snap to new level immediately
         mult_hires = newMult;
         inc_hires  = 0;
+        inc_factor = 1.0f;
     } else if (state == ENV_DECAY) {
-        // --- decay target changed — recalculate slope to new sustain ---
-        recalcSlope(newMult, count, decay_curve);
+        // decay target changed — reslope from current to new sustain
+        initSlope(mult_hires, newMult, count, decay_curve);
     }
 
     __enable_irq();
@@ -250,17 +225,12 @@ void AudioEffectEnvelopeJT::release(float milliseconds)
     __disable_irq();
 
     if (state == ENV_RELEASE) {
-        float progress = (count > 0 && release_count > 0)
-                       ? 1.0f - ((float)count / (float)release_count)
-                       : 0.0f;
-        if (progress < 0.0f) progress = 0.0f;
-        if (progress > 1.0f) progress = 1.0f;
-
-        count = (uint16_t)((1.0f - progress) * (float)newCount);
-        if (count == 0) count = 1;
+        uint16_t remaining = count;
+        if (remaining > newCount) remaining = newCount;
+        if (remaining == 0) remaining = 1;
+        count = remaining;
         release_count = newCount;
-
-        recalcSlope(0, count, release_curve);
+        initSlope(mult_hires, 0, count, release_curve);
     } else {
         release_count = newCount;
     }
@@ -272,20 +242,19 @@ void AudioEffectEnvelopeJT::releaseNoteOn(float milliseconds)
 {
     release_forced_count = milliseconds2count(milliseconds);
     if (release_forced_count == 0) release_forced_count = 1;
-    // forced release is transient — no live recalc needed
 }
 
 
 // ===========================================================================
 //  update — called by the audio engine every 128 samples (~2.9 ms)
 //
-//  Processes 8 samples at a time (16 iterations per block).
-//  The inner multiply loop is identical to the stock envelope for
-//  maximum performance — curve shaping only affects the slope
-//  calculated at state transitions.
+//  Processes 8 samples per iteration (16 iterations per block).
+//  The inner multiply loop is identical to the stock envelope.
 //
-//  Key optimisation: when state is IDLE, we release the block and
-//  return immediately — no sample processing at all.
+//  Curve shaping adds one float multiply per chunk (inc_hires *= inc_factor)
+//  at the bottom of the loop.  When inc_factor == 1.0 (linear / stock),
+//  the compiler may optimise this away, but even if not, it is a single
+//  VMUL.F32 instruction — negligible.
 // ===========================================================================
 void AudioEffectEnvelopeJT::update(void)
 {
@@ -296,7 +265,6 @@ void AudioEffectEnvelopeJT::update(void)
     block = receiveWritable();
     if (block) {
         if (state == ENV_IDLE) {
-            // --- fast exit: envelope is off, silence the block ---
             AudioStream::release(block);
             return;
         }
@@ -307,45 +275,41 @@ void AudioEffectEnvelopeJT::update(void)
 
     end = p + AUDIO_BLOCK_SAMPLES / 2;
 
-    // --- main loop: must run even with no block so state machine advances ---
     while (p < end) {
 
-        // --- state transitions happen when a stage's time runs out ---
+        // --- state transitions when a stage's time runs out ---
         if (count == 0) {
             if (state == ENV_ATTACK) {
-                // attack complete → hold or decay
                 count = hold_count;
                 if (count > 0) {
                     state      = ENV_HOLD;
-                    mult_hires = 0x40000000;   // snap to unity
+                    mult_hires = 0x40000000;
                     inc_hires  = 0;
+                    inc_factor = 1.0f;
                 } else {
                     state = ENV_DECAY;
                     count = decay_count;
-                    recalcSlope(sustain_mult, count, decay_curve);
+                    initSlope(0x40000000, sustain_mult, count, decay_curve);
                 }
-                continue;   // re-evaluate immediately in case count is still 0
+                continue;
 
             } else if (state == ENV_HOLD) {
-                // hold complete → decay
                 state = ENV_DECAY;
                 count = decay_count;
-                recalcSlope(sustain_mult, count, decay_curve);
+                initSlope(0x40000000, sustain_mult, count, decay_curve);
                 continue;
 
             } else if (state == ENV_DECAY) {
-                // decay complete → sustain (indefinite)
                 state      = ENV_SUSTAIN;
                 count      = 0xFFFF;
                 mult_hires = sustain_mult;
                 inc_hires  = 0;
+                inc_factor = 1.0f;
 
             } else if (state == ENV_SUSTAIN) {
-                // sustain: just reload the counter (runs forever)
                 count = 0xFFFF;
 
             } else if (state == ENV_RELEASE) {
-                // release complete → idle, zero remaining samples
                 state = ENV_IDLE;
                 while (p < end) {
                     if (block != nullptr) {
@@ -357,43 +321,40 @@ void AudioEffectEnvelopeJT::update(void)
                         p += 4;
                     }
                 }
-                break;  // exit main loop
+                break;
 
             } else if (state == ENV_FORCED) {
-                // forced release complete → restart from delay/attack
-                mult_hires = 0;
                 count = delay_count;
                 if (count > 0) {
-                    state     = ENV_DELAY;
-                    inc_hires = 0;
+                    state      = ENV_DELAY;
+                    mult_hires = 0;
+                    inc_hires  = 0;
+                    inc_factor = 1.0f;
                 } else {
                     state = ENV_ATTACK;
                     count = attack_count;
-                    recalcSlope(0x40000000, count, attack_curve);
+                    initSlope(0, 0x40000000, count, attack_curve);
                 }
 
             } else if (state == ENV_DELAY) {
-                // delay complete → attack
                 state = ENV_ATTACK;
                 count = attack_count;
-                recalcSlope(0x40000000, count, attack_curve);
+                initSlope(0, 0x40000000, count, attack_curve);
                 continue;
             }
         }
 
         // --- apply gain to 8 samples (identical to stock inner loop) ---
         if (block != nullptr) {
-            int32_t mult = mult_hires >> 14;   // 16-bit working resolution
+            int32_t mult = mult_hires >> 14;
             int32_t inc  = inc_hires  >> 17;
 
-            // read 4 × uint32 = 8 × int16 samples
             sample12 = *p++;
             sample34 = *p++;
             sample56 = *p++;
             sample78 = *p++;
             p -= 4;
 
-            // multiply each sample pair by the ramping gain
             mult += inc;
             tmp1 = signed_multiply_32x16b(mult, sample12);
             mult += inc;
@@ -418,22 +379,24 @@ void AudioEffectEnvelopeJT::update(void)
             tmp2 = signed_multiply_32x16t(mult, sample78);
             sample78 = pack_16b_16b(tmp2, tmp1);
 
-            // write processed samples back
             *p++ = sample12;
             *p++ = sample34;
             *p++ = sample56;
             *p++ = sample78;
         } else {
-            // no block — advance pointer to keep state machine in sync
             p += 4;
         }
 
-        // --- advance the high-resolution gain accumulator ---
+        // --- advance gain accumulator and apply curve ---
         mult_hires += inc_hires;
         count--;
+
+        // geometric curve: scale increment for next chunk.
+        // When inc_factor==1.0 (linear), this is a no-op multiply.
+        // Cost: one VMUL.F32 + one float->int conversion per chunk.
+        inc_hires = (int32_t)((float)inc_hires * inc_factor);
     }
 
-    // --- transmit the processed block downstream ---
     if (block != nullptr) {
         transmit(block);
         AudioStream::release(block);

@@ -31,6 +31,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "SyxProtocol.h"   // SyxProto::kLayerBoth used as default arg below
 
 class LayerManager;
 
@@ -118,9 +119,10 @@ private:
     void _applyManagerCC(uint8_t cc, uint8_t ccValue);
 
     // -------------------------------------------------------------------------
-    // SysEx-only abstraction (section 12b of Phase 0 map) — handlers
+    // SysEx-only abstraction (section 12b of Phase 0 map + envelope curves) — handlers
     // -------------------------------------------------------------------------
-    void  _handleSyxOnlySet(uint16_t paramId, float value);
+    // layer is forwarded for curve params (per-engine); ignored for FX abstractions.
+    void  _handleSyxOnlySet(uint16_t paramId, float value, uint8_t layer = SyxProto::kLayerBoth);
     float _handleSyxOnlyGet(uint16_t paramId) const;
     uint8_t _variationToCC (uint8_t variation, uint8_t n) const;
     uint8_t _ccToVariation (uint8_t cc, uint8_t n) const;

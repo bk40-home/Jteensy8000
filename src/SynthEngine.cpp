@@ -328,7 +328,6 @@ void SynthEngine::begin()
     _applyVoiceRangeGains();
 }
 
-static inline float CCtoTime(uint8_t cc) { return JT8000Map::cc_to_time_ms(cc); }
 
 // Safe CC-name lookup for logs (avoids nullptr)
 static inline const char* ccname(uint8_t cc) {
@@ -770,7 +769,64 @@ float SynthEngine::getFilterEnvDecay()   const { return _voiceCount ? _voices[_f
 float SynthEngine::getFilterEnvSustain() const { return _voiceCount ? _voices[_firstVoice].getFilterEnvSustain() : 0.0f; }
 float SynthEngine::getFilterEnvRelease() const { return _voiceCount ? _voices[_firstVoice].getFilterEnvRelease() : 0.0f; }
 
-// ---- Oscillators / mixes ----
+// ---- Envelope curve shaping setters ----------------------------------------
+// SysEx-only path — no CC alias. Received via SysExAdapter::_handleSyxOnlySet.
+// Fan-out pattern mirrors the existing ADSR setters above.
+// PatchState is updated so BANK_DUMP and GET_PARAM can read the current value.
+
+void SynthEngine::setAmpAttackCurve(float exponent) {
+    _patch.ampAttackCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setAmpAttackCurve(exponent);
+}
+
+void SynthEngine::setAmpDecayCurve(float exponent) {
+    _patch.ampDecayCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setAmpDecayCurve(exponent);
+}
+
+void SynthEngine::setAmpReleaseCurve(float exponent) {
+    _patch.ampReleaseCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setAmpReleaseCurve(exponent);
+}
+
+void SynthEngine::setFilterAttackCurve(float exponent) {
+    _patch.filterAttackCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setFilterAttackCurve(exponent);
+}
+
+void SynthEngine::setFilterDecayCurve(float exponent) {
+    _patch.filterDecayCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setFilterDecayCurve(exponent);
+}
+
+void SynthEngine::setFilterReleaseCurve(float exponent) {
+    _patch.filterReleaseCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setFilterReleaseCurve(exponent);
+}
+
+void SynthEngine::setPitchEnvAttackCurve(float exponent) {
+    _patch.pitchAttackCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setPitchEnvAttackCurve(exponent);
+}
+
+void SynthEngine::setPitchEnvDecayCurve(float exponent) {
+    _patch.pitchDecayCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setPitchEnvDecayCurve(exponent);
+}
+
+void SynthEngine::setPitchEnvReleaseCurve(float exponent) {
+    _patch.pitchReleaseCurve = exponent;
+    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+        _voices[i].setPitchEnvReleaseCurve(exponent);
+}
 void SynthEngine::setOscWaveforms(int wave1, int wave2) { setOsc1Waveform(wave1); setOsc2Waveform(wave2); }
 void SynthEngine::setOsc1Waveform(int wave) { _patch.osc1Wave = wave; for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setOsc1Waveform(wave); }
 void SynthEngine::setOsc2Waveform(int wave) { _patch.osc2Wave = wave; for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setOsc2Waveform(wave); }
@@ -1701,13 +1757,13 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
 
         // ------------------- Amp envelope -------------------
         case CC::AMP_ATTACK: {
-            float ms = CCtoTime(value);
+            float ms = JT8000Map::cc_to_time_ms(value);
             for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setAmpAttack(ms);
             JT_CC_LOG("[CC %u:%s] Amp Attack = %.2f ms\n", control, ccName, ms);
         } break;
 
         case CC::AMP_DECAY: {
-            float ms = CCtoTime(value);
+            float ms = JT8000Map::cc_to_time_ms(value);
             for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setAmpDecay(ms);
             JT_CC_LOG("[CC %u:%s] Amp Decay = %.2f ms\n", control, ccName, ms);
         } break;
@@ -1718,20 +1774,20 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         } break;
 
         case CC::AMP_RELEASE: {
-            float ms = CCtoTime(value);
+            float ms = JT8000Map::cc_to_time_ms(value);
             for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setAmpRelease(ms);
             JT_CC_LOG("[CC %u:%s] Amp Release = %.2f ms\n", control, ccName, ms);
         } break;
 
         // ------------------- Filter envelope -------------------
         case CC::FILTER_ENV_ATTACK: {
-            float ms = CCtoTime(value);
+            float ms = JT8000Map::cc_to_time_ms(value);
             for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setFilterAttack(ms);
             JT_CC_LOG("[CC %u:%s] Filt Env Attack = %.2f ms\n", control, ccName, ms);
         } break;
 
         case CC::FILTER_ENV_DECAY: {
-            float ms = CCtoTime(value);
+            float ms = JT8000Map::cc_to_time_ms(value);
             for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setFilterDecay(ms);
             JT_CC_LOG("[CC %u:%s] Filt Env Decay = %.2f ms\n", control, ccName, ms);
         } break;
@@ -1742,7 +1798,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         } break;
 
         case CC::FILTER_ENV_RELEASE: {
-            float ms = CCtoTime(value);
+            float ms = JT8000Map::cc_to_time_ms(value);
             for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setFilterRelease(ms);
             JT_CC_LOG("[CC %u:%s] Filt Env Release = %.2f ms\n", control, ccName, ms);
         } break;
@@ -2151,7 +2207,7 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
         } break;
 
         case CC::GLIDE_TIME: {
-            float ms = CCtoTime(value);
+            float ms = JT8000Map::cc_to_time_ms(value);
             _patch.glideTimeMs = ms;
             for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setGlideTime(ms);
             JT_CC_LOG("[CC %u:%s] Glide Time = %.2f ms\n", control, ccName, ms);
@@ -2278,18 +2334,60 @@ case CC::DELAY_TIMING_MODE: {
         } break;
 
         // =================== NEW: Pitch envelope ===================
-        // ADSR times share the same cc_to_time_ms() mapping as amp/filter envs.
+        // ADSR times share the same JT8000Map::cc_to_time_ms_ms() mapping as amp/filter envs.
         // DEPTH is bipolar: CC64 = 0 semitones; 0 = -24; 127 = +24.
 
-        case CC::PITCH_ENV_ATTACK:  { setPitchEnvAttack(CCtoTime(value));  JT_CC_LOG("[CC %u] PEnv Attack %.1f ms\n",  control, CCtoTime(value)); } break;
-        case CC::PITCH_ENV_DECAY:   { setPitchEnvDecay(CCtoTime(value));   JT_CC_LOG("[CC %u] PEnv Decay %.1f ms\n",   control, CCtoTime(value)); } break;
+        case CC::PITCH_ENV_ATTACK:  { setPitchEnvAttack(JT8000Map::cc_to_time_ms(value));  JT_CC_LOG("[CC %u] PEnv Attack %.1f ms\n",  control, JT8000Map::cc_to_time_ms(value)); } break;
+        case CC::PITCH_ENV_DECAY:   { setPitchEnvDecay(JT8000Map::cc_to_time_ms(value));   JT_CC_LOG("[CC %u] PEnv Decay %.1f ms\n",   control, JT8000Map::cc_to_time_ms(value)); } break;
         case CC::PITCH_ENV_SUSTAIN: { setPitchEnvSustain(norm);            JT_CC_LOG("[CC %u] PEnv Sustain %.3f\n",    control, norm);            } break;
-        case CC::PITCH_ENV_RELEASE: { setPitchEnvRelease(CCtoTime(value)); JT_CC_LOG("[CC %u] PEnv Release %.1f ms\n", control, CCtoTime(value)); } break;
+        case CC::PITCH_ENV_RELEASE: { setPitchEnvRelease(JT8000Map::cc_to_time_ms(value)); JT_CC_LOG("[CC %u] PEnv Release %.1f ms\n", control, JT8000Map::cc_to_time_ms(value)); } break;
         case CC::PITCH_ENV_DEPTH:
         {   // Bipolar: CC 64 = 0 semis, 0 = -24, 127 = +24
             const float semis = ((float)value - 64.0f) * (24.0f / 64.0f);
             setPitchEnvDepth(semis);
             JT_CC_LOG("[CC %u] PEnv Depth %.1f semitones\n", control, semis);
+        } break;
+
+        // =================== Envelope curve exponents ===================
+        // Internal CCs (147–155) — never transmitted on MIDI wire.
+        // Arrive from TFT knob via setCC(); SysEx path uses direct float
+        // setters via SysExAdapter::_handleSyxOnlySet (no CC quantisation).
+
+        case CC::AMP_ATTACK_CURVE: {
+            setAmpAttackCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Amp Atk Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
+        } break;
+        case CC::AMP_DECAY_CURVE: {
+            setAmpDecayCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Amp Dec Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
+        } break;
+        case CC::AMP_RELEASE_CURVE: {
+            setAmpReleaseCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Amp Rel Curve = %.2f\n", control, cc_to_curve(value));
+        } break;
+        case CC::FILTER_ATTACK_CURVE: {
+            setFilterAttackCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Flt Atk Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
+        } break;
+        case CC::FILTER_DECAY_CURVE: {
+            setFilterDecayCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Flt Dec Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
+        } break;
+        case CC::FILTER_RELEASE_CURVE: {
+            setFilterReleaseCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Flt Rel Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
+        } break;
+        case CC::PITCH_ATTACK_CURVE: {
+            setPitchEnvAttackCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Pit Atk Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
+        } break;
+        case CC::PITCH_DECAY_CURVE: {
+            setPitchEnvDecayCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Pit Dec Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
+        } break;
+        case CC::PITCH_RELEASE_CURVE: {
+            setPitchEnvReleaseCurve(JT8000Map::cc_to_curve(value));
+            JT_CC_LOG("[CC %u] Pit Rel Curve = %.2f\n", control, JT8000Map::cc_to_curve(value));
         } break;
 
         // =================== NEW: Velocity sensitivity ===================

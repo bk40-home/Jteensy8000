@@ -215,6 +215,20 @@ public:
             // Encode normalised float back to 0-127 for the UI
             return (uint8_t)constrain((int)(_patch.unisonDetune * 127.0f), 0, 127);
         }
+        // Envelope curve exponents — PatchState stores the native float; encode
+        // back to CC byte for TFT knob display.
+        // MUST use curve_to_cc() (Mapping.h) which is the exact inverse of
+        // cc_to_curve() used in the CC dispatch path.  The old ExponentToCC()
+        // used a different linear 0..5→0..127 scale that broke round-tripping.
+        if (cc == CC::AMP_ATTACK_CURVE)     return JT8000Map::curve_to_cc(_patch.ampAttackCurve);
+        if (cc == CC::AMP_DECAY_CURVE)      return JT8000Map::curve_to_cc(_patch.ampDecayCurve);
+        if (cc == CC::AMP_RELEASE_CURVE)    return JT8000Map::curve_to_cc(_patch.ampReleaseCurve);
+        if (cc == CC::FILTER_ATTACK_CURVE)  return JT8000Map::curve_to_cc(_patch.filterAttackCurve);
+        if (cc == CC::FILTER_DECAY_CURVE)   return JT8000Map::curve_to_cc(_patch.filterDecayCurve);
+        if (cc == CC::FILTER_RELEASE_CURVE) return JT8000Map::curve_to_cc(_patch.filterReleaseCurve);
+        if (cc == CC::PITCH_ATTACK_CURVE)   return JT8000Map::curve_to_cc(_patch.pitchAttackCurve);
+        if (cc == CC::PITCH_DECAY_CURVE)    return JT8000Map::curve_to_cc(_patch.pitchDecayCurve);
+        if (cc == CC::PITCH_RELEASE_CURVE)  return JT8000Map::curve_to_cc(_patch.pitchReleaseCurve);
         return _patch.ccState[cc];  // covers 0-127 (MIDI) and 130+ (internal)
     }
 
@@ -476,6 +490,33 @@ public:
     float getFilterEnvDecay()    const;
     float getFilterEnvSustain()  const;
     float getFilterEnvRelease()  const;
+
+    // ---- Amp envelope curve shaping -----------------------------------------
+    // SysEx-only (no CC alias). PIDs 0x0504 / 0x0505 / 0x0506.
+    void  setAmpAttackCurve(float exponent);
+    void  setAmpDecayCurve(float exponent);
+    void  setAmpReleaseCurve(float exponent);
+    float getAmpAttackCurve()   const { return _patch.ampAttackCurve; }
+    float getAmpDecayCurve()    const { return _patch.ampDecayCurve; }
+    float getAmpReleaseCurve()  const { return _patch.ampReleaseCurve; }
+
+    // ---- Filter envelope curve shaping --------------------------------------
+    // SysEx-only (no CC alias). PIDs 0x0604 / 0x0605 / 0x0606.
+    void  setFilterAttackCurve(float exponent);
+    void  setFilterDecayCurve(float exponent);
+    void  setFilterReleaseCurve(float exponent);
+    float getFilterAttackCurve()   const { return _patch.filterAttackCurve; }
+    float getFilterDecayCurve()    const { return _patch.filterDecayCurve; }
+    float getFilterReleaseCurve()  const { return _patch.filterReleaseCurve; }
+
+    // ---- Pitch envelope curve shaping ---------------------------------------
+    // SysEx-only (no CC alias). PIDs 0x0705 / 0x0706 / 0x0707.
+    void  setPitchEnvAttackCurve(float exponent);
+    void  setPitchEnvDecayCurve(float exponent);
+    void  setPitchEnvReleaseCurve(float exponent);
+    float getPitchEnvAttackCurve()   const { return _patch.pitchAttackCurve; }
+    float getPitchEnvDecayCurve()    const { return _patch.pitchDecayCurve; }
+    float getPitchEnvReleaseCurve()  const { return _patch.pitchReleaseCurve; }
 
     // =========================================================================
     // JPFX Effects — Tone

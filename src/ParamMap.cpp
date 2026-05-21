@@ -16,7 +16,9 @@
 namespace ParamMap {
 
 // =============================================================================
-// The table — exactly 117 entries (90 Patch + 3 Patch-NS + 8 Patch-SX + 7 Perf + 9 GlobalFx).
+// The table — exactly 126 entries (90 Patch + 3 Patch-NS + 17 Patch-SX + 7 Perf + 9 GlobalFx).
+//
+// (Previous: 117. Added: 9 SysEx-only envelope curve entries.)
 //
 // Three macro helpers for compactness — they expand to single-row Entry literals.
 // Using macros keeps the table dense and easy to read; expanding inline would
@@ -98,6 +100,10 @@ static const Entry kTable[] = {
     ENT_PATCH(0x0501, CC::AMP_DECAY,        kCont),
     ENT_PATCH(0x0502, CC::AMP_SUSTAIN,      kNorm01),
     ENT_PATCH(0x0503, CC::AMP_RELEASE,      kCont),
+    // Curve exponents — SysEx-only (no CC alias). Native float 0.2..5.0.
+    ENT_SYX(SysExOnlyIds::kAmpAttackCurve,    kSysEx),
+    ENT_SYX(SysExOnlyIds::kAmpDecayCurve,     kSysEx),
+    ENT_SYX(SysExOnlyIds::kAmpReleaseCurve,   kSysEx),
 
     // -----------------------------------------------------------------------------
     // 0x06XX — Filter envelope
@@ -106,6 +112,10 @@ static const Entry kTable[] = {
     ENT_PATCH(0x0601, CC::FILTER_ENV_DECAY,     kCont),
     ENT_PATCH(0x0602, CC::FILTER_ENV_SUSTAIN,   kNorm01),
     ENT_PATCH(0x0603, CC::FILTER_ENV_RELEASE,   kCont),
+    // Curve exponents — SysEx-only (no CC alias). Native float 0.2..5.0.
+    ENT_SYX(SysExOnlyIds::kFilterAttackCurve,  kSysEx),
+    ENT_SYX(SysExOnlyIds::kFilterDecayCurve,   kSysEx),
+    ENT_SYX(SysExOnlyIds::kFilterReleaseCurve, kSysEx),
 
     // -----------------------------------------------------------------------------
     // 0x07XX — Pitch envelope
@@ -115,6 +125,10 @@ static const Entry kTable[] = {
     ENT_PATCH(0x0702, CC::PITCH_ENV_SUSTAIN,    kNorm01),
     ENT_PATCH(0x0703, CC::PITCH_ENV_RELEASE,    kCont),
     ENT_PATCH(0x0704, CC::PITCH_ENV_DEPTH,      kBipolar),  // -24..+24 semis post-Q1 fix
+    // Curve exponents — SysEx-only (no CC alias). Native float 0.2..5.0.
+    ENT_SYX(SysExOnlyIds::kPitchAttackCurve,   kSysEx),
+    ENT_SYX(SysExOnlyIds::kPitchDecayCurve,    kSysEx),
+    ENT_SYX(SysExOnlyIds::kPitchReleaseCurve,  kSysEx),
 
     // -----------------------------------------------------------------------------
     // 0x08XX — LFO 1

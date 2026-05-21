@@ -170,11 +170,28 @@ public:
     void setAmpRelease(float milliseconds);
     void setAmpADSR(float a, float d, float s, float r);
 
+    // Amp envelope curve shaping — power-law exponent per timed stage.
+    // 1.0 = linear (default). See EnvelopeBlock / AudioEffectEnvelopeJT.
+    void setAmpAttackCurve(float exponent)  { _ampEnvelope.setAttackCurve(exponent); }
+    void setAmpDecayCurve(float exponent)   { _ampEnvelope.setDecayCurve(exponent); }
+    void setAmpReleaseCurve(float exponent) { _ampEnvelope.setReleaseCurve(exponent); }
+    float getAmpAttackCurve()  const { return _ampEnvelope.getAttackCurve(); }
+    float getAmpDecayCurve()   const { return _ampEnvelope.getDecayCurve(); }
+    float getAmpReleaseCurve() const { return _ampEnvelope.getReleaseCurve(); }
+
     void setFilterAttack(float milliseconds);
     void setFilterDecay(float milliseconds);
     void setFilterSustain(float level);
     void setFilterRelease(float milliseconds);
     void setFilterADSR(float a, float d, float s, float r);
+
+    // Filter envelope curve shaping — power-law exponent per timed stage.
+    void setFilterAttackCurve(float exponent)  { _filterEnvelope.setAttackCurve(exponent); }
+    void setFilterDecayCurve(float exponent)   { _filterEnvelope.setDecayCurve(exponent); }
+    void setFilterReleaseCurve(float exponent) { _filterEnvelope.setReleaseCurve(exponent); }
+    float getFilterAttackCurve()  const { return _filterEnvelope.getAttackCurve(); }
+    float getFilterDecayCurve()   const { return _filterEnvelope.getDecayCurve(); }
+    float getFilterReleaseCurve() const { return _filterEnvelope.getReleaseCurve(); }
 
     // =========================================================================
     // PITCH ENVELOPE
@@ -186,6 +203,14 @@ public:
     void  setPitchEnvRelease(float milliseconds);
     void  setPitchEnvDepth(float semitones);
     float getPitchEnvDepth() const { return _pitchEnvDepth; }
+
+    // Pitch envelope curve shaping — power-law exponent per timed stage.
+    void setPitchEnvAttackCurve(float exponent)  { _pitchEnvelope.setAttackCurve(exponent); }
+    void setPitchEnvDecayCurve(float exponent)   { _pitchEnvelope.setDecayCurve(exponent); }
+    void setPitchEnvReleaseCurve(float exponent) { _pitchEnvelope.setReleaseCurve(exponent); }
+    float getPitchEnvAttackCurve()  const { return _pitchEnvelope.getAttackCurve(); }
+    float getPitchEnvDecayCurve()   const { return _pitchEnvelope.getDecayCurve(); }
+    float getPitchEnvReleaseCurve() const { return _pitchEnvelope.getReleaseCurve(); }
 
     AudioStream&          pitchEnvOutput();
     AudioSynthWaveformDc& pitchEnvDcRef();

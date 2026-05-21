@@ -374,6 +374,36 @@ namespace CC {
     static constexpr uint8_t PERF_MIDI_CHANNEL_A  = 145;
     static constexpr uint8_t PERF_MIDI_CHANNEL_B  = 146;
 
+    // -------------------------------------------------------------------------
+    // Internal CCs — envelope curve exponents (TFT knob path)
+    //
+    // These are firmware-internal CCs only: they are never transmitted on any
+    // MIDI wire. They exist solely so the TFT accordion can read/write curve
+    // values through the standard getCC()/setCC() path, exactly like FX_DRIVE
+    // (130) and other internal-only CCs above 127.
+    //
+    // Wire format for SysEx: use the ParamMap SysEx-only PIDs (0x0504..0x0707)
+    // which carry the native float directly — no CC quantisation on that path.
+    //
+    // CC↔exponent encoding:  exponent = CC / 127.0f * 5.0f  (0.0..5.0)
+    //                        CC = round(exponent / 5.0f * 127.0f)
+    //   CC   0 → 0.00 (engine clamps to 0.05)
+    //   CC  25 → 1.00  ← linear (stock behaviour)
+    //   CC  64 → 2.52
+    //   CC 127 → 5.00
+    //
+    // ccState[] has 160 slots (0..159). Slots 147..155 are unused — safe.
+    // -------------------------------------------------------------------------
+    static constexpr uint8_t AMP_ATTACK_CURVE     = 147;
+    static constexpr uint8_t AMP_DECAY_CURVE      = 148;
+    static constexpr uint8_t AMP_RELEASE_CURVE    = 149;
+    static constexpr uint8_t FILTER_ATTACK_CURVE  = 150;
+    static constexpr uint8_t FILTER_DECAY_CURVE   = 151;
+    static constexpr uint8_t FILTER_RELEASE_CURVE = 152;
+    static constexpr uint8_t PITCH_ATTACK_CURVE   = 153;
+    static constexpr uint8_t PITCH_DECAY_CURVE    = 154;
+    static constexpr uint8_t PITCH_RELEASE_CURVE  = 155;
+
    // -------------------------------------------------------------------------
     // Utility: return human-readable name for a CC
     // -------------------------------------------------------------------------
@@ -522,6 +552,16 @@ namespace CC {
             case PERF_EDIT_TARGET:    return "Edit Tgt";
             case PERF_MIDI_CHANNEL_A: return "MIDI Ch A";
             case PERF_MIDI_CHANNEL_B: return "MIDI Ch B";
+            // Envelope curve exponents (internal — not sent on MIDI wire)
+            case AMP_ATTACK_CURVE:     return "Amp Atk Crv";
+            case AMP_DECAY_CURVE:      return "Amp Dec Crv";
+            case AMP_RELEASE_CURVE:    return "Amp Rel Crv";
+            case FILTER_ATTACK_CURVE:  return "Flt Atk Crv";
+            case FILTER_DECAY_CURVE:   return "Flt Dec Crv";
+            case FILTER_RELEASE_CURVE: return "Flt Rel Crv";
+            case PITCH_ATTACK_CURVE:   return "Pit Atk Crv";
+            case PITCH_DECAY_CURVE:    return "Pit Dec Crv";
+            case PITCH_RELEASE_CURVE:  return "Pit Rel Crv";
 
             default:                  return nullptr;
         }

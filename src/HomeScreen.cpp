@@ -61,6 +61,8 @@ HomeScreen::HomeScreen()
     _cursor.controlIdx = -1;
     _expandedSection   = -1;
     _scrollY           = 0;
+    _envCursor         = 0;
+    _envFlavour        = EnvFlavour::AMP;
 
     memset(_prevVoiceActive, 0, sizeof(_prevVoiceActive));
     _clearAllControlDirty();
@@ -173,6 +175,7 @@ int16_t HomeScreen::_calcExpandedBodyHeight(int16_t sectIdx) const {
                 case CtrlType::SELECT: rowH = max(rowH, SEL_CELL_H);  break;
                 case CtrlType::TOGGLE: rowH = max(rowH, TOG_CELL_H);  break;
                 case CtrlType::GRID:   rowH = max(rowH, (int16_t)SGRID_TOTAL_H); break;
+                case CtrlType::ENVELOPE: rowH = max(rowH, (int16_t)MiniEnvLayout::ENV_CELL_H); break;
                 default: break;
             }
         }
@@ -225,6 +228,7 @@ int16_t HomeScreen::_calcControlVirtualY(int16_t sectIdx, int16_t flatCtrl) cons
                 case CtrlType::SELECT: rowH = max(rowH, SEL_CELL_H);             break;
                 case CtrlType::TOGGLE: rowH = max(rowH, TOG_CELL_H);             break;
                 case CtrlType::GRID:   rowH = max(rowH, (int16_t)SGRID_TOTAL_H); break;
+                case CtrlType::ENVELOPE: rowH = max(rowH, (int16_t)MiniEnvLayout::ENV_CELL_H); break;
                 default: break;
             }
         }
@@ -319,6 +323,7 @@ void HomeScreen::_buildPositionCache() {
                 case CtrlType::SELECT: rowH = max(rowH, SEL_CELL_H);  break;
                 case CtrlType::TOGGLE: rowH = max(rowH, TOG_CELL_H);  break;
                 case CtrlType::GRID:   rowH = max(rowH, (int16_t)SGRID_TOTAL_H); break;
+                case CtrlType::ENVELOPE: rowH = max(rowH, (int16_t)MiniEnvLayout::ENV_CELL_H); break;
                 default: break;
             }
         }
@@ -597,6 +602,7 @@ void HomeScreen::_drawSectionBody(int16_t sectIdx, int16_t screenY) {
                 case CtrlType::SELECT: rowH = max(rowH, SEL_CELL_H);  break;
                 case CtrlType::TOGGLE: rowH = max(rowH, TOG_CELL_H);  break;
                 case CtrlType::GRID:   rowH = max(rowH, (int16_t)SGRID_TOTAL_H); break;
+                case CtrlType::ENVELOPE: rowH = max(rowH, (int16_t)MiniEnvLayout::ENV_CELL_H); break;
                 default: break;
             }
         }
@@ -674,6 +680,28 @@ void HomeScreen::_drawControl(int16_t sectIdx, int16_t flatCtrl,
                                  selStep, playStep);
             break;
         }
+        case CtrlType::ENVELOPE: {
+        // Determine flavour from the sentinel CC
+        EnvFlavour flav = EnvFlavour::AMP;
+        if (ctrl.cc == CC::FILTER_ENV_ATTACK) flav = EnvFlavour::FILTER;
+        if (ctrl.cc == CC::PITCH_ENV_ATTACK)  flav = EnvFlavour::PITCH;
+
+        // Selected point: only if cursor is on this control
+        int8_t selPt = -1;
+        if (selected) {
+            selPt = MiniEnvelope::cursorToPoint(flav, _envCursor);
+        }
+
+        // Wrap _getCC into a static-compatible lambda via _instance
+        auto getCCfn = [](uint8_t cc) -> uint8_t {
+            return _instance ? _instance->_getCC(cc) : 0;
+        };
+
+        MiniEnvelope::draw(*_display, screenX, screenY,
+                            SW - 2 * BODY_PAD_X,
+                            flav, getCCfn, selPt);
+        break;
+    }
         default: break;
     }
 }
@@ -765,7 +793,16 @@ void HomeScreen::onEncoderLeft(int delta) {
             _scrollToCursor();
         } else {
             _cursor.controlIdx = newCtrl;
-            _scrollToCursor();
+              if (newCtrl >= 0) {
+                const ControlDef& c = _controlDef(_expandedSection, newCtrl);
+                if (c.type == CtrlType::ENVELOPE) {
+                    _envCursor = 0;
+                    _envFlavour = EnvFlavour::AMP;
+                    if (c.cc == CC::FILTER_ENV_ATTACK) _envFlavour = EnvFlavour::FILTER;
+                    if (c.cc == CC::PITCH_ENV_ATTACK)  _envFlavour = EnvFlavour::PITCH;
+                }
+            }
+            //_scrollToCursor();
 
             // Mark only old + new control dirty (NOT full layout)
             if (!_layoutDirty) {
@@ -792,7 +829,21 @@ void HomeScreen::onEncoderLeftPress() {
     if (_cursor.controlIdx == -1) {
         _toggleSection(_cursor.sectionIdx);  // sets _layoutDirty
     } else {
-        _openEntry(_cursor.sectionIdx, _cursor.controlIdx);
+          if (_cursor.controlIdx >= 0) {
+                const ControlDef& ctrl = _controlDef(_cursor.sectionIdx, _cursor.controlIdx);
+                if (ctrl.type == CtrlType::ENVELOPE) {
+                    // Determine flavour
+                    EnvFlavour flav = EnvFlavour::AMP;
+                    if (ctrl.cc == CC::FILTER_ENV_ATTACK) flav = EnvFlavour::FILTER;
+                    if (ctrl.cc == CC::PITCH_ENV_ATTACK)  flav = EnvFlavour::PITCH;
+
+                    // Cycle to next sub-point
+                    _envCursor = (_envCursor + 1) % MiniEnvelope::pointCount(flav);
+                    _markControlDirty(_cursor.controlIdx);
+                    return;
+                }
+                _openEntry(_cursor.sectionIdx, _cursor.controlIdx);
+            }
     }
 }
 
@@ -952,11 +1003,23 @@ void HomeScreen::_adjustValue(int16_t sectIdx, int16_t flatCtrl, int delta) {
         // First set which step we're editing, then set its value
         _setCC(CC::SEQ_STEP_SELECT, selStep);
         _setCC(CC::SEQ_STEP_VALUE, (uint8_t)constrain(newVal, 0, 127));
+      } else if (ctrl.type == CtrlType::ENVELOPE) {
+        // Determine flavour
+        EnvFlavour flav = EnvFlavour::AMP;
+        if (ctrl.cc == CC::FILTER_ENV_ATTACK) flav = EnvFlavour::FILTER;
+        if (ctrl.cc == CC::PITCH_ENV_ATTACK)  flav = EnvFlavour::PITCH;
 
-    } else {
-        // Knob/Select: adjust the control's own CC
-        int16_t newVal = (int16_t)_getCC(ctrl.cc) + delta;
-        _setCC(ctrl.cc, (uint8_t)constrain(newVal, 0, 127));
+        // Get the CC for the currently selected sub-point
+        int8_t globalPt = MiniEnvelope::cursorToPoint(flav, _envCursor);
+        uint8_t ptCC = MiniEnvelope::pointToCC(flav, globalPt);
+        if (ptCC != 255) {
+            int16_t newVal = (int16_t)_getCC(ptCC) + delta;
+            _setCC(ptCC, (uint8_t)constrain(newVal, 0, 127));
+        } else {
+            // Knob/Select: adjust the control's own CC
+            int16_t newVal = (int16_t)_getCC(ctrl.cc) + delta;
+            _setCC(ctrl.cc, (uint8_t)constrain(newVal, 0, 127));
+        }
     }
 }
 

@@ -156,6 +156,33 @@ struct PatchState {
     float pitchEnvDepth     = 0.0f;   // semitones, signed
 
     // =========================================================================
+    // Envelope curve exponents (power-law, per timed stage)
+    //
+    // SysEx-only — no CC alias. Routed via ParamMap PIDs 0x0504..0x0506 (Amp),
+    // 0x0604..0x0606 (Filter), 0x0705..0x0707 (Pitch).
+    //
+    // Default 1.0 = linear — identical to stock AudioEffectEnvelope.
+    // Range:  0.2 – 5.0 (engine clamps to 0.05 – 10.0 internally).
+    //   < 1.0 → fast start, slow finish  (logarithmic feel)
+    //   = 1.0 → linear
+    //   > 1.0 → slow start, fast finish  (exponential feel)
+    //
+    // All existing patches that predate this feature load with 1.0 and
+    // behave identically — no backward-compatibility break.
+    // =========================================================================
+    float ampAttackCurve      = 1.0f;
+    float ampDecayCurve       = 1.0f;
+    float ampReleaseCurve     = 1.0f;
+
+    float filterAttackCurve   = 1.0f;
+    float filterDecayCurve    = 1.0f;
+    float filterReleaseCurve  = 1.0f;
+
+    float pitchAttackCurve    = 1.0f;
+    float pitchDecayCurve     = 1.0f;
+    float pitchReleaseCurve   = 1.0f;
+
+    // =========================================================================
     // Velocity sensitivity (0..1)
     // =========================================================================
     float velAmpSens        = 0.0f;

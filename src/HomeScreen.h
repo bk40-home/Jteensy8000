@@ -43,6 +43,7 @@
 #include "JT8000Colours.h"
 #include "TFTWidgets.h"
 #include "LayerManager.h"
+#include "MiniEnvelope.h"
 
 
 class HomeScreen {
@@ -173,6 +174,8 @@ private:
     uint8_t         _pendingCC;
     int             _pendingCount;
     bool            _entryWasOpen;
+    int8_t  _envCursor;     // sub-point cursor within an envelope widget (0..7)
+    EnvFlavour _envFlavour; // which envelope the cursor is currently on
 
    // Route CC read through LayerManager if available, else direct to engine
    uint8_t _getCC(uint8_t cc) const {
