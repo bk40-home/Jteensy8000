@@ -138,21 +138,28 @@ MiniEnvelope::StageLayout MiniEnvelope::computeLayout(
         L.yPeak    = L.y0;                          // top (unity)
         L.ySustain = L.y0 + (int16_t)((1.0f - susNorm) * L.drawH);
     } else {
-        // bipolar: baseline at centre, depth controls peak extent
+        // bipolar: full height available.
+        // positive depth → envelope rises from bottom (like amp)
+        // negative depth → envelope drops from top (inverted)
+        // |depth| scales how far the peak reaches toward the opposite edge
         uint8_t ccDepth = getCC(ccs[EnvPoint::DEPTH]);
         float depthNorm = ((float)ccDepth - 64.0f) / 63.0f;  // -1..+1
-        // clamp
         if (depthNorm >  1.0f) depthNorm =  1.0f;
         if (depthNorm < -1.0f) depthNorm = -1.0f;
 
-        int16_t halfH = L.drawH / 2;
-        L.yBase = L.y0 + halfH;                    // centre baseline
-        // positive depth → peak above baseline (lower y)
-        // negative depth → peak below baseline (higher y)
-        L.yPeak    = L.yBase - (int16_t)(depthNorm * (float)halfH);
-        // sustain is proportional to peak extent
-        int16_t peakExtent = L.yBase - L.yPeak;    // positive if above baseline
-        L.ySustain = L.yBase - (int16_t)(susNorm * (float)peakExtent);
+        if (depthNorm >= 0.0f) {
+            // positive: baseline at bottom, peak rises toward top
+            L.yBase    = L.y0 + L.drawH;
+            L.yPeak    = L.y0 + (int16_t)((1.0f - depthNorm) * L.drawH);
+            int16_t peakExtent = L.yBase - L.yPeak;
+            L.ySustain = L.yBase - (int16_t)(susNorm * (float)peakExtent);
+        } else {
+            // negative: baseline at top, peak drops toward bottom
+            L.yBase    = L.y0;
+            L.yPeak    = L.y0 + (int16_t)((-depthNorm) * L.drawH);
+            int16_t peakExtent = L.yPeak - L.yBase;  // positive distance downward
+            L.ySustain = L.yBase + (int16_t)(susNorm * (float)peakExtent);
+        }
     }
 
     return L;
@@ -286,47 +293,22 @@ void MiniEnvelope::draw(
     float crvDec = cc_to_curve(getCC(ccs[EnvPoint::DEC_CURVE]));
     float crvRel = cc_to_curve(getCC(ccs[EnvPoint::REL_CURVE]));
 
-    // --- draw baseline for bipolar envelopes ---
-    if (flavour != EnvFlavour::AMP) {
-        // dashed horizontal line at baseline
-        for (int16_t bx = L.x0; bx < L.xEnd; bx += 6) {
-            int16_t segEnd = bx + 3;
-            if (segEnd > L.xEnd) segEnd = L.xEnd;
-            tft.drawFastHLine(bx, L.yBase, segEnd - bx, COLOUR_BORDER);
-        }
-    }
-
-    // --- determine segment colours ---
-    uint16_t colAtk = COLOUR_ACCENT_DIM;
-    uint16_t colDec = COLOUR_ACCENT_DIM;
-    uint16_t colSus = COLOUR_ACCENT_DIM;
-    uint16_t colRel = COLOUR_ACCENT_DIM;
-
-    // highlight the segment containing the selected point
-    if (selectedPt == EnvPoint::ATK_TIME || selectedPt == EnvPoint::ATK_CURVE)
-        colAtk = COLOUR_ACCENT_ORANGE;
-    if (selectedPt == EnvPoint::DEPTH)
-        colAtk = COLOUR_ACCENT_ORANGE;  // depth is at the peak (top of attack)
-    if (selectedPt == EnvPoint::DEC_TIME || selectedPt == EnvPoint::DEC_CURVE)
-        colDec = COLOUR_ACCENT_ORANGE;
-    if (selectedPt == EnvPoint::SUS_LEVEL)
-        colSus = COLOUR_ACCENT_ORANGE;
-    if (selectedPt == EnvPoint::REL_TIME || selectedPt == EnvPoint::REL_CURVE)
-        colRel = COLOUR_ACCENT_ORANGE;
+    // --- all segments drawn in bright orange ---
+    const uint16_t colLine = COLOUR_ACCENT_ORANGE;
 
     // --- draw envelope segments ---
 
     // attack: start → peak
-    drawCurvedSegment(tft, L.x0, L.yBase, L.xAtk, L.yPeak, crvAtk, colAtk);
+    drawCurvedSegment(tft, L.x0, L.yBase, L.xAtk, L.yPeak, crvAtk, colLine);
 
     // decay: peak → sustain
-    drawCurvedSegment(tft, L.xAtk, L.yPeak, L.xDec, L.ySustain, crvDec, colDec);
+    drawCurvedSegment(tft, L.xAtk, L.yPeak, L.xDec, L.ySustain, crvDec, colLine);
 
     // sustain: flat line at sustain level
-    tft.drawLine(L.xDec, L.ySustain, L.xSus, L.ySustain, colSus);
+    tft.drawLine(L.xDec, L.ySustain, L.xSus, L.ySustain, colLine);
 
     // release: sustain → baseline
-    drawCurvedSegment(tft, L.xSus, L.ySustain, L.xEnd, L.yBase, crvRel, colRel);
+    drawCurvedSegment(tft, L.xSus, L.ySustain, L.xEnd, L.yBase, crvRel, colLine);
 
     // --- draw control point dots ---
     struct DotInfo { int16_t px, py; int8_t ptIdx; };
@@ -372,16 +354,9 @@ void MiniEnvelope::draw(
         dots[dotCount++] = { dx, dy, EnvPoint::REL_CURVE };
     }
 
-    // --- render dots (unselected first, then selected on top) ---
+    // --- render dots: all same colour, selected dot is larger ---
     for (int i = 0; i < dotCount; i++) {
-        if (dots[i].ptIdx == selectedPt) continue;  // draw selected last
-        tft.fillCircle(dots[i].px, dots[i].py, ENV_DOT_R_UNSEL, COLOUR_ACCENT_DIM);
-    }
-    // draw selected dot on top (larger, bright)
-    for (int i = 0; i < dotCount; i++) {
-        if (dots[i].ptIdx == selectedPt) {
-            tft.fillCircle(dots[i].px, dots[i].py, ENV_DOT_R_SEL, COLOUR_ACCENT_ORANGE);
-            break;
-        }
+        int16_t r = (dots[i].ptIdx == selectedPt) ? ENV_DOT_R_SEL : ENV_DOT_R_UNSEL;
+        tft.fillCircle(dots[i].px, dots[i].py, r, COLOUR_ACCENT_ORANGE);
     }
 }
