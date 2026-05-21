@@ -63,9 +63,10 @@ static constexpr int SECTION_COUNT    = 16;  // total sections (HTML sync pendin
 // ---------------------------------------------------------------------------
 enum class CtrlType : uint8_t {
     KNOB    = 0,   // continuous 0-127 arc knob
-    SELECT  = 1,   // enum dropdown
+    SELECT  = 1,   // enum dropdow
     TOGGLE  = 2,   // on/off pill
     GRID    = 3,   // step sequencer bar grid (special)
+    ENVELOPE = 4,   // ← ADD THIS
     NONE    = 255   // empty slot (padding)
 };
 
@@ -114,6 +115,7 @@ inline uint8_t sectionControlCount(const SectionDef& s) {
 #define S(cc, lbl)   { cc, CtrlType::SELECT, lbl }
 #define T(cc, lbl)   { cc, CtrlType::TOGGLE, lbl }
 #define G(cc, lbl)   { cc, CtrlType::GRID,   lbl }
+#define E(cc, lbl)   { cc, CtrlType::ENVELOPE, lbl }
 #define EMPTY        { 255, CtrlType::NONE, "" }
 
 // =============================================================================
@@ -252,13 +254,8 @@ static const SectionDef kSections[SECTION_COUNT] = {
 // 4 — Amp Envelope
 // ─────────────────────────────────────────────────────────────────────────────
 { "Amp Envelope", {
-    { "ADSR", {
-        K(CC::AMP_ATTACK,  "ATK"),
-        K(CC::AMP_DECAY,   "DEC"),
-        K(CC::AMP_SUSTAIN, "SUS"),
-        K(CC::AMP_RELEASE, "REL"),
-        EMPTY, EMPTY, EMPTY, EMPTY
-    }, 4 },
+    { "", { E(CC::AMP_ATTACK, "AMP"),
+            EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY }, 1 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
@@ -270,13 +267,8 @@ static const SectionDef kSections[SECTION_COUNT] = {
 // 5 — Filter Envelope
 // ─────────────────────────────────────────────────────────────────────────────
 { "Filter Envelope", {
-    { "ADSR", {
-        K(CC::FILTER_ENV_ATTACK,  "ATK"),
-        K(CC::FILTER_ENV_DECAY,   "DEC"),
-        K(CC::FILTER_ENV_SUSTAIN, "SUS"),
-        K(CC::FILTER_ENV_RELEASE, "REL"),
-        EMPTY, EMPTY, EMPTY, EMPTY
-    }, 4 },
+    { "", { E(CC::FILTER_ENV_ATTACK, "FILTER"),
+            EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY }, 1 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
@@ -288,14 +280,8 @@ static const SectionDef kSections[SECTION_COUNT] = {
 // 6 — Pitch Envelope
 // ─────────────────────────────────────────────────────────────────────────────
 { "Pitch Envelope", {
-    { "ADSR", {
-        K(CC::PITCH_ENV_ATTACK,  "ATK"),
-        K(CC::PITCH_ENV_DECAY,   "DEC"),
-        K(CC::PITCH_ENV_SUSTAIN, "SUS"),
-        K(CC::PITCH_ENV_RELEASE, "REL"),
-        K(CC::PITCH_ENV_DEPTH,   "DEPTH"),
-        EMPTY, EMPTY, EMPTY
-    }, 5 },
+    { "", { E(CC::PITCH_ENV_ATTACK, "PITCH"),
+            EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY }, 1 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },
     { "", {EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY}, 0 },

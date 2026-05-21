@@ -171,6 +171,26 @@ inline uint8_t time_ms_to_cc(float ms) {
     return (uint8_t)constrain(lroundf(cc), 0, 127);
 }
 
+// ── Envelope curve CC mapping ──
+// CC 0 = 0.15 (fast log), CC 64 = 1.0 (linear/stock), CC 127 = 5.0 (hard exp)
+// Two-segment piecewise linear in CC domain, gives perceptually even spread.
+
+inline float cc_to_curve(uint8_t cc) {
+    if (cc <= 64) return 0.15f + (cc / 64.0f) * 0.85f;
+    return 1.0f + ((cc - 64) / 63.0f) * 4.0f;
+}
+
+inline uint8_t curve_to_cc(float curve) {
+    if (curve <= 1.0f) {
+        float n = (curve - 0.15f) / 0.85f;
+        if (n < 0.0f) n = 0.0f;
+        return (uint8_t)(n * 64.0f + 0.5f);
+    }
+    float n = (curve - 1.0f) / 4.0f;
+    if (n > 1.0f) n = 1.0f;
+    return (uint8_t)(64.0f + n * 63.0f + 0.5f);
+}
+
 // ---------------------------------------------------------------------------
 // CC <-> LFO frequency (Hz), logarithmic curve  0.03..39 Hz
 // ---------------------------------------------------------------------------

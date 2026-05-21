@@ -156,11 +156,20 @@ void SysExAdapter::_handleSetParam(uint8_t layer, uint16_t paramId, float value)
     // SysEx-only abstraction params are routed before the table lookup —
     // their entries exist (with kSysExOnly scope) but the adapter handles
     // them entirely on its own.
-    if (paramId >= 0x0C80 && paramId <= 0x0C87) {
-        // SysEx-only abstractions are global (no per-engine variant); ignore
-        // the layer byte for them. Editor sets them on whichever layer; we
-        // route the projected CC via the manager-CC path.
-        _handleSyxOnlySet(paramId, value);
+    //
+    // Two SysEx-only ranges:
+    //   0x0C80..0x0C87  — FX Mod/Delay abstractions (global; layer byte ignored)
+    //   0x0504..0x0506  — Amp envelope curve exponents
+    //   0x0604..0x0606  — Filter envelope curve exponents
+    //   0x0705..0x0707  — Pitch envelope curve exponents
+    const bool isSyxOnly =
+        (paramId >= 0x0C80 && paramId <= 0x0C87) ||
+        (paramId >= 0x0504 && paramId <= 0x0506) ||
+        (paramId >= 0x0604 && paramId <= 0x0606) ||
+        (paramId >= 0x0705 && paramId <= 0x0707);
+
+    if (isSyxOnly) {
+        _handleSyxOnlySet(paramId, value, layer);
         return;
     }
 
@@ -266,7 +275,14 @@ void SysExAdapter::_handleGetParam(uint8_t layer, uint16_t paramId) {
 // =============================================================================
 bool SysExAdapter::_readParamValue(uint8_t layer, uint16_t paramId, float& outValue) const {
     // SysEx-only abstraction params are global; ignore layer.
-    if (paramId >= 0x0C80 && paramId <= 0x0C87) {
+    // Matches the same ranges checked in _handleSetParam above.
+    const bool isSyxOnly =
+        (paramId >= 0x0C80 && paramId <= 0x0C87) ||
+        (paramId >= 0x0504 && paramId <= 0x0506) ||
+        (paramId >= 0x0604 && paramId <= 0x0606) ||
+        (paramId >= 0x0705 && paramId <= 0x0707);
+
+    if (isSyxOnly) {
         outValue = _handleSyxOnlyGet(paramId);
         return true;
     }
@@ -462,6 +478,9 @@ void SysExAdapter::_handleBankDumpRequest() {
 
     // Buffer sized for worst case. Static so we don't blow the stack — this
     // function is called from a MIDI callback context.
+    // With 126 ParamIDs × up to 2 layers (engine-scope + curve params) we
+    // comfortably fit within kBankDumpMaxEntries (256). If that limit is ever
+    // hit, increase SyxProto::kBankDumpMaxEntries and rebuild.
     static uint8_t buf[SyxProto::kBankDumpMaxLen];
 
     size_t pos = 0;
@@ -495,11 +514,9 @@ void SysExAdapter::_handleBankDumpRequest() {
     //   kPatch     -> emit one entry per layer (A, B)
     //   kPerf      -> emit once with kLayerPerf
     //   kGlobalFx  -> emit once with kLayerGlobalFx
-    //   kSysExOnly -> emit once with kLayerA (global state, layer byte ignored)
+    //   kSysExOnly -> split: curve params emit per-layer (A, B);
+    //                        FX abstractions emit once with kLayerA (global)
     for (size_t i = 0; i < paramCount; ++i) {
-        // ParamMap doesn't expose entries by index in the public header, but
-        // we can re-find them by walking the known ParamIDs. Cleaner: extend
-        // ParamMap with an index-based accessor. That's done in a helper below.
         const ParamMap::Entry* e = ParamMap::entryAt(i);
         if (!e) continue;
 
@@ -529,9 +546,41 @@ void SysExAdapter::_handleBankDumpRequest() {
             }
         }
         else if (e->scope == ParamMap::kSysExOnly) {
-            // 8 abstraction params — always have valid local state.
-            const float v = _handleSyxOnlyGet(e->paramId);
-            if (!appendEntry(SyxProto::kLayerA, e->paramId, v)) goto done;
+            using namespace ParamMap::SysExOnlyIds;
+            const uint16_t pid = e->paramId;
+
+            // Envelope curve params are per-engine — emit one entry per layer.
+            const bool isCurve =
+                (pid == kAmpAttackCurve    || pid == kAmpDecayCurve    || pid == kAmpReleaseCurve   ||
+                 pid == kFilterAttackCurve || pid == kFilterDecayCurve || pid == kFilterReleaseCurve ||
+                 pid == kPitchAttackCurve  || pid == kPitchDecayCurve  || pid == kPitchReleaseCurve);
+
+            if (isCurve) {
+                // Read each engine's PatchState directly — no CC cache involved.
+                const float vA = _handleSyxOnlyGet(pid);   // reads layerA()
+                if (!appendEntry(SyxProto::kLayerA, pid, vA)) goto done;
+
+                // Layer B: temporarily switch the getter context by reading
+                // layerB() directly via its getter methods.
+                float vB = 0.0f;
+                switch (pid) {
+                    case kAmpAttackCurve:     vB = _lm.layerB().getAmpAttackCurve();     break;
+                    case kAmpDecayCurve:      vB = _lm.layerB().getAmpDecayCurve();      break;
+                    case kAmpReleaseCurve:    vB = _lm.layerB().getAmpReleaseCurve();    break;
+                    case kFilterAttackCurve:  vB = _lm.layerB().getFilterAttackCurve();  break;
+                    case kFilterDecayCurve:   vB = _lm.layerB().getFilterDecayCurve();   break;
+                    case kFilterReleaseCurve: vB = _lm.layerB().getFilterReleaseCurve(); break;
+                    case kPitchAttackCurve:   vB = _lm.layerB().getPitchEnvAttackCurve();  break;
+                    case kPitchDecayCurve:    vB = _lm.layerB().getPitchEnvDecayCurve();   break;
+                    case kPitchReleaseCurve:  vB = _lm.layerB().getPitchEnvReleaseCurve(); break;
+                    default: break;
+                }
+                if (!appendEntry(SyxProto::kLayerB, pid, vB)) goto done;
+            } else {
+                // FX abstractions — global state, emit once with kLayerA.
+                const float v = _handleSyxOnlyGet(pid);
+                if (!appendEntry(SyxProto::kLayerA, pid, v)) goto done;
+            }
         }
     }
 
@@ -644,9 +693,74 @@ void SysExAdapter::snoopCC(uint8_t cc, uint8_t value) {
 // "enabled = true" emits the last-known variation CC; setting "enabled =
 // false" emits CC = 0 (OFF) but keeps the variation memory intact.
 // =============================================================================
-void SysExAdapter::_handleSyxOnlySet(uint16_t paramId, float value) {
+void SysExAdapter::_handleSyxOnlySet(uint16_t paramId, float value, uint8_t layer) {
     using namespace ParamMap::SysExOnlyIds;
 
+    // ---- Envelope curve exponents ------------------------------------------
+    // Per-engine: fan out to the engine(s) indicated by the layer byte.
+    // Each setter writes PatchState and fans out to all voices on that engine.
+    // No CC quantisation — the float is applied directly.
+    //
+    // A lambda avoids repeating the A/B/Both branch for every one of the 9 params.
+    // clampCurve mirrors AudioEffectEnvelopeJT::constrainCurve (0.05..10.0).
+    auto applyCurve = [&](auto setterA, auto setterB) {
+        // Clamp to the same [0.05, 10.0] range the engine enforces so the
+        // PatchState value is always in a known safe range regardless of source.
+        float v = value;
+        if (v < 0.05f) v = 0.05f;
+        if (v > 10.0f) v = 10.0f;
+        switch (layer) {
+            case SyxProto::kLayerA:
+                (_lm.layerA().*setterA)(v);
+                break;
+            case SyxProto::kLayerB:
+                (_lm.layerB().*setterB)(v);
+                break;
+            case SyxProto::kLayerBoth:
+            default:
+                (_lm.layerA().*setterA)(v);
+                (_lm.layerB().*setterB)(v);
+                break;
+        }
+    };
+
+    switch (paramId) {
+        // Amp envelope curves
+        case kAmpAttackCurve:
+            applyCurve(&SynthEngine::setAmpAttackCurve, &SynthEngine::setAmpAttackCurve);
+            return;
+        case kAmpDecayCurve:
+            applyCurve(&SynthEngine::setAmpDecayCurve, &SynthEngine::setAmpDecayCurve);
+            return;
+        case kAmpReleaseCurve:
+            applyCurve(&SynthEngine::setAmpReleaseCurve, &SynthEngine::setAmpReleaseCurve);
+            return;
+        // Filter envelope curves
+        case kFilterAttackCurve:
+            applyCurve(&SynthEngine::setFilterAttackCurve, &SynthEngine::setFilterAttackCurve);
+            return;
+        case kFilterDecayCurve:
+            applyCurve(&SynthEngine::setFilterDecayCurve, &SynthEngine::setFilterDecayCurve);
+            return;
+        case kFilterReleaseCurve:
+            applyCurve(&SynthEngine::setFilterReleaseCurve, &SynthEngine::setFilterReleaseCurve);
+            return;
+        // Pitch envelope curves
+        case kPitchAttackCurve:
+            applyCurve(&SynthEngine::setPitchEnvAttackCurve, &SynthEngine::setPitchEnvAttackCurve);
+            return;
+        case kPitchDecayCurve:
+            applyCurve(&SynthEngine::setPitchEnvDecayCurve, &SynthEngine::setPitchEnvDecayCurve);
+            return;
+        case kPitchReleaseCurve:
+            applyCurve(&SynthEngine::setPitchEnvReleaseCurve, &SynthEngine::setPitchEnvReleaseCurve);
+            return;
+
+        // ---- FX Mod / Delay abstractions (global; layer byte ignored) ------
+        default: break;
+    }
+
+    // FX Mod / Delay abstractions — global state, layer byte not relevant.
     switch (paramId) {
 
         case kFxModEnabled: {
@@ -724,10 +838,26 @@ void SysExAdapter::_handleSyxOnlySet(uint16_t paramId, float value) {
 }
 
 float SysExAdapter::_handleSyxOnlyGet(uint16_t paramId) const {
-    // Phase 2 (bank dump / GET_PARAM reply) will use this. For now expose
-    // the local state so callers from the firmware can inspect it.
     using namespace ParamMap::SysExOnlyIds;
 
+    // ---- Envelope curve exponents — read from Layer A as representative ----
+    // For GET_PARAM / BANK_DUMP the editor typically requests Layer A or B
+    // explicitly; the bank dump walker calls this once per PID and uses kLayerA.
+    // We read from layerA() here; the BANK_DUMP walker emits one entry per layer.
+    switch (paramId) {
+        case kAmpAttackCurve:     return _lm.layerA().getAmpAttackCurve();
+        case kAmpDecayCurve:      return _lm.layerA().getAmpDecayCurve();
+        case kAmpReleaseCurve:    return _lm.layerA().getAmpReleaseCurve();
+        case kFilterAttackCurve:  return _lm.layerA().getFilterAttackCurve();
+        case kFilterDecayCurve:   return _lm.layerA().getFilterDecayCurve();
+        case kFilterReleaseCurve: return _lm.layerA().getFilterReleaseCurve();
+        case kPitchAttackCurve:   return _lm.layerA().getPitchEnvAttackCurve();
+        case kPitchDecayCurve:    return _lm.layerA().getPitchEnvDecayCurve();
+        case kPitchReleaseCurve:  return _lm.layerA().getPitchEnvReleaseCurve();
+        default: break;
+    }
+
+    // ---- FX Mod / Delay abstractions ----------------------------------------
     switch (paramId) {
         case kFxModEnabled:       return _modEnabled       ? 1.0f : 0.0f;
         case kFxModVariation:     return (float)_ccToVariation(_lastModEffectCC, kModVariationCount);

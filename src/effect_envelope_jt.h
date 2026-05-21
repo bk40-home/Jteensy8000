@@ -34,7 +34,7 @@
 
 // ---------------------------------------------------------------------------
 //  Compile-time constant: samples per millisecond at the audio rate.
-//  Used only for time → sample-count conversion.
+//  Used only for time -> sample-count conversion.
 // ---------------------------------------------------------------------------
 #define SAMPLES_PER_MSEC_JT (AUDIO_SAMPLE_RATE_EXACT / 1000.0f)
 
@@ -44,11 +44,11 @@
 enum EnvelopeStateJT : uint8_t {
     ENV_IDLE    = 0,   // silent — no audio processing needed
     ENV_DELAY   = 1,   // pre-attack silent hold
-    ENV_ATTACK  = 2,   // rising from 0 → unity
+    ENV_ATTACK  = 2,   // rising from 0 -> unity
     ENV_HOLD    = 3,   // held at unity before decay
-    ENV_DECAY   = 4,   // falling from unity → sustain level
+    ENV_DECAY   = 4,   // falling from unity -> sustain level
     ENV_SUSTAIN = 5,   // held at sustain level indefinitely
-    ENV_RELEASE = 6,   // falling from current level → 0
+    ENV_RELEASE = 6,   // falling from current level -> 0
     ENV_FORCED  = 7    // fast forced release before re-trigger
 };
 
@@ -61,10 +61,12 @@ enum EnvelopeStateJT : uint8_t {
 //       sustain() while that stage is active recalculates the slope
 //       immediately.  No click, no restart.
 //
-//    2. Per-stage curve shaping — setCurve() sets a power-law exponent
-//       applied at each state transition (not per-sample), controlling
-//       whether the ramp is linear (1.0), exponential/concave, or
-//       logarithmic/convex.  Costs one powf() call per transition only.
+//    2. Per-stage curve shaping via a geometric-series increment.
+//       At curve == 1.0 (CC 64) the increment is constant (linear = stock).
+//       At curve < 1.0 the increment decays each chunk (logarithmic feel).
+//       At curve > 1.0 the increment grows each chunk (exponential feel).
+//       Cost: one float multiply per 8-sample chunk when curved; zero when
+//       linear.  Total stage time is always exact regardless of curve.
 //
 //  All stock behaviour is preserved when the new features are unused.
 // ---------------------------------------------------------------------------
@@ -104,10 +106,10 @@ public:
     void releaseNoteOn(float milliseconds);
 
     // ----- curve shaping -----
-    //  exponent = 1.0  → linear  (stock behaviour)
-    //  exponent > 1.0  → slow start, fast finish (exponential feel)
-    //  exponent < 1.0  → fast start, slow finish (logarithmic feel)
-    //  Typical useful range: 0.2 – 5.0
+    //  exponent = 1.0  -> linear  (stock behaviour, CC 64)
+    //  exponent < 1.0  -> logarithmic (fast start, slow finish)
+    //  exponent > 1.0  -> exponential (slow start, fast finish)
+    //  Practical range: 0.15 – 5.0 (mapped from CC 0–127 via Mapping.h)
     void setAttackCurve(float exponent)  { attack_curve  = constrainCurve(exponent); }
     void setDecayCurve(float exponent)   { decay_curve   = constrainCurve(exponent); }
     void setReleaseCurve(float exponent) { release_curve = constrainCurve(exponent); }
@@ -129,7 +131,7 @@ public:
     virtual void update(void);
 
 private:
-    // --- time conversion: milliseconds → count of 8-sample chunks ---
+    // --- time conversion: milliseconds -> count of 8-sample chunks ---
     static uint16_t milliseconds2count(float milliseconds) {
         if (milliseconds < 0.0f) milliseconds = 0.0f;
         uint32_t c = ((uint32_t)(milliseconds * SAMPLES_PER_MSEC_JT) + 7) >> 3;
@@ -139,23 +141,27 @@ private:
 
     // --- clamp curve exponent to safe range ---
     static float constrainCurve(float v) {
-        if (v < 0.05f) return 0.05f;   // avoid divide-by-zero / extreme warp
-        if (v > 10.0f) return 10.0f;
+        if (v < 0.15f) return 0.15f;   // floor raised to match CC 0 mapping
+        if (v > 5.0f)  return 5.0f;    // ceiling matches CC 127 mapping
         return v;
     }
 
-    // --- apply power-curve to a normalised 0..1 position ---
-    //  Only called at state transitions — NOT per sample.
-    static float applyCurve(float t, float exponent) {
-        if (exponent == 1.0f) return t;           // fast path: linear
-        return powf(t, exponent);
+    // --- convert curve exponent to geometric alpha ---
+    //  Maps curve 0.15..5.0 -> alpha -6..+6 (0 at curve=1.0).
+    //  Alpha controls the per-chunk increment growth/decay rate.
+    static float curveToAlpha(float curve) {
+        if (curve <= 1.0f) return -6.0f * (1.0f - curve) / 0.85f;
+        return 6.0f * (curve - 1.0f) / 4.0f;
     }
 
-    // --- recalculate slope for the currently active stage ---
-    //  target: where mult_hires should end up (fixed-point 2.30)
-    //  remaining: how many 8-sample chunks are left
-    //  curve: power-law exponent for this stage
-    void recalcSlope(int32_t target, uint16_t remaining, float curve);
+    // --- set up geometric-series slope for a stage ---
+    //  Computes inc_hires (initial increment) and inc_factor (per-chunk
+    //  multiplier) such that the sum of the geometric series over 'count'
+    //  chunks exactly equals (target - start).
+    //
+    //  When curve==1.0, factor=1.0 and inc is constant (stock behaviour).
+    //  Cost: one expf() + one powf() at transition time only.
+    void initSlope(int32_t start, int32_t target, uint16_t count, float curve);
 
     // ----- audio input queue (single mono input) -----
     audio_block_t *inputQueueArray[1];
@@ -164,7 +170,8 @@ private:
     volatile uint8_t  state;        // current EnvelopeStateJT
     uint16_t          count;        // 8-sample chunks remaining in current state
     int32_t           mult_hires;   // current gain  — 0 = silent, 0x40000000 = unity
-    int32_t           inc_hires;    // gain change per 8-sample chunk
+    int32_t           inc_hires;    // gain change per 8-sample chunk (modified by factor)
+    float             inc_factor;   // per-chunk multiplier for inc_hires (1.0 = linear)
 
     // ----- stored durations (in 8-sample chunk counts) -----
     uint16_t delay_count;

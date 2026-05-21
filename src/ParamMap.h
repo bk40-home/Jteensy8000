@@ -107,6 +107,22 @@ namespace SysExOnlyIds {
     static constexpr uint16_t kFxDelayVariation   = 0x0C85;
     static constexpr uint16_t kFxDelayFbOverride  = 0x0C86;
     static constexpr uint16_t kFxDelayFbValue     = 0x0C87;
+
+    // ---- Envelope curve exponents (SysEx-only — no CC alias) ----------------
+    // Received as native float (exponent 0.2..5.0) via SysExAdapter.
+    // Applied directly to AudioEffectEnvelopeJT — no CC quantisation.
+    // PatchState fields: ampAttackCurve / ampDecayCurve / ampReleaseCurve etc.
+    static constexpr uint16_t kAmpAttackCurve     = 0x0504;
+    static constexpr uint16_t kAmpDecayCurve      = 0x0505;
+    static constexpr uint16_t kAmpReleaseCurve    = 0x0506;
+
+    static constexpr uint16_t kFilterAttackCurve  = 0x0604;
+    static constexpr uint16_t kFilterDecayCurve   = 0x0605;
+    static constexpr uint16_t kFilterReleaseCurve = 0x0606;
+
+    static constexpr uint16_t kPitchAttackCurve   = 0x0705;
+    static constexpr uint16_t kPitchDecayCurve    = 0x0706;
+    static constexpr uint16_t kPitchReleaseCurve  = 0x0707;
 }
 
 } // namespace ParamMap
