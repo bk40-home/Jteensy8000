@@ -16,7 +16,7 @@
 #pragma once
 #include <Arduino.h>
 #include "ILI9341_t3n.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 
 // ---------------------------------------------------------------------------
 //  Envelope flavour — determines CC mapping and bipolar behaviour

@@ -32,7 +32,7 @@
 // =============================================================================
 
 #include <Arduino.h>
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "LFOBlock.h"       // LFODestination enum
 #include "Waveforms.h"      // ArbBank enum
 

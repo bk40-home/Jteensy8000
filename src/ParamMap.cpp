@@ -11,7 +11,7 @@
 // =============================================================================
 
 #include "ParamMap.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 
 namespace ParamMap {
 

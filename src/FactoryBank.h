@@ -49,7 +49,7 @@
 
 #pragma once
 #include <Arduino.h>
-#include "PatchSchema.h"
+#include "ParamDefs.h"
 
 class SynthEngine;  // forward declaration for loadFactoryPatch()
 

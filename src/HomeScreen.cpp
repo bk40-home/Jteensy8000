@@ -37,7 +37,7 @@
 #include "WaveForms.h"
 #include "AudioFilterVABank.h"
 #include "StepSequencer.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "Mapping.h"
 #include <math.h>
 

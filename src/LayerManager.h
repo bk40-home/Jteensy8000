@@ -44,7 +44,7 @@
 #include "SynthEngine.h"
 #include "VoicePool.h"
 #include "GlobalFX.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "CCCache.h"      // Phase 2 — per-layer/per-scope CC cache
 
 class SysExAdapter;       // Phase 1 — forward decl for setSysExSnoop()

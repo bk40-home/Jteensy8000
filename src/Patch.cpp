@@ -1,7 +1,6 @@
 #include "Patch.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "Mapping.h"
-#include "PatchSchema.h"
 
 using namespace JT8000Map;
 using namespace CC;

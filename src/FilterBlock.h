@@ -57,7 +57,7 @@
 #include "Audio.h"
 #include "AudioFilterOBXa_OBXf.h"
 #include "AudioFilterVABank.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 
 class FilterBlock
 {

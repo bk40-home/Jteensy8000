@@ -48,7 +48,7 @@
 
 #pragma once
 #include <Arduino.h>
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "JT8000Colours.h"
 
 // ---------------------------------------------------------------------------

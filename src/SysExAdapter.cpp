@@ -12,8 +12,7 @@
 #include "ParamMap.h"
 #include "CCCache.h"
 #include "LayerManager.h"
-#include "PatchSchema.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "Mapping.h"        // Hi-res inverse converters (cutoff_hz_to_cc, time_ms_to_cc, etc.)
 #include "DebugTrace.h"  // JT_LOGF — same logging path the rest of the firmware uses
 #include <Arduino.h>     // AudioNoInterrupts / AudioInterrupts

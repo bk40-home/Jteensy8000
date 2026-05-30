@@ -89,7 +89,7 @@
 #include "BPMClockManager.h"
 #include "SysExAdapter.h"       // Phase 1 — SysEx receive path for editor protocol
 #include "SyxProtocol.h"       // SyxProto:: layer IDs used in onCCHandled echo
-#include "CCDefs.h"             // CC:: reverb constants used in onCCHandled scope check
+#include "ParamDefs.h"            // CC:: reverb constants used in onCCHandled scope check
 
 // ---------------------------------------------------------------------------
 // Teensy 4.x core symbols used for boot diagnostics.

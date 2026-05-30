@@ -54,7 +54,7 @@
 //   Values are precomputed CC midpoints from ccFromWaveform() in WaveForms.h.
 // =============================================================================
 
-#include "CCDefs.h"
+#include "ParamDefs.h"
 
 namespace JP8000SyxMap {
 

@@ -2,7 +2,7 @@
 #include "SynthEngine.h"
 #include "VoicePool.h"
 #include "Mapping.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "Waveforms.h"   // ensure waveformFromCC + names are available
  
 

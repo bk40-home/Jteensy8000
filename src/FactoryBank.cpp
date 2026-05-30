@@ -10,8 +10,7 @@
  */
 
 #include "FactoryBank.h"
-#include "PatchSchema.h"
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "SynthEngine.h"
 
 namespace FactoryBank {

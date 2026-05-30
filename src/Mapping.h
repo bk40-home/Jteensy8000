@@ -25,7 +25,7 @@
 #pragma once
 #include <math.h>
 #include <Arduino.h>
-#include "CCDefs.h"
+#include "ParamDefs.h"
 #include "LFOBlock.h"   // for NUM_LFO_DESTS
 
 namespace JT8000Map {
