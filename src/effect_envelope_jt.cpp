@@ -34,9 +34,10 @@ void AudioEffectEnvelopeJT::initSlope(int32_t start, int32_t target,
 
     if (chunks == 0) {
         // no time — snap to target instantly
-        mult_hires = target;
-        inc_hires  = 0;
-        inc_factor = 1.0f;
+        mult_hires  = target;
+        inc_hires_f = 0.0f;
+        inc_hires   = 0;
+        inc_factor  = 1.0f;
         return;
     }
 
@@ -44,18 +45,23 @@ void AudioEffectEnvelopeJT::initSlope(int32_t start, int32_t target,
 
     if (range == 0) {
         // start == target — nothing to ramp
-        inc_hires  = 0;
-        inc_factor = 1.0f;
+        inc_hires_f = 0.0f;
+        inc_hires   = 0;
+        inc_factor  = 1.0f;
         return;
     }
 
     float alpha = curveToAlpha(curve);
 
     // --- linear: curve==1.0 -> alpha==0 -> factor==1.0 ---
-    // Use a small dead-zone to avoid expf/powf for nearly-linear curves
+    // Use a small dead-zone to avoid expf/powf for nearly-linear curves.
+    // Keep the increment in float so a non-integer step (e.g. range/chunks
+    // with a large chunk count) accumulates exactly over the stage instead
+    // of losing its fractional part every chunk.
     if (fabsf(alpha) < 0.01f) {
-        inc_hires  = range / (int32_t)chunks;
-        inc_factor = 1.0f;
+        inc_hires_f = (float)range / (float)chunks;
+        inc_hires   = (int32_t)lroundf(inc_hires_f);
+        inc_factor  = 1.0f;
         return;
     }
 
@@ -69,20 +75,20 @@ void AudioEffectEnvelopeJT::initSlope(int32_t start, int32_t target,
     float denom = rN - 1.0f;
     if (fabsf(denom) < 1e-9f) {
         // degenerate — fall back to linear
-        inc_hires  = range / (int32_t)chunks;
-        inc_factor = 1.0f;
+        inc_hires_f = (float)range / (float)chunks;
+        inc_hires   = (int32_t)lroundf(inc_hires_f);
+        inc_factor  = 1.0f;
         return;
     }
 
-    float inc_f = (float)range * (r - 1.0f) / denom;
-    inc_hires  = (int32_t)inc_f;
-    inc_factor = r;
-
-    // If initial inc rounds to zero but range is non-zero, force a minimum
-    // so the envelope still moves (very long stages with strong curve)
-    if (inc_hires == 0) {
-        inc_hires = (range > 0) ? 1 : -1;
-    }
+    // Float is authoritative for the whole stage. inc_factor scales THIS each
+    // chunk, so even when the rounded integer below is momentarily 0 (slow
+    // start of a strong exponential curve) the float keeps growing and the
+    // stage still reaches target on time. The old code scaled the truncated
+    // int, which starved long/curved stages and chopped the release short.
+    inc_hires_f = (float)range * (r - 1.0f) / denom;
+    inc_hires   = (int32_t)lroundf(inc_hires_f);
+    inc_factor  = r;
 }
 
 
@@ -100,6 +106,7 @@ void AudioEffectEnvelopeJT::noteOn(void)
             state      = ENV_DELAY;
             mult_hires = 0;
             inc_hires  = 0;
+            inc_hires_f = 0.0f;
             inc_factor = 1.0f;
         } else {
             state = ENV_ATTACK;
@@ -110,8 +117,9 @@ void AudioEffectEnvelopeJT::noteOn(void)
         // force-release current level before re-attack (always linear)
         state = ENV_FORCED;
         count = release_forced_count;
-        inc_hires  = (-mult_hires) / (int32_t)count;
-        inc_factor = 1.0f;
+        inc_hires_f = (float)(-mult_hires) / (float)count;
+        inc_hires   = (int32_t)lroundf(inc_hires_f);
+        inc_factor  = 1.0f;
     }
 
     __enable_irq();
@@ -208,6 +216,7 @@ void AudioEffectEnvelopeJT::sustain(float level)
         // snap to new level immediately
         mult_hires = newMult;
         inc_hires  = 0;
+        inc_hires_f = 0.0f;
         inc_factor = 1.0f;
     } else if (state == ENV_DECAY) {
         // decay target changed — reslope from current to new sustain
@@ -285,6 +294,7 @@ void AudioEffectEnvelopeJT::update(void)
                     state      = ENV_HOLD;
                     mult_hires = 0x40000000;
                     inc_hires  = 0;
+                    inc_hires_f = 0.0f;
                     inc_factor = 1.0f;
                 } else {
                     state = ENV_DECAY;
@@ -304,6 +314,7 @@ void AudioEffectEnvelopeJT::update(void)
                 count      = 0xFFFF;
                 mult_hires = sustain_mult;
                 inc_hires  = 0;
+                inc_hires_f = 0.0f;
                 inc_factor = 1.0f;
 
             } else if (state == ENV_SUSTAIN) {
@@ -329,6 +340,7 @@ void AudioEffectEnvelopeJT::update(void)
                     state      = ENV_DELAY;
                     mult_hires = 0;
                     inc_hires  = 0;
+                    inc_hires_f = 0.0f;
                     inc_factor = 1.0f;
                 } else {
                     state = ENV_ATTACK;
@@ -391,10 +403,15 @@ void AudioEffectEnvelopeJT::update(void)
         mult_hires += inc_hires;
         count--;
 
-        // geometric curve: scale increment for next chunk.
-        // When inc_factor==1.0 (linear), this is a no-op multiply.
-        // Cost: one VMUL.F32 + one float->int conversion per chunk.
-        inc_hires = (int32_t)((float)inc_hires * inc_factor);
+        // geometric curve: scale the FLOAT increment for the next chunk,
+        // then round to the integer the inner SIMD loop uses. Keeping the
+        // running increment in float prevents the per-chunk truncation that
+        // previously starved long/curved stages (audible as a release that
+        // ended early / abruptly). When inc_factor==1.0 (linear) the float is
+        // constant and this reduces to a no-op multiply + a cheap round.
+        // Cost: one VMUL.F32 + one VCVTR per chunk — negligible.
+        inc_hires_f *= inc_factor;
+        inc_hires    = (int32_t)lroundf(inc_hires_f);
     }
 
     if (block != nullptr) {

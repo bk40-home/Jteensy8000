@@ -76,6 +76,8 @@ public:
     AudioEffectEnvelopeJT() : AudioStream(1, inputQueueArray)
     {
         state = ENV_IDLE;
+        inc_hires   = 0;
+        inc_hires_f = 0.0f;
 
         // --- sensible defaults matching the stock envelope ---
         delay(0.0f);
@@ -170,8 +172,12 @@ private:
     volatile uint8_t  state;        // current EnvelopeStateJT
     uint16_t          count;        // 8-sample chunks remaining in current state
     int32_t           mult_hires;   // current gain  — 0 = silent, 0x40000000 = unity
-    int32_t           inc_hires;    // gain change per 8-sample chunk (modified by factor)
-    float             inc_factor;   // per-chunk multiplier for inc_hires (1.0 = linear)
+    int32_t           inc_hires;    // integer gain change per chunk, rounded from inc_hires_f each chunk
+    float             inc_hires_f;  // AUTHORITATIVE per-chunk delta in 2.30 units, full float precision.
+                                    // Curved stages scale THIS (not the int) so accumulated rounding
+                                    // error cannot starve a long/curved stage and leave it short of
+                                    // target — the bug that made curved releases end abruptly.
+    float             inc_factor;   // per-chunk multiplier for inc_hires_f (1.0 = linear)
 
     // ----- stored durations (in 8-sample chunk counts) -----
     uint16_t delay_count;
