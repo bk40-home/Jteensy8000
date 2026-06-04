@@ -67,6 +67,19 @@ static constexpr uint8_t kMsgParamValue     = 0x03; // reply to GET_PARAM (also 
 static constexpr uint8_t kMsgBankDumpRequest = 0x10; // editor -> firmware (request live state)
 static constexpr uint8_t kMsgBankDump        = 0x11; // bidirectional: live-state body
 
+// Hardware controller — carries CCs above the MIDI 0..127 range (e.g.
+// envelope curves 147..155, performance params 140..146) inside a SysEx
+// envelope so they survive the 7-bit MIDI CC limitation.
+//
+// Wire format (11 bytes):
+//   F0 7D 4A 54 00 20 <channel> <cc_hi> <cc_lo> <value> F7
+//
+// All body bytes are 7-bit safe (< 0x80). The CC number is split the same
+// way ParamIDs are: cc_hi = (cc >> 7) & 0x7F, cc_lo = cc & 0x7F. The
+// Teensy reconstructs cc = (cc_hi << 7) | cc_lo and dispatches to
+// LayerManager::handleControlChange(channel, cc, value).
+static constexpr uint8_t kMsgExtCC           = 0x20;
+
 // -----------------------------------------------------------------------------
 // Payload sizes (bytes between <msg> and F7, INCLUSIVE of <msg> count = 0)
 // -----------------------------------------------------------------------------
@@ -95,6 +108,8 @@ static constexpr size_t kMsgSetParamLen     = 15;
 static constexpr size_t kMsgGetParamLen     = 10;
 static constexpr size_t kMsgParamValueLen   = 15;
 static constexpr size_t kMsgBankDumpReqLen  = 7;
+// EXT_CC: F0(1) + envelope(3) + devId(1) + msg(1) + ch(1) + cc_hi(1) + cc_lo(1) + val(1) + F7(1) = 11
+static constexpr size_t kMsgExtCCLen        = 11;
 static constexpr size_t kBankDumpEntrySize  = 8; // layer + pid(2) + float(5)
 static constexpr size_t kBankDumpHeaderSize = 6  // F0 + envelope(5) + msg
                                             + 2; // 2-byte count

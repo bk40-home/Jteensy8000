@@ -128,6 +128,32 @@ bool SysExAdapter::handleSysEx(const uint8_t* data, size_t len) {
             _handleIncomingBankDump(data, len);
             return true;
 
+        case SyxProto::kMsgExtCC: {
+            // Extended CC from ESP32 hardware controller — carries CC
+            // numbers above the MIDI 0..127 range (envelope curves 147-155,
+            // performance params 140-146) inside SysEx so they survive the
+            // 7-bit MIDI wire limitation.
+            //
+            // Layout: F0 7D 4A 54 00 20 <ch> <cc_hi> <cc_lo> <val> F7
+            //         0  1  2  3  4  5   6    7       8       9     10
+            if (len != SyxProto::kMsgExtCCLen) {
+                JT_LOGF("[SyxAdpt] EXT_CC bad len %u (want %u)\n",
+                        (unsigned)len, (unsigned)SyxProto::kMsgExtCCLen);
+                return true;
+            }
+            const uint8_t ch  = data[6];
+            // Reconstruct full CC number from 7-bit hi/lo split
+            const uint8_t cc  = (uint8_t)(((data[7] & 0x7F) << 7) | (data[8] & 0x7F));
+            const uint8_t val = data[9];
+            JT_LOGF("[SyxAdpt] EXT_CC ch=%u cc=%u val=%u\n",
+                    (unsigned)ch, (unsigned)cc, (unsigned)val);
+            // Route through the same path as standard MIDI CC — LayerManager
+            // already has case statements for perf CCs (140-146) and
+            // SynthEngine handles envelope curves (147-155).
+            _lm.handleControlChange(ch, cc, val);
+            return true;
+        }
+
         default:
             JT_LOGF("[SyxAdpt] unknown msg type 0x%02X\n", (unsigned)msg);
             return true;
