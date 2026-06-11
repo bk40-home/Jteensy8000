@@ -166,10 +166,20 @@ void SynthEngine::begin()
         _audio.voiceMixerB.gain(i, 0.0f);
     }
 
-    // Final mixer: 0.1 per sub-mixer = −20 dB, giving 8-voice headroom before
-    // the amp-multiply stage. Raise if output is too quiet.
-    _audio.voiceMixerFinal.gain(0, 0.1f);  // Sub-mixer A (voices 0–3)
-    _audio.voiceMixerFinal.gain(1, 0.1f);  // Sub-mixer B (voices 4–7)
+    // Final mixer makeup gain.
+    //
+    // Headroom is now budgeted at the SUB-mixer stage (_applyVoiceRangeGains
+    // sets each in-range voice's slot to 0.25, so 4 voices in phase = ±1.0
+    // max at voiceMixerA/B output). The final mixer therefore only needs
+    // enough headroom to sum two sub-mixers each at ±1.0 → 0.5 each.
+    //
+    // Previously 0.1 here gave global headroom but did NOT protect the
+    // sub-mixer's internal int16 saturation: with slot gain 1.0 at A/B,
+    // 3+ voices in phase clipped at the sub-mixer output before the 0.1
+    // attenuated the (already-clipped) signal — audible distortion with
+    // a clean-looking output meter.
+    _audio.voiceMixerFinal.gain(0, 0.5f);  // Sub-mixer A (voices 0–3)
+    _audio.voiceMixerFinal.gain(1, 0.5f);  // Sub-mixer B (voices 4–7)
     _audio.voiceMixerFinal.gain(2, 0.0f);  // Unused
     _audio.voiceMixerFinal.gain(3, 0.0f);  // Unused
 
@@ -975,8 +985,19 @@ void SynthEngine::setVoiceRange(uint8_t first, uint8_t count) {
 // voices with their own range-aware depth math.
 // =============================================================================
 void SynthEngine::_applyVoiceRangeGains() {
+    // Per-voice slot gain: 0.25 = 1/4, the maximum gain that keeps the
+    // 4-input sub-mixer sum clip-free when all four in-range voices peak
+    // in phase. Pairs with voiceMixerFinal slots at 0.5 to give 8-voice
+    // clean headroom while preserving overall loudness.
+    //
+    // Was 1.0 previously — that allowed 3+ in-phase voices to saturate
+    // the sub-mixer's int16 output stage (audible distortion with a
+    // clean-looking master meter, because voiceMixerFinal then attenuated
+    // the already-clipped signal).
+    static constexpr float kPerVoiceSlotGain = 0.25f;
+
     for (uint8_t v = 0; v < MAX_VOICES; ++v) {
-        const float g = _voiceInRange(v) ? 1.0f : 0.0f;
+        const float g = _voiceInRange(v) ? kPerVoiceSlotGain : 0.0f;
         if (v < 4) {
             _audio.voiceMixerA.gain(v, g);
         } else {

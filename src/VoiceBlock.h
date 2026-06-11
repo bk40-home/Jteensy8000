@@ -335,7 +335,14 @@ private:
     float _noiseMix = 0.0f;
 
     // Headroom limiter
-    static constexpr float _kMaxMixerGain = 0.9f;
+    //
+    // 0.5 chosen so that OSC1 + OSC2 (each ±0.7 from OscillatorBlock._outputMix)
+    // sum clip-free inside _oscMixer: 2 × 0.7 × 0.5 = ±0.7 worst-case.
+    // The makeup gain that compensates for this attenuation lives at
+    // SynthEngine::voiceMixerFinal (raised from 0.1 to 0.5 in tandem).
+    // Was 0.9 previously — that allowed dual-osc patches to clip inside the
+    // voice's own oscMixer before reaching the engine sum stage.
+    static constexpr float _kMaxMixerGain = 0.5f;
     float _clampedLevel(float level);
 
     AudioConnection* _patchCables[16];
