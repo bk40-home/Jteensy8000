@@ -20,7 +20,11 @@
  * THE SOFTWARE.
  */
  /**
- * Jteensy8000.ino — JT-8000 polyphonic synthesizer  (v7 — dual-layer)
+ * Jteensy8000.ino — JT-8000 polyphonic synthesizer  (dual-layer, headless)
+ *
+ * The onboard TFT UI has been removed. The Teensy is now a headless audio +
+ * MIDI + SysEx engine; the display lives on an external ESP32 that receives
+ * parameter state over SysEx (PARAM_VALUE echoes from the notifier).
  *
  * Audio path:
  *   LayerManager
@@ -28,7 +32,6 @@
  *     └─ Layer B: SynthEngine (voices N..7) → FXChainBlock ─┤
  *                                                            ▼
  *     Performance Mixer (crossfade) → mixerI2S{L/R} → I2S → PCM5102A
- *                                   → scopeTap      (waveform capture)
  *                                   → ampUSB{L/R}   → usbOut (DAW monitor)
  *
  *   In SINGLE mode (default at boot), only Layer A is active with all 8
@@ -41,21 +44,15 @@
  *
  * CRITICAL RULES (hard-won lessons):
  *
- * [R1] UI must NEVER block the main loop long enough to starve MIDI reads.
- *      MicroDexed solved this by rate-limiting ALL display work to a short
- *      time-slice per loop() iteration.  We do the same via UIManager_TFT's
- *      internal FRAME_MS gate (33 ms = ~30 fps) and by keeping each SPI
- *      operation bounded.  fillScreen() is BANNED inside draw() hot-paths.
- *
  * [R2] MIDI handlers are called from xxx.read() inside loop() — they run on
  *      the main core, NOT in an ISR.  It is safe to call synth.noteOn/Off()
  *      from them because SynthEngine modifies voice state that the audio ISR
  *      reads; all shared state uses AudioNoInterrupts() guards inside the
  *      engine.  Do NOT call Serial.print* from handlers (USB-serial TX flood).
  *
- * [R3] Serial.print* in MIDI handlers was the original note-dropping culprit
- *      in MicroDexed (and still kills performance).  All serial logging below
- *      uses a rate-limited queue: MIDI_LOG() macro, printed in loop().
+ * [R3] Serial.print* in MIDI handlers drops notes (USB-serial TX flood). All
+ *      serial logging below uses a rate-limited queue: midiLog(), drained in
+ *      loop().
  *
  * [R4] USBHost_t36 midiHost requires myusb.Task() and midiHost.read() every
  *      loop() iteration — no rate-limiting.
@@ -67,10 +64,6 @@
  * PCM5102A XSMT pin:
  *   Must be driven HIGH after I2S starts or the DAC stays hardware-muted.
  *   Wire XSMT → Teensy pin 34.
- *
- * Encoder pins (28-32) must NOT use attachInterrupt().
- *   GPIO6/7 ICR register overflow → memory corruption → crash.
- *   HardwareInterface_MicroDexed uses polled Gray-code decode instead.
  */
 
 #include "Audio.h"
@@ -81,11 +74,10 @@
 #include "SynthEngine.h"
 #include "LayerManager.h"
 
-//#include "UIPageLayout.h"
-#include "HardwareInterface_MicroDexed.h"
-#include "UIManager_TFT.h"
+// Onboard TFT UI removed — display now lives on the ESP32 over SysEx.
+// The CC notifier still feeds SysExAdapter (see onCCHandled), so the editor
+// and ESP32 display stay in sync via PARAM_VALUE echoes.
 #include "Presets.h"
-//#include "AudioScopeTap.h"
 #include "BPMClockManager.h"
 #include "SysExAdapter.h"       // Phase 1 — SysEx receive path for editor protocol
 #include "SyxProtocol.h"       // SyxProto:: layer IDs used in onCCHandled echo
@@ -154,7 +146,6 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, midi1);
 AudioOutputI2S  i2sOut;    // I2S1: BCK=21, LRCK=20, DATA=7 → PCM5102A
 AudioInputUSB   usbIn;     // USB audio in  (DAW loopback)
 AudioOutputUSB  usbOut;    // USB audio out (DAW monitor)
-AudioScopeTap   scopeTap;  // Waveform capture for home screen scope
 
 // Post-FX signal split: one copy goes to I2S (hardware), one to USB (DAW)
 AudioMixer4    mixerI2SL;
@@ -173,17 +164,14 @@ AudioConnection* patchAmpUSBL   = nullptr;
 AudioConnection* patchAmpUSBR   = nullptr;
 AudioConnection* patchOutUSBL   = nullptr;
 AudioConnection* patchOutUSBR   = nullptr;
-AudioConnection* patchOutScope  = nullptr;
 
 // ---------------------------------------------------------------------------
 // Core objects
 // ---------------------------------------------------------------------------
 LayerManager                 layers;
 // Convenience pointer: tracks the active edit-target engine.
-// Refreshed every loop() so UI always references the correct layer.
+// Refreshed every loop() so MIDI routing always references the correct layer.
 static SynthEngine*          synth = nullptr;
-HardwareInterface_MicroDexed hw;
-UIManager_TFT                ui;
 BPMClockManager              bpmClock;
 
 // Phase 1 — SysEx adapter bridges the editor protocol to LayerManager.
@@ -300,10 +288,6 @@ static void onCCHandled(uint8_t cc, uint8_t val) {
         }
         syxAdapter.notifyLocalCC(layer, cc, val);
     }
-
-    // Tell TFT to repaint the matching control (if visible).
-    // This is just a dirty-flag set — no drawing happens here.
-    ui.notifyCC(cc);
 }
 
 
@@ -477,19 +461,8 @@ void setup() {
     }
 
     // -------------------------------------------------------------------------
-    // STEP 1: Display (SPI) — BEFORE AudioMemory to avoid DMA bus conflicts.
-    // -------------------------------------------------------------------------
-    ui.beginDisplay();
-    Serial.println("[JT8000] Display OK");
-
-    // -------------------------------------------------------------------------
-    // COLOUR DIAGNOSTIC  —  enable to identify display channel mapping
-    // -------------------------------------------------------------------------
-    // Step 1: uncomment BOTH lines below and upload.
-    //         The screen will show 6 colour bars.  Note what colour each bar
-    //         ACTUALLY appears as on the hardware, then report back.
-    //   while (true) {}   // halt — synth does not start
-    // #endif
+    // STEP 1 (display init) removed — onboard TFT is gone. The ESP32 now owns
+    // the display and receives parameter state over SysEx.
     // -------------------------------------------------------------------------
 
     // -------------------------------------------------------------------------
@@ -554,11 +527,9 @@ void setup() {
     Serial.println("[JT8000] DIN MIDI (Serial1) configured");
 
     // -------------------------------------------------------------------------
-    // STEP 6: Hardware encoders + synth engine
+    // STEP 6: Synth engine edit-target pointer
     // -------------------------------------------------------------------------
-    hw.begin();
-    synth = &layers.activeEngine();   // set convenience pointer for UI
-    ui.begin(*synth, &layers);
+    synth = &layers.activeEngine();   // active edit-target engine for MIDI routing
 
     // Phase 1 — connect SysExAdapter CC snoop to LayerManager BEFORE preset
     // load so the cache is populated as the init patch CCs flow through.
@@ -566,27 +537,22 @@ void setup() {
     layers.setSysExSnoop(&syxAdapter);
     Serial.println("[JT8000] SysEx adapter snoop wired");
 
-    // Load init preset to both engines BEFORE syncFromEngine so _ccState is
-    // fully populated. Without this the display shows zero for every parameter
-    // until the user manually loads a preset.
-    //
-    // Index 0 = "Init Sine" — the canonical blank-slate starting point.
-    // Both Layer A and B are initialised so dual-layer mode starts clean.
-    // loadFactoryPatch() sends all 95 CCs atomically under AudioNoInterrupts(),
-    // so it is safe to call here with the audio ISR already running.
+    // Load init preset to both engines so _ccState is fully populated before
+    // the notifier is armed. Index 0 = "Init Sine" — the blank-slate start.
+    // Both layers are initialised so dual-layer mode starts clean.
+    // loadFactoryPatch() sends all CCs atomically under AudioNoInterrupts(),
+    // so it is safe here with the audio ISR already running.
     //
     // IMPORTANT: the notifier and SysEx sender are NOT yet registered. This
-    // prevents the ~90 init CCs from flooding usbMIDI.sendSysEx() before USB
-    // has fully enumerated (which caused watchdog resets).
+    // prevents the init CCs from flooding usbMIDI.sendSysEx() before USB has
+    // fully enumerated (which caused watchdog resets).
     Presets::presets_loadByGlobalIndex(layers.layerA(), 0, /*midiCh=*/1);
     Presets::presets_loadByGlobalIndex(layers.layerB(), 0, /*midiCh=*/1);
 
-    ui.syncFromEngine(*synth);
-
     // NOW register the notifier and SysEx sender — preset load is done, USB
     // is enumerated, no more CC floods.  From this point on, every CC change
-    // (TFT, encoder, incoming MIDI) triggers a PARAM_VALUE echo to the editor
-    // and a TFT repaint via ui.notifyCC.
+    // (encoder, incoming MIDI, editor) triggers a PARAM_VALUE echo over SysEx
+    // to the JUCE editor and the ESP32 display (see onCCHandled).
     layers.setNotifier(onCCHandled);
     syxAdapter.setSender(syxSend);
     Serial.println("[JT8000] SysEx sender + notifier active");
@@ -620,7 +586,6 @@ void setup() {
     patchAmpUSBR   = new AudioConnection(layers.getPerfOutR(), 0, ampUSBR, 0);
     patchOutUSBL   = new AudioConnection(ampUSBL, 0, usbOut, 0);
     patchOutUSBR   = new AudioConnection(ampUSBR, 0, usbOut, 1);
-    patchOutScope  = new AudioConnection(layers.getPerfOutL(), 0, scopeTap, 0);
 
     // Gain settings
     mixerI2SL.gain(0, 1.0f);   // Synth → I2S L
@@ -638,9 +603,9 @@ void setup() {
     CrashReport.clear();
     Serial.println("[JT8000] Setup complete");
 
-    
+    ARM_DEMCR    |= ARM_DEMCR_TRCENA;        // enable DWT
+    ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;  // enable cycle counter
 
-        
 }
 
 // ===========================================================================
@@ -651,15 +616,10 @@ void setup() {
 //   2. USB host task (required by USBHost_t36 every iteration).
 //   3. Drain serial MIDI log (non-blocking, safe here).
 //   4. Synth update (voice management, envelope clocking).
-//   5. Hardware poll (encoders, buttons) — feeds UI.
-//   6. UI input poll (touch + encoders → screen actions).
-//   7. UI display update (rate-limited inside UIManager to ~30 fps).
 //
-// DO NOT put any delay() or long-running operations in this loop.
-// The display SPI operations in updateDisplay() are the longest single
-// operation (~2-8 ms for a full row redraw); the FRAME_MS gate keeps them
-// to one repaint per 33 ms frame, so MIDI is only stalled for a single SPI
-// transaction (~200 µs max per drawLine call).
+// DO NOT put any delay() or long-running operations in this loop. With the
+// onboard UI removed there is no SPI display work here; the loop is dominated
+// by MIDI servicing and engine update, so latency is minimal.
 // ===========================================================================
 void loop() {
     // [R4/R5] Service all MIDI sources — must happen every iteration
@@ -682,16 +642,32 @@ void loop() {
     }
 
     // ── Serial Diagnostics (comment out this entire block to disable) ────────
+    // Prints every 2 s so an intermittent fault (e.g. JP at high resonance) is
+    // caught quickly. Watch THREE numbers when the synth dies:
+    //   • pk (AudioProcessorUsageMax) — if this pins near/over 100%, the engine
+    //     is overrunning the audio block budget (the most likely cause of a
+    //     hard "all dead, reboot only" stall: blocks stop being released).
+    //   • mem (AudioMemoryUsage)      — current blocks in use. If this climbs to
+    //     the AudioMemory() ceiling (max), the pool has exhausted → global
+    //     silence until reboot. This is the definitive pool-exhaustion tell.
+    //   • max (AudioMemoryUsageMax)   — high-water mark since last reset.
+    //
+    // Max readings are RESET each print so every window shows a fresh peak —
+    // that way the spike that kills the JP shows up in the very next print
+    // rather than being masked by an earlier lower peak.
 {
     static uint32_t lastDiag = 0;
     static uint32_t loopCount = 0;
     loopCount++;
     const uint32_t now = millis();
-    if ((now - lastDiag) >= 10000) {
-        if (Serial.availableForWrite() > 80) {
-            Serial.printf("[DIAG] CPU:%.1f%% pk:%.1f%% | i16:%d max:%d| lps:%lu\n",
+    if ((now - lastDiag) >= 2000) {
+        if (Serial.availableForWrite() > 100) {
+            Serial.printf("[DIAG] CPU:%.1f%% pk:%.1f%% | mem:%d max:%d | lps:%lu\n",
                 AudioProcessorUsage(), AudioProcessorUsageMax(),
-                AudioMemoryUsage(), AudioMemoryUsageMax(),loopCount);
+                AudioMemoryUsage(), AudioMemoryUsageMax(), loopCount);
+            // Reset peaks so the NEXT window reports its own fresh maximum.
+            AudioProcessorUsageMaxReset();
+            AudioMemoryUsageMaxReset();
         }
         lastDiag = now;
         loopCount = 0;
@@ -699,19 +675,44 @@ void loop() {
 }
 // ── End Serial Diagnostics ───────────────────────────────────────────────
 
+    // ── TEMPORARY FILTER-INPUT PROBE drain (remove after diagnosis) ──────────
+    // The ISR captures filter-input values into jt_filtProbe; we print them HERE
+    // in main context, where Serial works. Prints every 500 ms: the latest live
+    // snapshot plus the worst fcBlock/g and a non-finite flag for the window.
+    // Enabled only when JT_FILTER_INPUT_PROBE is set in JT8000_OptFlags.h.
+#if JT_FILTER_INPUT_PROBE
+    {
+        static uint32_t lastProbe = 0;
+        const uint32_t now = millis();
+        if ((now - lastProbe) >= 500) {
+            lastProbe = now;
+            if (Serial.availableForWrite() > 120) {
+                Serial.printf("[FILT-IN] type=%d x0=%.3f fcT=%.0f keyMul=%.3f env=%.2f "
+                              "| fcBlk=%.4g clamp=%.0f g=%.4g k=%.2f "
+                              "| worstFcBlk=%.4g worstG=%.4g %s blks=%lu\n",
+                    jt_filtProbe.type, (double)jt_filtProbe.x0,
+                    (double)jt_filtProbe.fcTarget, (double)jt_filtProbe.keyMul,
+                    (double)jt_filtProbe.envShiftOct, (double)jt_filtProbe.fcBlock,
+                    (double)jt_filtProbe.fcClamped, (double)jt_filtProbe.g,
+                    (double)jt_filtProbe.k, (double)jt_filtProbe.worstFcBlock,
+                    (double)jt_filtProbe.worstG,
+                    jt_filtProbe.sawNonFinite ? "<<NON-FINITE!" : "",
+                    (unsigned long)jt_filtProbe.blocks);
+                jt_filtProbe.resetWindow();
+            }
+        }
+    }
+#endif
+    // ── End filter-input probe drain ──────────────────────────────────────────
+
     // Drain the MIDI log ring (safe outside handlers)
     midiLogFlush();
 
     // Synth update: voice management, LFO, etc. (both layers if dual mode)
     layers.update();
-    synth = &layers.activeEngine();   // refresh convenience pointer
+    synth = &layers.activeEngine();   // refresh active edit-target pointer
 
-    // Encoder + button poll
-    hw.update();
-
-    // UI input: touch + encoders → actions
-    ui.pollInputs(hw, *synth);
-
-    // UI display: rate-limited to ~30 fps internally
-    ui.updateDisplay(*synth);
+    // Onboard UI removed — no encoder poll, touch poll, or display render here.
+    // Parameter changes are echoed to the ESP32/editor over SysEx via the
+    // notifier registered in setup() (onCCHandled).
 }

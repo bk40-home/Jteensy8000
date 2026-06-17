@@ -79,6 +79,11 @@ FilterBlock::FilterBlock()
     _outputMix.gain(2, 0.0f);
     _outputMix.gain(3, 0.0f);
 
+    // Idle-gating flags must match the mixer state above: OBXa runs, VA idles.
+    // (No-op when JT_OPT_FILTER_IDLE_GATING == 0 — the cores ignore the flag.)
+    _filterOBXa.setActive(true);
+    _filterVA.setActive(false);
+
     // ── Cutoff modulation mixer initial gains ─────────────────────────────────
     _modMixer.gain(0, KEY_TRACK_GAIN);   // ch0: key tracking DC
     _modMixer.gain(1, ENV_MOD_GAIN);     // ch1: filter envelope
@@ -112,6 +117,10 @@ void FilterBlock::setFilterEngine(uint8_t engine)
     {
         _outputMix.gain(0, ENGINE_ACTIVE);
         _outputMix.gain(1, ENGINE_MUTED);
+        // Gate VA off, bring OBXa in clean (reset clears state stale from idle).
+        _filterVA.setActive(false);
+        _filterOBXa.reset();
+        _filterOBXa.setActive(true);
         _applyParamsToOBXa();
         JT_LOGF("[FLT] Engine → OBXa\n");
     }
@@ -119,6 +128,10 @@ void FilterBlock::setFilterEngine(uint8_t engine)
     {
         _outputMix.gain(0, ENGINE_MUTED);
         _outputMix.gain(1, ENGINE_ACTIVE);
+        // Gate OBXa off, bring VA in clean.
+        _filterOBXa.setActive(false);
+        _filterVA.reset();
+        _filterVA.setActive(true);
         _applyParamsToVA();
         JT_LOGF("[FLT] Engine → VA (%s)\n", _filterVA.getFilterName());
     }
@@ -132,6 +145,23 @@ void FilterBlock::setVAFilterType(VAFilterType type)
     _vaType = type;
     _filterVA.setFilterType(type);
     JT_LOGF("[FLT] VA type: %s\n", _filterVA.getFilterName());
+}
+
+// VA drive — cached for engine-switch re-apply; only meaningful for VA engine.
+// Pushed to the core regardless (the VA core ignores it while idle anyway),
+// keeping cached state and core state coherent.
+void FilterBlock::setVADrive(float amount01)
+{
+    _vaDrive = amount01;
+    _filterVA.setDrive(amount01);
+    JT_LOGF("[FLT] VA Drive: %.3f\n", amount01);
+}
+
+void FilterBlock::setVASaturation(VASaturationType type)
+{
+    _vaSat = type;
+    _filterVA.setSaturation(type);
+    JT_LOGF("[FLT] VA Sat: %u\n", (unsigned)type);
 }
 
 // ---------------------------------------------------------------------------
@@ -309,4 +339,6 @@ void FilterBlock::_applyParamsToVA()
     _filterVA.setResonanceModDepth(_resonanceModDepth);
     _filterVA.setMidiNote(_midiNote);
     _filterVA.setEnvValue(_envValue);
+    _filterVA.setDrive(_vaDrive);          // restore VA's own drive
+    _filterVA.setSaturation(_vaSat);       // restore VA's own saturation type
 }

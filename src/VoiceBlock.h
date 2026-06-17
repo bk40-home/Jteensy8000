@@ -159,6 +159,8 @@ public:
     // Engine switching — routed to FilterBlock
     void setFilterEngine(uint8_t engine);
     void setVAFilterType(VAFilterType type);
+    void setVADrive(float amount01);
+    void setVASaturation(uint8_t type);
 
     // =========================================================================
     // ENVELOPES

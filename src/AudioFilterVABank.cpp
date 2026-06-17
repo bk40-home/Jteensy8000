@@ -89,6 +89,7 @@ void AudioFilterVABank::reset()
     _diode.reset();
     _k35lp.reset();
     _k35hp.reset();
+    _jp.reset();
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +139,16 @@ float AudioFilterVABank::mapResonance(float r, VAFilterType type) const
         case FILTER_KORG35_HP:
             return r * 1.95f;
 
+        // JP / NLLadderNB ladder: self-oscillation onset verified at k=4.0.
+        // r=1 -> k=4.0 reaches self-osc; the Newton-Bisection core survives it
+        // stably (saturates rather than diverging), so we map to the threshold
+        // itself rather than just below it as the old IR3109 model required.
+        case FILTER_JP_LP24:
+        case FILTER_JP_LP12:
+        case FILTER_JP_HP24:
+        case FILTER_JP_BP:
+            return r * 4.0f;
+
         // 1-pole has no resonance
         case FILTER_TPT1_LP:
         case FILTER_TPT1_HP:
@@ -159,6 +170,20 @@ float AudioFilterVABank::mapResonance(float r, VAFilterType type) const
 __attribute__((optimize("O3")))
 void AudioFilterVABank::update(void)
 {
+#if JT_OPT_FILTER_IDLE_GATING
+    // Idle engine: discard any input blocks and emit nothing. The output mixer
+    // already silences this channel, so producing no block is inaudible and
+    // skips the entire filter pass for the deselected engine.
+    if (!_active)
+    {
+        audio_block_t *b;
+        if ((b = receiveReadOnly(0))) release(b);
+        if ((b = receiveReadOnly(1))) release(b);
+        if ((b = receiveReadOnly(2))) release(b);
+        return;
+    }
+#endif
+
     audio_block_t *in0 = receiveReadOnly(0);  // audio input
 
     // No audio input — nothing to filter, skip all DSP
@@ -216,164 +241,174 @@ void AudioFilterVABank::update(void)
 
     const float k_block = _kTarget;   // already mapped in resonance()
 
-    // // ── Moog passband gain compensation ──────────────────────────────────────
-    // // The Moog ladder drops passband gain as resonance increases: H(0) = 1/(1+k)
-    // // (Zavalishin §5.1 p.134).  Full compensation (1+k) is mathematically correct
-    // // for a DC signal but massively amplifies the resonance peak, causing clipping.
-    // //
-    // // Use sqrt(1 + k) instead: recovers roughly half the passband loss in dB
-    // // while keeping the resonance peak at manageable levels.
-    // //   k=0:    comp=1.00  (no change)
-    // //   k=2:    comp=1.73  (+4.8dB vs -9.5dB passband loss)
-    // //   k=3.95: comp=2.22  (+6.9dB vs -13.9dB passband loss)
-    // const bool isMoog = (_type == FILTER_MOOG_LP4 ||
-    //                      _type == FILTER_MOOG_LP2 ||
-    //                      _type == FILTER_MOOG_BP2);
-    // const float moogCompensation = isMoog ? sqrtf(1.0f + k_block) : 1.0f;
+    // Note: in-loop per-stage saturation was evaluated and reverted (cost ~20%
+    // CPU for little sonic gain at 8-voice polyphony). Filters run linear here;
+    // _satType still drives the cheap OUTPUT coloration stage in saturate().
 
-    // ── Diode ladder cutoff compensation ─────────────────────────────────────
-// The diode ladder's inter-stage ½ averaging causes a much steeper rolloff
-// than a standard 4-pole cascade.  Its -6dB point falls at ~10% of the
-// 1-pole cutoff frequency.  Scaling the internal cutoff by 8× aligns the
-// perceived passband with other filter types (Moog, SVF).
-// One extra tanf() call per block (~20 cycles / 128 samples = negligible).
-const bool isDiode = (_type == FILTER_DIODE_LP);
-float g_diode = 0.0f;
-if (isDiode) {
-    static constexpr float DIODE_FC_MULT = 8.0f;
-    const float fcDiode = va_clamp(fcBlockClamped * DIODE_FC_MULT,
-                                   5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
-    g_diode = va_compute_g(fcDiode, AUDIO_SAMPLE_RATE_EXACT);
-}
+    // Block-rate resonance modulation (consistent with block-rate cutoff mod).
+    // Smooth control signal => one representative mid-block sample is enough,
+    // and it avoids calling mapResonance() (a switch) per sample.
+    float k_eff = k_block;
+    if (hasResMod)
+    {
+        const float midRes = (float)in2->data[64] * (1.0f / 32768.0f);
+        const float res01mod = va_clamp(_res01 + midRes * _resModDepth, 0.0f, 1.0f);
+        k_eff = mapResonance(res01mod, _type);
+    }
 
     // Pre-check drive (avoid per-sample branch when drive is unity)
     const bool hasDrive = (_drive != 1.0f);
 
-    // ── Sample loop ──────────────────────────────────────────────────────────
-    for (int i = 0; i < AUDIO_BLOCK_SAMPLES; ++i)
+    // ── Hoisted-dispatch sample loop ─────────────────────────────────────────
+    // The topology switch is taken ONCE per block, not once per sample. Each
+    // case runs a tight 128-sample inner loop over a single filter struct, so
+    // the compiler keeps filter state in registers across the block and the
+    // branch predictor never sees the switch inside the hot loop.
+    //
+    // Per-sample work that is common to all topologies (input scale, drive,
+    // reference-path per-sample cutoff mod, output saturation, clip, store) is
+    // factored into the `runBlock` lambda, which takes a callable `evalFilter`
+    // returning the filtered sample for a given (x, g). With block-rate mod
+    // enabled, g is constant and the per-sample mod branch compiles out.
+    const float kIn = 1.0f / 32768.0f;
+    const float kOut = 32767.0f;
+
+    auto runBlock = [&](auto evalFilter)
     {
-        // Input sample
-        float x = (float)in0->data[i] * (1.0f / 32768.0f);
-
-        // Pre-filter drive (adds harmonic content before filtering)
-        if (hasDrive) x *= _drive;
-
-        // ── Audio-rate cutoff modulation ─────────────────────────────────────
-        float g = g_block;
-        if (hasCutoffMod)
+        for (int i = 0; i < AUDIO_BLOCK_SAMPLES; ++i)
         {
-#if JT_OPT_VA_BLOCKRATE_MOD
-            // Block-rate: g_block already includes mod — no per-sample work
-            (void)0;
-#else
-            // Reference path: full per-sample exponential
-            const float modSample = (float)in1->data[i] * (1.0f / 32768.0f);
-            const float fcInst    = fcBlock * powf(2.0f, modSample * _cutoffModOct);
-            const float fcClamped = va_clamp(fcInst, 5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
-            g = va_compute_g(fcClamped, AUDIO_SAMPLE_RATE_EXACT);
-#endif
-        }
+            float x = (float)in0->data[i] * kIn;
+            if (hasDrive) x *= _drive;
 
-        // ── Audio-rate resonance modulation ──────────────────────────────────
-        float k = k_block;
-        if (hasResMod)
-        {
-            const float resSample = (float)in2->data[i] * (1.0f / 32768.0f);
-            const float res01mod  = va_clamp(_res01 + resSample * _resModDepth, 0.0f, 1.0f);
-            k = mapResonance(res01mod, _type);
-        }
-
-        // ── Run active filter topology ────────────────────────────────────────
-        float y = 0.0f;
-
-        switch (_type)
-        {
-            // ── SVF variants (Zavalishin §4.1 p.95) ──────────────────────────
-            // k is used as R = 1/(2Q) for SVF
-            case FILTER_SVF_LP:
-                _svf.process(x, g, k);
-                y = _svf.lp;
-                break;
-
-            case FILTER_SVF_HP:
-                _svf.process(x, g, k);
-                y = _svf.hp;
-                break;
-
-            case FILTER_SVF_BP:
-                _svf.process(x, g, k);
-                y = _svf.bp;
-                break;
-
-            case FILTER_SVF_NOTCH:
-                _svf.process(x, g, k);
-                y = _svf.notch;
-                break;
-
-            case FILTER_SVF_AP:
-                _svf.process(x, g, k);
-                y = _svf.allpass(k);   // AP = notch - 2*R*bp
-                break;
-
-            // ── Moog ladder (Zavalishin §5.1 p.133) ──────────────────────────
-            // Passband gain compensated by moogCompensation factor.
-            case FILTER_MOOG_LP4:
-                _moog.process(x, g, k);
-                y = _moog.y4 ;//* moogCompensation;
-                break;
-
-            case FILTER_MOOG_LP2:
-                _moog.process(x, g, k);
-                y = _moog.y2 ;//* moogCompensation;
-                break;
-
-            case FILTER_MOOG_BP2:
-                // BP approximated as y2 - y4 from Moog cascade
-                // (Zavalishin §5.1 p.135 – pole subtraction gives bandpass character)
-                _moog.process(x, g, k);
-                y = (_moog.y2 - _moog.y4) ;//* moogCompensation;
-                break;
-
-            // ── Diode ladder (Zavalishin §5.10 p.165) ────────────────────────
-            case FILTER_DIODE_LP:
-                _diode.process(x, g_diode, k);
-                y = _diode.y4;
-                break;
-
-            // ── Korg 35 / TSK (Zavalishin §5.8 p.151) ───────────────────────
-            // ZDF solved feedback with tanh saturation
-            case FILTER_KORG35_LP:
-                y = _k35lp.process(x, g, k);
-                break;
-
-            case FILTER_KORG35_HP:
-                y = _k35hp.process(x, g, k);
-                break;
-
-            // ── Simple 1-pole (Zavalishin §3.1 p.45) ─────────────────────────
-            case FILTER_TPT1_LP:
-                y = _tpt1.processLP(x, g);
-                break;
-
-            case FILTER_TPT1_HP:
+            float g = g_block;
+            if (hasCutoffMod)
             {
-                float lp;
-                y = _tpt1.processHP(x, g, lp);
-                break;
+#if JT_OPT_VA_BLOCKRATE_MOD
+                (void)0;   // g_block already includes block-rate mod
+#else
+                const float modSample = (float)in1->data[i] * kIn;
+                const float fcInst    = fcBlock * powf(2.0f, modSample * _cutoffModOct);
+                const float fcClamped = va_clamp(fcInst, 5.0f, 0.45f * AUDIO_SAMPLE_RATE_EXACT);
+                g = va_compute_g(fcClamped, AUDIO_SAMPLE_RATE_EXACT);
+#endif
             }
 
-            default:
-                y = x;   // passthrough for unknown types
-                break;
+            float y = evalFilter(x, g);
+
+            // Optional cheap OUTPUT coloration (SAT_NONE => passthrough).
+            y = saturate(y);
+            y = va_clamp(y, -1.0f, 1.0f);
+
+            // Round (not truncate) to int16 — removes truncation DC bias.
+            out->data[i] = (int16_t)lroundf(y * kOut);
         }
+    };
 
-        // ── Optional output saturation (bypassed when SAT_NONE) ──────────────
-        y = saturate(y);
+    // k is block-constant here (audio-rate res-mod folded to k_eff at block
+    // rate above). SVF uses k as R = 1/(2Q); others use k as feedback amount.
+    const float kf = k_eff;
 
-        // Hard clip to int16 range before output
-        y = va_clamp(y, -1.0f, 1.0f);
+    switch (_type)
+    {
+        // ── SVF variants (Zavalishin §4.1 p.95) ──────────────────────────────
+        case FILTER_SVF_LP:
+            runBlock([&](float x, float g){ _svf.process(x, g, kf); return _svf.lp; });
+            break;
+        case FILTER_SVF_HP:
+            runBlock([&](float x, float g){ _svf.process(x, g, kf); return _svf.hp; });
+            break;
+        case FILTER_SVF_BP:
+            runBlock([&](float x, float g){ _svf.process(x, g, kf); return _svf.bp; });
+            break;
+        case FILTER_SVF_NOTCH:
+            runBlock([&](float x, float g){ _svf.process(x, g, kf); return _svf.notch; });
+            break;
+        case FILTER_SVF_AP:
+            runBlock([&](float x, float g){ _svf.process(x, g, kf); return _svf.allpass(kf); });
+            break;
 
-        out->data[i] = (int16_t)(y * 32767.0f);
+        // ── Moog ladder (Zavalishin §5.1 p.133; §5.3 p.139 nonlinear) ─────────
+        case FILTER_MOOG_LP4:
+            runBlock([&](float x, float g){ _moog.process(x, g, kf); return _moog.y4; });
+            break;
+        case FILTER_MOOG_LP2:
+            runBlock([&](float x, float g){ _moog.process(x, g, kf); return _moog.y2; });
+            break;
+        case FILTER_MOOG_BP2:
+            // BP from pole subtraction (Zavalishin §5.1 p.135)
+            runBlock([&](float x, float g){ _moog.process(x, g, kf); return _moog.y2 - _moog.y4; });
+            break;
+
+        // ── Diode ladder (Pirkle AN-6) ───────────────────────────────────────
+        // process() returns the passband-compensated LP directly. Coefficients
+        // depend only on g and K; when cutoff is block-rate (the common path)
+        // we set them once per block and run the cheap tick() per sample.
+        case FILTER_DIODE_LP:
+#if JT_OPT_VA_BLOCKRATE_MOD
+            _diode.setCoeffs(g_block, kf);
+            runBlock([&](float x, float){ return _diode.tick(x, kf); });
+#else
+            runBlock([&](float x, float g){ return _diode.process(x, g, kf); });
+#endif
+            break;
+
+        // ── JP / NLLadderNB nonlinear ladder (Roland Jupiter / JP-8000) ──────
+        // One core, four modes. Newton-Bisection implicit solve, stable by
+        // construction (saturates when driven; cannot NaN). setCutoff() per
+        // block warps g at the internal rate (2x when oversampling is on);
+        // tick per sample. _jpQComp is the Jupiter "stays loud" Q compensation.
+        case FILTER_JP_LP24:
+#if JT_OPT_VA_BLOCKRATE_MOD
+            _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT);
+            runBlock([&](float x, float){ _jp.tick(x, kf, _jpQComp); return _jp.lp4; });
+#else
+            runBlock([&](float x, float g){ (void)g; _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT); _jp.tick(x, kf, _jpQComp); return _jp.lp4; });
+#endif
+            break;
+        case FILTER_JP_LP12:
+#if JT_OPT_VA_BLOCKRATE_MOD
+            _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT);
+            runBlock([&](float x, float){ _jp.tick(x, kf, _jpQComp); return _jp.lp2; });
+#else
+            runBlock([&](float x, float g){ (void)g; _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT); _jp.tick(x, kf, _jpQComp); return _jp.lp2; });
+#endif
+            break;
+        case FILTER_JP_HP24:
+#if JT_OPT_VA_BLOCKRATE_MOD
+            _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT);
+            runBlock([&](float x, float){ _jp.tick(x, kf, _jpQComp); return _jp.hp4; });
+#else
+            runBlock([&](float x, float g){ (void)g; _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT); _jp.tick(x, kf, _jpQComp); return _jp.hp4; });
+#endif
+            break;
+        case FILTER_JP_BP:
+#if JT_OPT_VA_BLOCKRATE_MOD
+            _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT);
+            runBlock([&](float x, float){ _jp.tick(x, kf, _jpQComp); return _jp.bp; });
+#else
+            runBlock([&](float x, float g){ (void)g; _jp.setCutoff(fcBlockClamped, AUDIO_SAMPLE_RATE_EXACT); _jp.tick(x, kf, _jpQComp); return _jp.bp; });
+#endif
+            break;
+
+        // ── Korg 35 / TSK (Zavalishin §5.8 p.151) ────────────────────────────
+        case FILTER_KORG35_LP:
+            runBlock([&](float x, float g){ return _k35lp.process(x, g, kf, VA_NL_SAT); });
+            break;
+        case FILTER_KORG35_HP:
+            runBlock([&](float x, float g){ return _k35hp.process(x, g, kf, VA_NL_SAT); });
+            break;
+
+        // ── Simple 1-pole (Zavalishin §3.1 p.45) — always linear ─────────────
+        case FILTER_TPT1_LP:
+            runBlock([&](float x, float g){ return _tpt1.processLP(x, g); });
+            break;
+        case FILTER_TPT1_HP:
+            runBlock([&](float x, float g){ float lp; return _tpt1.processHP(x, g, lp); });
+            break;
+
+        default:
+            runBlock([&](float x, float){ return x; });   // passthrough
+            break;
     }
 
     // ── Transmit and release ─────────────────────────────────────────────────

@@ -295,6 +295,8 @@ void VoiceBlock::setPush2Pole(bool enabled)         { _push2Pole = enabled; _fil
 void VoiceBlock::setResonanceModDepth(float depth)  { _resonanceModDepth = depth; _filter.setResonanceModDepth(depth); }
 void VoiceBlock::setFilterEngine(uint8_t engine)    { _filter.setFilterEngine(engine); }
 void VoiceBlock::setVAFilterType(VAFilterType type) { _filter.setVAFilterType(type); }
+void VoiceBlock::setVADrive(float amount01)         { _filter.setVADrive(amount01); }
+void VoiceBlock::setVASaturation(uint8_t type)      { _filter.setVASaturation((VASaturationType)type); }
 
 // =========================================================================
 // ENVELOPES
