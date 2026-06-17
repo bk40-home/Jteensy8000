@@ -83,21 +83,12 @@ static constexpr const char* kFilterModeOptions[] = {
 static constexpr uint8_t kFilterModeCount = 6;
 
 // VA filter types — names from AudioFilterVABank.h kVAFilterNames[]
-// MUST stay in sync with the VAFilterType enum (FILTER_COUNT entries).
 static constexpr const char* kVAFilterOptions[] = {
     "SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP",
     "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4",
-    "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP",
-    "JP LP24", "JP LP12", "JP HP24", "JP BP"
+    "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP"
 };
-static constexpr uint8_t kVAFilterCount = 17;
-
-// VA saturation types — names from AudioFilterVABank.h VASaturationType enum.
-// Drives the "Variant" SELECT display when the VA engine is active (CC 111).
-static constexpr const char* kVASaturationOptions[] = {
-    "None", "Fast", "Tanh"
-};
-static constexpr uint8_t kVASaturationCount = 3;
+static constexpr uint8_t kVAFilterCount = 13;
 
 // Xpander sub-modes (0–14)
 static constexpr const char* kXpanderModeOptions[] = {
@@ -236,7 +227,7 @@ static constexpr const char* kGroupNames[][8] = {
     // [2] Mixer
     { "Levels", "Cross Mod & Sync", nullptr },
     // [3] Filter
-    { "Core", "Engine", "Mod", "Variant", nullptr },
+    { "Core", "Engine", "Multimode", "Xpander", nullptr },
     // [4] Amp Env
     { "", nullptr },
     // [5] Filter Env
@@ -324,24 +315,14 @@ namespace CC {
     static constexpr uint8_t FILTER_ENV_AMOUNT      = 48;
     static constexpr uint8_t FILTER_KEY_TRACK       = 50;
     static constexpr uint8_t FILTER_OCTAVE_CONTROL  = 84;
-    static constexpr uint8_t FILTER_DRIVE  = 49;
 
     // --- Filter Topology ---
     static constexpr uint8_t FILTER_ENGINE          = 113;
     static constexpr uint8_t FILTER_MODE            = 112;
-    // RETIRED: VA_FILTER_TYPE (115). Folded into FILTER_MODE (CC 112), which is
-    // now engine-context-dependent (OBXa Mode / VA Type). Constant kept defined
-    // so any stale reference still compiles, but it is no longer dispatched and
-    // is excluded from kPatchableCCs. CC 115 is free for reuse.
-    static constexpr uint8_t VA_FILTER_TYPE         = 115;   // deprecated
+    static constexpr uint8_t VA_FILTER_TYPE         = 115;
     static constexpr uint8_t FILTER_OBXA_XPANDER_MODE   = 114;
     static constexpr uint8_t FILTER_OBXA_MULTIMODE      = 111;
     static constexpr uint8_t FILTER_OBXA_RES_MOD_DEPTH  = 117;
-
-    // Engine-context aliases for the merged CCs. Same wire CC, clearer call
-    // sites: in VA mode CC 114 is drive and CC 111 is saturation type.
-    static constexpr uint8_t FILTER_VA_DRIVE        = FILTER_OBXA_XPANDER_MODE; // 114
-    static constexpr uint8_t FILTER_VA_SATURATION   = FILTER_OBXA_MULTIMODE;    // 111
 
     // --- Filter mode constants ---
     static constexpr uint8_t FILTER_ENGINE_OBXA     = 0;
@@ -578,28 +559,12 @@ static constexpr ParamDef kParams[] = {
     { CC::FILTER_ENV_AMOUNT,   "Filt Env Amt",  "ENV",      CONTINUOUS, PATCH,  64,  true,  0, nullptr,                                3, 0 },
     { CC::FILTER_KEY_TRACK,    "Key Track",     "KEY TRK",  CONTINUOUS, PATCH,  64,  true,  0, nullptr,                                3, 0 },
     { CC::FILTER_ENGINE,       "Filt Engine",   "ENGINE",   SELECT,     PATCH,  0,   false, kFilterEngineCount, kFilterEngineOptions,  3, 1 },
-    // -------------------------------------------------------------------------
-    // Engine-context-dependent controls. Each row below changes meaning with
-    // the active filter engine (CC::FILTER_ENGINE). The table holds one base
-    // definition per CC (firmware needs a single entry); renderers (ESP32 /
-    // JUCE) swap the live label + option list using the kFilterMode*/kVAFilter*
-    // arrays below, keyed on the current engine. See SynthEngine CC dispatch.
-    //
-    //   CC 112 "Type"    : OBXa → Mode (kFilterModeOptions, 6)
-    //                      VA   → Type (kVAFilterOptions, 17)
-    //   CC 114 "Variant" : OBXa → Xpander sub-mode (kXpanderModeOptions, 15, SELECT)
-    //                      VA   → Drive (continuous)
-    //   CC 111 "MM/Sat"  : OBXa → Multimode blend (continuous)
-    //                      VA   → Saturation (kVASaturationOptions, 3, SELECT)
-    //
-    // Base type below = the OBXa interpretation (the default engine). VA_FILTER_TYPE
-    // (formerly CC 115) is retired — its function folded into CC 112.
-    // -------------------------------------------------------------------------
-    { CC::FILTER_MODE,         "Filt Type",     "TYPE",     SELECT,     PATCH,  0,   false, kFilterModeCount,   kFilterModeOptions,    3, 1 },
+    { CC::FILTER_MODE,         "Filt Mode",     "MODE",     SELECT,     PATCH,  0,   false, kFilterModeCount,   kFilterModeOptions,    3, 1 },
+    { CC::VA_FILTER_TYPE,      "VA Type",       "VA TYPE",  SELECT,     PATCH,  0,   false, kVAFilterCount,     kVAFilterOptions,      3, 1 },
     { CC::FILTER_OCTAVE_CONTROL,"Oct Control",  "OCT CTRL", CONTINUOUS, PATCH,  0,   false, 0, nullptr,                                3, 2 },
     { CC::FILTER_OBXA_RES_MOD_DEPTH,"Res Mod",  "RES MOD",  CONTINUOUS, PATCH,  0,   false, 0, nullptr,                                3, 2 },
-    { CC::FILTER_OBXA_MULTIMODE,"Multimode",    "MM/SAT",   CONTINUOUS, PATCH,  0,   false, 0, nullptr,                                3, 2 },
-    { CC::FILTER_OBXA_XPANDER_MODE,"Variant",   "VARIANT",  SELECT,     PATCH,  0,   false, kXpanderModeCount,  kXpanderModeOptions,   3, 3 },
+    { CC::FILTER_OBXA_MULTIMODE,"Multimode",    "MULTI",    CONTINUOUS, PATCH,  0,   false, 0, nullptr,                                3, 2 },
+    { CC::FILTER_OBXA_XPANDER_MODE,"Xpander",   "XP MODE",  SELECT,     PATCH,  0,   false, kXpanderModeCount,  kXpanderModeOptions,   3, 3 },
 
     // =========================================================================
     // [4] AMP ENVELOPE
@@ -836,7 +801,7 @@ static constexpr uint8_t kPatchableCCs[] = {
     CC::FILTER_ENV_AMOUNT, CC::FILTER_KEY_TRACK,
     CC::FILTER_OCTAVE_CONTROL,
     // ---- Filter topology ----
-    CC::FILTER_ENGINE, CC::FILTER_MODE,
+    CC::FILTER_ENGINE, CC::FILTER_MODE, CC::VA_FILTER_TYPE,
     CC::FILTER_OBXA_XPANDER_MODE,
     CC::FILTER_OBXA_MULTIMODE, CC::FILTER_OBXA_RES_MOD_DEPTH,
     // ---- Amp envelope ----

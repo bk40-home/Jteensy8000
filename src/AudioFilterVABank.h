@@ -25,7 +25,6 @@
 //   FILTER_KORG35_HP – Korg35/TSK HP            (Zavalishin §5.8, p.154)
 //   FILTER_TPT1_LP   – Simple 1-pole TPT LP    (Zavalishin §3.1, p.45)
 //   FILTER_TPT1_HP   – Simple 1-pole TPT HP
-//  now some jpfx-specific additions:
 //
 // ─── Signal routing (3 audio inputs, 1 output) ─────────────────────────────
 //   Input 0  : audio signal
@@ -64,10 +63,6 @@ enum VAFilterType : uint8_t
     FILTER_KORG35_HP = 10,
     FILTER_TPT1_LP   = 11,
     FILTER_TPT1_HP   = 12,
-    FILTER_JP_LP24,   // 24 dB/oct LP  — the flagship Jupiter lowpass
-    FILTER_JP_LP12,   // 12 dB/oct LP  — the JP's softer 12 dB mode
-    FILTER_JP_HP24,   // 24 dB/oct HP
-    FILTER_JP_BP,     // band-pass
     FILTER_COUNT           // keep last – used for bounds checking
 };
 
@@ -85,11 +80,7 @@ static const char* const kVAFilterNames[FILTER_COUNT] = {
     "Korg35 LP",
     "Korg35 HP",
     "TPT1 LP",
-    "TPT1 HP",
-    "JP LP24", 
-    "JP LP12", 
-    "JP HP24", 
-    "JP BP"
+    "TPT1 HP"
 };
 
 // ---------------------------------------------------------------------------
@@ -143,16 +134,8 @@ public:
     // ── State ────────────────────────────────────────────────────────────────
     void reset();   // clear all filter states (call on topology switch or note-off)
 
-    // ── Idle gating (FilterBlock dual-engine wrapper drives this) ────────────
-    // When inactive, update() releases its inputs and emits nothing, saving a
-    // full filter pass per block. Gated by JT_OPT_FILTER_IDLE_GATING.
-    void setActive(bool on) { _active = on; }
-    bool getActive() const  { return _active; }
-
     // AudioStream mandatory override
     virtual void update(void) override;
-
-    void setQCompensation(bool on) { _jpQComp = on; }
 
 private:
     audio_block_t *_inQ[3];   // Teensy audio input queue
@@ -175,12 +158,6 @@ private:
 
     VASaturationType _satType = SAT_TANH;
 
-    bool _jpQComp = true;   // Jupiter "stays loud" Q-comp, on by default
-
-    // Idle gating: true = this engine is selected and should run its DSP.
-    // Defaults true so a stand-alone VA bank (no FilterBlock) behaves as before.
-    bool _active = true;
-
     // ── Filter state structs ─────────────────────────────────────────────────
     // All topologies pre-allocated; only the active one runs per block.
     TPT1         _tpt1;
@@ -189,7 +166,7 @@ private:
     DiodeLadder4 _diode;
     Korg35LP     _k35lp;
     Korg35HP     _k35hp;
-    NLLadderNB   _jp;   // JP slots now use the Newton-Bisection nonlinear ladder
+
     // ── Internal helpers ─────────────────────────────────────────────────────
 
     // Convert normalised resonance [0..1] to topology-appropriate k/R value.

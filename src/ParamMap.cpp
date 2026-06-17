@@ -87,13 +87,10 @@ static const Entry kTable[] = {
     ENT_PATCH(0x0403, CC::FILTER_KEY_TRACK,     kBipolar),
     ENT_PATCH(0x0404, CC::FILTER_OCTAVE_CONTROL,   kCont),     // 0..10 unipolar
     ENT_PATCH(0x0410, CC::FILTER_ENGINE,        kEnumN),    // 2-state OBXa/VA
-    ENT_PATCH(0x0411, CC::FILTER_MODE,          kEnumN),    // engine-context: OBXa Mode / VA Type
-    // 0x0412 RETIRED: VA_FILTER_TYPE folded into 0x0411 (FILTER_MODE). The CC
-    // dispatch reads the active engine and routes Type accordingly. Leaving the
-    // address unmapped means a stale 0x0412 SysEx is ignored rather than routed
-    // to a dead CC. Re-use 0x0412 only after the JUCE side drops it too.
-    ENT_PATCH(0x0413, CC::FILTER_OBXA_XPANDER_MODE,    kEnumN),  // engine-context: Xpander / VA Drive
-    ENT_PATCH(0x0414, CC::FILTER_OBXA_MULTIMODE,       kNorm01), // engine-context: Multimode / VA Sat
+    ENT_PATCH(0x0411, CC::FILTER_MODE,          kEnumN),
+    ENT_PATCH(0x0412, CC::VA_FILTER_TYPE,       kEnumN),
+    ENT_PATCH(0x0413, CC::FILTER_OBXA_XPANDER_MODE,    kEnumN),
+    ENT_PATCH(0x0414, CC::FILTER_OBXA_MULTIMODE,       kNorm01),
     ENT_PATCH(0x0415, CC::FILTER_OBXA_RES_MOD_DEPTH,   kNorm01),
 
     // -----------------------------------------------------------------------------

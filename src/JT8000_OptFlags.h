@@ -57,7 +57,6 @@
 #define JT_OPT_OBXA_BLOCKRATE_MOD  1   // 1 = enabled (recommended)
 #endif
 
-
 // -----------------------------------------------------------------------------
 // OPT 2 — VA filter bank: hoist powf() out of the per-sample loop.
 //
@@ -172,61 +171,4 @@
 // -----------------------------------------------------------------------------
 #ifndef JT_OPT_OSC_SYNC
 #define JT_OPT_OSC_SYNC  1   // 1 = enabled (recommended)
-#endif
-
-// -----------------------------------------------------------------------------
-// OPT 6 — NLLadderNB (JP slots): filter-core oversampling for alias reduction.
-//
-// The JP filter slots now use NLLadderNB, a Newton-Bisection nonlinear ladder
-// that saturates like an analog circuit when driven. That saturation generates
-// harmonics which, at the base sample rate, fold back as aliasing when the
-// filter is pushed hard. Oversampling the filter core reduces that folding.
-//
-//   1 = base rate (SHIP DEFAULT). Cheapest. Aliases somewhat when driven hard.
-//   2 = 2x oversampled core (~doubles the JP filter cost). Same tuning, level
-//       and passband as 1x (verified matching to <0.01 dB) — the only audible
-//       difference is reduced aliasing. Enable once one-voice CPU is measured
-//       on hardware (see ARM_DWT_CYCCNT note in AudioFilterVABank.cpp) and the
-//       8-voice headroom is confirmed.
-//
-// Rationale for default-off: a previous effort spent ~20% CPU on saturation
-// tone with no audible payoff. This flag spends CPU on a DIFFERENT, measurable
-// payoff (aliasing), but the discipline is the same — ship the verified core,
-// measure, then turn the knob and A/B it. One optimisation at a time.
-//
-// NOTE: the cutoff warp must use the INTERNAL rate (2x fs when this is 2). That
-// is handled inside NLLadderNB::setCutoff(); the bank passes Hz, not g, to the
-// JP cases so the tuning stays correct in both builds. No other code changes.
-// -----------------------------------------------------------------------------
-#ifndef JT_OPT_NLLADDER_OVERSAMPLE
-#define JT_OPT_NLLADDER_OVERSAMPLE  1   // 1 = base rate (recommended to ship)
-#endif
-
-// RETIRED: JT_OPT_IR3109_PERSTAGE_NL — the IR3109Ladder struct it guarded has
-// been replaced by NLLadderNB, whose per-stage nonlinearity is intrinsic and
-// always on. The flag is intentionally no longer defined.
-
-// -----------------------------------------------------------------------------
-// OPT 7 — Filter engine idle gating: skip the inactive filter engine's DSP.
-//
-// FilterBlock holds BOTH AudioFilterOBXa and AudioFilterVABank permanently in
-// the audio graph. Only one is selected at a time; the other is silenced at
-// the output mixer but, without this flag, still runs its full ZDF core every
-// audio block. That is ~half the filter CPU spent on a signal nobody hears
-// (8 voices × one idle filter core per block).
-//
-// FIX: each core gains a lightweight _active flag and an early-out at the top
-// of update() — it releases its input blocks and transmits nothing when idle.
-// FilterBlock drives the flag from setFilterEngine(): the newly-selected core
-// is marked active and reset() (clean start, ~1 block to settle, masked by the
-// existing output-mixer crossfade); the deselected core is marked idle.
-//
-//   1 = inactive engine skips DSP (SHIP DEFAULT — saves CPU, no tonal change).
-//   0 = both engines always run (previous behaviour). The _active flag is
-//       still set but ignored in update(), so turning this off is a pure
-//       A/B with zero other code differences — measure with
-//       AudioProcessorUsage() to confirm the saving on hardware.
-// -----------------------------------------------------------------------------
-#ifndef JT_OPT_FILTER_IDLE_GATING
-#define JT_OPT_FILTER_IDLE_GATING  1   // 1 = gate inactive engine (recommended)
 #endif

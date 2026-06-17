@@ -71,7 +71,6 @@ public:
     void setEnvModAmount(float amount);
     void setKeyTrackAmount(float amount);
 
-
     /**
      * @brief Set step sequencer filter modulation offset.
      *        Added to the key tracking DC amplitude (same mod bus, slot 0).
@@ -128,17 +127,6 @@ public:
     VAFilterType getVAFilterType() const { return _vaType; }
     const char*  getVAFilterName() const { return _filterVA.getFilterName(); }
 
-    // VA drive amount (continuous). Engine-specific: lives on the shared
-    // "Variant" CC when the VA engine is active. 0..1 normalised at the CC
-    // layer; mapped to the VA core's drive range here.
-    void setVADrive(float amount01);
-    float getVADrive() const { return _vaDrive; }
-
-    // VA saturation type (enum). Engine-specific: lives on the shared
-    // "Multimode/Drive" CC when the VA engine is active.
-    void setVASaturation(VASaturationType type);
-    VASaturationType getVASaturation() const { return _vaSat; }
-
     // ── Audio graph access (fixed entry/exit points) ──────────────────────────
     AudioStream& input();     // VoiceBlock wires voiceMixer here
     AudioStream& output();    // VoiceBlock wires ampEnvelope here
@@ -166,12 +154,6 @@ private:
     // ── State ─────────────────────────────────────────────────────────────────
     uint8_t      _activeEngine = CC::FILTER_ENGINE_OBXA;
     VAFilterType _vaType       = FILTER_SVF_LP;
-
-    // VA-engine-specific state (independent of OBXa's topology state above).
-    // Held separately so switching engines restores each engine's own settings
-    // rather than sharing one index across both.
-    float            _vaDrive = 1.0f;        // VA core default (unity, no drive)
-    VASaturationType _vaSat   = SAT_TANH;    // VA core default
 
     // Cached parameters (applied to both engines; re-pushed on engine switch)
     float _cutoff            = 0.0f;

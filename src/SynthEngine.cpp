@@ -757,20 +757,6 @@ void SynthEngine::setVAFilterType(uint8_t vaType) {
     JT_LOGF("[SE] VAFilterType = %u\n", vaType);
 }
 
-void SynthEngine::setVADrive(float amount01) {
-    _patch.vaDrive = amount01;
-    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
-        _voices[i].setVADrive(amount01);
-    JT_LOGF("[SE] VADrive = %.3f\n", amount01);
-}
-
-void SynthEngine::setVASaturation(uint8_t satType) {
-    _patch.vaSat = satType;
-    for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
-        _voices[i].setVASaturation(satType);
-    JT_LOGF("[SE] VASat = %u\n", satType);
-}
-
 void SynthEngine::setFilterResonanceModDepth(float amount) {
     _patch.filterResonaceModDepth = amount;
     for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setResonanceModDepth(amount);
@@ -1887,23 +1873,27 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
 
         // ------------------- Osc mix + taps -------------------
         case CC::OSC1_FEEDBACK_AMOUNT: {
+            float a = norm;
             setOsc1FeedbackAmount(norm);
-            JT_CC_LOG("[CC %u:%s] Osc1 feedback amount = %.3f \n", control, ccName, norm);
+            JT_CC_LOG("[CC %u:%s] Osc1 feedback amount = %.3f \n", control, ccName, a);
         } break;
 
         case CC::OSC2_FEEDBACK_AMOUNT: {
+            float a = norm;
             setOsc2FeedbackAmount(norm);
-            JT_CC_LOG("[CC %u:%s] Osc2 feedback amount = %.3f \n", control, ccName, norm);
+            JT_CC_LOG("[CC %u:%s] Osc2 feedback amount = %.3f \n", control, ccName, a);
         } break;
 
         case CC::OSC1_FEEDBACK_MIX: {
+            float a = norm;
             setOsc1FeedbackMix(norm);
-            JT_CC_LOG("[CC %u:%s] Osc1 feedback mix = %.3f \n", control, ccName, norm);
+            JT_CC_LOG("[CC %u:%s] Osc1 feedback mix = %.3f \n", control, ccName, a);
         } break;
 
          case CC::OSC2_FEEDBACK_MIX: {
+            float a = norm;
             setOsc2FeedbackMix(norm);
-            JT_CC_LOG("[CC %u:%s] Osc2 feedback mix = %.3f \n", control, ccName, norm);
+            JT_CC_LOG("[CC %u:%s] Osc2 feedback mix = %.3f \n", control, ccName, a);
         } break;
 
         // ------------------- Osc mix + taps -------------------
@@ -1947,51 +1937,22 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             JT_CC_LOG("[CC %u:%s] Filter Octave = %.3f\n", control, ccName, o);
         } break;
 
-        // --- Filter topology — engine-context-dependent CCs ---
-        //
-        // Three CCs change meaning with the active engine so the same physical
-        // control / display slot serves both engines (halving the filter CC
-        // count vs one-CC-per-param-per-engine):
-        //
-        //   CC 111 (Multimode/Sat) : OBXa → multimode blend (continuous)
-        //                            VA   → saturation type (3-way select)
-        //   CC 112 (Type)          : OBXa → filter mode (6-way select)
-        //                            VA   → filter type (FILTER_COUNT select)
-        //   CC 114 (Variant)       : OBXa → Xpander sub-mode (0..14 select)
-        //                            VA   → drive amount (continuous)
-        //
-        // The active engine is read from _patch.filterEngine (kept in sync by
-        // setFilterEngine()). FilterBlock caches each engine's values
-        // independently and re-applies them on switch, so a control that is
-        // inert for the current engine still preserves the other engine's value.
+        // --- OBXa Filter Extended Controls ---
 
-        // CC 111 — OBXa multimode blend  /  VA saturation type
+        // Multimode blend: CC 0-127 → 0.0-1.0 (LP4 → HP via pole mixing)
         case CC::FILTER_OBXA_MULTIMODE: {
-            if (_patch.filterEngine == CC::FILTER_ENGINE_VA) {
-                // 3 saturation buckets: SAT_NONE / SAT_FAST / SAT_TANH
-                const uint8_t sat = (uint8_t)constrain((int)value * 3 / 128, 0, 2);
-                setVASaturation(sat);
-                JT_CC_LOG("[CC %u:%s] VA Sat = %u\n", control, ccName, sat);
-            } else {
-                setFilterMultimode(norm);
-                JT_CC_LOG("[CC %u:%s] Multimode = %.3f\n", control, ccName, norm);
-            }
+            setFilterMultimode(norm);
+            JT_CC_LOG("[CC %u:%s] Multimode = %.3f\n", control, ccName, norm);
         } break;
 
-        // CC 112 — OBXa filter mode  /  VA filter type
+        // Single topology selector — clears conflicting flags automatically.
+        // CC value 0-127 mapped into FILTER_MODE_COUNT equal buckets.
         case CC::FILTER_MODE: {
-            if (_patch.filterEngine == CC::FILTER_ENGINE_VA) {
-                const uint8_t vt = (uint8_t)constrain(
-                    (int)value * (int)FILTER_COUNT / 128, 0, (int)FILTER_COUNT - 1);
-                setVAFilterType(vt);
-                JT_CC_LOG("[CC %u:%s] VAFilterType = %u\n", control, ccName, vt);
-            } else {
-                const uint8_t mode = (uint8_t)constrain(
-                    (int)value * (int)CC::FILTER_MODE_COUNT / 128, 0,
-                    (int)CC::FILTER_MODE_COUNT - 1);
-                setFilterMode(mode);
-                JT_CC_LOG("[CC %u:%s] FilterMode = %u\n", control, ccName, mode);
-            }
+            const uint8_t mode = (uint8_t)constrain(
+                (int)value * (int)CC::FILTER_MODE_COUNT / 128, 0,
+                (int)CC::FILTER_MODE_COUNT - 1);
+            setFilterMode(mode);
+            JT_CC_LOG("[CC %u:%s] FilterMode = %u\n", control, ccName, mode);
         } break;
 
         // Filter engine select: 0 = OBXa, 1 = VA bank.
@@ -2003,16 +1964,19 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             JT_CC_LOG("[CC %u:%s] FilterEngine = %u\n", control, ccName, eng);
         } break;
 
-        // CC 114 — OBXa Xpander sub-mode (0..14)  /  VA drive (continuous)
+        // VA bank topology: CC 0-127 mapped into FILTER_COUNT equal buckets.
+        case CC::VA_FILTER_TYPE: {
+            const uint8_t vt = (uint8_t)constrain(
+                (int)value * (int)FILTER_COUNT / 128, 0, (int)FILTER_COUNT - 1);
+            setVAFilterType(vt);
+            JT_CC_LOG("[CC %u:%s] VAFilterType = %u\n", control, ccName, vt);
+        } break;
+
+        // Xpander sub-mode (0..14): only meaningful when FilterMode == XPANDER_M
         case CC::FILTER_OBXA_XPANDER_MODE: {
-            if (_patch.filterEngine == CC::FILTER_ENGINE_VA) {
-                setVADrive(norm);
-                JT_CC_LOG("[CC %u:%s] VA Drive = %.3f\n", control, ccName, norm);
-            } else {
-                const uint8_t mode = (uint8_t)constrain((int)value * 15 / 128, 0, 14);
-                setFilterXpanderMode(mode);
-                JT_CC_LOG("[CC %u:%s] XpanderMode = %u\n", control, ccName, mode);
-            }
+            const uint8_t mode = (uint8_t)constrain((int)value * 15 / 128, 0, 14);
+            setFilterXpanderMode(mode);
+            JT_CC_LOG("[CC %u:%s] XpanderMode = %u\n", control, ccName, mode);
         } break;
 
         // Resonance modulation depth: CC 0-127 → 0.0-1.0

@@ -4,7 +4,7 @@
  * Centralised CC (0..127) <-> internal unit mappings for the JT-8000.
  *
  * All functions are inline and header-only — no .cpp required.
- * Callers include: SynthEngine.cpp.
+ * Callers include: SynthEngine.cpp, Patch.cpp, HomeScreen.cpp.
  *
  * Naming convention:
  *   cc_to_*   : CC byte (0..127) -> engineering unit (Hz, ms, normalised 0..1)

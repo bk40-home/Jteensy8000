@@ -115,16 +115,6 @@ public:
     void setEnvValue(float env01);   // 0..1 (latest envelope sample)
     float getEnvValue() const { return _envValue; }
 
-    // --- Idle gating (FilterBlock dual-engine wrapper drives this) ---
-    // When inactive, update() releases its inputs and emits nothing, saving
-    // a full filter pass per block. Gated by JT_OPT_FILTER_IDLE_GATING.
-    void setActive(bool on) { _active = on; }
-    bool getActive() const  { return _active; }
-
-    // Clear the filter poles. Called on engine-switch-in so a previously
-    // idle core starts clean instead of from stale state.
-    void reset();
-
     // ---- Compatibility aliases (older sketches / naming) ----
     // Keep these so older project code and test sketches compile unchanged.
     void setKeytrack(float amt01)            { setKeyTrack(amt01); }
@@ -166,10 +156,6 @@ private:
 
     // recovery / guard
     uint16_t _cooldownBlocks = 0;
-
-    // Idle gating: true = this engine is selected and should run its DSP.
-    // Defaults true so a stand-alone OBXa (no FilterBlock) behaves as before.
-    bool _active = true;
 
     // Forward-declared core (defined in .cpp)
     struct Core;

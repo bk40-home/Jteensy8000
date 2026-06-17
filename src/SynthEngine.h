@@ -461,8 +461,6 @@ public:
     // VA bank topology (0..FILTER_COUNT-1).  See VAFilterType enum.
     // Only meaningful when engine == FILTER_ENGINE_VA.
     void setVAFilterType(uint8_t vaType);
-    void setVADrive(float amount01);        // VA engine drive (0..1)
-    void setVASaturation(uint8_t satType);  // VA engine saturation type (enum)
 
     float   getFilterCutoff()          const;
     float   getFilterResonance()       const;
