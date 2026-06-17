@@ -105,6 +105,8 @@ struct PatchState {
     uint8_t filterMode      = 0;      // CC::FILTER_MODE_4POLE
     uint8_t filterEngine    = 0;      // CC::FILTER_ENGINE_OBXA
     uint8_t vaFilterType    = 0;      // FILTER_SVF_LP
+    float   vaDrive         = 0.0f;   // VA engine drive (CC-normalised 0..1)
+    uint8_t vaSat           = 2;      // VA engine saturation type (SAT_TANH)
     bool    filterUseTwoPole    = false;
     bool    filterXpander4Pole  = false;
     uint8_t filterXpanderMode   = 0;

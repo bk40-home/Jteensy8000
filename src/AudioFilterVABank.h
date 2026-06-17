@@ -25,6 +25,7 @@
 //   FILTER_KORG35_HP – Korg35/TSK HP            (Zavalishin §5.8, p.154)
 //   FILTER_TPT1_LP   – Simple 1-pole TPT LP    (Zavalishin §3.1, p.45)
 //   FILTER_TPT1_HP   – Simple 1-pole TPT HP
+//  now some jpfx-specific additions:
 //
 // ─── Signal routing (3 audio inputs, 1 output) ─────────────────────────────
 //   Input 0  : audio signal
@@ -63,6 +64,10 @@ enum VAFilterType : uint8_t
     FILTER_KORG35_HP = 10,
     FILTER_TPT1_LP   = 11,
     FILTER_TPT1_HP   = 12,
+    FILTER_JP_LP24,   // 24 dB/oct LP  — the flagship Jupiter lowpass
+    FILTER_JP_LP12,   // 12 dB/oct LP  — the JP's softer 12 dB mode
+    FILTER_JP_HP24,   // 24 dB/oct HP
+    FILTER_JP_BP,     // band-pass
     FILTER_COUNT           // keep last – used for bounds checking
 };
 
@@ -80,7 +85,11 @@ static const char* const kVAFilterNames[FILTER_COUNT] = {
     "Korg35 LP",
     "Korg35 HP",
     "TPT1 LP",
-    "TPT1 HP"
+    "TPT1 HP",
+    "JP LP24", 
+    "JP LP12", 
+    "JP HP24", 
+    "JP BP"
 };
 
 // ---------------------------------------------------------------------------
@@ -137,6 +146,8 @@ public:
     // AudioStream mandatory override
     virtual void update(void) override;
 
+    void setQCompensation(bool on) { _jpQComp = on; }
+
 private:
     audio_block_t *_inQ[3];   // Teensy audio input queue
 
@@ -158,6 +169,8 @@ private:
 
     VASaturationType _satType = SAT_TANH;
 
+    bool _jpQComp = true;   // Jupiter "stays loud" Q-comp, on by default
+
     // ── Filter state structs ─────────────────────────────────────────────────
     // All topologies pre-allocated; only the active one runs per block.
     TPT1         _tpt1;
@@ -166,7 +179,7 @@ private:
     DiodeLadder4 _diode;
     Korg35LP     _k35lp;
     Korg35HP     _k35hp;
-
+    NLLadderNB   _jp;   // JP slots now use the Newton-Bisection nonlinear ladder
     // ── Internal helpers ─────────────────────────────────────────────────────
 
     // Convert normalised resonance [0..1] to topology-appropriate k/R value.
@@ -183,3 +196,23 @@ private:
         }
     }
 };
+
+// ---------------------------------------------------------------------------
+// TEMPORARY FILTER-INPUT PROBE — extern declaration for loop() to drain.
+// Defined in AudioFilterVABank.cpp. Remove with the rest of the probe after
+// diagnosis. Guarded so it vanishes entirely when the flag is off.
+// ---------------------------------------------------------------------------
+#include "JT8000_OptFlags.h"
+#if JT_FILTER_INPUT_PROBE
+struct JtFiltProbe {
+    volatile int   type;
+    volatile float x0, fcTarget, keyMul, envShiftOct;
+    volatile float fcBlock, fcClamped, g, k;
+    volatile float worstFcBlock, worstG;
+    volatile bool  sawNonFinite;
+    volatile uint32_t blocks;
+    void capture(int,float,float,float,float,float,float,float,float);
+    void resetWindow();
+};
+extern JtFiltProbe jt_filtProbe;
+#endif

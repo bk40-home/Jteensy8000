@@ -71,6 +71,7 @@ public:
     void setEnvModAmount(float amount);
     void setKeyTrackAmount(float amount);
 
+
     /**
      * @brief Set step sequencer filter modulation offset.
      *        Added to the key tracking DC amplitude (same mod bus, slot 0).

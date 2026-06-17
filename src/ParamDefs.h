@@ -83,12 +83,17 @@ static constexpr const char* kFilterModeOptions[] = {
 static constexpr uint8_t kFilterModeCount = 6;
 
 // VA filter types — names from AudioFilterVABank.h kVAFilterNames[]
+// MUST stay in the SAME ORDER as the firmware VAFilterType enum, and the count
+// MUST equal the firmware FILTER_COUNT. The JP filters (indices 13–16) were
+// added to the firmware enum; this list and kVAFilterCount must include them or
+// the CC select scaling mismatches and the JP filters become unreachable.
 static constexpr const char* kVAFilterOptions[] = {
     "SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP",
     "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4",
-    "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP"
+    "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP",
+    "JP LP24", "JP LP12", "JP HP24", "JP BP"
 };
-static constexpr uint8_t kVAFilterCount = 13;
+static constexpr uint8_t kVAFilterCount = 17;   // == firmware FILTER_COUNT
 
 // Xpander sub-modes (0–14)
 static constexpr const char* kXpanderModeOptions[] = {
@@ -315,6 +320,7 @@ namespace CC {
     static constexpr uint8_t FILTER_ENV_AMOUNT      = 48;
     static constexpr uint8_t FILTER_KEY_TRACK       = 50;
     static constexpr uint8_t FILTER_OCTAVE_CONTROL  = 84;
+    static constexpr uint8_t FILTER_DRIVE  = 49;
 
     // --- Filter Topology ---
     static constexpr uint8_t FILTER_ENGINE          = 113;

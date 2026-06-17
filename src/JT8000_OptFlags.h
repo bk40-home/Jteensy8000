@@ -57,6 +57,7 @@
 #define JT_OPT_OBXA_BLOCKRATE_MOD  1   // 1 = enabled (recommended)
 #endif
 
+
 // -----------------------------------------------------------------------------
 // OPT 2 — VA filter bank: hoist powf() out of the per-sample loop.
 //
@@ -172,3 +173,47 @@
 #ifndef JT_OPT_OSC_SYNC
 #define JT_OPT_OSC_SYNC  1   // 1 = enabled (recommended)
 #endif
+
+// -----------------------------------------------------------------------------
+// OPT 6 — NLLadderNB (JP slots): filter-core oversampling for alias reduction.
+//
+// The JP filter slots now use NLLadderNB, a Newton-Bisection nonlinear ladder
+// that saturates like an analog circuit when driven. That saturation generates
+// harmonics which, at the base sample rate, fold back as aliasing when the
+// filter is pushed hard. Oversampling the filter core reduces that folding.
+//
+//   1 = base rate (SHIP DEFAULT). Cheapest. Aliases somewhat when driven hard.
+//   2 = 2x oversampled core (~doubles the JP filter cost). Same tuning, level
+//       and passband as 1x (verified matching to <0.01 dB) — the only audible
+//       difference is reduced aliasing. Enable once one-voice CPU is measured
+//       on hardware (see ARM_DWT_CYCCNT note in AudioFilterVABank.cpp) and the
+//       8-voice headroom is confirmed.
+//
+// Rationale for default-off: a previous effort spent ~20% CPU on saturation
+// tone with no audible payoff. This flag spends CPU on a DIFFERENT, measurable
+// payoff (aliasing), but the discipline is the same — ship the verified core,
+// measure, then turn the knob and A/B it. One optimisation at a time.
+//
+// NOTE: the cutoff warp must use the INTERNAL rate (2x fs when this is 2). That
+// is handled inside NLLadderNB::setCutoff(); the bank passes Hz, not g, to the
+// JP cases so the tuning stays correct in both builds. No other code changes.
+// -----------------------------------------------------------------------------
+#ifndef JT_OPT_NLLADDER_OVERSAMPLE
+#define JT_OPT_NLLADDER_OVERSAMPLE  1   // 1 = base rate (recommended to ship)
+#endif
+
+#ifndef JT_FILTER_INPUT_PROBE
+#define JT_FILTER_INPUT_PROBE 0   // diagnosis complete — probe off
+#endif
+
+
+// RETIRED: JT_OPT_IR3109_PERSTAGE_NL — the IR3109Ladder struct it guarded has
+// been replaced by NLLadderNB, whose per-stage nonlinearity is intrinsic and
+// always on. The flag is intentionally no longer defined.
+
+// RETIRED: JT_NB_DIAG — the in-ISR NB-BLOWUP debug block it guarded has been
+// removed (it was always-on due to commented-out #ifdef lines, calling
+// Serial.printf and reset() from the audio ISR — a source of glitches). The
+// proper ISR-safe probe is JT_FILTER_INPUT_PROBE (capture in ISR, print in loop).
+
+// =============================================================================

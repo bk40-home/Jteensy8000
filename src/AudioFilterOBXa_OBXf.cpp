@@ -282,6 +282,15 @@ AudioFilterOBXa::AudioFilterOBXa()
 
 }
 
+// Public reset — clears the filter poles. Used by FilterBlock when this engine
+// is selected after being idle, so it starts from silence rather than stale
+// state captured before it was gated off.
+void AudioFilterOBXa::reset()
+{
+    if (_core) _core->reset();
+    _cooldownBlocks = 0;
+}
+
 void AudioFilterOBXa::frequency(float hz)
 {
     // allow nearly to Nyquist, but keep stable margin
@@ -382,6 +391,20 @@ void AudioFilterOBXa::setEnvValue(float env01)
 
 void AudioFilterOBXa::update(void)
 {
+#if JT_OPT_FILTER_IDLE_GATING
+    // Idle engine: discard any input blocks and emit nothing. The output mixer
+    // already silences this channel, so producing no block is inaudible and
+    // skips the entire filter pass for the deselected engine.
+    if (!_active)
+    {
+        audio_block_t *b;
+        if ((b = receiveReadOnly(0))) release(b);
+        if ((b = receiveReadOnly(1))) release(b);
+        if ((b = receiveReadOnly(2))) release(b);
+        return;
+    }
+#endif
+
     audio_block_t *in0 = receiveReadOnly(0);  // audio input
 
     // No audio input — nothing to filter, skip all DSP
