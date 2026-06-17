@@ -638,7 +638,8 @@ void setup() {
     CrashReport.clear();
     Serial.println("[JT8000] Setup complete");
 
-    
+    ARM_DEMCR    |= ARM_DEMCR_TRCENA;        // enable DWT
+    ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;  // enable cycle counter
 
         
 }
@@ -688,10 +689,13 @@ void loop() {
     loopCount++;
     const uint32_t now = millis();
     if ((now - lastDiag) >= 10000) {
-        if (Serial.availableForWrite() > 80) {
-            Serial.printf("[DIAG] CPU:%.1f%% pk:%.1f%% | i16:%d max:%d| lps:%lu\n",
+        if (Serial.availableForWrite() > 100) {
+            Serial.printf("[DIAG] CPU:%.1f%% pk:%.1f%% | mem:%d max:%d | lps:%lu\n",
                 AudioProcessorUsage(), AudioProcessorUsageMax(),
-                AudioMemoryUsage(), AudioMemoryUsageMax(),loopCount);
+                AudioMemoryUsage(), AudioMemoryUsageMax(), loopCount);
+            // Reset peaks so the NEXT window reports its own fresh maximum.
+            AudioProcessorUsageMaxReset();
+            AudioMemoryUsageMaxReset();
         }
         lastDiag = now;
         loopCount = 0;
