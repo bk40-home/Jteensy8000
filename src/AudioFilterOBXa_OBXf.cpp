@@ -20,6 +20,7 @@
  * THE SOFTWARE.
  */
  #include "AudioFilterOBXa_OBXf.h"
+#include "JT8000_OptFlags.h"
 
 // Keep math constants local
 static constexpr float OBXA_PI = 3.14159265358979323846f;
@@ -282,6 +283,15 @@ AudioFilterOBXa::AudioFilterOBXa()
 
 }
 
+// Clear integrator state (pole1..4) and recovery guard.  The Core owns the
+// actual filter state; _cooldownBlocks is reset here so a freshly switched-in
+// engine does not carry a stale recovery countdown.
+void AudioFilterOBXa::reset()
+{
+    _core->reset();
+    _cooldownBlocks = 0;
+}
+
 void AudioFilterOBXa::frequency(float hz)
 {
     // allow nearly to Nyquist, but keep stable margin
@@ -386,6 +396,19 @@ void AudioFilterOBXa::update(void)
 
     // No audio input — nothing to filter, skip all DSP
     if (!in0) return;
+
+#if JT_OPT_FILTER_ENGINE_SKIP
+    // Inactive engine: drain every input so upstream buffers are freed
+    // (no pool leak), then return before any coefficient or sample-loop work.
+    if (!_active) {
+        release(in0);
+        audio_block_t *m1 = receiveReadOnly(1);
+        audio_block_t *m2 = receiveReadOnly(2);
+        if (m1) release(m1);
+        if (m2) release(m2);
+        return;
+    }
+#endif
 
     audio_block_t *in1 = receiveReadOnly(1);  // cutoff mod bus
     audio_block_t *in2 = receiveReadOnly(2);  // resonance mod bus

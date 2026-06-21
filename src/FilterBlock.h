@@ -30,9 +30,9 @@
 //
 // ─── Audio graph (built once in constructor, never changed) ─────────────────
 //
-//   VoiceBlock             FilterBlock internals              VoiceBlock
-//   (voiceMixer) ──► [_inputBuf] ──┬──► [_filterOBXa] ──► [_outputMix] ch0 ──► (ampEnv)
-//                                  └──► [_filterVA]   ──► [_outputMix] ch1
+//   VoiceBlock         FilterBlock internals                  VoiceBlock
+//   (voiceMixer) ─►[_inputBuf]─┬─►[_filterOBXa]─►[_outputMix]ch0─►(ampEnv)
+//                              └─►[_filterVA]  ─►[_outputMix]ch1
 //
 //   [modMixer] ──► [_filterOBXa] input1
 //              └─► [_filterVA]   input1
@@ -43,11 +43,14 @@
 // _inputBuf is an AudioAmplifier used purely as a 1-in/1-out fan point so
 // both filters can be wired to the same upstream source.  Its gain is 1.0f.
 //
-// Engine switching: sets _inputBuf → OBXa/VA gain via _outputMix (not the
-// input side) and gates the inactive engine's _outputMix channel to 0.
-// Both engines always receive audio; the inactive one's output is silenced
-// at the _outputMix level.  This avoids any graph-modification calls at
-// runtime and is always ISR-safe.
+// The inactive engine is skipped via its filter's setActive(false) flag: that
+// filter's update() drains its input and returns before any DSP (real CPU
+// skip under JT_OPT_FILTER_ENGINE_SKIP).  This does NOT mute the audible
+// output — that is still done at _outputMix.
+//
+// Engine switching: gates _outputMix channel gains (audible mute) and, when
+// the skip opt is enabled, the per-engine input amp gains (CPU skip).  No
+// cable changes at runtime — always ISR-safe.
 //
 // ─── External interface ──────────────────────────────────────────────────────
 // VoiceBlock calls input()/output()/envmod()/modMixer() — identical
@@ -58,6 +61,7 @@
 #include "AudioFilterOBXa_OBXf.h"
 #include "AudioFilterVABank.h"
 #include "ParamDefs.h"
+#include "JT8000_OptFlags.h"   // JT_OPT_FILTER_ENGINE_SKIP
 
 class FilterBlock
 {
@@ -127,6 +131,31 @@ public:
     VAFilterType getVAFilterType() const { return _vaType; }
     const char*  getVAFilterName() const { return _filterVA.getFilterName(); }
 
+    // VA-only drive / saturation (reachable only when VA engine active).
+    // Drive is stored as a 0..1 UI value and scaled to the VA setDrive()
+    // range internally (see .cpp).  Saturation is a VASaturationType.
+    void setVADrive(float norm01);
+    float getVADrive() const { return _vaDrive01; }
+
+    void setVASaturation(uint8_t satType);
+    uint8_t getVASaturation() const { return (uint8_t)_vaSat; }
+
+    // ── Engine-context shared CCs — VA-side decode only ───────────────────────
+    // FilterBlock is per-voice and cannot own the OBXa mode→flags→all-voices
+    // fan-out (that needs SynthEngine's _patch + voice loop).  So the OBXa
+    // meaning of each shared CC is decoded in SynthEngine; these methods decode
+    // the VA meaning only and SynthEngine calls them when VA is active.
+    //
+    //   CC 112 : (OBXa Filter Mode in SynthEngine) | VA Filter Type here
+    //   CC 114 : (OBXa Xpander sub-mode "        ) | VA Drive (0..1) here
+    //   CC 111 : (OBXa Multimode        "        ) | VA Saturation here
+    //
+    // Each takes the raw 7-bit CC value (0..127); bucket math matches the
+    // SELECT decode used elsewhere so the display stays in agreement.
+    void setContextCC112(uint8_t ccValue);   // VA Type
+    void setContextCC114(uint8_t ccValue);   // VA Drive
+    void setContextCC111(uint8_t ccValue);   // VA Saturation
+
     // ── Audio graph access (fixed entry/exit points) ──────────────────────────
     AudioStream& input();     // VoiceBlock wires voiceMixer here
     AudioStream& output();    // VoiceBlock wires ampEnvelope here
@@ -136,7 +165,8 @@ public:
 private:
     // ── Audio components ──────────────────────────────────────────────────────
 
-    // Fan-out buffer: VoiceBlock audio arrives here and is copied to both filters
+    // Fan-out buffer: VoiceBlock audio arrives here and is copied to both
+    // filters (each filter skips its own DSP when inactive).
     AudioAmplifier _inputBuf;
 
     AudioFilterOBXa   _filterOBXa;
@@ -173,11 +203,15 @@ private:
     bool    _bpBlend2Pole = false;
     bool    _push2Pole    = false;
 
+    // VA-only cached state (restored on engine switch via _applyParamsToVA)
+    float            _vaDrive01 = 0.0f;       // 0..1 UI value
+    VASaturationType _vaSat     = SAT_TANH;   // default Warm
+
     // ── Audio connections (fixed; built once in constructor) ──────────────────
-    //  [0]  _inputBuf   → _filterOBXa input 0   (audio)
-    //  [1]  _inputBuf   → _filterVA   input 0   (audio)
-    //  [2]  _modMixer   → _filterOBXa input 1   (cutoff mod)
-    //  [3]  _modMixer   → _filterVA   input 1   (cutoff mod)
+    //  [0]  _inputBuf   → _filterOBXa 0          (audio fan-out)
+    //  [1]  _inputBuf   → _filterVA   0          (audio fan-out)
+    //  [2]  _modMixer   → _filterOBXa 1          (cutoff mod)
+    //  [3]  _modMixer   → _filterVA   1          (cutoff mod)
     //  [4]  _filterOBXa → _outputMix  ch 0
     //  [5]  _filterVA   → _outputMix  ch 1
     //  [6]  _keyTrackDc → _modMixer   ch 0

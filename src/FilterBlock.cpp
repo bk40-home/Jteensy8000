@@ -55,7 +55,9 @@ FilterBlock::FilterBlock()
 {
     // ── Audio fan-out: _inputBuf fans the single audio input to both filters ──
     // VoiceBlock wires its voiceMixer to _inputBuf (via input() accessor).
-    // _inputBuf has gain 1.0 and passes to OBXa input0 and VA input0.
+    // _inputBuf has gain 1.0 and passes to OBXa input0 and VA input0.  The
+    // inactive engine is skipped via its setActive(false) flag (real DSP skip),
+    // not by gating audio — so no per-engine input amps are needed.
     _cables[0] = new AudioConnection(_inputBuf, 0, _filterOBXa, 0);
     _cables[1] = new AudioConnection(_inputBuf, 0, _filterVA,   0);
 
@@ -72,6 +74,10 @@ FilterBlock::FilterBlock()
 
     // ── Input buffer gain (unity passthrough) ─────────────────────────────────
     _inputBuf.gain(INPUT_BUF_GAIN);
+
+    // ── Engine-skip gate: OBXa active by default ──────────────────────────────
+    _filterOBXa.setActive(true);
+    _filterVA.setActive(false);
 
     // ── Output mixer: OBXa active by default, VA muted ───────────────────────
     _outputMix.gain(0, ENGINE_ACTIVE);   // OBXa on
@@ -112,6 +118,8 @@ void FilterBlock::setFilterEngine(uint8_t engine)
     {
         _outputMix.gain(0, ENGINE_ACTIVE);
         _outputMix.gain(1, ENGINE_MUTED);
+        _filterOBXa.setActive(true);    // CPU skip gate: OBXa runs
+        _filterVA.setActive(false);     // VA drains & skips
         _applyParamsToOBXa();
         JT_LOGF("[FLT] Engine → OBXa\n");
     }
@@ -119,6 +127,8 @@ void FilterBlock::setFilterEngine(uint8_t engine)
     {
         _outputMix.gain(0, ENGINE_MUTED);
         _outputMix.gain(1, ENGINE_ACTIVE);
+        _filterOBXa.setActive(false);   // OBXa drains & skips
+        _filterVA.setActive(true);      // CPU skip gate: VA runs
         _applyParamsToVA();
         JT_LOGF("[FLT] Engine → VA (%s)\n", _filterVA.getFilterName());
     }
@@ -132,6 +142,59 @@ void FilterBlock::setVAFilterType(VAFilterType type)
     _vaType = type;
     _filterVA.setFilterType(type);
     JT_LOGF("[FLT] VA type: %s\n", _filterVA.getFilterName());
+}
+
+// ---------------------------------------------------------------------------
+// VA drive / saturation
+//
+// Drive is cached as a 0..1 UI value here and scaled to the engine's
+// setDrive() range in _applyParamsToVA() (1.0 + d*3.0 → ×1.0..4.0).  Caching
+// the un-scaled value keeps getVADrive()/PatchState in UI units and means the
+// scale lives in exactly one place.  Pushing the scaled value immediately too
+// keeps the live engine in sync without waiting for the next engine switch.
+// ---------------------------------------------------------------------------
+void FilterBlock::setVADrive(float norm01)
+{
+    _vaDrive01 = constrain(norm01, 0.0f, 1.0f);
+    _filterVA.setDrive(1.0f + _vaDrive01 * 3.0f);   // 0..1 → ×1.0..4.0
+    JT_LOGF("[FLT] VA drive: %.3f (×%.2f)\n", _vaDrive01, 1.0f + _vaDrive01 * 3.0f);
+}
+
+void FilterBlock::setVASaturation(uint8_t satType)
+{
+    if (satType > SAT_TANH) satType = SAT_TANH;     // clamp to valid enum range
+    _vaSat = (VASaturationType)satType;
+    _filterVA.setSaturation(_vaSat);
+    JT_LOGF("[FLT] VA sat: %u\n", (unsigned)_vaSat);
+}
+
+// ---------------------------------------------------------------------------
+// Engine-context shared CCs — VA-side decode only.
+//
+// FilterBlock is per-voice, so it cannot own the OBXa mode→flags→all-voices
+// fan-out (that needs SynthEngine's _patch + voice loop).  By design the
+// OBXa branch is therefore handled in SynthEngine; these methods decode the
+// VA meaning only and are called by SynthEngine when the VA engine is active.
+// The bucket math mirrors the SELECT decode used everywhere else
+// (value * count / 128) so display and firmware agree.
+// ---------------------------------------------------------------------------
+void FilterBlock::setContextCC112(uint8_t ccValue)   // VA: Filter Type
+{
+    const uint8_t vt = (uint8_t)constrain(
+        (int)ccValue * (int)FILTER_COUNT / 128, 0, (int)FILTER_COUNT - 1);
+    setVAFilterType((VAFilterType)vt);
+}
+
+void FilterBlock::setContextCC114(uint8_t ccValue)   // VA: Drive (0..1)
+{
+    setVADrive((float)ccValue * (1.0f / 127.0f));
+}
+
+void FilterBlock::setContextCC111(uint8_t ccValue)   // VA: Saturation (3)
+{
+    // 3 options: None / Soft(Fast) / Warm(Tanh) — same bucket decode as display
+    const uint8_t s = (uint8_t)constrain((int)ccValue * 3 / 128, 0, 2);
+    setVASaturation(s);
 }
 
 // ---------------------------------------------------------------------------
@@ -280,9 +343,14 @@ AudioMixer4& FilterBlock::modMixer(){ return _modMixer; }
 
 // ---------------------------------------------------------------------------
 // _applyParamsToOBXa  —  sync OBXa to all cached state
+//
+// reset() is called first: the incoming engine starts from clean state rather
+// than relying on having stayed "warm" while inactive (the engine-skip opt
+// can leave it cold).  This is the reset-on-switch contract.
 // ---------------------------------------------------------------------------
 void FilterBlock::_applyParamsToOBXa()
 {
+    _filterOBXa.reset();
     _filterOBXa.frequency(_cutoff);
     _filterOBXa.resonance(_resonance);
     _filterOBXa.setCutoffModOctaves(_octaveControl);
@@ -299,9 +367,14 @@ void FilterBlock::_applyParamsToOBXa()
 
 // ---------------------------------------------------------------------------
 // _applyParamsToVA  —  sync VA bank to all cached state
+//
+// reset() (incoming-engine contract) — note setFilterType() already resets on
+// a genuine type change, but an explicit reset here covers the case where the
+// type is unchanged across the switch.  Drive/saturation are re-pushed too.
 // ---------------------------------------------------------------------------
 void FilterBlock::_applyParamsToVA()
 {
+    _filterVA.reset();
     _filterVA.setFilterType(_vaType);
     _filterVA.frequency(_cutoff);
     _filterVA.resonance(_resonance);
@@ -309,4 +382,7 @@ void FilterBlock::_applyParamsToVA()
     _filterVA.setResonanceModDepth(_resonanceModDepth);
     _filterVA.setMidiNote(_midiNote);
     _filterVA.setEnvValue(_envValue);
+    // VA-only: scale cached 0..1 drive to engine range, push saturation.
+    _filterVA.setDrive(1.0f + _vaDrive01 * 3.0f);   // 0..1 → ×1.0..4.0
+    _filterVA.setSaturation(_vaSat);
 }

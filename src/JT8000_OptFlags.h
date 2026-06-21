@@ -172,3 +172,30 @@
 #ifndef JT_OPT_OSC_SYNC
 #define JT_OPT_OSC_SYNC  1   // 1 = enabled (recommended)
 #endif
+
+// -----------------------------------------------------------------------------
+// OPT 6 — Dual filter engine: skip DSP on the inactive engine.
+//
+// FilterBlock holds both AudioFilterOBXa and AudioFilterVABank permanently in
+// the audio graph; only one is routed to _outputMix at a time.  By default the
+// Teensy scheduler still calls update() on the silenced engine every block,
+// burning CPU on audio that is discarded.
+//
+// FIX: each filter exposes setActive(bool).  FilterBlock marks the inactive
+// engine inactive on switch.  When inactive AND this flag is 1, the filter's
+// update() drains its input block (receiveReadOnly + release, so the upstream
+// buffer is freed — no pool leak) and returns before any coefficient or
+// sample-loop work.  This is a genuine DSP skip, not "process silence".
+//
+// The incoming engine is reset() on switch, so it does not rely on having
+// stayed "warm" — the brief's reset-on-switch contract makes the old
+// always-run rationale void.
+//
+// When 0: setActive() still flips the flag but update() ignores it and both
+// engines process every block (original behaviour) for a clean A/B of the
+// CPU saving.  Audio output is identical either way because the inactive
+// engine is silenced at _outputMix regardless.
+// -----------------------------------------------------------------------------
+#ifndef JT_OPT_FILTER_ENGINE_SKIP
+#define JT_OPT_FILTER_ENGINE_SKIP  1   // 1 = enabled (recommended)
+#endif

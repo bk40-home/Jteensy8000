@@ -130,10 +130,25 @@ public:
 
 
 
+    // Engine-skip gate (see JT8000_OptFlags.h OPT 6).  When set inactive,
+    // update() drains its inputs and returns before any DSP — provided
+    // JT_OPT_FILTER_ENGINE_SKIP is enabled.  Defaults active so a stand-alone
+    // instance behaves normally.
+    void setActive(bool a) { _active = a; }
+    bool isActive() const  { return _active; }
+
+    // Clear filter integrator state (call on engine switch or note-off).
+    // Mirrors AudioFilterVABank::reset() so FilterBlock can reset either
+    // engine uniformly.  Forwards to the pImpl Core.
+    void reset();
+
     virtual void update(void) override;
 
 private:
     audio_block_t *_inQ[3]{};
+
+    // Engine-skip gate (OPT 6).  True = process normally; false = drain & skip.
+    bool _active = true;
 
     // Internal control state
     float _cutoffHzTarget = 1000.0f;

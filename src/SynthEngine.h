@@ -462,6 +462,15 @@ public:
     // Only meaningful when engine == FILTER_ENGINE_VA.
     void setVAFilterType(uint8_t vaType);
 
+    // Engine-context shared CCs.  One CC, two meanings; dispatch on the active
+    // engine (OBXa → existing topology setters, VA → FilterBlock VA decode).
+    //   112: OBXa Filter Mode    | VA Filter Type
+    //   114: OBXa Xpander sub-mode | VA Drive
+    //   111: OBXa Multimode       | VA Saturation
+    void setFilterContext112(uint8_t value);
+    void setFilterContext114(uint8_t value);
+    void setFilterContext111(uint8_t value);
+
     float   getFilterCutoff()          const;
     float   getFilterResonance()       const;
     float   getFilterEnvAmount()       const;

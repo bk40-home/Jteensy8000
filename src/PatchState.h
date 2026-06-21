@@ -113,6 +113,14 @@ struct PatchState {
     float   filterResModDepth   = 0.0f;
     float   filterResonaceModDepth = 0.0f;  // intentional spelling kept for ABI
 
+    // VA-engine-only controls (shared CCs when filterEngine == VA).
+    // Cached here so a preset round-trips them and the engine restores
+    // them on a switch.  vaSaturation default 2 == SAT_TANH; a literal is
+    // used rather than the enum so PatchState keeps no filter-internal
+    // dependency (see file-head note).
+    float   vaDrive         = 0.0f;   // 0..1 normalised (UI scale)
+    uint8_t vaSaturation    = 2;      // SAT_TANH
+
     // =========================================================================
     // Glide
     // =========================================================================

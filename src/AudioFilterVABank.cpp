@@ -164,6 +164,19 @@ void AudioFilterVABank::update(void)
     // No audio input — nothing to filter, skip all DSP
     if (!in0) return;
 
+#if JT_OPT_FILTER_ENGINE_SKIP
+    // Inactive engine: drain every input so upstream buffers are freed
+    // (no pool leak), then return before any coefficient or sample-loop work.
+    if (!_active) {
+        release(in0);
+        audio_block_t *m1 = receiveReadOnly(1);
+        audio_block_t *m2 = receiveReadOnly(2);
+        if (m1) release(m1);
+        if (m2) release(m2);
+        return;
+    }
+#endif
+
     audio_block_t *in1 = receiveReadOnly(1);  // cutoff mod bus
     audio_block_t *in2 = receiveReadOnly(2);  // resonance mod bus
 

@@ -134,6 +134,13 @@ public:
     // ── State ────────────────────────────────────────────────────────────────
     void reset();   // clear all filter states (call on topology switch or note-off)
 
+    // Engine-skip gate (see JT8000_OptFlags.h OPT 6).  When set inactive,
+    // update() drains its inputs and returns before any DSP — provided
+    // JT_OPT_FILTER_ENGINE_SKIP is enabled.  Defaults active so a stand-alone
+    // instance behaves normally.
+    void setActive(bool a) { _active = a; }
+    bool isActive() const  { return _active; }
+
     // AudioStream mandatory override
     virtual void update(void) override;
 
@@ -142,6 +149,9 @@ private:
 
     // ── Active topology ──────────────────────────────────────────────────────
     VAFilterType _type = FILTER_SVF_LP;
+
+    // Engine-skip gate (OPT 6).  True = process normally; false = drain & skip.
+    bool _active = true;
 
     // ── Control parameters ───────────────────────────────────────────────────
     float _fcTarget     = 1000.0f;   // cutoff Hz

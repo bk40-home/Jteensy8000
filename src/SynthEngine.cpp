@@ -757,6 +757,63 @@ void SynthEngine::setVAFilterType(uint8_t vaType) {
     JT_LOGF("[SE] VAFilterType = %u\n", vaType);
 }
 
+// ---------------------------------------------------------------------------
+// Engine-context shared CCs (112 / 114 / 111).
+//
+// One CC, two meanings.  The OBXa meaning needs the _patch + voice-loop decode
+// that already lives here; the VA meaning is owned by FilterBlock (per voice).
+// These dispatchers branch on the active engine: OBXa → existing setter path
+// (unchanged behaviour); VA → per-voice context forwarder, with PatchState
+// cached so presets round-trip.  Raw 7-bit value is passed for the VA bucket
+// math so it matches the display decode.
+// ---------------------------------------------------------------------------
+void SynthEngine::setFilterContext112(uint8_t value) {
+    JT_LOGF("[SE] ctx112 ENTRY engine=%u value=%u\n", _patch.filterEngine, value);
+    if (_patch.filterEngine == CC::FILTER_ENGINE_VA) {
+        // VA: Filter Type.  Decode once for PatchState, forward raw to voices.
+        const uint8_t vt = (uint8_t)constrain(
+            (int)value * (int)FILTER_COUNT / 128, 0, (int)FILTER_COUNT - 1);
+        _patch.vaFilterType = vt;
+        for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+            _voices[i].setContextCC112(value);
+        JT_LOGF("[SE] ctx112 → VA type %u\n", vt);
+    } else {
+        // OBXa: Filter Mode (existing decode + fan-out).
+        const uint8_t mode = (uint8_t)constrain(
+            (int)value * (int)CC::FILTER_MODE_COUNT / 128, 0,
+            (int)CC::FILTER_MODE_COUNT - 1);
+        setFilterMode(mode);
+    }
+}
+
+void SynthEngine::setFilterContext114(uint8_t value) {
+    if (_patch.filterEngine == CC::FILTER_ENGINE_VA) {
+        // VA: Drive (0..1 UI).  Cache normalised; voices scale internally.
+        _patch.vaDrive = (float)value * (1.0f / 127.0f);
+        for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+            _voices[i].setContextCC114(value);
+        JT_LOGF("[SE] ctx114 → VA drive %.3f\n", _patch.vaDrive);
+    } else {
+        // OBXa: Xpander sub-mode (0..14).
+        const uint8_t mode = (uint8_t)constrain((int)value * 15 / 128, 0, 14);
+        setFilterXpanderMode(mode);
+    }
+}
+
+void SynthEngine::setFilterContext111(uint8_t value) {
+    if (_patch.filterEngine == CC::FILTER_ENGINE_VA) {
+        // VA: Saturation (3 options).  Cache decoded enum; forward raw.
+        const uint8_t s = (uint8_t)constrain((int)value * 3 / 128, 0, 2);
+        _patch.vaSaturation = s;
+        for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i)
+            _voices[i].setContextCC111(value);
+        JT_LOGF("[SE] ctx111 → VA sat %u\n", s);
+    } else {
+        // OBXa: Multimode blend (continuous 0..1).
+        setFilterMultimode((float)value * (1.0f / 127.0f));
+    }
+}
+
 void SynthEngine::setFilterResonanceModDepth(float amount) {
     _patch.filterResonaceModDepth = amount;
     for (uint8_t i = _firstVoice; i < _firstVoice + _voiceCount; ++i) _voices[i].setResonanceModDepth(amount);
@@ -1937,22 +1994,18 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             JT_CC_LOG("[CC %u:%s] Filter Octave = %.3f\n", control, ccName, o);
         } break;
 
-        // --- OBXa Filter Extended Controls ---
+        // --- Engine-context shared filter CCs (dispatch on active engine) ---
 
-        // Multimode blend: CC 0-127 → 0.0-1.0 (LP4 → HP via pole mixing)
+        // CC 111: OBXa Multimode blend | VA Saturation
         case CC::FILTER_OBXA_MULTIMODE: {
-            setFilterMultimode(norm);
-            JT_CC_LOG("[CC %u:%s] Multimode = %.3f\n", control, ccName, norm);
+            setFilterContext111(value);
+            JT_CC_LOG("[CC %u:%s] ctx111 (engine %u)\n", control, ccName, _patch.filterEngine);
         } break;
 
-        // Single topology selector — clears conflicting flags automatically.
-        // CC value 0-127 mapped into FILTER_MODE_COUNT equal buckets.
+        // CC 112: OBXa Filter Mode | VA Filter Type
         case CC::FILTER_MODE: {
-            const uint8_t mode = (uint8_t)constrain(
-                (int)value * (int)CC::FILTER_MODE_COUNT / 128, 0,
-                (int)CC::FILTER_MODE_COUNT - 1);
-            setFilterMode(mode);
-            JT_CC_LOG("[CC %u:%s] FilterMode = %u\n", control, ccName, mode);
+            setFilterContext112(value);
+            JT_CC_LOG("[CC %u:%s] ctx112 (engine %u)\n", control, ccName, _patch.filterEngine);
         } break;
 
         // Filter engine select: 0 = OBXa, 1 = VA bank.
@@ -1964,19 +2017,14 @@ void SynthEngine::handleControlChange(byte /*channel*/, byte control, byte value
             JT_CC_LOG("[CC %u:%s] FilterEngine = %u\n", control, ccName, eng);
         } break;
 
-        // VA bank topology: CC 0-127 mapped into FILTER_COUNT equal buckets.
-        case CC::VA_FILTER_TYPE: {
-            const uint8_t vt = (uint8_t)constrain(
-                (int)value * (int)FILTER_COUNT / 128, 0, (int)FILTER_COUNT - 1);
-            setVAFilterType(vt);
-            JT_CC_LOG("[CC %u:%s] VAFilterType = %u\n", control, ccName, vt);
-        } break;
+        // CC 115 (VA_FILTER_TYPE) retired as MIDI input — CC 112 now carries
+        // VA Filter Type when the VA engine is active.  The constant remains
+        // defined for PatchState / display / SysEx metadata compatibility.
 
-        // Xpander sub-mode (0..14): only meaningful when FilterMode == XPANDER_M
+        // CC 114: OBXa Xpander sub-mode | VA Drive
         case CC::FILTER_OBXA_XPANDER_MODE: {
-            const uint8_t mode = (uint8_t)constrain((int)value * 15 / 128, 0, 14);
-            setFilterXpanderMode(mode);
-            JT_CC_LOG("[CC %u:%s] XpanderMode = %u\n", control, ccName, mode);
+            setFilterContext114(value);
+            JT_CC_LOG("[CC %u:%s] ctx114 (engine %u)\n", control, ccName, _patch.filterEngine);
         } break;
 
         // Resonance modulation depth: CC 0-127 → 0.0-1.0

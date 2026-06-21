@@ -295,6 +295,11 @@ void VoiceBlock::setPush2Pole(bool enabled)         { _push2Pole = enabled; _fil
 void VoiceBlock::setResonanceModDepth(float depth)  { _resonanceModDepth = depth; _filter.setResonanceModDepth(depth); }
 void VoiceBlock::setFilterEngine(uint8_t engine)    { _filter.setFilterEngine(engine); }
 void VoiceBlock::setVAFilterType(VAFilterType type) { _filter.setVAFilterType(type); }
+void VoiceBlock::setContextCC112(uint8_t v)         { _filter.setContextCC112(v); }
+void VoiceBlock::setContextCC114(uint8_t v)         { _filter.setContextCC114(v); }
+void VoiceBlock::setContextCC111(uint8_t v)         { _filter.setContextCC111(v); }
+void VoiceBlock::setVADrive(float n01)              { _filter.setVADrive(n01); }
+void VoiceBlock::setVASaturation(uint8_t s)         { _filter.setVASaturation(s); }
 
 // =========================================================================
 // ENVELOPES

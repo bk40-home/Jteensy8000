@@ -160,6 +160,14 @@ public:
     void setFilterEngine(uint8_t engine);
     void setVAFilterType(VAFilterType type);
 
+    // Engine-context shared CCs (VA-side decode lives in FilterBlock) and
+    // VA drive/saturation.  Raw 7-bit CC value in; FilterBlock decodes.
+    void setContextCC112(uint8_t ccValue);   // VA Type   (when engine == VA)
+    void setContextCC114(uint8_t ccValue);   // VA Drive  (when engine == VA)
+    void setContextCC111(uint8_t ccValue);   // VA Sat    (when engine == VA)
+    void setVADrive(float norm01);
+    void setVASaturation(uint8_t satType);
+
     // =========================================================================
     // ENVELOPES
     // =========================================================================
