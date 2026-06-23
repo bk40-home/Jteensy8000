@@ -37,6 +37,8 @@
 
 #include "DebugTrace.h"
 #include "FilterBlock.h"
+#include "FilterShape.h"   // per-filter fcMin/fcMax for Hz↔norm conversion
+#include <math.h>          // logf, powf
 
 // ---------------------------------------------------------------------------
 // Mixer gain constants
@@ -47,6 +49,29 @@ static constexpr float LFO_GAIN_INIT   = 0.0f;
 static constexpr float ENGINE_ACTIVE   = 1.0f;
 static constexpr float ENGINE_MUTED    = 0.0f;
 static constexpr float INPUT_BUF_GAIN  = 1.0f;   // unity passthrough
+
+// ---------------------------------------------------------------------------
+// Hz → normalised (0..1) for the VA bank's setCutoffNorm() API.
+//
+// The VA bank's norm API expects a 0..1 knob value and applies the per-filter
+// FilterShape exponential curve  Hz = fcMin·(fcMax/fcMin)^c  internally. The
+// synth plumbs cutoff as Hz (SynthEngine maps CC→Hz, VoiceBlock scales by
+// velocity in Hz), so we invert that curve here using the SAME per-filter
+// range, giving the exact normalised position the bank will re-expand. Result
+// is clamped to 0..1 so out-of-band Hz (after velocity offset) lands cleanly
+// at the rails instead of overshooting.
+//
+//   c = log(Hz/fcMin) / log(fcMax/fcMin)
+//
+// Done at control rate only (per setCutoff call), so the logf cost is trivial.
+// ---------------------------------------------------------------------------
+static inline float hzToNormForType(float hz, VAFilterType type)
+{
+    const FilterShape& s = kFilterShape[type];
+    if (hz <= s.fcMinHz) return 0.0f;
+    if (hz >= s.fcMaxHz) return 1.0f;
+    return logf(hz / s.fcMinHz) / logf(s.fcMaxHz / s.fcMinHz);
+}
 
 // ---------------------------------------------------------------------------
 // Constructor  —  build the permanent audio graph
@@ -141,22 +166,25 @@ void FilterBlock::setVAFilterType(VAFilterType type)
 {
     _vaType = type;
     _filterVA.setFilterType(type);
+    // The Hz→norm inversion depends on the filter's FilterShape range, so the
+    // same cached cutoff Hz maps to a different norm under a new type. Re-push
+    // it so the cutoff stays at the intended Hz across a type change.
+    _filterVA.setCutoffNorm(hzToNormForType(_cutoff, _vaType));
     JT_LOGF("[FLT] VA type: %s\n", _filterVA.getFilterName());
 }
 
 // ---------------------------------------------------------------------------
 // VA drive / saturation
 //
-// Drive is cached as a 0..1 UI value here and scaled to the engine's
-// setDrive() range in _applyParamsToVA() (1.0 + d*3.0 → ×1.0..4.0).  Caching
-// the un-scaled value keeps getVADrive()/PatchState in UI units and means the
-// scale lives in exactly one place.  Pushing the scaled value immediately too
-// keeps the live engine in sync without waiting for the next engine switch.
+// Drive is cached as a 0..1 UI value here. The VA bank's setDriveNorm() does
+// the 0..1 → ×1..4 scale AND block-rate slews it, so CC drive sweeps are
+// click-free. Caching the un-scaled value keeps getVADrive()/PatchState in UI
+// units and the scale lives inside the bank (single source of truth).
 // ---------------------------------------------------------------------------
 void FilterBlock::setVADrive(float norm01)
 {
     _vaDrive01 = constrain(norm01, 0.0f, 1.0f);
-    _filterVA.setDrive(1.0f + _vaDrive01 * 3.0f);   // 0..1 → ×1.0..4.0
+    _filterVA.setDriveNorm(_vaDrive01);             // bank scales 0..1 → ×1..4
     JT_LOGF("[FLT] VA drive: %.3f (×%.2f)\n", _vaDrive01, 1.0f + _vaDrive01 * 3.0f);
 }
 
@@ -207,7 +235,10 @@ void FilterBlock::setCutoff(float freqHz)
     if (freqHz == _cutoff) return;
     _cutoff = freqHz;
     _filterOBXa.frequency(freqHz);
-    _filterVA.frequency(freqHz);
+    // VA bank: feed the normalised API so cutoff sweeps are slewed and the
+    // per-filter FilterShape curve applies. Hz is inverted under the ACTIVE VA
+    // filter's range (the bank re-expands it with the same range internally).
+    _filterVA.setCutoffNorm(hzToNormForType(freqHz, _vaType));
     JT_LOGF_RATE(200, "[FLT] Cutoff: %.2f Hz\n", freqHz);
 }
 
@@ -215,7 +246,8 @@ void FilterBlock::setResonance(float amount)
 {
     _resonance = amount;
     _filterOBXa.resonance(amount);
-    _filterVA.resonance(amount);
+    // VA bank: normalised API applies per-filter γ + slewing (vs raw 0..1).
+    _filterVA.setResonanceNorm(amount);
     JT_LOGF("[FLT] Resonance: %.4f\n", amount);
 }
 
@@ -376,13 +408,18 @@ void FilterBlock::_applyParamsToVA()
 {
     _filterVA.reset();
     _filterVA.setFilterType(_vaType);
-    _filterVA.frequency(_cutoff);
-    _filterVA.resonance(_resonance);
+    // Normalised API: cutoff Hz inverted under the active filter's range, res
+    // and drive as 0..1. setFilterType() above already cleared DSP state.
+    _filterVA.setCutoffNorm(hzToNormForType(_cutoff, _vaType));
+    _filterVA.setResonanceNorm(_resonance);
     _filterVA.setCutoffModOctaves(_octaveControl);
     _filterVA.setResonanceModDepth(_resonanceModDepth);
     _filterVA.setMidiNote(_midiNote);
     _filterVA.setEnvValue(_envValue);
-    // VA-only: scale cached 0..1 drive to engine range, push saturation.
-    _filterVA.setDrive(1.0f + _vaDrive01 * 3.0f);   // 0..1 → ×1.0..4.0
+    _filterVA.setDriveNorm(_vaDrive01);             // bank scales 0..1 → ×1..4
     _filterVA.setSaturation(_vaSat);
+    // Settle all slews to the just-pushed targets so switching to VA does not
+    // glide in from stale slew state — the engine starts exactly at the cached
+    // patch values (matches the OBXa branch's instant apply).
+    _filterVA.snap();
 }
