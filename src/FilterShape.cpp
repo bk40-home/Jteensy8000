@@ -48,4 +48,20 @@ const FilterShape kFilterShape[FILTER_COUNT] =
     // only up to ~8 kHz before it becomes a click.
     /* FILTER_TPT1_LP   */ {   50.0f, 18000.0f, 1.00f },
     /* FILTER_TPT1_HP   */ {   30.0f,  8000.0f, 1.00f },
+
+    // ── MoogDV nonlinear ladder (D'Angelo–Välimäki, ICASSP'13) ───────────────
+    // Same k⁴-style late resonance knee as the linear Moog, so it shares the
+    // strong γ=0.30 lift. The CEILING is special: the paper's A coefficient
+    // zeros within the audio band, giving a usable max cutoff of
+    // MoogDV4::maxCutoffHz(fs) ≈ 5.8 kHz at 1x (≈11.6 kHz at 2x). We pin fcMaxHz
+    // to the 1x value here so the knob maps musically across the usable band; if
+    // JT_OPT_MOOGDV_OVERSAMPLE is raised to 2, lift this to ~11600 to use the
+    // wider range. The bank also clamps post-modulation to maxCutoffHz() as a
+    // backstop, so a stale value here is safe, just not optimally mapped.
+    // HP4/BP taps stay musical to the same ceiling (they derive from the LP
+    // poles), so they share the limit.
+    /* FILTER_MOOGDV_LP4 */ {   40.0f,  5800.0f, 0.30f },
+    /* FILTER_MOOGDV_LP2 */ {   40.0f,  5800.0f, 0.30f },
+    /* FILTER_MOOGDV_HP4 */ {   40.0f,  5800.0f, 0.30f },
+    /* FILTER_MOOGDV_BP  */ {   80.0f,  5800.0f, 0.30f },
 };

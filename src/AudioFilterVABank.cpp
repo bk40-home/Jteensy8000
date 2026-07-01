@@ -189,6 +189,7 @@ void AudioFilterVABank::reset()
     _diode.reset();
     _k35lp.reset();
     _k35hp.reset();
+    _moogdv.reset();
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +238,17 @@ float AudioFilterVABank::mapResonance(float r, VAFilterType type) const
         case FILTER_KORG35_LP:
         case FILTER_KORG35_HP:
             return r * 1.95f;
+
+        // MoogDV (D'Angelo–Välimäki): physical self-oscillation onset at k=4.0
+        // (paper §4; host-verified clean sustained ring above ~4, silent below).
+        // r=1 → k=4.0. The model saturates rather than diverging past it, so —
+        // unlike the linear Moog above — we map to the threshold itself, not
+        // just below it.
+        case FILTER_MOOGDV_LP4:
+        case FILTER_MOOGDV_LP2:
+        case FILTER_MOOGDV_HP4:
+        case FILTER_MOOGDV_BP:
+            return r * 4.0f;
 
         // 1-pole has no resonance.
         case FILTER_TPT1_LP:
@@ -473,6 +485,46 @@ void AudioFilterVABank::update(void)
         case FILTER_TPT1_HP:
             runBlock([&](float x, float g){ float lp; return _tpt1.processHP(x, g, lp); });
             break;
+
+        // ── MoogDV nonlinear ladder (D'Angelo–Välimäki, ICASSP'13) ───────────
+        // Authentic white-box Moog: physical self-oscillation at k=4, NON-
+        // iterative (fixed 5 tanh/sample). Cutoff is set ONCE per block in Hz
+        // (setCutoff computes the paper's A coefficient — a single divide, no
+        // tanf), so the per-sample lambda ignores g entirely.
+        //
+        // CUTOFF BACKSTOP: the paper's A coefficient peaks then zeros within the
+        // audio band (zero at fs/π ≈ 14 kHz @ 44.1k). FilterShape already caps
+        // the *knob* at fcMaxHz≈5.8 kHz, but fcBlockClamped also carries env /
+        // key-track / mod, which can push above that. So we clamp here to
+        // MoogDV4::maxCutoffHz() (derived from the oversample setting) — the
+        // same ceiling, applied after modulation. This is why 2x oversampling
+        // raises MoogDV's brightness ceiling, not just its alias floor.
+        case FILTER_MOOGDV_LP4:
+        case FILTER_MOOGDV_LP2:
+        case FILTER_MOOGDV_HP4:
+        case FILTER_MOOGDV_BP:
+        {
+            const float fcDV = va_clamp(fcBlockClamped, 5.0f,
+                                        MoogDV4::maxCutoffHz(AUDIO_SAMPLE_RATE_EXACT));
+            _moogdv.setCutoff(fcDV, AUDIO_SAMPLE_RATE_EXACT);
+            const bool qc = _moogdvQComp;
+            switch (_type)
+            {
+                case FILTER_MOOGDV_LP4:
+                    runBlock([&](float x, float){ _moogdv.tick(x, kf, qc); return _moogdv.lp4; });
+                    break;
+                case FILTER_MOOGDV_LP2:
+                    runBlock([&](float x, float){ _moogdv.tick(x, kf, qc); return _moogdv.lp2; });
+                    break;
+                case FILTER_MOOGDV_HP4:
+                    runBlock([&](float x, float){ _moogdv.tick(x, kf, qc); return _moogdv.hp4; });
+                    break;
+                default: // FILTER_MOOGDV_BP
+                    runBlock([&](float x, float){ _moogdv.tick(x, kf, qc); return _moogdv.bp; });
+                    break;
+            }
+            break;
+        }
 
         default:
             runBlock([&](float x, float){ return x; });   // passthrough

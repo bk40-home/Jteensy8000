@@ -60,6 +60,7 @@
 #include <Arduino.h>
 #include "AudioStream.h"
 #include "VAFilterCore.h"
+#include "MoogDVCore.h"   // D'Angelo–Välimäki nonlinear Moog ladder (ICASSP'13)
 #include "SlewedValue.h"
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,13 @@ enum VAFilterType : uint8_t
     FILTER_KORG35_HP = 10,
     FILTER_TPT1_LP   = 11,
     FILTER_TPT1_HP   = 12,
+    // D'Angelo–Välimäki nonlinear Moog ladder (ICASSP'13). Physical self-osc at
+    // k=4, non-iterative (fixed 5 tanh/sample). See MoogDVCore.h. Appended at
+    // the end so all existing type indices (and saved patches) are unchanged.
+    FILTER_MOOGDV_LP4 = 13,  // 24 dB/oct LP — authentic Moog lowpass
+    FILTER_MOOGDV_LP2 = 14,  // 12 dB/oct LP (y2 tap)
+    FILTER_MOOGDV_HP4 = 15,  // 24 dB/oct HP (binomial residual)
+    FILTER_MOOGDV_BP  = 16,  // band-pass (pole difference)
     FILTER_COUNT           // keep last – used for bounds checking
 };
 
@@ -97,7 +105,11 @@ static const char* const kVAFilterNames[FILTER_COUNT] = {
     "Korg35 LP",
     "Korg35 HP",
     "TPT1 LP",
-    "TPT1 HP"
+    "TPT1 HP",
+    "MoogDV LP4",
+    "MoogDV LP2",
+    "MoogDV HP4",
+    "MoogDV BP"
 };
 
 // ---------------------------------------------------------------------------
@@ -186,6 +198,10 @@ public:
     void setDriveNorm(float d01);
     void setSaturation(VASaturationType s) { _satType  = s; }
 
+    // MoogDV-only: passband compensation ("stays loud" at high resonance).
+    // No-op for every other topology. Defaults on.
+    void setMoogDVQComp(bool on) { _moogdvQComp = on; }
+
     // ── State ────────────────────────────────────────────────────────────────
     void reset();   // clear all filter states (call on topology switch or note-off)
 
@@ -243,6 +259,12 @@ private:
     DiodeLadder4 _diode;
     Korg35LP     _k35lp;
     Korg35HP     _k35hp;
+    MoogDV4      _moogdv;  // D'Angelo–Välimäki authentic Moog ladder (ICASSP'13)
+
+    // MoogDV "stays loud" passband compensation (input *(1+k)). On by default,
+    // matching the host-validated test-rig behaviour. Self-contained to MoogDV;
+    // no other topology reads it.
+    bool _moogdvQComp = true;
 
     // ── Internal helpers ─────────────────────────────────────────────────────
 

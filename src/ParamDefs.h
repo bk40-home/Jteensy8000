@@ -86,9 +86,10 @@ static constexpr uint8_t kFilterModeCount = 6;
 static constexpr const char* kVAFilterOptions[] = {
     "SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP",
     "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4",
-    "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP"
+    "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP",
+    "MoogDV LP4", "MoogDV LP2", "MoogDV HP4", "MoogDV BP"
 };
-static constexpr uint8_t kVAFilterCount = 13;
+static constexpr uint8_t kVAFilterCount = 17;
 
 // VA output saturation — names match AudioFilterVABank VASaturationType order
 // (SAT_NONE / SAT_FAST / SAT_TANH).  Shared CC 111 when filterEngine == VA.

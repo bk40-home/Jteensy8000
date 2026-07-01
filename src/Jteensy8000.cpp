@@ -634,7 +634,7 @@ void setup() {
 
     // Setup completed without crashing — clear the crash report so the
     // next boot doesn't re-print this stale fault.  If we crash before
-    // reaching here, the report stays intact for the following boot.
+    // reaching here, the report stays intact for the following boot.sd
     CrashReport.clear();
     Serial.println("[JT8000] Setup complete");
 

@@ -76,6 +76,30 @@ inline float va_tanh(float x)
 }
 
 // ---------------------------------------------------------------------------
+// Bounded Padé tanh — same [3/3] curve as va_tanh_fast but CLAMPED past |x|=4.
+//
+// WHY THIS EXISTS SEPARATELY FROM va_tanh_fast / va_sat:
+//   • va_tanh_fast is the SAME rational but UNBOUNDED (asymptote x/9): unusable
+//     where a stage output is fed forward through more tanh stages, because the
+//     growth compounds.
+//   • va_sat (x/sqrt(1+x²)) is bounded but a DIFFERENT curve — its harmonic
+//     content and saturation knee differ audibly.
+//   MoogDVCore was tuned and host-validated against THIS specific curve: the
+//   rational tanh up to |x|=4, then a hard clamp to ±0.9993 (where the rational
+//   already reads ±0.999, so the clamp is inaudible but guarantees boundedness
+//   in the 5-tanh-per-sample chain). Swapping in va_sat or va_tanh_fast would
+//   change the validated MoogDV sound, so the core needs its own bounded tanh.
+// ---------------------------------------------------------------------------
+inline float va_tanh_bounded(float x)
+{
+    // Flat region: rational already ≈ ±0.9993 here; clamp keeps it bounded.
+    if (x >  4.0f) return  0.9993293f;
+    if (x < -4.0f) return -0.9993293f;
+    const float x2 = x * x;
+    return x * (27.0f + x2) / (27.0f + 9.0f * x2);
+}
+
+// ---------------------------------------------------------------------------
 // Bounded "fast sigmoid" saturator  (Zavalishin §6.1, p.173 – bounded odd NL)
 //
 // WHY NOT va_tanh_fast HERE:

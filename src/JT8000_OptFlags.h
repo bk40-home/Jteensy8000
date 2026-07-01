@@ -199,3 +199,34 @@
 #ifndef JT_OPT_FILTER_ENGINE_SKIP
 #define JT_OPT_FILTER_ENGINE_SKIP  1   // 1 = enabled (recommended)
 #endif
+
+// -----------------------------------------------------------------------------
+// OPT 7 — MoogDV nonlinear ladder (D'Angelo–Välimäki, ICASSP'13) tuning.
+//
+// MoogDV is a non-iterative white-box Moog model: a FIXED 5 tanh per sample,
+// no Newton solve. These two flags trade CPU for fidelity. Both are read inside
+// MoogDVCore.h, which pulls THIS file in first (guarded by __has_include) so the
+// values below win over the core's fallback defaults regardless of include
+// order. They are compile-time on purpose: they are global DSP-cost choices,
+// not per-patch musical parameters, so they carry no CC/SysEx plumbing.
+//
+// JT_OPT_MOOGDV_OVERSAMPLE
+//   1 = run at base rate (ship default). Lowest CPU. Like every nonlinear
+//       ladder it aliases on bright/resonant/hard-driven input at 1x.
+//   2 = run at 2*fs with a light halfband decimator: ~2x the tanh bill, less
+//       aliasing AND a higher usable cutoff (maxCutoffHz scales with the
+//       internal rate — ~5.8 kHz at 1x, ~11.6 kHz at 2x).
+//
+// JT_OPT_MOOGDV_TRUE_TANH
+//   0 = cheap bounded Padé tanh (va_tanh_bounded, ~8 cyc) — recommended ship
+//       setting; saturation is true past |x|~4.
+//   1 = paper-faithful tanhf (~30 cyc on M7). Audibly almost identical here;
+//       use only for reference A/B against the published model.
+// -----------------------------------------------------------------------------
+#ifndef JT_OPT_MOOGDV_OVERSAMPLE
+#define JT_OPT_MOOGDV_OVERSAMPLE  1   // 1 = base rate (recommended to ship)
+#endif
+
+#ifndef JT_OPT_MOOGDV_TRUE_TANH
+#define JT_OPT_MOOGDV_TRUE_TANH   0   // 0 = cheap bounded tanh (recommended)
+#endif
