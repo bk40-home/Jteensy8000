@@ -518,7 +518,7 @@ void setup() {
     Serial.println("[JT8000] USB Host MIDI configured");
     delay(200);  // Let USB host stack settle before polling
 
-    set_arm_clock(720000000);
+    //set_arm_clock(720000000);
 
     Serial.println("[JT8000] Boot start");
     Serial.printf("[JT8000] CPU = %lu MHz\n",
@@ -625,8 +625,8 @@ void setup() {
     // Gain settings
     mixerI2SL.gain(0, 1.0f);   // Synth → I2S L
     mixerI2SR.gain(0, 1.0f);   // Synth → I2S R
-    mixerI2SL.gain(1, 0.4f);   // USB in → I2S L (lower so DAW audio doesn't overpower synth)
-    mixerI2SR.gain(1, 0.4f);   // USB in → I2S R
+    mixerI2SL.gain(1, 0.0f);   // USB in → I2S L (lower so DAW audio doesn't overpower synth)
+    mixerI2SR.gain(1, 0.0f);   // USB in → I2S R
     ampUSBL.gain(0.7f);         // USB output trim
     ampUSBR.gain(0.7f);
 
