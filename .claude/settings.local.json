@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /mingw64/bin/*.exe 2>&1 | grep -i -E \"gcc|g\\\\+\\\\+|clang\" ; echo \"---\"; ls -la /mingw64/bin 2>&1 | wc -l)",
+      "Read(//mingw64/**)"
+    ]
+  }
+}
