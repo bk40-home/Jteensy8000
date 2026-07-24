@@ -1,0 +1,1738 @@
+# =============================================================================
+# params.yaml — JT-8000 v2 SINGLE SOURCE OF TRUTH for all parameters
+# =============================================================================
+#
+# Seeded mechanically from v1 ParamDefs.h by tools/seed_from_v1.py.
+# From this point on, THIS FILE is authoritative.  Firmware, ESP32
+# controller and JUCE editor tables are GENERATED from it by
+# tools/gen_params.py — never hand-edit the generated files.
+#
+# RULES (design brief v1.0 §4.2):
+#   * ParamIDs are PERMANENT.  id = (section << 7) | index, 14-bit.
+#     NRPN number == ParamID (MSB = section, LSB = index).
+#     Never renumber.  Deleting a param: move its id to retired_ids.
+#   * New params append at the END of their section (next free index).
+#   * 'cc' bindings come only from the curated performance set (§5.1).
+#   * range.curve: lin | log | seg2   (log needs min > 0;
+#     seg2 is two linear segments meeting at 'mid' when the control
+#     is at its physical centre — used for v1's envelope slopes).
+#   * unit 'norm' means the engine owns final scaling (v1 parity is
+#     confirmed per-param during the Phase 2 DSP port).
+#   * smooth_ms is the audio-plane slew class: 0 = step, 5 = fast, 20 = slow.
+
+schema_version: 1
+
+retired_ids: []          # ParamIDs may enter this list; they never leave
+
+# -----------------------------------------------------------------------------
+# Option sets — canonical display strings for select parameters.
+# Adding an option APPENDS (indices are stored in patches).
+# -----------------------------------------------------------------------------
+option_sets:
+  osc_wave: ["SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW"]
+  pitch_offset: ["-24", "-12", "0", "+12", "+24"]
+  filter_engine: ["OBXa", "VA"]
+  filter_mode: ["4-Pole", "2-Pole", "2P BP", "2P Push", "Xpander", "Xpander M"]
+  v_a_filter: ["SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP", "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4", "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP", "MoogDV LP4", "MoogDV LP2", "MoogDV HP4", "MoogDV BP"]
+  saturation: ["OFF", "SOFT", "WARM"]
+  # OB-Xa Xpander pole-mix modes. Names are VERBATIM from the firmware's
+  # kObxaPoleMix[15][5] table — each row mixes the five ladder taps into one
+  # classic Xpander response. The bare "0".."14" these replace were a seed
+  # placeholder, exactly like the FX effect names were.
+  xpander_mode: ["LP4", "LP3", "LP2", "LP1", "HP3", "HP2", "HP1", "BP4", "BP2",
+                 "N2", "PH3", "HP2+LP1", "HP3+LP1", "N2+LP1", "PH3+LP1"]
+  l_f_o_wave: ["SIN", "TRI", "SAW", "SQR", "S&H", "NOISE"]
+  l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
+  timing_mode: ["Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T"]
+  poly_mode: ["Poly", "Mono", "Unison"]
+  # Canonical FX names — these come from the firmware FX design, not from v1 CC
+  # buckets. The numeric placeholders they replace were a seed artefact.
+  f_x_mod_effect: ["OFF", "Chorus 1", "Chorus 2", "Chorus 3", "Flanger 1", "Flanger 2",
+                   "Flanger 3", "Phaser 1", "Phaser 2", "Phaser 3", "Phaser 4",
+                   "Super Chorus"]
+  f_x_delay_effect: ["OFF", "Mono Short", "Mono Long", "Pan L>R", "Pan R>L", "Pan Stereo"]
+  drive: ["OFF", "Soft", "Hard"]
+  seq_dir: ["Fwd", "Rev", "Bounce", "Random"]
+  seq_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
+  perf_mode: ["Single", "Layer", "Split"]
+  edit_target: ["A", "B", "Both"]
+  clock_source: ["Internal", "Ext MIDI"]
+  # Voice allocation across layers A+B (always sums to 8).
+  voice_split: ["1+7", "2+6", "3+5", "4+4", "5+3", "6+2", "7+1"]
+  midi_channel: ["Ch 1", "Ch 2", "Ch 3", "Ch 4", "Ch 5", "Ch 6", "Ch 7", "Ch 8",
+                 "Ch 9", "Ch 10", "Ch 11", "Ch 12", "Ch 13", "Ch 14", "Ch 15", "Ch 16"]
+  # Which layer the front panel edits. NOT an audio crossfade — it is a
+  # selector, so it carries no slew (the v1 seed gave it smooth_ms: 5).
+  layer_balance: ["A", "AB", "B"]
+
+# -----------------------------------------------------------------------------
+# Sections — index IS the NRPN MSB.  Order is frozen (from v1).
+# Section 16 MASTER is new in v2 (holds the CC-7 master volume).
+# -----------------------------------------------------------------------------
+sections:
+  - {index: 0, name: "Oscillator 1", groups: ["Wave & Tuning", "Supersaw", "Feedback", "DC & Ring", "Arbitrary"]}
+  - {index: 1, name: "Oscillator 2", groups: ["Wave & Tuning", "Supersaw", "Feedback", "DC & Ring", "Arbitrary"]}
+  - {index: 2, name: "Mixer", groups: ["Levels", "Cross Mod & Sync"]}
+  - {index: 3, name: "Filter", groups: ["Core", "Engine", "Multimode", "Xpander"]}
+  - {index: 4, name: "Amp Envelope", groups: ["Main"]}
+  - {index: 5, name: "Filter Envelope", groups: ["Main"]}
+  - {index: 6, name: "Pitch Envelope", groups: ["Main"]}
+  - {index: 7, name: "LFO 1", groups: ["Core", "Per-Destination", "Routing"]}
+  - {index: 8, name: "LFO 2", groups: ["Core", "Per-Destination", "Routing"]}
+  - {index: 9, name: "Effects", groups: ["EQ & Drive", "Modulation", "Delay", "Output"]}
+  - {index: 10, name: "Velocity", groups: ["Sensitivity"]}
+  - {index: 11, name: "Performance", groups: ["Glide", "Voice", "Bend & Level"]}
+  - {index: 12, name: "BPM Clock", groups: ["Clock"]}
+  - {index: 13, name: "Step Sequencer", groups: ["Control", "Routing", "Timing", "Steps"]}
+  - {index: 14, name: "Voice Mode", groups: ["Layer Mode", "Voice Split"]}
+  - {index: 15, name: "Global Reverb", groups: ["Tank", "Extended"]}
+  - {index: 16, name: "Master", groups: ["Output"]}
+
+# -----------------------------------------------------------------------------
+# Parameters — 139 seeded from v1 + 1 new (master.volume).
+# Defaults were converted from v1 CC defaults through the SAME curves the
+# v1 firmware used (Mapping.h), so the init patch is bit-identical in intent.
+# -----------------------------------------------------------------------------
+params:
+
+  # ---- [0] Oscillator 1 ----
+  - id: 0x0000            # v1: CC::OSC1_WAVE (was CC 21)
+    key: osc1.wave
+    name: "Osc1 Wave"
+    label: "WAVE"
+    type: select
+    scope: patch
+    options: osc_wave
+    default: 0
+    smooth_ms: 0
+    ui: {section: 0, group: 0}
+  - id: 0x0001            # v1: CC::OSC1_PITCH_OFFSET (was CC 41)
+    key: osc1.pitch_offset
+    name: "Osc1 Pitch"
+    label: "PITCH"
+    type: select
+    scope: patch
+    options: pitch_offset
+    default: 2
+    smooth_ms: 0
+    ui: {section: 0, group: 0}
+  - id: 0x0002            # v1: CC::OSC1_FINE_TUNE (was CC 45)
+    key: osc1.fine_tune
+    name: "Osc1 Fine"
+    label: "FINE"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 0}
+  - id: 0x0003            # v1: CC::OSC1_DETUNE (was CC 43)
+    key: osc1.detune
+    name: "Osc1 Detune"
+    label: "DETUNE"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 0}
+  - id: 0x0004            # v1: CC::SUPERSAW1_DETUNE (was CC 77)
+    key: osc1.supersaw_detune
+    name: "SS1 Detune"
+    label: "DET"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 1}
+    # SuperSaw only.
+    visible_when: {param: osc1.wave, is: SSAW}
+  - id: 0x0005            # v1: CC::SUPERSAW1_MIX (was CC 78)
+    key: osc1.supersaw_mix
+    name: "SS1 Mix"
+    label: "SS MIX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 5
+    ui: {section: 0, group: 1}
+    # SuperSaw only.
+    visible_when: {param: osc1.wave, is: SSAW}
+  - id: 0x0006            # v1: CC::OSC1_FEEDBACK_AMOUNT (was CC 123)
+    key: osc1.feedback_amount
+    name: "Osc1 FB Amt"
+    label: "AMT"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 2}
+  - id: 0x0007            # v1: CC::OSC1_FEEDBACK_MIX (was CC 125)
+    key: osc1.feedback_mix
+    name: "Osc1 FB Mix"
+    label: "FB MIX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 2}
+  - id: 0x0008            # v1: CC::OSC1_FREQ_DC (was CC 86)
+    key: osc1.freq_dc
+    name: "Osc1 Freq DC"
+    label: "FREQ DC"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 3}
+  - id: 0x0009            # v1: CC::OSC1_SHAPE_DC (was CC 87)
+    key: osc1.shape_dc
+    name: "Osc1 Shape DC"
+    label: "SHAPE DC"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 3}
+  - id: 0x000A            # v1: CC::RING1_MIX (was CC 91)
+    key: osc1.ring_mix
+    name: "Ring 1 Mix"
+    label: "RING"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 3}
+  - id: 0x000B            # v1: CC::OSC1_ARB_BANK (was CC 101)
+    key: osc1.arb_bank
+    name: "Osc1 Arb Bank"
+    label: "BANK"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 0, group: 4}
+    # Wavetable (ARB) only.
+    visible_when: {param: osc1.wave, is: ARB}
+  - id: 0x000C            # v1: CC::OSC1_ARB_INDEX (was CC 83)
+    key: osc1.arb_index
+    name: "Osc1 Arb Idx"
+    label: "IDX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 0, group: 4}
+    # Wavetable (ARB) only.
+    visible_when: {param: osc1.wave, is: ARB}
+
+  # ---- [1] Oscillator 2 ----
+  - id: 0x0080            # v1: CC::OSC2_WAVE (was CC 22)
+    key: osc2.wave
+    name: "Osc2 Wave"
+    label: "WAVE"
+    type: select
+    scope: patch
+    options: osc_wave
+    default: 0
+    smooth_ms: 0
+    ui: {section: 1, group: 0}
+  - id: 0x0081            # v1: CC::OSC2_PITCH_OFFSET (was CC 42)
+    key: osc2.pitch_offset
+    name: "Osc2 Pitch"
+    label: "PITCH"
+    type: select
+    scope: patch
+    options: pitch_offset
+    default: 2
+    smooth_ms: 0
+    ui: {section: 1, group: 0}
+  - id: 0x0082            # v1: CC::OSC2_FINE_TUNE (was CC 46)
+    key: osc2.fine_tune
+    name: "Osc2 Fine"
+    label: "FINE"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 0}
+  - id: 0x0083            # v1: CC::OSC2_DETUNE (was CC 44)
+    key: osc2.detune
+    name: "Osc2 Detune"
+    label: "DETUNE"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 0}
+  - id: 0x0084            # v1: CC::SUPERSAW2_DETUNE (was CC 79)
+    key: osc2.supersaw_detune
+    name: "SS2 Detune"
+    label: "DET"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 1}
+    # SuperSaw only.
+    visible_when: {param: osc2.wave, is: SSAW}
+  - id: 0x0085            # v1: CC::SUPERSAW2_MIX (was CC 80)
+    key: osc2.supersaw_mix
+    name: "SS2 Mix"
+    label: "SS MIX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 5
+    ui: {section: 1, group: 1}
+    # SuperSaw only.
+    visible_when: {param: osc2.wave, is: SSAW}
+  - id: 0x0086            # v1: CC::OSC2_FEEDBACK_AMOUNT (was CC 124)
+    key: osc2.feedback_amount
+    name: "Osc2 FB Amt"
+    label: "AMT"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 2}
+  - id: 0x0087            # v1: CC::OSC2_FEEDBACK_MIX (was CC 126)
+    key: osc2.feedback_mix
+    name: "Osc2 FB Mix"
+    label: "FB MIX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 2}
+  - id: 0x0088            # v1: CC::OSC2_FREQ_DC (was CC 88)
+    key: osc2.freq_dc
+    name: "Osc2 Freq DC"
+    label: "FREQ DC"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 3}
+  - id: 0x0089            # v1: CC::OSC2_SHAPE_DC (was CC 89)
+    key: osc2.shape_dc
+    name: "Osc2 Shape DC"
+    label: "SHAPE DC"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 3}
+  - id: 0x008A            # v1: CC::RING2_MIX (was CC 92)
+    key: osc2.ring_mix
+    name: "Ring 2 Mix"
+    label: "RING"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 3}
+  - id: 0x008B            # v1: CC::OSC2_ARB_BANK (was CC 102)
+    key: osc2.arb_bank
+    name: "Osc2 Arb Bank"
+    label: "BANK"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 1, group: 4}
+    # Wavetable (ARB) only.
+    visible_when: {param: osc2.wave, is: ARB}
+  - id: 0x008C            # v1: CC::OSC2_ARB_INDEX (was CC 85)
+    key: osc2.arb_index
+    name: "Osc2 Arb Idx"
+    label: "IDX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 1, group: 4}
+    # Wavetable (ARB) only.
+    visible_when: {param: osc2.wave, is: ARB}
+
+  # ---- [2] Mixer ----
+  - id: 0x0100            # v1: CC::OSC_MIX_BALANCE (was CC 47)
+    key: mix.balance
+    name: "Osc Balance"
+    label: "BAL"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    cc: 17              # curated performance CC (General Purpose 2 - osc balance (perf-based))
+    smooth_ms: 5
+    ui: {section: 2, group: 0}
+  - id: 0x0101            # v1: CC::OSC1_MIX (was CC 60)
+    key: mix.osc1
+    name: "Osc1 Mix"
+    label: "OSC1"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.787402
+    smooth_ms: 5
+    ui: {section: 2, group: 0}
+  - id: 0x0102            # v1: CC::OSC2_MIX (was CC 61)
+    key: mix.osc2
+    name: "Osc2 Mix"
+    label: "OSC2"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.787402
+    smooth_ms: 5
+    ui: {section: 2, group: 0}
+  - id: 0x0103            # v1: CC::SUB_MIX (was CC 58)
+    key: mix.sub
+    name: "Sub Mix"
+    label: "SUB"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    cc: 19              # curated performance CC (General Purpose 4 - sub level (perf-based; spec sec7 "filter drive" has no v2 param - flagged substitution))
+    smooth_ms: 5
+    ui: {section: 2, group: 0}
+  - id: 0x0104            # v1: CC::NOISE_MIX (was CC 59)
+    key: mix.noise
+    name: "Noise Mix"
+    label: "NOISE"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 2, group: 0}
+  - id: 0x0105            # v1: CC::OSC_CROSS_MOD_DEPTH (was CC 19)
+    key: mix.cross_mod
+    name: "Cross Mod"
+    label: "XMOD"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 2, group: 1}
+  - id: 0x0106            # v1: CC::OSC_SYNC_ENABLE (was CC 20)
+    key: mix.osc_sync
+    name: "Osc Sync"
+    label: "SYNC"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    ui: {section: 2, group: 1}
+
+  # ---- [3] Filter ----
+  - id: 0x0180            # v1: CC::FILTER_CUTOFF (was CC 23)
+    key: filter.cutoff
+    name: "Cutoff"
+    label: "CUTOFF"
+    type: continuous
+    scope: patch
+    range: {min: 20, max: 20000, curve: log}
+    unit: "Hz"
+    default: 20000
+    smooth_ms: 5
+    cc: 74              # curated performance CC (brief §5.1)
+    ui: {section: 3, group: 0}
+  - id: 0x0181            # v1: CC::FILTER_RESONANCE (was CC 24)
+    key: filter.resonance
+    name: "Resonance"
+    label: "RESO"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    cc: 71              # curated performance CC (brief §5.1)
+    ui: {section: 3, group: 0}
+  - id: 0x0182            # v1: CC::FILTER_ENV_AMOUNT (was CC 48)
+    key: filter.env_amount
+    name: "Filt Env Amt"
+    label: "ENV"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    cc: 16              # curated performance CC (General Purpose 1 - filter env amount (perf-based))
+    smooth_ms: 5
+    ui: {section: 3, group: 0}
+  - id: 0x0183            # v1: CC::FILTER_KEY_TRACK (was CC 50)
+    key: filter.key_track
+    name: "Key Track"
+    label: "KEY TRK"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 3, group: 0}
+  - id: 0x0184            # v1: CC::FILTER_ENGINE (was CC 113)
+    key: filter.engine
+    name: "Filt Engine"
+    label: "ENGINE"
+    type: select
+    scope: patch
+    options: filter_engine
+    default: 0
+    smooth_ms: 0
+    ui: {section: 3, group: 1}
+  - id: 0x0185            # v1: CC::FILTER_MODE (was CC 112)
+    key: filter.mode
+    name: "Filt Mode"
+    label: "MODE"
+    type: select
+    scope: patch
+    options: filter_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 3, group: 1}
+    # Pole/mode selection is an OBXa ladder concept. The VA bank picks its shape via va_type.
+    visible_when: {param: filter.engine, is: OBXa}
+  - id: 0x0186            # v1: CC::VA_FILTER_TYPE (was CC 115)
+    key: filter.va_type
+    name: "VA Type"
+    label: "VA TYPE"
+    type: select
+    scope: patch
+    options: v_a_filter
+    default: 0
+    smooth_ms: 0
+    ui: {section: 3, group: 1}
+    # The VA filter bank has 17 types; the OBXa ladder has none. Dead under OBXa.
+    visible_when: {param: filter.engine, is: VA}
+  - id: 0x0187            # v1: CC::FILTER_OCTAVE_CONTROL (was CC 84)
+    key: filter.octave_control
+    name: "Oct Control"
+    label: "OCT CTRL"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    # 0.4 norm × 10 = 4.0 octaves — restores v1's power-on default filter-mod
+    # depth (v1 FilterBlock _octaveControl = 4.0f; CC scaling norm×10, see
+    # SynthEngine::handleCC FILTER_OCTAVE_CONTROL). Env-amount and key-track
+    # both default to 0, so the *silent* default patch is unchanged; this only
+    # restores v1 depth once the user opens env-amount or key-track.
+    default: 0.4
+    smooth_ms: 5
+    ui: {section: 3, group: 2}
+  - id: 0x0188            # v1: CC::FILTER_OBXA_RES_MOD_DEPTH (was CC 117)
+    key: filter.obxa_res_mod_depth
+    name: "Res Mod"
+    label: "RES MOD"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 3, group: 2}
+    # OBXa ladder only.
+    visible_when: {param: filter.engine, is: OBXa}
+  - id: 0x0189            # v1: CC::FILTER_OBXA_MULTIMODE (was CC 111)
+    key: filter.obxa_multimode
+    name: "Multimode"
+    label: "MULTI"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 3, group: 2}
+    # OBXa ladder only.
+    visible_when: {param: filter.engine, is: OBXa}
+  - id: 0x018A            # v1: CC::FILTER_OBXA_XPANDER_MODE (was CC 114)
+    key: filter.obxa_xpander_mode
+    name: "Xpander"
+    label: "XP MODE"
+    type: select
+    scope: patch
+    options: xpander_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 3, group: 3}
+    # The 15-way pole mix only applies in the two Xpander modes.
+    visible_when: {param: filter.mode, in: [Xpander, Xpander M]}
+
+  # ---- [4] Amp Envelope ----
+  - id: 0x0200            # v1: CC::AMP_ATTACK (was CC 25)
+    key: env_amp.attack
+    name: "Amp Attack"
+    label: "ATTACK"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 1
+    cc: 73              # curated performance CC (standard Attack Time (Sound Ctrl 4))
+    smooth_ms: 0
+    ui: {section: 4, group: 0}
+  - id: 0x0201            # v1: CC::AMP_ATTACK_CURVE (was CC 147)
+    key: env_amp.attack_curve
+    name: "Amp Atk Slp"
+    label: "ATK SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 4, group: 0}
+  - id: 0x0202            # v1: CC::AMP_DECAY (was CC 26)
+    key: env_amp.decay
+    name: "Amp Decay"
+    label: "DECAY"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 113.097
+    cc: 75              # curated performance CC (standard Decay Time (Sound Ctrl 6))
+    smooth_ms: 0
+    ui: {section: 4, group: 0}
+  - id: 0x0203            # v1: CC::AMP_DECAY_CURVE (was CC 148)
+    key: env_amp.decay_curve
+    name: "Amp Dec Slp"
+    label: "DEC SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 4, group: 0}
+  - id: 0x0204            # v1: CC::AMP_SUSTAIN (was CC 27)
+    key: env_amp.sustain
+    name: "Amp Sustain"
+    label: "SUSTAIN"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1
+    cc: 70              # curated performance CC (Sound Variation slot - nearest performance fit)
+    smooth_ms: 0
+    ui: {section: 4, group: 0}
+  - id: 0x0205            # v1: CC::AMP_RELEASE (was CC 28)
+    key: env_amp.release
+    name: "Amp Release"
+    label: "RELEASE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 4.38231
+    cc: 72              # curated performance CC (standard Release Time (Sound Ctrl 3))
+    smooth_ms: 0
+    ui: {section: 4, group: 0}
+  - id: 0x0206            # v1: CC::AMP_RELEASE_CURVE (was CC 149)
+    key: env_amp.release_curve
+    name: "Amp Rel Slp"
+    label: "REL SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 4, group: 0}
+
+  # ---- [5] Filter Envelope ----
+  - id: 0x0280            # v1: CC::FILTER_ENV_ATTACK (was CC 29)
+    key: env_filter.attack
+    name: "Filt Attack"
+    label: "ATTACK"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 5, group: 0}
+  - id: 0x0281            # v1: CC::FILTER_ATTACK_CURVE (was CC 150)
+    key: env_filter.attack_curve
+    name: "Filt Atk Slp"
+    label: "ATK SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 5, group: 0}
+  - id: 0x0282            # v1: CC::FILTER_ENV_DECAY (was CC 30)
+    key: env_filter.decay
+    name: "Filt Decay"
+    label: "DECAY"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 113.097
+    smooth_ms: 0
+    ui: {section: 5, group: 0}
+  - id: 0x0283            # v1: CC::FILTER_DECAY_CURVE (was CC 151)
+    key: env_filter.decay_curve
+    name: "Filt Dec Slp"
+    label: "DEC SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 5, group: 0}
+  - id: 0x0284            # v1: CC::FILTER_ENV_SUSTAIN (was CC 31)
+    key: env_filter.sustain
+    name: "Filt Sustain"
+    label: "SUSTAIN"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 5, group: 0}
+  - id: 0x0285            # v1: CC::FILTER_ENV_RELEASE (was CC 32)
+    key: env_filter.release
+    name: "Filt Release"
+    label: "RELEASE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 4.38231
+    smooth_ms: 0
+    ui: {section: 5, group: 0}
+  - id: 0x0286            # v1: CC::FILTER_RELEASE_CURVE (was CC 152)
+    key: env_filter.release_curve
+    name: "Filt Rel Slp"
+    label: "REL SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 5, group: 0}
+
+  # ---- [6] Pitch Envelope ----
+  - id: 0x0300            # v1: CC::PITCH_ENV_DEPTH (was CC 69)
+    key: env_pitch.depth
+    name: "Pitch Depth"
+    label: "DEPTH"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    # ui.control OVERRIDES the default binding policy (continuous -> pot).
+    #
+    # Without it this lands on pot A1, which pushes ATTACK/DECAY/SUSTAIN/RELEASE
+    # down one slot on the Pitch envelope ONLY — so the three envelope pages
+    # would not share a pot layout and muscle memory would not transfer.
+    # Binding it to an encoder keeps pots A1..A7 identical across all three.
+    #
+    # It also suits the parameter: bipolar and set-and-forget, an encoder detent
+    # gives finer control near zero than a pot, and an encoder push re-centres
+    # to exactly 0.0 — which a pot cannot reliably hit.
+    ui: {section: 6, group: 0, control: encoder}
+  - id: 0x0301            # v1: CC::PITCH_ENV_ATTACK (was CC 65)
+    key: env_pitch.attack
+    name: "Pitch Attack"
+    label: "ATTACK"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 6, group: 0}
+  - id: 0x0302            # v1: CC::PITCH_ATTACK_CURVE (was CC 153)
+    key: env_pitch.attack_curve
+    name: "Pitch Atk Slp"
+    label: "ATK SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 6, group: 0}
+  - id: 0x0303            # v1: CC::PITCH_ENV_DECAY (was CC 66)
+    key: env_pitch.decay
+    name: "Pitch Decay"
+    label: "DECAY"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 113.097
+    smooth_ms: 0
+    ui: {section: 6, group: 0}
+  - id: 0x0304            # v1: CC::PITCH_DECAY_CURVE (was CC 154)
+    key: env_pitch.decay_curve
+    name: "Pitch Dec Slp"
+    label: "DEC SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 6, group: 0}
+  - id: 0x0305            # v1: CC::PITCH_ENV_SUSTAIN (was CC 67)
+    key: env_pitch.sustain
+    name: "Pitch Sustain"
+    label: "SUSTAIN"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 6, group: 0}
+  - id: 0x0306            # v1: CC::PITCH_ENV_RELEASE (was CC 68)
+    key: env_pitch.release
+    name: "Pitch Release"
+    label: "RELEASE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 1, max: 11880, curve: log}
+    unit: "ms"
+    default: 4.38231
+    smooth_ms: 0
+    ui: {section: 6, group: 0}
+  - id: 0x0307            # v1: CC::PITCH_RELEASE_CURVE (was CC 155)
+    key: env_pitch.release_curve
+    name: "Pitch Rel Slp"
+    label: "REL SLOPE"
+    type: continuous
+    widget: envelope
+    scope: patch
+    range: {min: 0.15, max: 5, curve: seg2, mid: 1}
+    unit: "slope"
+    default: 1
+    smooth_ms: 0
+    ui: {section: 6, group: 0}
+
+  # ---- [7] LFO 1 ----
+  - id: 0x0380            # v1: CC::LFO1_WAVEFORM (was CC 62)
+    key: lfo1.waveform
+    name: "LFO1 Wave"
+    label: "WAVE"
+    type: select
+    scope: patch
+    options: l_f_o_wave
+    default: 0
+    smooth_ms: 0
+    ui: {section: 7, group: 0}
+  - id: 0x0381            # v1: CC::LFO1_FREQ (was CC 54)
+    key: lfo1.freq
+    name: "LFO1 Rate"
+    label: "RATE"
+    type: continuous
+    scope: patch
+    range: {min: 0.03, max: 39, curve: log}
+    unit: "Hz"
+    default: 0.03
+    cc: 76              # curated performance CC (standard Vibrato Rate (Sound Ctrl 7))
+    smooth_ms: 0
+    ui: {section: 7, group: 0}
+  - id: 0x0382            # v1: CC::LFO1_DEPTH (was CC 55)
+    key: lfo1.depth
+    name: "LFO1 Depth"
+    label: "DEPTH"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 7, group: 0}
+  - id: 0x0383            # v1: CC::LFO1_SYNC (was CC 120)
+    key: lfo1.sync
+    name: "LFO1 Sync"
+    label: "SYNC"
+    type: select
+    scope: patch
+    options: timing_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 7, group: 0}
+  - id: 0x0384            # v1: CC::LFO1_PITCH_DEPTH (was CC 33)
+    key: lfo1.pitch_depth
+    name: "LFO1 Pitch"
+    label: "PITCH"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    cc: 77              # curated performance CC (standard Vibrato Depth (Sound Ctrl 8))
+    smooth_ms: 5
+    ui: {section: 7, group: 1}
+  - id: 0x0385            # v1: CC::LFO1_FILTER_DEPTH (was CC 34)
+    key: lfo1.filter_depth
+    name: "LFO1 Filter"
+    label: "FILTER"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 7, group: 1}
+  - id: 0x0386            # v1: CC::LFO1_PWM_DEPTH (was CC 35)
+    key: lfo1.pwm_depth
+    name: "LFO1 PWM"
+    label: "PWM"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 7, group: 1}
+  - id: 0x0387            # v1: CC::LFO1_AMP_DEPTH (was CC 36)
+    key: lfo1.amp_depth
+    name: "LFO1 Amp"
+    label: "AMP"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 7, group: 1}
+  - id: 0x0388            # v1: CC::LFO1_DESTINATION (was CC 56)
+    key: lfo1.destination
+    name: "LFO1 Dest"
+    label: "DEST"
+    type: select
+    scope: patch
+    options: l_f_o_dest
+    default: 0
+    smooth_ms: 0
+    ui: {section: 7, group: 2}
+  - id: 0x0389            # v1: CC::LFO1_DELAY (was CC 37)
+    key: lfo1.delay
+    name: "LFO1 Delay"
+    label: "DELAY"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    cc: 78              # curated performance CC (standard Vibrato Delay (Sound Ctrl 9))
+    smooth_ms: 5
+    ui: {section: 7, group: 2}
+
+  # ---- [8] LFO 2 ----
+  - id: 0x0400            # v1: CC::LFO2_WAVEFORM (was CC 63)
+    key: lfo2.waveform
+    name: "LFO2 Wave"
+    label: "WAVE"
+    type: select
+    scope: patch
+    options: l_f_o_wave
+    default: 0
+    smooth_ms: 0
+    ui: {section: 8, group: 0}
+  - id: 0x0401            # v1: CC::LFO2_FREQ (was CC 51)
+    key: lfo2.freq
+    name: "LFO2 Rate"
+    label: "RATE"
+    type: continuous
+    scope: patch
+    range: {min: 0.03, max: 39, curve: log}
+    unit: "Hz"
+    default: 0.03
+    smooth_ms: 0
+    ui: {section: 8, group: 0}
+  - id: 0x0402            # v1: CC::LFO2_DEPTH (was CC 52)
+    key: lfo2.depth
+    name: "LFO2 Depth"
+    label: "DEPTH"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 8, group: 0}
+  - id: 0x0403            # v1: CC::LFO2_SYNC (was CC 121)
+    key: lfo2.sync
+    name: "LFO2 Sync"
+    label: "SYNC"
+    type: select
+    scope: patch
+    options: timing_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 8, group: 0}
+  - id: 0x0404            # v1: CC::LFO2_PITCH_DEPTH (was CC 38)
+    key: lfo2.pitch_depth
+    name: "LFO2 Pitch"
+    label: "PITCH"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 8, group: 1}
+  - id: 0x0405            # v1: CC::LFO2_FILTER_DEPTH (was CC 39)
+    key: lfo2.filter_depth
+    name: "LFO2 Filter"
+    label: "FILTER"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 8, group: 1}
+  - id: 0x0406            # v1: CC::LFO2_PWM_DEPTH (was CC 40)
+    key: lfo2.pwm_depth
+    name: "LFO2 PWM"
+    label: "PWM"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 8, group: 1}
+  - id: 0x0407            # v1: CC::LFO2_AMP_DEPTH (was CC 57)
+    key: lfo2.amp_depth
+    name: "LFO2 Amp"
+    label: "AMP"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 8, group: 1}
+  - id: 0x0408            # v1: CC::LFO2_DESTINATION (was CC 53)
+    key: lfo2.destination
+    name: "LFO2 Dest"
+    label: "DEST"
+    type: select
+    scope: patch
+    options: l_f_o_dest
+    default: 0
+    smooth_ms: 0
+    ui: {section: 8, group: 2}
+  - id: 0x0409            # v1: CC::LFO2_DELAY (was CC 64)
+    key: lfo2.delay
+    name: "LFO2 Delay"
+    label: "DELAY"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 8, group: 2}
+
+  # ---- [9] Effects ----
+  - id: 0x0480            # v1: CC::FX_BASS_GAIN (was CC 99)
+    key: fx.bass_gain
+    name: "Bass"
+    label: "BASS"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 9, group: 0}
+  - id: 0x0481            # v1: CC::FX_TREBLE_GAIN (was CC 100)
+    key: fx.treble_gain
+    name: "Treble"
+    label: "TREBLE"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 9, group: 0}
+  - id: 0x0482            # v1: CC::FX_DRIVE (was CC 16)
+    key: fx.drive
+    name: "Drive"
+    label: "DRIVE"
+    type: select
+    scope: patch
+    options: drive
+    default: 0
+    smooth_ms: 0
+    ui: {section: 9, group: 0}
+  - id: 0x0483            # v1: CC::FX_MOD_EFFECT (was CC 103)
+    key: fx.mod_effect
+    name: "Mod FX"
+    label: "MOD TYPE"
+    type: select
+    scope: patch
+    options: f_x_mod_effect
+    default: 0
+    smooth_ms: 0
+    ui: {section: 9, group: 1}
+  - id: 0x0484            # v1: CC::FX_MOD_MIX (was CC 104)
+    key: fx.mod_mix
+    name: "Mod Mix"
+    label: "MOD MIX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    cc: 93              # curated performance CC (standard Effects 3 (Chorus) Depth)
+    smooth_ms: 5
+    ui: {section: 9, group: 1}
+  - id: 0x0485            # v1: CC::FX_MOD_RATE (was CC 105)
+    key: fx.mod_rate
+    name: "Mod Rate"
+    label: "MOD RATE"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 5
+    ui: {section: 9, group: 1}
+  - id: 0x0486            # v1: CC::FX_MOD_FEEDBACK (was CC 106)
+    key: fx.mod_feedback
+    name: "Mod FB"
+    label: "MOD FB"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 9, group: 1}
+  - id: 0x0487            # v1: CC::FX_JPFX_DELAY_EFFECT (was CC 107)
+    key: fx.delay_effect
+    name: "Delay FX"
+    label: "DLY TYPE"
+    type: select
+    scope: patch
+    options: f_x_delay_effect
+    default: 0
+    smooth_ms: 0
+    ui: {section: 9, group: 2}
+  - id: 0x0488            # v1: CC::FX_JPFX_DELAY_TIME (was CC 110)
+    key: fx.delay_time
+    name: "Delay Time"
+    label: "DLY TIME"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 5
+    ui: {section: 9, group: 2}
+  - id: 0x0489            # v1: CC::FX_JPFX_DELAY_MIX (was CC 108)
+    key: fx.delay_mix
+    name: "Delay Mix"
+    label: "DLY MIX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    cc: 94              # curated performance CC (Effects 4 Depth slot - delay mix (perf-based))
+    smooth_ms: 5
+    ui: {section: 9, group: 2}
+  - id: 0x048A            # v1: CC::FX_JPFX_DELAY_FEEDBACK (was CC 109)
+    key: fx.delay_feedback
+    name: "Delay FB"
+    label: "DLY FB"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 9, group: 2}
+  - id: 0x048B            # v1: CC::FX_DELAY_SYNC (was CC 122)
+    key: fx.delay_sync
+    name: "Delay Sync"
+    label: "DLY SYNC"
+    type: select
+    scope: patch
+    options: timing_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 9, group: 2}
+  - id: 0x048C            # v1: CC::FX_DRY_MIX (was CC 74)
+    key: fx.dry_mix
+    name: "Dry Mix"
+    label: "DRY"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1
+    smooth_ms: 5
+    ui: {section: 9, group: 3}
+  - id: 0x048D            # v1: CC::FX_JPFX_MIX (was CC 76)
+    key: fx.jpfx_mix
+    name: "JPFX Mix"
+    label: "JPFX"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1
+    smooth_ms: 5
+    ui: {section: 9, group: 3}
+
+  # ---- [10] Velocity ----
+  - id: 0x0500            # v1: CC::VELOCITY_AMP_SENS (was CC 10)
+    key: velocity.amp_sens
+    name: "Vel Amp"
+    label: "AMP"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.0        # Pass-8 hand-edit re-synced: v1 boot state is 0.0 = linear velocity (VoiceBlock.h:368)
+    smooth_ms: 5
+    ui: {section: 10, group: 0}
+  - id: 0x0501            # v1: CC::VELOCITY_FILTER_SENS (was CC 11)
+    key: velocity.filter_sens
+    name: "Vel Filter"
+    label: "FILTER"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 10, group: 0}
+  - id: 0x0502            # v1: CC::VELOCITY_ENV_SENS (was CC 12)
+    key: velocity.env_sens
+    name: "Vel Env"
+    label: "ENV"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 10, group: 0}
+
+  # ---- [11] Performance ----
+  - id: 0x0580            # v1: CC::GLIDE_ENABLE (was CC 81)
+    key: glide.enable
+    name: "Glide"
+    label: "ON"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    cc: 65              # curated performance CC (brief §5.1)
+    ui: {section: 11, group: 0}
+  - id: 0x0581            # v1: CC::GLIDE_TIME (was CC 82)
+    key: glide.time
+    name: "Glide Time"
+    label: "TIME"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    cc: 5              # curated performance CC (brief §5.1)
+    ui: {section: 11, group: 0}
+  - id: 0x0582            # v1: CC::POLY_MODE (was CC 14)
+    key: voice.poly_mode
+    name: "Poly Mode"
+    label: "MODE"
+    type: select
+    scope: patch
+    options: poly_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 11, group: 1}
+  - id: 0x0583            # v1: CC::UNISON_DETUNE (was CC 15)
+    key: voice.unison_detune
+    name: "Unison Det"
+    label: "UNI DET"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    cc: 18              # curated performance CC (General Purpose 3 - unison detune (perf-based))
+    smooth_ms: 5
+    ui: {section: 11, group: 1}
+  - id: 0x0584            # v1: CC::PITCH_BEND_RANGE (was CC 127)
+    key: voice.bend_range
+    name: "Bend Range"
+    label: "BEND"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 24, curve: lin}
+    unit: "st"
+    # v1's CC-12 default landed at 2.2677 st through the 0..24 curve — the
+    # intent was clearly the MIDI-standard ±2 semitones, which 7-bit CC could
+    # not express exactly.  Rounded to 2.0 (signed off, July 2026).
+    default: 2.0
+    smooth_ms: 0
+    ui: {section: 11, group: 2}
+  - id: 0x0585            # v1: CC::AMP_MOD_FIXED_LEVEL (was CC 90)
+    key: voice.amp_level
+    name: "Amp Level"
+    label: "AMP LVL"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1
+    smooth_ms: 5
+    ui: {section: 11, group: 2}
+
+  # ---- [12] BPM Clock ----
+  - id: 0x0600            # v1: CC::BPM_CLOCK_SOURCE (was CC 118)
+    key: clock.clock_source
+    name: "Clock Src"
+    label: "SRC"
+    type: select
+    scope: performance
+    options: clock_source
+    default: 0
+    smooth_ms: 0
+    ui: {section: 12, group: 0}
+  - id: 0x0601            # v1: CC::BPM_TEMPO (was CC 119)
+    key: clock.tempo
+    name: "BPM"
+    label: "BPM"
+    type: continuous
+    scope: performance
+    range: {min: 40, max: 300, curve: lin}
+    unit: "BPM"
+    default: 170
+    smooth_ms: 0
+    ui: {section: 12, group: 0}
+
+  # ---- [13] Step Sequencer ----
+  - id: 0x0680            # v1: CC::SEQ_ENABLE (was CC 2)
+    key: seq.enable
+    name: "Seq Enable"
+    label: "ON"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    ui: {section: 13, group: 0}
+  - id: 0x0681            # v1: CC::SEQ_STEPS (was CC 3)
+    key: seq.steps
+    name: "Seq Steps"
+    label: "STEPS"
+    # type:int (defect F): displays as a whole number of steps, not a
+    # percentage. The wire mapping is bit-identical to the firmware's
+    # long-standing decode `1 + lroundf(norm * 15)` (SynthCore.cpp), so
+    # existing patches decode to the same step count. Default 9 preserves the
+    # previous effective default (norm 0.5 -> 9 steps).
+    type: int
+    scope: patch
+    range: {min: 1, max: 16, curve: lin}
+    unit: ""
+    default: 9
+    smooth_ms: 0
+    ui: {section: 13, group: 0}
+  - id: 0x0682            # v1: CC::SEQ_GATE_LENGTH (was CC 4)
+    key: seq.gate_length
+    name: "Seq Gate"
+    label: "GATE"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 5
+    ui: {section: 13, group: 0}
+  - id: 0x0683            # v1: CC::SEQ_SLIDE (was CC 5)
+    key: seq.slide
+    name: "Seq Slide"
+    label: "SLIDE"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 13, group: 0}
+  - id: 0x0684            # v1: CC::SEQ_DIRECTION (was CC 6)
+    key: seq.direction
+    name: "Seq Dir"
+    label: "DIR"
+    type: select
+    scope: patch
+    options: seq_dir
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 1}
+  - id: 0x0685            # v1: CC::SEQ_DESTINATION (was CC 9)
+    key: seq.destination
+    name: "Seq Dest"
+    label: "DEST"
+    type: select
+    scope: patch
+    options: seq_dest
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 1}
+  - id: 0x0686            # v1: CC::SEQ_DEPTH (was CC 8)
+    key: seq.depth
+    name: "Seq Depth"
+    label: "DEPTH"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 13, group: 1}
+  - id: 0x0687            # v1: CC::SEQ_RETRIGGER (was CC 13)
+    key: seq.retrigger
+    name: "Seq Retrig"
+    label: "RETRIG"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    ui: {section: 13, group: 1}
+  - id: 0x0688            # v1: CC::SEQ_RATE (was CC 7)
+    key: seq.rate
+    name: "Seq Rate"
+    label: "RATE"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 5
+    ui: {section: 13, group: 2}
+  - id: 0x0689            # v1: CC::SEQ_TIMING_MODE (was CC 116)
+    key: seq.timing_mode
+    name: "Seq Sync"
+    label: "SYNC"
+    type: select
+    scope: patch
+    options: timing_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 2}
+  - id: 0x068A            # v1: CC::SEQ_STEP_SELECT (was CC 17)
+    key: seq.step_select
+    name: "Step Select"
+    label: "SEL"
+    # type:int — displayed 1..16 (musicians count from 1); the engine's
+    # internal index stays 0..15 via its own `lroundf(norm * 15)`. Norm 0 is
+    # exactly step 1 / index 0 on both ends.
+    type: int
+    widget: grid
+    scope: patch
+    range: {min: 1, max: 16, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x068B            # v1: CC::SEQ_STEP_VALUE (was CC 18)
+    key: seq.step_value
+    name: "Step Value"
+    label: "VAL"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+
+  # ---- [14] Voice Mode ----
+  - id: 0x0700            # v1: CC::PERF_MODE (was CC 140)
+    key: perf.mode
+    name: "Perf Mode"
+    label: "MODE"
+    type: select
+    scope: performance
+    options: perf_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 14, group: 0}
+  - id: 0x0701            # v1: CC::PERF_EDIT_TARGET (was CC 144)
+    key: perf.edit_target
+    name: "Edit Target"
+    label: "EDIT"
+    type: select
+    scope: performance
+    options: edit_target
+    default: 0
+    smooth_ms: 0
+    ui: {section: 14, group: 0}
+  - id: 0x0702            # v1: CC::PERF_MIDI_CHANNEL_A (was CC 145)
+    key: perf.midi_channel_a
+    name: "MIDI Ch A"
+    label: "CH A"
+    type: select
+    scope: performance
+    options: midi_channel
+    default: 0            # Ch 1
+    smooth_ms: 0
+    ui: {section: 14, group: 0}
+  - id: 0x0703            # v1: CC::PERF_MIDI_CHANNEL_B (was CC 146)
+    key: perf.midi_channel_b
+    name: "MIDI Ch B"
+    label: "CH B"
+    type: select
+    scope: performance
+    options: midi_channel
+    default: 1            # Ch 2  (was 0.125984 == 16/127, a v1 CC-math artefact)
+    smooth_ms: 0
+    ui: {section: 14, group: 0}
+  - id: 0x0704            # v1: CC::PERF_VOICE_SPLIT (was CC 141)
+    key: perf.voice_split
+    name: "Voice Split"
+    label: "VOICES"
+    type: select
+    scope: performance
+    options: voice_split
+    default: 3            # 4+4
+    smooth_ms: 0
+    ui: {section: 14, group: 1}
+  - id: 0x0705            # v1: CC::PERF_SPLIT_NOTE (was CC 142)
+    key: perf.split_note
+    name: "Split Point"
+    label: "SPLIT"
+    type: continuous
+    scope: performance
+    range: {min: 0, max: 127, curve: lin}
+    unit: "note"
+    default: 60
+    smooth_ms: 0
+    ui: {section: 14, group: 1}
+  - id: 0x0706            # v1: CC::PERF_BALANCE (was CC 143)
+    key: perf.balance
+    name: "Layer Bal"
+    label: "BALANCE"
+    type: select
+    scope: performance
+    options: layer_balance
+    default: 1            # AB — edit both layers
+    smooth_ms: 0          # a selector is never slewed (v1 seed said 5)
+    ui: {section: 14, group: 1}
+
+  # ---- [15] Global Reverb ----
+  - id: 0x0780            # v1: CC::FX_REVERB_SIZE (was CC 70)
+    key: reverb.size
+    name: "Rev Size"
+    label: "SIZE"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.0        # Phase-5 sign-off: all reverb defaults 0.0 (PHASE5_REVERB_SPEC.md Q1)
+    smooth_ms: 5
+    ui: {section: 15, group: 0}
+  - id: 0x0781            # v1: CC::FX_REVERB_DAMP (was CC 71)
+    key: reverb.damp
+    name: "Rev Hi Damp"
+    label: "HI DMP"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.0        # Phase-5 sign-off: all reverb defaults 0.0 (PHASE5_REVERB_SPEC.md Q1)
+    smooth_ms: 5
+    ui: {section: 15, group: 0}
+  - id: 0x0782            # v1: CC::FX_REVERB_LODAMP (was CC 93)
+    key: reverb.lodamp
+    name: "Rev Lo Damp"
+    label: "LO DMP"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.0        # Phase-5 sign-off: all reverb defaults 0.0 (PHASE5_REVERB_SPEC.md Q1)
+    smooth_ms: 5
+    ui: {section: 15, group: 0}
+  - id: 0x0783            # v1: CC::FX_REVERB_MIX (was CC 75)
+    key: reverb.mix
+    name: "Rev Mix"
+    label: "MIX"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.0        # Phase-5 sign-off: all reverb defaults 0.0 (PHASE5_REVERB_SPEC.md Q1)
+    cc: 91              # curated performance CC (standard Effects 1 (Reverb) Depth)
+    smooth_ms: 5
+    ui: {section: 15, group: 0}
+  - id: 0x0784            # v1: CC::FX_REVERB_BYPASS (was CC 94)
+    key: reverb.bypass
+    name: "Rev Bypass"
+    label: "BYPASS"
+    type: toggle
+    scope: global
+    default: false
+    smooth_ms: 0
+    ui: {section: 15, group: 0}
+  - id: 0x0785            # v1: CC::FX_REVERB_SHIMMER (was CC 95)
+    key: reverb.shimmer
+    name: "Rev Shimmer"
+    label: "SHIMMER"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 15, group: 1}
+  - id: 0x0786            # v1: CC::FX_REVERB_FREEZE (was CC 96)
+    key: reverb.freeze
+    name: "Rev Freeze"
+    label: "FREEZE"
+    type: toggle
+    scope: global
+    default: false
+    smooth_ms: 0
+    ui: {section: 15, group: 1}
+  - id: 0x0787            # v1: CC::FX_REVERB_LOWPASS (was CC 97)
+    key: reverb.lowpass
+    name: "Rev Lo Pass"
+    label: "LO PASS"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.0        # Phase-5 sign-off: all reverb defaults 0.0 (PHASE5_REVERB_SPEC.md Q1)
+    smooth_ms: 5
+    ui: {section: 15, group: 1}
+  - id: 0x0788            # v1: CC::FX_REVERB_HIPASS (was CC 98)
+    key: reverb.hipass
+    name: "Rev Hi Pass"
+    label: "HI PASS"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 15, group: 1}
+
+  # ---- [16] Master (NEW in v2 — covered by brief §5.1 sign-off) ----
+  - id: 0x0800            # section 16, index 0
+    key: master.volume
+    name: "Master Volume"
+    label: "VOLUME"
+    type: continuous
+    scope: global
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.8
+    smooth_ms: 20
+    cc: 7               # standard MIDI Channel Volume
+    ui: {section: 16, group: 0}
