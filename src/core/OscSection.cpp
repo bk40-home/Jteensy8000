@@ -151,16 +151,29 @@ void OscSection::render(float* out, size_t n)
     _u[0].applyPitchIfDirty();
     _u[1].applyPitchIfDirty();
 
-    // Phase 3 PWM LFO (spec §4/§5 decision #5): recompute BOTH units' width
-    // from their OWN base DC + the shared LFO offset, only when that offset
-    // is non-zero.  v1 fed the same LFO into both oscillators' shape mixers,
-    // hence both units move together.  The common case (no LFO wired to
-    // PWM) skips this entirely — setShapeDc already applied the base-only
-    // width at knob-set time, so the default patch is byte-identical.
-    if (_lfoPwm != 0.0f) {
-        _u[0].core.setShape(0.5f + 0.5f * (_u[0].shapeDcBase + _lfoPwm));
-        _u[1].core.setShape(0.5f + 0.5f * (_u[1].shapeDcBase + _lfoPwm));
+    // Phase 3 PWM LFO (spec §4/§5 decision #5), G2 split: recompute BOTH
+    // units' width from their OWN base DC + the LFO lanes, only when a lane
+    // is live.  LFO1's lane is scaled per unit (JP-8000 SQR Control 2 gave
+    // each osc its own LFO1→width depth); the LFO2/sequencer lane stays
+    // common, as on the hardware.  pwmScale defaults to 1.0, so the sum
+    // equals the old single-lane value — render baseline byte-identical.
+    // The common case (no LFO wired to PWM) still skips this entirely —
+    // setShapeDc already applied the base-only width at knob-set time.
+    // D-PWM-stick fix (signed off): _pwmWasLive makes the transition to
+    // all-zero lanes recompute ONCE MORE, restoring the base widths.
+    // Previously a depth cut mid-swing left the last LFO offset applied
+    // until shape_dc was next touched.  Steady-state zero still costs only
+    // the compares.
+    const bool pwmLive = (_lfoPwm1 != 0.0f || _lfoPwmC != 0.0f);
+    if (pwmLive || _pwmWasLive) {
+        _u[0].core.setShape(0.5f + 0.5f * (_u[0].shapeDcBase
+                                           + _lfoPwm1 * _u[0].pwmScale
+                                           + _lfoPwmC));
+        _u[1].core.setShape(0.5f + 0.5f * (_u[1].shapeDcBase
+                                           + _lfoPwm1 * _u[1].pwmScale
+                                           + _lfoPwmC));
     }
+    _pwmWasLive = pwmLive;
 
     // Balance law (the flagged v1 collision fix — see header): linear
     // attenuation of the far side, unity in the centre.
@@ -171,7 +184,13 @@ void OscSection::render(float* out, size_t n)
     const float ringG = _u[0].ringGain + _u[1].ringGain;   // v1-equivalent sum
 
     // What actually needs to run this block?
-    const bool xmod     = (_xmodDepth > 0.0f);
+    // G1 X-MOD routing: the effective FM depth is the knob PLUS this block's
+    // routed (LFO1 + pitch-env) offset, clamped to the knob's own 0..1 span.
+    // With the offset at 0 (destination not X-MOD — the default) xd equals
+    // _xmodDepth exactly, so the baseline path and its gating are unchanged.
+    float xd = _xmodDepth + _xmodOffset;
+    if (xd < 0.0f) xd = 0.0f; else if (xd > 1.0f) xd = 1.0f;
+    const bool xmod     = (xd > 0.0f);
     // Hard sync needs a real phase-wrapping master — supersaw can't be one.
     const bool sync     = _sync && !_u[1].isSupersaw();
     const bool need2    = (g2 > 0.0f) || (ringG > 0.0f) || xmod || sync;
@@ -187,11 +206,17 @@ void OscSection::render(float* out, size_t n)
     // Skipped entirely when no pitch mod is active (target and prev both 0), so
     // the default patch is byte-identical to before this pass.
     const bool  pitchActive = (_pitchModOct != 0.0f) || (_pitchOctPrev != 0.0f);
+    // G1 OSC2-only lane: live whenever its target OR its carry-over is
+    // non-zero (same rule as the common term, so a just-cleared routing
+    // still ramps back to base instead of stepping).  Destination "OSC1+2"
+    // — the default — keeps both at 0: two compares, no other cost.
+    const bool  extra2Active = (_pitchModOct2 != 0.0f) || (_pitch2OctPrev != 0.0f);
 
     float b1[kBlockSize];
     float b2[kBlockSize];
     float syncBuf[kBlockSize];
-    float pitchRamp[kBlockSize];   // per-sample pitch offset, octaves
+    float pitchRamp[kBlockSize];   // per-sample COMMON pitch offset, octaves
+    float pitchRamp2[kBlockSize];  // per-sample OSC2 feed: common + routed lane
     float fm1[kBlockSize];         // OSC1's combined FM feed (pitch [+ x-mod])
 
     if (pitchActive) {
@@ -201,12 +226,30 @@ void OscSection::render(float* out, size_t n)
     }
     _pitchOctPrev = _pitchModOct;   // ramp end == target; carry to next block
 
+    if (extra2Active) {
+        // OSC2's feed = its own ramped lane, summed with the common ramp when
+        // that is live too (both are octave-space, they add before the 2^
+        // conversion in the FM path — same rule as pitch + x-mod on OSC1).
+        const float stepOct2 = (_pitchModOct2 - _pitch2OctPrev) / (float)n;
+        float o2 = _pitch2OctPrev;
+        if (pitchActive) {
+            for (size_t i = 0; i < n; ++i) { o2 += stepOct2; pitchRamp2[i] = pitchRamp[i] + o2; }
+        } else {
+            for (size_t i = 0; i < n; ++i) { o2 += stepOct2; pitchRamp2[i] = o2; }
+        }
+    }
+    _pitch2OctPrev = _pitchModOct2;
+
     // --- OSC2 first: it may be OSC1's sync master and/or FM modulator ---
     if (need2) {
         // Pitch env modulates BOTH units in v1 (both FM slots fed).  When OSC2
         // is the sync master the slave then locks to the pitch-modulated master
-        // — also v1-faithful (the master's FM moved its wrap points).
-        const float* fm2 = pitchActive ? pitchRamp : nullptr;
+        // — also v1-faithful (the master's FM moved its wrap points).  Under
+        // G1 "OSC2" routing the master ALSO carries the routed lane, so the
+        // slave's wrap points follow it — the classic sync-sweep behaviour
+        // the JP-8000 produced with this destination.
+        const float* fm2 = extra2Active ? pitchRamp2
+                         : (pitchActive ? pitchRamp : nullptr);
         if (_u[1].isSupersaw()) {
             _u[1].ss.render(b2, n, fm2, 1.0f, nullptr);
         } else {
@@ -228,7 +271,7 @@ void OscSection::render(float* out, size_t n)
             // pitch env and cross-mod in the SAME FM mixer, so they add before
             // the 2^ conversion.  Pass with fmOctaves = 1.
             if (haveXmod) {
-                const float xg = _xmodDepth * kXmodOctaveRange;
+                const float xg = xd * kXmodOctaveRange;
                 for (size_t i = 0; i < n; ++i) fm1[i] = b2[i] * xg + pitchRamp[i];
             } else {
                 for (size_t i = 0; i < n; ++i) fm1[i] = pitchRamp[i];
@@ -237,7 +280,7 @@ void OscSection::render(float* out, size_t n)
             fmOct = 1.0f;
         } else {
             fmBuf = haveXmod ? b2 : nullptr;
-            fmOct = _xmodDepth * kXmodOctaveRange;
+            fmOct = xd * kXmodOctaveRange;
         }
         if (_u[0].isSupersaw()) {
             // Supersaw takes the FM feed (v1 wired the same mixer into it)

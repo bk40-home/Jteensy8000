@@ -17,8 +17,8 @@ namespace JT {
 namespace {
 // v1 LFO_PITCH_MAX_SEMITONES · FM_SEMITONE_SCALE, already folded into v2's
 // direct-semitone convention (spec §4): a unit-amplitude pitch LFO at full
-// depth swings +-7 semitones.
-constexpr float kLfoPitchMaxSemis = 7.0f;
+// depth swings ±7 semitones.  Now lives in AudioConfig.h (kLfoPitchMaxSemis)
+// because G1 routing needs it in Voice too.
 } // namespace
 
 SynthCore::SynthCore(ParameterStore& store, float* combPool,
@@ -365,6 +365,14 @@ void SynthCore::applyParam(size_t index, float norm)
         case ID::MIX_BALANCE:   for (Voice& v : _voices) v.oscSection().setBalance(eng); break;
         case ID::MIX_CROSS_MOD: for (Voice& v : _voices) v.oscSection().setCrossMod(eng); break;
         case ID::MIX_OSC_SYNC:  for (Voice& v : _voices) v.oscSection().setSyncEnabled(eng >= 0.5f); break;
+        // G1: JP-8000 "LFO1 & ENV Destination" — the voice steers the
+        // (LFO1-pitch + pitch-env) lane by this each block (Voice::render).
+        case ID::MIX_PITCH_MOD_DEST:
+            for (Voice& v : _voices) v.setPitchModDest((uint8_t)opt);
+            break;
+        // G2: per-osc share of LFO1's PWM (JP-8000 SQR Control 2).
+        case ID::OSC1_PWM_LFO1_DEPTH: oscs(0, [&](OscSection& s, int u){ s.setPwmLfo1Scale(u, eng); }); break;
+        case ID::OSC2_PWM_LFO1_DEPTH: oscs(1, [&](OscSection& s, int u){ s.setPwmLfo1Scale(u, eng); }); break;
 
         // ------------- LFO + modulation (Phase 3) --------------------------
         // Only the FOUR per-destination depths are wired (Decision #2,
@@ -628,12 +636,18 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     const float lfoUnit1 = _lfo1.engaged() ? _lfo1.osc.tickBlock() : 0.0f;
     const float lfoUnit2 = _lfo2.engaged() ? _lfo2.osc.tickBlock() : 0.0f;
 
-    float pitchSemisTotal = lfoUnit1 * _lfo1.depthPitch  * kLfoPitchMaxSemis
-                                 + lfoUnit2 * _lfo2.depthPitch  * kLfoPitchMaxSemis;
+    // G1/G2 lane split.  LFO1's pitch term travels its OWN lane so the voice
+    // can steer it (with the pitch env) per mix.pitch_mod_dest; LFO1's PWM
+    // term likewise, so the section can scale it per osc.  LFO2 and the
+    // sequencer stay in the common lanes — the JP-8000 never routed them
+    // (manual p.112).  Same adds as before, just not pre-summed, so the
+    // default patch is arithmetically identical.
+    float pitchSemisLfo1  = lfoUnit1 * _lfo1.depthPitch  * kLfoPitchMaxSemis;
+    float pitchSemisCommon= lfoUnit2 * _lfo2.depthPitch  * kLfoPitchMaxSemis;
     float filterCutInput  = lfoUnit1 * _lfo1.depthFilter
                                  + lfoUnit2 * _lfo2.depthFilter;
-    float pwmInput        = lfoUnit1 * _lfo1.depthPwm
-                                 + lfoUnit2 * _lfo2.depthPwm;
+    float pwmLfo1         = lfoUnit1 * _lfo1.depthPwm;
+    float pwmCommon       = lfoUnit2 * _lfo2.depthPwm;
     // VCA-mod base = v1 AMP_MOD_FIXED_LEVEL (VOICE_AMP_LEVEL), default 1.0;
     // the LFO tremolo terms add on top (v1 ampModMixer slots 1/2).  At the
     // default patch this is exactly 1.0 + 0 = 1.0 → byte-identical output.
@@ -652,9 +666,9 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     _seq.tick(kBlockMs);
     const float seqVal = _seq.getOutput();      // ±depth, 0 when disabled/idle
     switch (_seq.destination()) {
-        case SeqDest::Pitch:  pitchSemisTotal += seqVal * kLfoPitchMaxSemis; break; // Q3: same const as LFO
+        case SeqDest::Pitch:  pitchSemisCommon += seqVal * kLfoPitchMaxSemis; break; // Q3: same const as LFO; common lane — seq is never routed
         case SeqDest::Filter: filterCutInput  += seqVal;                     break;
-        case SeqDest::Pwm:    pwmInput         += seqVal;                     break;
+        case SeqDest::Pwm:    pwmCommon         += seqVal;                    break;
         case SeqDest::Amp:    ampMulTarget     += seqVal;                     break;
         case SeqDest::None:
         default:                                                             break;
@@ -662,9 +676,10 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
 
     for (Voice& v : _voices) {
         if (!v.isActive()) continue;
-        v.setLfoPitchSemis(pitchSemisTotal);
+        v.setLfoPitchSemis(pitchSemisCommon);
+        v.setRoutedLfoPitchSemis(pitchSemisLfo1);
         v.filter().setLfoCutoff(filterCutInput);
-        v.oscSection().setLfoPwm(pwmInput);
+        v.oscSection().setLfoPwm(pwmLfo1, pwmCommon);
     }
 
     for (Voice& v : _voices)

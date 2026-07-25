@@ -42,6 +42,11 @@ option_sets:
   xpander_mode: ["LP4", "LP3", "LP2", "LP1", "HP3", "HP2", "HP1", "BP4", "BP2",
                  "N2", "PH3", "HP2+LP1", "HP3+LP1", "N2+LP1", "PH3+LP1"]
   l_f_o_wave: ["SIN", "TRI", "SAW", "SQR", "S&H", "NOISE"]
+  # JP-8000 "LFO1 & ENV Destination" (patch offset 0x18): routes the SUM of
+  # LFO1-pitch and the pitch envelope to both oscs, OSC2 alone, or into the
+  # cross-mod depth.  LFO2-pitch is NOT routed (manual p.112/118): it always
+  # hits both oscs.
+  pitch_mod_dest: ["OSC1+2", "OSC2", "X-MOD"]
   l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
   timing_mode: ["Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T"]
   poly_mode: ["Poly", "Mono", "Unison"]
@@ -249,6 +254,20 @@ params:
     ui: {section: 0, group: 4}
     # Wavetable (ARB) only.
     visible_when: {param: osc1.wave, is: ARB}
+  - id: 0x000D            # v2: JP-8000 OSC1 Control 2 in SQR(PWM) — per-osc
+    key: osc1.pwm_lfo1_depth
+    name: "Osc1 PWM Amt"
+    label: "PWM AMT"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1
+    smooth_ms: 5
+    ui: {section: 0, group: 3}
+    # Scales LFO1's PWM contribution for THIS osc only (default 1.0 = the
+    # pre-split behaviour, so existing patches render byte-identically).
+    # lfo1.pwm_depth stays the global master; LFO2/seq PWM are unscaled.
 
   # ---- [1] Oscillator 2 ----
   - id: 0x0080            # v1: CC::OSC2_WAVE (was CC 22)
@@ -404,6 +423,20 @@ params:
     ui: {section: 1, group: 4}
     # Wavetable (ARB) only.
     visible_when: {param: osc2.wave, is: ARB}
+  - id: 0x008D            # v2: JP-8000 OSC2 Control 2 in SQR(PWM) — per-osc
+    key: osc2.pwm_lfo1_depth
+    name: "Osc2 PWM Amt"
+    label: "PWM AMT"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1
+    smooth_ms: 5
+    ui: {section: 1, group: 3}
+    # Scales LFO1's PWM contribution for THIS osc only (default 1.0 = the
+    # pre-split behaviour, so existing patches render byte-identically).
+    # lfo1.pwm_depth stays the global master; LFO2/seq PWM are unscaled.
 
   # ---- [2] Mixer ----
   - id: 0x0100            # v1: CC::OSC_MIX_BALANCE (was CC 47)
@@ -484,6 +517,17 @@ params:
     default: false
     smooth_ms: 0
     ui: {section: 2, group: 1}
+  - id: 0x0107            # v2: JP-8000 "LFO1 & ENV Destination" (patch 0x18)
+    key: mix.pitch_mod_dest
+    name: "Pitch Mod Dest"
+    label: "P.DEST"
+    type: select
+    scope: patch
+    options: pitch_mod_dest
+    default: 0
+    smooth_ms: 0
+    ui: {section: 2, group: 1}
+    # Default "OSC1+2" = pre-routing behaviour: render baseline byte-identical.
 
   # ---- [3] Filter ----
   - id: 0x0180            # v1: CC::FILTER_CUTOFF (was CC 23)

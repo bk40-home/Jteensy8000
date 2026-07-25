@@ -23,6 +23,11 @@ inline constexpr size_t kBlockSize    = 128;
 inline constexpr float  kBlockMs      = 1000.0f * (float)kBlockSize / kSampleRate;
 inline constexpr float  kBlocksPerSec = kSampleRate / (float)kBlockSize;
 
+// LFO pitch-depth ceiling (semitones at depth 1.0).  Was private to
+// SynthCore; shared here since G1 routing needs the same constant in Voice
+// to convert the routed lane back to the knob-normalised X-MOD range.
+inline constexpr float  kLfoPitchMaxSemis = 7.0f;
+
 // Per-voice mix contribution.  8 voices at full level sum to 1.0 exactly —
 // headroom staging is finalised in the Phase 4 SignalPath doc; until then
 // this conservative value cannot clip regardless of patch.

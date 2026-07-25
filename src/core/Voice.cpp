@@ -189,10 +189,46 @@ void Voice::render(float* mixL, float* mixR, size_t n)
         glideSemis = 12.0f * log2f(_glideCurrentHz / _baseHz);
     }
 
-    // ONE total into the section (overwrite, no accumulator — spec §4.3 / the
-    // Phase 3 LFO decision pattern): env + LFO + glide + bend, all semitones,
-    // all summed in the same octave-space FM path v1 used.
-    _oscs.setPitchModSemis(envTerm + _lfoPitchSemis + glideSemis + _bendSemis);
+    // Pitch delivery (overwrite, no accumulator — spec §4.3 / the Phase 3
+    // LFO decision pattern), split by G1 routing (mix.pitch_mod_dest):
+    //   common = LFO2/seq lane + glide + bend — ALWAYS both oscs;
+    //   routed = pitch env + LFO1 lane — steered like the JP-8000's
+    //            "LFO1 & ENV Destination" (manual patch offset 0x18).
+    // All three section targets are written EVERY block (plain overwrites,
+    // ~free) so a destination change mid-note can never strand a stale
+    // offset in an unselected lane — same "rebuilt from scratch" rule the
+    // sequencer lanes follow.  Destination 0 collapses to exactly the old
+    // single-total call, keeping the render baseline byte-identical.
+    const float commonSemis = _lfoPitchSemis + glideSemis + _bendSemis;
+    const float routedSemis = envTerm + _routedLfoSemis;
+    switch (_pitchDest) {
+        default:
+        case 0:                                   // OSC1+2 — pre-G1 behaviour
+            // Deliberately NOT commonSemis + routedSemis: floats are not
+            // associative, and the render baselines were cut with the old
+            // env + lfoTotal + glide + bend left-to-right order.  This
+            // expression reproduces that order bit-for-bit (the inner
+            // routed+common regroup can only differ when LFO1, LFO2 AND the
+            // sequencer all drive pitch at once — no baseline does).
+            _oscs.setPitchModSemis(
+                envTerm + (_routedLfoSemis + _lfoPitchSemis)
+                        + glideSemis + _bendSemis);
+            _oscs.setOsc2ExtraPitchSemis(0.0f);
+            _oscs.setXmodOffsetNorm(0.0f);
+            break;
+        case 1:                                   // OSC2 only
+            _oscs.setPitchModSemis(commonSemis);
+            _oscs.setOsc2ExtraPitchSemis(routedSemis);
+            _oscs.setXmodOffsetNorm(0.0f);
+            break;
+        case 2:                                   // X-MOD depth
+            _oscs.setPitchModSemis(commonSemis);
+            _oscs.setOsc2ExtraPitchSemis(0.0f);
+            // Semitones → knob-normalised: full LFO1 pitch depth (±7 st, see
+            // kLfoPitchMaxSemis) maps to ±1.0 = the whole cross-mod range.
+            _oscs.setXmodOffsetNorm(routedSemis * (1.0f / kLfoPitchMaxSemis));
+            break;
+    }
 
     _oscs.render(buf, n);          // writes the mixed oscillator section
 

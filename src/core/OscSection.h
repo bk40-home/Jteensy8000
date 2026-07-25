@@ -87,10 +87,20 @@ public:
     void setSyncEnabled(bool on)    { _sync = on; }
 
     // --- Phase 3: PWM LFO (control plane, block boundaries) ---
-    // This block's net LFO offset onto pulse width (spec §4/§5 decision #5).
-    // v1 fed the SAME LFO into both oscillators' shape mixers, so it offsets
-    // BOTH units' width from their own base DC (see render()).
-    void setLfoPwm(float x) { _lfoPwm = x; }
+    // This block's net LFO offset onto pulse width, split into TWO lanes
+    // (G2, JP-8000 OSC Control 2 in SQR): the LFO1 part is scaled PER UNIT by
+    // pwmScale (osc<n>.pwm_lfo1_depth) before it offsets that unit's width;
+    // the common part (LFO2 + sequencer) is applied unscaled to both — the
+    // JP-8000 only ever offered per-osc depth for LFO1.  With both scales at
+    // their default 1.0 the sum equals the old single-lane value, so existing
+    // patches and the render baseline are byte-identical.
+    void setLfoPwm(float lfo1Part, float commonPart)
+    {
+        _lfoPwm1 = lfo1Part;
+        _lfoPwmC = commonPart;
+    }
+    // osc<n>.pwm_lfo1_depth — how much of LFO1's PWM this unit receives (0..1).
+    void setPwmLfo1Scale(int unit, float s) { _u[unit].pwmScale = s; }
 
     // --- Pass 7: pitch envelope (control plane, block boundaries) ---
     // This block's pitch-mod TARGET in semitones (the voice pushes env×depth
@@ -100,6 +110,22 @@ public:
     // frequency at block boundaries — the "non-zipped pitch" requirement.  v1
     // fed the pitch env through the audio-rate FM mixer; this is the same path.
     void setPitchModSemis(float semis) { _pitchModOct = semis * (1.0f / 12.0f); }
+
+    // --- G1: JP-8000 "LFO1 & ENV Destination" (mix.pitch_mod_dest) ---
+    // EXTRA pitch-mod target for OSC2 ALONE (semitones), on top of the common
+    // term above.  The voice routes (LFO1-pitch + pitch-env) here when the
+    // destination is "OSC2"; render() ramps it exactly like the common term
+    // so OSC2-only vibrato is just as zipper-free.  0 (the default) costs one
+    // compare per block — "do not calculate if not required".
+    void setOsc2ExtraPitchSemis(float semis) { _pitchModOct2 = semis * (1.0f / 12.0f); }
+
+    // Additive offset onto the cross-mod DEPTH (normalised, ±1 spans the
+    // whole knob range).  The voice routes (LFO1-pitch + pitch-env)/7 st here
+    // when the destination is "X-MOD" — the JP trick of sweeping FM depth
+    // from the LFO/envelope.  Applied at block rate (a ±1-normalised step at
+    // the LFO ceiling of 39 Hz moves ≪ 1 % of range per block, inaudible on
+    // an FM DEPTH — unlike pitch, which is why pitch gets the ramp).
+    void setXmodOffsetNorm(float x) { _xmodOffset = x; }
 
     // --- audio plane: WRITE one block of the mixed section ---
     void render(float* out, size_t n);
@@ -128,8 +154,11 @@ private:
         bool  pitchDirty   = true;
         // Phase 3: the knob's OWN shape DC, stored so the PWM LFO can offset
         // it each block without losing the base position (render() recombines
-        // base + _lfoPwm; see setShapeDc/render()).
+        // base + scaled LFO lanes; see setShapeDc/render()).
         float shapeDcBase  = 0.0f;
+        // G2: this unit's share of LFO1's PWM (osc<n>.pwm_lfo1_depth).
+        // 1.0 = the pre-split behaviour.
+        float pwmScale     = 1.0f;
 
         bool isSupersaw() const { return waveOption == (int)Wave::Supersaw; }
         // exp2f ONCE per actual pitch change, fanned to both cores so a
@@ -162,11 +191,22 @@ private:
     float _pitchModOct  = 0.0f;
     float _pitchOctPrev = 0.0f;
 
-    // --- Phase 3 PWM-LFO modulation ---
-    // Net LFO offset onto width, pushed by the voice each block; 0.0 is the
-    // common case (no LFO wired to PWM), and render() skips the recompute
-    // entirely then — default patch stays byte-identical to before Phase 3.
-    float _lfoPwm = 0.0f;
+    // --- G1 routed pitch (OSC2-only lane) + X-MOD depth offset ---
+    // Same target/prev ramp pair as the common term, but applied to unit 1
+    // alone.  Both zero (destination "OSC1+2", the default) ⇒ no extra work.
+    float _pitchModOct2  = 0.0f;
+    float _pitch2OctPrev = 0.0f;
+    // Block-rate additive offset onto _xmodDepth (see setXmodOffsetNorm).
+    float _xmodOffset    = 0.0f;
+
+    // --- Phase 3 PWM-LFO modulation (two lanes, see setLfoPwm) ---
+    // Both 0.0 is the common case (no LFO wired to PWM), and render() skips
+    // the recompute entirely then — default patch stays byte-identical.
+    float _lfoPwm1 = 0.0f;     // LFO1's part, scaled per unit by pwmScale
+    float _lfoPwmC = 0.0f;     // LFO2 + sequencer part, unscaled
+    // D-PWM-stick fix: true while a lane was non-zero last block, so the
+    // first all-zero block still recomputes once and restores base widths.
+    bool  _pwmWasLive = false;
 
     // Sub oscillator: one phase + FastMath sine — too simple to justify a
     // third OscCore per voice.

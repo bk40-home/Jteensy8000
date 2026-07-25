@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 140 parameters.**
+**Schema version 1 — 143 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -32,6 +32,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x000A` | 10 | Ring 1 Mix | `osc1.ring_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x000B` | 11 | Osc1 Arb Bank | `osc1.arb_bank` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch |
 | `0x000C` | 12 | Osc1 Arb Idx | `osc1.arb_index` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch |
+| `0x000D` | 13 | Osc1 PWM Amt | `osc1.pwm_lfo1_depth` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch |
 
 ## [1] Oscillator 2  *(NRPN MSB 1)*
 
@@ -50,6 +51,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x008A` | 10 | Ring 2 Mix | `osc2.ring_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x008B` | 11 | Osc2 Arb Bank | `osc2.arb_bank` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch |
 | `0x008C` | 12 | Osc2 Arb Idx | `osc2.arb_index` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch |
+| `0x008D` | 13 | Osc2 PWM Amt | `osc2.pwm_lfo1_depth` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch |
 
 ## [2] Mixer  *(NRPN MSB 2)*
 
@@ -62,6 +64,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0104` | 4 | Noise Mix | `mix.noise` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0105` | 5 | Cross Mod | `mix.cross_mod` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0106` | 6 | Osc Sync | `mix.osc_sync` | toggle | off / on | off | 0 ms | — | patch |
+| `0x0107` | 7 | Pitch Mod Dest | `mix.pitch_mod_dest` | select | 0–2 (index) | 0 (OSC1+2) | 0 ms | — | patch |
 
 ## [3] Filter  *(NRPN MSB 3)*
 
@@ -250,6 +253,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **saturation**: `OFF`, `SOFT`, `WARM`
 - **xpander_mode**: `LP4`, `LP3`, `LP2`, `LP1`, `HP3`, `HP2`, `HP1`, `BP4`, `BP2`, `N2`, `PH3`, `HP2+LP1`, `HP3+LP1`, `N2+LP1`, `PH3+LP1`
 - **l_f_o_wave**: `SIN`, `TRI`, `SAW`, `SQR`, `S&H`, `NOISE`
+- **pitch_mod_dest**: `OSC1+2`, `OSC2`, `X-MOD`
 - **l_f_o_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
 - **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`
 - **poly_mode**: `Poly`, `Mono`, `Unison`

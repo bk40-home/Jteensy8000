@@ -77,13 +77,21 @@ public:
     // unipolar 0..1 env each block before it reaches the oscillators.
     void setPitchEnvDepthSemis(float s) { _pitchDepthSemis = s; }
 
-    // Phase 3: this block's LFO pitch contribution, in semitones — already
-    // netted across both global LFOs and their PITCH depths (SynthCore
-    // computes the sum; see docs/PHASE3_LFO_SPEC.md §4).  Summed with the
-    // pitch env inside render() (spec Decision #3): OscSection still gets
-    // ONE total target via setPitchModSemis (overwrite-with-total, no
-    // accumulator in the section — avoids reset bugs).
-    void setLfoPitchSemis(float semis) { _lfoPitchSemis = semis; }
+    // Phase 3 / G1: this block's LFO pitch contribution, in semitones, now in
+    // TWO lanes (SynthCore computes both; see docs/PHASE3_LFO_SPEC.md §4):
+    //   common — LFO2 pitch + sequencer pitch.  Always both oscs, never
+    //            routed (JP-8000 manual p.112: only "LFO1 & ENV" route).
+    //   routed — LFO1 pitch alone; render() sums it with the pitch env and
+    //            steers the pair by _pitchDest (mix.pitch_mod_dest).
+    // Each lane is still an overwrite-with-total into the section — no
+    // accumulator, no reset bugs (spec Decision #3 unchanged).
+    void setLfoPitchSemis(float semis)       { _lfoPitchSemis = semis; }
+    void setRoutedLfoPitchSemis(float semis) { _routedLfoSemis = semis; }
+
+    // G1: JP-8000 "LFO1 & ENV Destination" — 0 OSC1+2 (default, the
+    // pre-routing behaviour), 1 OSC2 only, 2 X-MOD depth.  Option index from
+    // the table (mix.pitch_mod_dest), pushed by SynthCore on change.
+    void setPitchModDest(uint8_t dest) { _pitchDest = dest; }
 
     // --- Phase 4: glide / portamento (per-voice pitch slew) ---------------
     // Ported from v1 OscillatorBlock (glide lived per-oscillator there; here a
@@ -157,7 +165,9 @@ private:
     uint8_t _pendVel        = 0;
     float   _pendPhase01    = 0.0f;
     float   _pitchDepthSemis = 0.0f;  // ENV_PITCH_DEPTH × 24, ±24 st full scale
-    float   _lfoPitchSemis  = 0.0f;   // Phase 3: this block's LFO pitch term
+    float   _lfoPitchSemis  = 0.0f;   // Phase 3: common lane (LFO2 + seq)
+    float   _routedLfoSemis = 0.0f;   // G1: LFO1 lane, steered by _pitchDest
+    uint8_t _pitchDest      = 0;      // G1: 0 OSC1+2, 1 OSC2, 2 X-MOD
 
     // Phase 4 glide (spec §4.1).  All Hz; glideSemis is derived per block only
     // while _glideActive, then summed into the FM total.  Defaults are the
