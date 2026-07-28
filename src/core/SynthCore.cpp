@@ -563,6 +563,18 @@ void SynthCore::applyParam(size_t index, float norm)
         case ID::SEQ_STEP_VALUE:
             _seq.setStepValue(_seqEditStep, (uint8_t)lroundf(norm * 127.0f)); break;
 
+        // ---- Aux lane (Stage B).  Shares the gate lane's clock; carries its
+        //      own dest/depth/steps.  Stage B routes None+Filter; Pan/Delay
+        //      Send/Drive are inert placeholders (D-B1). ----
+        case ID::SEQ_AUX_DESTINATION:
+            _seq.setAuxDestination((SeqAuxDest)opt); break;             // 0..4
+        case ID::SEQ_AUX_DEPTH:
+            _seq.setAuxDepth(eng); break;                              // table bipolar -1..+1
+        case ID::SEQ_AUX_STEP_SELECT:
+            _seqAuxEditStep = (int)lroundf(norm * 15.0f); break;       // 0..15
+        case ID::SEQ_AUX_STEP_VALUE:
+            _seq.setAuxStepValue(_seqAuxEditStep, (uint8_t)lroundf(norm * 127.0f)); break;
+
         default:
             // Not yet handled (remaining FX/sequencer) or deliberately unwired
             // above: consumed silently by design — see header note.
@@ -654,6 +666,11 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     float ampMulTarget    = _ampFixedLevel + lfoUnit1 * _lfo1.depthAmp
                                                   + lfoUnit2 * _lfo2.depthAmp;
 
+    // Global bus pan target (Stage C): bipolar −1..+1 (0 = centre).  Only the
+    // aux lane's Pan destination writes it; stays 0 otherwise, so the master
+    // stage skips the pan multiply entirely and output is byte-identical.
+    float panTarget       = 0.0f;
+
     // Sequencer (Phase 7, PHASE7_SEQUENCER_SPEC.md §3): one block-rate tick,
     // output routed to ONE of the four modulation accumulators — the same lanes
     // the LFOs feed.  Ticks always (so the anti-click ramp completes even right
@@ -673,6 +690,29 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         case SeqDest::None:
         default:                                                             break;
     }
+
+    // Aux lane (Stage B): a second block-rate output on the same clock, routed
+    // to its own destination.  Stage B wires Filter only (reuses the existing
+    // cutoff accumulator); Pan/DelaySend/Drive are inert placeholders that fall
+    // through until Stages C/D (D-B1).  Emits 0 while dest==None/idle, so an
+    // unused aux lane leaves every accumulator untouched → byte-identical.
+    const float auxVal = _seq.getAuxOutput();
+    // Stage D FX mods are stateful on FxChain, so drive/delay-send must be set
+    // EVERY block — to auxVal when targeted, to 0 otherwise — or a stale mod
+    // would persist after the aux dest changes.  Default (dest != these) writes
+    // 0 → byte-identical.
+    float auxDriveMod    = 0.0f;
+    float auxDelaySendMod= 0.0f;
+    switch (_seq.auxDestination()) {
+        case SeqAuxDest::Filter:    filterCutInput += auxVal;  break;
+        case SeqAuxDest::Pan:       panTarget      += auxVal;  break;  // Stage C
+        case SeqAuxDest::Drive:     auxDriveMod     = auxVal;  break;  // Stage D (bipolar)
+        case SeqAuxDest::DelaySend: auxDelaySendMod = auxVal;  break;  // Stage D (additive)
+        case SeqAuxDest::None:
+        default:                                               break;
+    }
+    _fx.setDriveMod(auxDriveMod);
+    _fx.setDelayMixMod(auxDelaySendMod);
 
     for (Voice& v : _voices) {
         if (!v.isActive()) continue;
@@ -723,14 +763,47 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     _ampModCur = ampMulTarget;
     const float ampStep = (_ampModCur - ampStart) / (float)n;
 
+    // Global bus pan (Stage C): centre-normalised equal-power law, computed
+    // ONCE per block (the only sinf/cosf here), then ramped per-sample in the
+    // loop below.  Skipped entirely when centred AND already centred last block
+    // (panTarget == 0, gains == 1) so the default patch pays nothing and stays
+    // byte-identical.  Law: θ = (pan+1)·π/4 → cos/sin, ×√2 so centre = 1.0 both
+    // channels (no −3 dB dip sweeping through centre); edges → √2 / 0.
+    const bool panActive = (panTarget != 0.0f) || (_panLCur != 1.0f) || (_panRCur != 1.0f);
+    float panLStart = _panLCur, panRStart = _panRCur, panLStep = 0.0f, panRStep = 0.0f;
+    if (panActive) {
+        const float p    = panTarget < -1.0f ? -1.0f : (panTarget > 1.0f ? 1.0f : panTarget);
+        const float theta= (p + 1.0f) * 0.7853981634f;         // π/4
+        constexpr float kSqrt2 = 1.4142135624f;
+        const float tgtL = std::cos(theta) * kSqrt2;           // centre → 1.0
+        const float tgtR = std::sin(theta) * kSqrt2;           // centre → 1.0
+        panLStart = _panLCur; panRStart = _panRCur;
+        _panLCur = tgtL; _panRCur = tgtR;
+        panLStep = (_panLCur - panLStart) / (float)n;
+        panRStep = (_panRCur - panRStart) / (float)n;
+    }
+
     float g = start;
     float a = ampStart;
-    for (size_t i = 0; i < n; ++i) {
-        g += masterStep;
-        a += ampStep;
-        const float total = g * a;
-        left[i]  *= total;
-        right[i] *= total;
+    if (panActive) {
+        float pl = panLStart, pr = panRStart;
+        for (size_t i = 0; i < n; ++i) {
+            g += masterStep;
+            a += ampStep;
+            pl += panLStep;
+            pr += panRStep;
+            const float total = g * a;
+            left[i]  *= total * pl;
+            right[i] *= total * pr;
+        }
+    } else {
+        for (size_t i = 0; i < n; ++i) {
+            g += masterStep;
+            a += ampStep;
+            const float total = g * a;
+            left[i]  *= total;
+            right[i] *= total;
+        }
     }
 }
 

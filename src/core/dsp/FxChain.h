@@ -112,6 +112,20 @@ public:
     void setDelayFeedback(float fb);    // 0..0.99, <0 = use preset feedback
     void setDelayTime(float ms);        // ms override, 0 = use preset (preserves L/R ratio)
 
+    // ---- Sequencer aux-lane mod inputs (Stage D) -------------------------
+    // Block-rate modulation from the step sequencer's aux lane.  Both are
+    // no-ops at their default (0), so an un-modulated chain is byte-identical.
+    //
+    // Drive mod: bipolar −1..+1 aux value, applied as a bass↔treble TILT around
+    // the Tone EQ (±kTiltMaxDb at full depth).  Level-neutral colour, click-free
+    // (shelf gains are one-pole smoothed).  Works regardless of drive mode — it
+    // is a tone colour, not a saturation-amount change.  Name kept for the
+    // SynthCore aux-Drive wiring.
+    void setDriveMod(float bipolar);
+    // Delay-send mod: additive offset onto the FX_DELAY_MIX knob value, the sum
+    // clamped 0..1 (Q19).  Only audible when a delay effect is selected.
+    void setDelayMixMod(float offset);
+
     // Output blend against the dry bus (spec §1.4 / Q5).
     void setDryMix(float m);            // 0..1
     void setJpfxMix(float m);           // 0..1
@@ -210,6 +224,17 @@ private:
     // -- Saturation --
     int   _driveMode    = 0;        // 0=OFF 1=Soft 2=Hard (D-1)
     float _satInputGain = 1.0f;
+
+    // Stage D aux-lane mods (block-rate).  Aux 'Drive' modulates a bass↔treble
+    // TILT around the Tone EQ (level-neutral colour), NOT the saturator input
+    // gain — modulating the pre-clip gain slammed the tanh/clipper and clicked.
+    // _tiltTarget is the raw bipolar aux value (−1..+1); _tiltCur is the
+    // block-rate smoothed tilt actually applied.  At full depth → ±kTiltMaxDb
+    // (treble +, bass −, and vice-versa).  Default 0 → no effect, tone EQ
+    // behaviour byte-identical.
+    float _tiltTarget = 0.0f;     // −1..+1 (raw aux value)
+    float _tiltCur    = 0.0f;     // smoothed, 0 = flat
+    float _delayMixMod  = 0.0f;   // additive offset onto _delayMix (Q19)
     float _satOutputGain= 1.0f;
     bool  _satIsSoft    = true;
     bool  _satDirty     = false;
@@ -221,6 +246,10 @@ private:
     float _toneBassLpL = 0.0f, _toneBassLpR = 0.0f;
     float _toneTrebLpL = 0.0f, _toneTrebLpR = 0.0f;
     float _toneBassDelta = 0.0f, _toneTrebDelta = 0.0f;
+    // Base deltas from the tone knobs (set by computeTone).  The effective
+    // deltas above = base + tilt, recomputed every block so the aux tilt never
+    // accumulates on itself.
+    float _toneBassBase  = 0.0f, _toneTrebBase  = 0.0f;
     float _targetBassDb   = 0.0f;
     float _targetTrebleDb = 0.0f;
     bool  _toneActive = false;

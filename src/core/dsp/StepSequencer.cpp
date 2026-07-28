@@ -30,6 +30,7 @@ void StepSequencer::tick(float deltaMs)
     // Early exit (disabled or empty) — but finish an in-flight ramp so
     // disabling mid-note doesn't click (v1 :70-85).
     if (!_enabled || _stepCount < 1) {
+        _auxOutput = 0.0f;   // never leave a stale aux mod latched when disabled
         if (_ramping) {
             _rampValue -= deltaMs / kGateRampMs;
             if (_rampValue <= 0.0f) { _rampValue = 0.0f; _ramping = false; }
@@ -40,6 +41,12 @@ void StepSequencer::tick(float deltaMs)
         _gateOpen = false;
         return;
     }
+
+    // Aux lane defaults to 0 for this tick; the gate-open branch below fills
+    // it.  On gate-close/ramp/rest the aux lane simply reads 0 — its
+    // destinations (cutoff/pan/send/drive) are block-rate smoothed at their own
+    // stage, so they need no amp-style anti-click ramp here (D-B2).
+    _auxOutput = 0.0f;
 
     // Depth zero still advances position (stay in phase if depth raised later).
     const bool hasOutput = (_depth != 0.0f);
@@ -59,6 +66,26 @@ void StepSequencer::tick(float deltaMs)
     if (_gateOpen) {
         _ramping = false;
         _rampValue = 1.0f;
+
+        // --- AUX LANE (Stage B) ---
+        // Computed here, while the gate is open, using the SAME step index,
+        // phase and slide as the gate lane but the aux values/depth.  Done
+        // BEFORE the gate-depth early-return below so a zero GATE depth never
+        // silences a depthed aux lane (the two lanes are independent).  Skips
+        // its own work when the aux lane is idle (dest None or depth 0).
+        if (_auxDest != SeqAuxDest::None && _auxDepth != 0.0f) {
+            const float auxCur = ccToUnipolar(_auxValues[_currentStep]);
+            float auxRaw;
+            if (_slide <= 0.0f) {
+                auxRaw = auxCur;
+            } else {
+                const float auxNext  = ccToUnipolar(_auxValues[nextStepIndex()]);
+                const float gateFrac = (_gateLength > 0.0f) ? (phaseFrac / _gateLength) : 0.0f;
+                const float t = gateFrac * _slide;
+                auxRaw = auxCur + t * (auxNext - auxCur);
+            }
+            _auxOutput = auxRaw * _auxDepth;          // unipolar × bipolar
+        }
 
         if (!hasOutput) { _output = 0.0f; return; }
 
@@ -187,6 +214,20 @@ void StepSequencer::setDestination(SeqDest dest)
 
 void StepSequencer::setDepth(float d) { _depth = clampf(d, -1.0f, 1.0f); }
 
+// ---- AUX LANE setters (Stage B), mirroring the gate-lane clamps -----------
+void StepSequencer::setAuxStepValue(int step, uint8_t cc)
+{
+    if (step < 0 || step >= kMaxSteps) return;
+    _auxValues[step] = (uint8_t)clampi((int)cc, 0, 127);
+}
+
+void StepSequencer::setAuxDepth(float d) { _auxDepth = clampf(d, -1.0f, 1.0f); }
+
+void StepSequencer::setAuxDestination(SeqAuxDest dest)
+{
+    _auxDest = (dest < SeqAuxDest::Count) ? dest : SeqAuxDest::None;
+}
+
 void StepSequencer::setRate(float hz)
 {
     _rateHz = clampf(hz, 0.05f, 50.0f);
@@ -200,6 +241,7 @@ void StepSequencer::reset()
     _currentStep = 0; _phaseMs = 0.0f; _bounceDir = 1;
     _gateOpen = false; _ramping = false; _rampValue = 0.0f;
     _lastGateOutput = 0.0f; _output = 0.0f;
+    _auxOutput = 0.0f;                              // aux lane (Stage B)
 }
 
 // D-1: tempo-sync deferred.  Store the mode, but stay free-running — no ms

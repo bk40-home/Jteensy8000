@@ -59,6 +59,11 @@ option_sets:
   drive: ["OFF", "Soft", "Hard"]
   seq_dir: ["Fwd", "Rev", "Bounce", "Random"]
   seq_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
+  # Aux lane runs parallel to the gate lane on the SAME clock (shared position/
+  # rate/direction/gate).  Its destinations are the CamelSpace set.  Stage B
+  # wires None + Filter only; Pan/DelaySend/Drive are INERT placeholders (the
+  # option exists, selecting it routes nowhere) until Stages C/D land them.
+  seq_aux_dest: ["None", "Filter", "Pan", "DelaySend", "Drive"]
   perf_mode: ["Single", "Layer", "Split"]
   edit_target: ["A", "B", "Both"]
   clock_source: ["Internal", "Ext MIDI"]
@@ -88,7 +93,7 @@ sections:
   - {index: 10, name: "Velocity", groups: ["Sensitivity"]}
   - {index: 11, name: "Performance", groups: ["Glide", "Voice", "Bend & Level"]}
   - {index: 12, name: "BPM Clock", groups: ["Clock"]}
-  - {index: 13, name: "Step Sequencer", groups: ["Control", "Routing", "Timing", "Steps"]}
+  - {index: 13, name: "Step Sequencer", groups: ["Control", "Routing", "Timing", "Steps", "Aux Lane"]}
   - {index: 14, name: "Voice Mode", groups: ["Layer Mode", "Voice Split"]}
   - {index: 15, name: "Global Reverb", groups: ["Tank", "Extended"]}
   - {index: 16, name: "Master", groups: ["Output"]}
@@ -1595,6 +1600,60 @@ params:
     default: 0.5
     smooth_ms: 0
     ui: {section: 13, group: 3}
+
+  # ---- [13] Step Sequencer — AUX LANE (Stage B) ----------------------------
+  # A second modulation lane sharing the gate lane's clock: same step position,
+  # rate, direction, gate timing and slide.  It contributes ONLY its own step
+  # values, depth and destination.  Off by default (dest None, depth 0), so the
+  # default patch stays byte-identical.  Pan/DelaySend/Drive are inert until
+  # Stages C/D (see seq_aux_dest note + DEFERRALS_LEDGER D-B1).
+  - id: 0x068C
+    key: seq.aux_destination
+    name: "Seq Aux Dest"
+    label: "AUX DEST"
+    type: select
+    scope: patch
+    options: seq_aux_dest
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x068D
+    key: seq.aux_depth
+    name: "Seq Aux Depth"
+    label: "AUX DEP"
+    type: continuous
+    scope: patch
+    range: {min: -1, max: 1, curve: lin}
+    unit: "norm"
+    bipolar_display: true
+    default: 0
+    smooth_ms: 5
+    ui: {section: 13, group: 4}
+  - id: 0x068E
+    key: seq.aux_step_select
+    name: "Aux Step Select"
+    label: "AUX SEL"
+    # Same 1..16 display / 0..15 internal convention as seq.step_select.
+    type: int
+    widget: grid
+    scope: patch
+    range: {min: 1, max: 16, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x068F
+    key: seq.aux_step_value
+    name: "Aux Step Value"
+    label: "AUX VAL"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
 
   # ---- [14] Voice Mode ----
   - id: 0x0700            # v1: CC::PERF_MODE (was CC 140)

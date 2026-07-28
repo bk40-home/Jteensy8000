@@ -101,18 +101,43 @@ static JT::AudioSynthBlockF32  gSynth(gStore, gCombPool, gReverbPool, gFxPool);
 static JT::MidiParamTransport  gTransportUsbDev (gStore, JT::Origin::MidiUsbDev);
 static JT::MidiParamTransport  gTransportUsbHost(gStore, JT::Origin::MidiUsbHost);
 static JT::MidiParamTransport  gTransportSerial (gStore, JT::Origin::MidiSerial);
+
 static JT::ParamBroadcast      gBroadcast(gStore);
 
-#if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
-static AudioOutputI2S_F32      gI2sOut(audioSettings);
-static AudioConnection_F32     cI2sL(gSynth, 0, gI2sOut, 0);
-static AudioConnection_F32     cI2sR(gSynth, 1, gI2sOut, 1);
-#endif
+// Audio graph — constructed once, wired once, never re-patched (F32 cables have
+// no destructor; dynamic graphs crash — v1 lesson, now a hard rule).
+//
+// v2 restores v1's BIDIRECTIONAL USB audio ("synth as soundcard"):
+//
+//   OUT (record path): synth F32 -> int16 -> gUsbOut -> DAW.  Fed by the SYNTH
+//     ONLY.  The DAW therefore never records its own return signal — this is
+//     the structural fix for v1's loopback: the loop cannot form because the
+//     return is not wired into gUsbOut.  (v1's USB-audio overclock only made
+//     the loop audible/unstable; the real cure is topological, not clock-based.)
+//
+//   IN (monitor path): DAW -> gUsbIn (int16) -> I16toF32 -> return mixer ch1 ->
+//     I2S out ONLY.  You hear the DAW return on the physical output alongside
+//     the synth, so you can record the synth in the DAW while playing another
+//     generated sound back out through the same box.
+//
+//   SIGNAL GRAPH (I2S backends):
+//     gSynth -+-> gRetMixL/R ch0 -> gI2sOut        (synth + return, heard)
+//             +-> gUsbConvL/R    -> gUsbOut        (synth only, recorded)
+//     gUsbIn ---> gUsbInConvL/R  -> gRetMixL/R ch1 -> gI2sOut
+//
+// DECLARATION-ORDER RULE: AudioConnection_F32 captures its endpoints by
+// reference at construction, so every node must be declared BEFORE the cable
+// that names it.  The order below is deliberate — mixers before the I2S cables
+// that read them, converters before the mixer cables that read them.
+// -----------------------------------------------------------------------------
+
 #if defined(JT_BACKEND_SGTL5000)
 static AudioControlSGTL5000    gCodec;
 #endif
 
-// USB audio rides alongside every backend: F32 -> int16 at the very edge.
+// -- record path (unchanged behaviour): synth -> DAW --------------------------
+// F32 -> int16 at the very edge.  This path is intentionally independent of the
+// return mixer so the recorded stream is the pure synth output.
 static AudioConvert_F32toI16   gUsbConvL;
 static AudioConvert_F32toI16   gUsbConvR;
 static AudioOutputUSB          gUsbOut;
@@ -121,6 +146,33 @@ static AudioConnection_F32     cUsbConvR(gSynth, 1, gUsbConvR, 0);
 static AudioConnection         cUsbL(gUsbConvL, 0, gUsbOut, 0);
 static AudioConnection         cUsbR(gUsbConvR, 0, gUsbOut, 1);
 
+// -- monitor path: DAW -> Teensy.  Stock AudioInputUSB is int16 stereo; convert
+//    to F32 so it can enter the F32 return mixer.  Mirrors the outbound convert.
+static AudioInputUSB           gUsbIn;
+static AudioConvert_I16toF32   gUsbInConvL;
+static AudioConvert_I16toF32   gUsbInConvR;
+static AudioConnection         cUsbInL(gUsbIn, 0, gUsbInConvL, 0);
+static AudioConnection         cUsbInR(gUsbIn, 1, gUsbInConvR, 0);
+
+#if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
+// -- return mixers: only exist when there is a physical output to hear them on.
+//    JT_BACKEND_USBONLY has no I2S sink, so the DAW return has nowhere to go and
+//    these are omitted (the record path above still functions on USBONLY).
+//    ch0 = synth (unity, fixed); ch1 = DAW return (gain polled from the store).
+static AudioMixer4_F32         gRetMixL;
+static AudioMixer4_F32         gRetMixR;
+static AudioConnection_F32     cRetSynthL(gSynth,      0, gRetMixL, 0);
+static AudioConnection_F32     cRetSynthR(gSynth,      1, gRetMixR, 0);
+static AudioConnection_F32     cRetDawL  (gUsbInConvL, 0, gRetMixL, 1);
+static AudioConnection_F32     cRetDawR  (gUsbInConvR, 0, gRetMixR, 1);
+
+// -- physical output: fed by the return mixers (synth + DAW return), NOT by the
+//    synth directly.  gUsbOut stays upstream of this sum, which is what keeps
+//    the record path loop-free.
+static AudioOutputI2S_F32      gI2sOut(audioSettings);
+static AudioConnection_F32     cI2sL(gRetMixL, 0, gI2sOut, 0);
+static AudioConnection_F32     cI2sR(gRetMixR, 0, gI2sOut, 1);
+#endif
 // -----------------------------------------------------------------------------
 // MIDI handlers — thin routing only.
 // -----------------------------------------------------------------------------
@@ -212,8 +264,16 @@ void setup()
 
     // Two pools: F32 blocks for the synth path, a small int16 pool for the
     // stock USB output object.  Sizes per brief §10 — edges only.
-    AudioMemory(12);
+    AudioMemory(16);   // +4: AudioInputUSB (int16 stereo) needs its own blocks
     AudioMemory_F32(20, audioSettings);
+
+    // Return mixer init (Region D): synth at unity, DAW return at its stored
+    // default.  Set once here; loop() tracks the return level thereafter.
+#if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
+    gRetMixL.gain(0, 1.0f);  gRetMixR.gain(0, 1.0f);
+    gRetMixL.gain(1, gStore.get(0x0801));
+    gRetMixR.gain(1, gStore.get(0x0801));
+#endif
 
 #if defined(JT_BACKEND_SGTL5000)
     gCodec.enable();
@@ -296,6 +356,18 @@ void loop()
 
     // Mirror this pass's accepted changes out to the other ports (paced).
     gBroadcast.drain();
+
+    // USB-return monitor level (Region C): poll the store and push into the
+    // return mixer's ch1 gain.  Control-plane cadence (~1 kHz here), never the
+    // audio ISR.  Unconditional store each pass is a single float write — cheaper
+    // than a change-detect branch would be.  ch0 (synth) is fixed at unity.
+#if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
+    {
+        const float retLevel = gStore.get(0x0801);   // master.usb_return_level 0..1
+        gRetMixL.gain(1, retLevel);
+        gRetMixR.gain(1, retLevel);
+    }
+#endif
 
     // Status feed (Phase F5): voice-activity dots, SEQ playhead and run flag
     // for the controller. One compare when nothing changed; a 6-CC send when

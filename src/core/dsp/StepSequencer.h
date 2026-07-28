@@ -61,6 +61,12 @@ enum class SeqDir : uint8_t { Forward = 0, Reverse, Bounce, Random, Count };
 // Shares the LFO destination space (v1 LFODestination).
 enum class SeqDest : uint8_t { None = 0, Pitch, Filter, Pwm, Amp, Count };
 
+// AUX-lane destinations — order matches kOpt_seq_aux_dest {None,Filter,Pan,
+// DelaySend,Drive} (a DIFFERENT set/order from the gate lane's SeqDest, so it
+// gets its own enum).  Stage B routes None + Filter; Pan/DelaySend/Drive are
+// inert placeholders until Stages C/D (DEFERRALS_LEDGER D-B1).
+enum class SeqAuxDest : uint8_t { None = 0, Filter, Pan, DelaySend, Drive, Count };
+
 class StepSequencer {
 public:
     static constexpr int   kMaxSteps    = 16;    // v1 SEQ_MAX_STEPS
@@ -76,6 +82,16 @@ public:
     int     currentStep()    const { return _currentStep; }
     bool    gateOpen()       const { return _gateOpen; }
     SeqDest destination()    const { return _destination; }
+
+    // ---- AUX LANE (Stage B) ----------------------------------------------
+    // A second modulation output computed in the SAME tick(), sharing the gate
+    // lane's clock (position, rate, direction, gate timing, slide).  It carries
+    // its own step values, depth and destination.  It does NOT carry the amp
+    // anti-click ramp — aux destinations are cutoff/pan/send/drive, smoothed at
+    // their own stage; the ramp is amp-specific.  Emits 0 while dest==None or
+    // depth==0, so an unused aux lane costs one multiply and adds nothing.
+    float      getAuxOutput()   const { return _auxOutput; }
+    SeqAuxDest auxDestination() const { return _auxDest; }
     bool    retrigger()      const { return _retrigger; }
     bool    enabled()        const { return _enabled; }
 
@@ -91,6 +107,11 @@ public:
     void setRate(float hz);                    // 0.05..50 Hz (free-run)
     void setRetrigger(bool on);
     void reset();
+
+    // ---- AUX LANE setters (Stage B) --------------------------------------
+    void setAuxStepValue(int step, uint8_t cc);  // 0..127 unipolar
+    void setAuxDepth(float d);                    // -1..+1 bipolar
+    void setAuxDestination(SeqAuxDest dest);
 
     // D-1: tempo-sync deferred.  Stored but inert — the sequencer stays free-
     // running at SEQ_RATE until TempoClock gains a getTimeForMode(ms) accessor.
@@ -145,6 +166,15 @@ private:
 
     // ---- Output ----
     float   _output = 0.0f;
+
+    // ---- AUX LANE state (Stage B) ----------------------------------------
+    // Parallel to the gate lane, sharing _currentStep / phaseFrac / _slide.
+    // Defaults are the no-op values (dest None, depth 0, values 0) so an
+    // untouched aux lane emits 0 and the default patch stays byte-identical.
+    uint8_t    _auxValues[kMaxSteps] = { 0 };
+    float      _auxDepth = 0.0f;                 // bipolar
+    SeqAuxDest _auxDest  = SeqAuxDest::None;
+    float      _auxOutput = 0.0f;
 
     uint32_t _rng = 0x51F5A3C7u;
 };

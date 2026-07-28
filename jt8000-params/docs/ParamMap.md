@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 143 parameters.**
+**Schema version 1 — 144 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -242,6 +242,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
 | `0x0800` | 0 | Master Volume | `master.volume` | continuous | 0–1 norm (lin) | 0.8 norm | 20 ms | 7 | global |
+| `0x0801` | 1 | USB Return Level | `master.usb_return_level` | continuous | 0–1 norm (lin) | 1 norm | 20 ms | — | global |
 
 ### Option sets
 

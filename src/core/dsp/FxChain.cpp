@@ -146,8 +146,12 @@ void FxChain::computeTone()
     if (fabsf(_targetBassDb)   < 0.1f) bassLin = 1.0f;
     if (fabsf(_targetTrebleDb) < 0.1f) trebLin = 1.0f;
 
-    _toneBassDelta = bassLin - 1.0f;
-    _toneTrebDelta = trebLin - 1.0f;
+    _toneBassBase = bassLin - 1.0f;
+    _toneTrebBase = trebLin - 1.0f;
+
+    // Effective deltas default to base; the per-block tilt step adds to these.
+    _toneBassDelta = _toneBassBase;
+    _toneTrebDelta = _toneTrebBase;
 
     _toneActive = (fabsf(_toneBassDelta) > 0.0001f ||
                    fabsf(_toneTrebDelta) > 0.0001f);
@@ -214,6 +218,18 @@ void FxChain::setDelayMix(float mix)
     _delayMix = clampf(mix, 0.0f, 1.0f);
 }
 
+// ---- Stage D aux-lane mod setters -----------------------------------------
+void FxChain::setDriveMod(float bipolar)
+{
+    _tiltTarget = clampf(bipolar, -1.0f, 1.0f);
+}
+
+void FxChain::setDelayMixMod(float offset)
+{
+    // Stored raw; prepareDelay() sums it onto the knob base and clamps 0..1.
+    _delayMixMod = clampf(offset, -1.0f, 1.0f);
+}
+
 void FxChain::setDelayFeedback(float fb)
 {
     _delayFeedbackOverride = (fb < 0.0f) ? -1.0f : clampf(fb, 0.0f, 0.99f);
@@ -268,7 +284,9 @@ void FxChain::prepareDelay()
     dSampR = clampf(dSampR, kMinDelaySamp, maxSamp);
 
     // v2: mix is 0..1 magnitude, no phase invert (D-6) — so wet = mix directly.
-    const float wet = _delayMix;
+    // Stage D: aux-lane offset added on top of the knob base, clamped (Q19).
+    // _delayMixMod defaults to 0 → wet == _delayMix, byte-identical.
+    const float wet = clampf(_delayMix + _delayMixMod, 0.0f, 1.0f);
 
     _delaySampLCached = dSampL;
     _delaySampRCached = dSampR;
@@ -450,6 +468,36 @@ void FxChain::processBlock(float* left, float* right, size_t n)
     // Block-rate parameter recompute (only when dirty) + delay cache.
     if (_satDirty)  computeSat();
     if (_toneDirty) computeTone();
+
+    // Stage D: aux 'Drive' → bass↔treble TILT on the Tone EQ (level-neutral
+    // colour).  Smooth the tilt once per block (no zipper), convert ±kTiltMaxDb
+    // to linear shelf deltas, and add treble-up / bass-down (see-saw) on top of
+    // whatever the tone knobs set.  Independent of drive mode — it's a tone
+    // colour.  Skipped (and tone left exactly as computeTone left it) when the
+    // tilt is flat and already settled, so an unmodulated chain is byte-identical.
+    {
+        constexpr float kTiltMaxDb = 6.0f;                     // ±6 dB at full depth
+        constexpr float kTiltSmooth = 0.25f;                   // ~4-block one-pole
+        if (_tiltCur != _tiltTarget)
+            _tiltCur += (_tiltTarget - _tiltCur) * kTiltSmooth;
+
+        if (fabsf(_tiltCur) > 0.0001f) {
+            // Effective = base + tilt, rebuilt from base each block (never
+            // accumulates).  +db treble / −db bass see-saw.
+            const float db = _tiltCur * kTiltMaxDb;
+            _toneTrebDelta = _toneTrebBase + (powf(10.0f,  db / 20.0f) - 1.0f);
+            _toneBassDelta = _toneBassBase + (powf(10.0f, -db / 20.0f) - 1.0f);
+            _toneActive = true;                                // force the stage on
+        } else if (_toneBassDelta != _toneBassBase || _toneTrebDelta != _toneTrebBase) {
+            // Tilt just settled to flat — restore the pure base deltas and
+            // re-evaluate whether the tone stage is needed at all.
+            _toneBassDelta = _toneBassBase;
+            _toneTrebDelta = _toneTrebBase;
+            _toneActive = (fabsf(_toneBassBase) > 0.0001f ||
+                           fabsf(_toneTrebBase) > 0.0001f);
+        }
+    }
+
     prepareDelay();
 
     const float dryMix  = _dryMix;

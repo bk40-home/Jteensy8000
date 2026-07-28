@@ -260,6 +260,14 @@ private:
     // seqSelectedStep): SEQ_STEP_SELECT sets it, SEQ_STEP_VALUE writes it.
     StepSequencer _seq;
     int           _seqEditStep = 0;
+    int           _seqAuxEditStep = 0;   // aux-lane edit cursor (Stage B)
+
+    // Global bus pan (Stage C): ramped per-channel gains for the master stage.
+    // Centre = 1.0 both (centre-normalised equal-power), so the default patch
+    // (aux dest != Pan, or centred) stays byte-identical and the pan multiply
+    // is skipped entirely when centred.
+    float         _panLCur = 1.0f;
+    float         _panRCur = 1.0f;
 
     // applyParam dispatches on the parameter's permanent ID via a switch —
     // the IDs are constexpr, so the compiler builds a jump table.  With 40+
