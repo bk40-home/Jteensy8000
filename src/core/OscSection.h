@@ -208,6 +208,16 @@ private:
     // first all-zero block still recomputes once and restores base widths.
     bool  _pwmWasLive = false;
 
+    // --- sync+xmod circular-dependency break (JP-8000 F2 swap) ---
+    // When SYNC and X-MOD are both active OSC1 (master) must render before
+    // OSC2, but X-MOD feeds OSC2's output INTO OSC1 — so OSC1 uses OSC2's
+    // PREVIOUS block, delayed one sample.  _xmodPrev holds last block's OSC2
+    // output; _xmodTail is its final sample, used as sample 0 of the delayed
+    // feed.  Only touched when OSC2 renders, so unsynced patches pay nothing
+    // beyond the memcpy that keeps the buffer warm for the next synced block.
+    float _xmodPrev[kBlockSize] = { 0.0f };
+    float _xmodTail = 0.0f;
+
     // Sub oscillator: one phase + FastMath sine — too simple to justify a
     // third OscCore per voice.
     float _subPhase = 0.0f;

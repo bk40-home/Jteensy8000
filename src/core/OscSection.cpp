@@ -191,8 +191,11 @@ void OscSection::render(float* out, size_t n)
     float xd = _xmodDepth + _xmodOffset;
     if (xd < 0.0f) xd = 0.0f; else if (xd > 1.0f) xd = 1.0f;
     const bool xmod     = (xd > 0.0f);
-    // Hard sync needs a real phase-wrapping master — supersaw can't be one.
-    const bool sync     = _sync && !_u[1].isSupersaw();
+    // Hard sync needs a real phase-wrapping master.  Per the JP-8000 panel
+    // diagram (manual p.59) OSC1 is the sync MASTER and OSC2 the slave — the
+    // reverse of the v1 port we started from (F2).  Supersaw can't be a
+    // master (no single wrap point), so the guard is on OSC1 now.
+    const bool sync     = _sync && !_u[0].isSupersaw();
     const bool need2    = (g2 > 0.0f) || (ringG > 0.0f) || xmod || sync;
     const bool need1    = (g1 > 0.0f) || (ringG > 0.0f);
     const bool needSub  = (_subLevel > 0.0f);
@@ -218,6 +221,7 @@ void OscSection::render(float* out, size_t n)
     float pitchRamp[kBlockSize];   // per-sample COMMON pitch offset, octaves
     float pitchRamp2[kBlockSize];  // per-sample OSC2 feed: common + routed lane
     float fm1[kBlockSize];         // OSC1's combined FM feed (pitch [+ x-mod])
+    float fm1Delayed[kBlockSize];  // one-sample-delayed X-MOD feed (sync case)
 
     if (pitchActive) {
         const float stepOct = (_pitchModOct - _pitchOctPrev) / (float)n;
@@ -240,57 +244,118 @@ void OscSection::render(float* out, size_t n)
     }
     _pitch2OctPrev = _pitchModOct2;
 
-    // --- OSC2 first: it may be OSC1's sync master and/or FM modulator ---
-    if (need2) {
-        // Pitch env modulates BOTH units in v1 (both FM slots fed).  When OSC2
-        // is the sync master the slave then locks to the pitch-modulated master
-        // — also v1-faithful (the master's FM moved its wrap points).  Under
-        // G1 "OSC2" routing the master ALSO carries the routed lane, so the
-        // slave's wrap points follow it — the classic sync-sweep behaviour
-        // the JP-8000 produced with this destination.
+    // =====================================================================
+    // OSC1/OSC2 coupled render — JP-8000 signal flow (manual p.59 diagram):
+    //   SYNC : OSC1 (master) resets OSC2 (slave)          [swapped from v1]
+    //   X-MOD: OSC2 (modulator) FMs OSC1 (carrier)         [unchanged, ✓]
+    //   RING : OSC1 × OSC2                                 [order-independent]
+    // The two couplings point opposite ways, so with BOTH on there is a
+    // genuine circular dependency (OSC1 needs OSC2's output for X-MOD; OSC2
+    // needs OSC1's wrap buffer for sync).  The hardware runs them in parallel
+    // per sample; a block-serial renderer cannot without interleaving, so we
+    // break the loop with a ONE-SAMPLE delay on the X-MOD feed only: OSC1
+    // renders first (master), FM-fed by OSC2's output from LAST block plus
+    // this block shifted by one (seed = _xmodTail).  22 µs of latency on the
+    // FM path, inaudible, and it costs 1 float of state.  Ring/balance are
+    // taken AFTER both render, so they are unaffected by the order.
+    //
+    // Render order by case:
+    //   sync (any xmod) : OSC1 first  (master must fill syncBuf before slave)
+    //   xmod, no sync   : OSC2 first  (modulator before carrier — v1 path)
+    //   neither         : OSC2 first  (harmless; matches the no-sync path)
+    // =====================================================================
+    const bool haveXmod = xmod && need2;
+    const float xg = xd * kXmodOctaveRange;
+
+    // ---- helper lambdas keep the two orderings from duplicating wave logic --
+    // OSC2 (the modulator / slave).  syncIn is the master's wrap buffer when
+    // OSC2 is the sync slave; fed nullptr when free-running.
+    auto renderOsc2 = [&](const float* syncIn)
+    {
         const float* fm2 = extra2Active ? pitchRamp2
                          : (pitchActive ? pitchRamp : nullptr);
         if (_u[1].isSupersaw()) {
-            _u[1].ss.render(b2, n, fm2, 1.0f, nullptr);
+            _u[1].ss.render(b2, n, fm2, 1.0f, nullptr);   // supersaw ignores sync
         } else {
-            _u[1].core.render(b2, n, fm2, 1.0f,
-                              nullptr, sync ? syncBuf : nullptr);
+            _u[1].core.render(b2, n, fm2, 1.0f, syncIn, nullptr);
         }
-        // Comb colours the unit IN PLACE so mix, ring AND the cross-mod
-        // feed all see the coloured signal — v1's post-comb tap points.
         if (_u[1].comb.isActive()) _u[1].comb.process(b2, n);
-    }
+    };
 
-    // --- OSC1: slave/carrier ---
-    if (need1) {
-        const bool   haveXmod = (xmod && need2);
+    // OSC1 (the carrier / master).  xmodSrc is the per-sample modulator this
+    // block sees (either OSC2's fresh output, or the one-sample-delayed feed
+    // when OSC1 has to render first); syncOut is filled when OSC1 is master.
+    auto renderOsc1 = [&](const float* xmodSrc, float* syncOut)
+    {
         const float* fmBuf;
         float        fmOct;
         if (pitchActive) {
-            // Sum both exponential-FM sources in octave space — v1 summed the
-            // pitch env and cross-mod in the SAME FM mixer, so they add before
-            // the 2^ conversion.  Pass with fmOctaves = 1.
+            // Both exponential-FM sources sum in octave space (pitch env +
+            // cross-mod add before the 2^ conversion; fmOctaves = 1).
             if (haveXmod) {
-                const float xg = xd * kXmodOctaveRange;
-                for (size_t i = 0; i < n; ++i) fm1[i] = b2[i] * xg + pitchRamp[i];
+                for (size_t i = 0; i < n; ++i) fm1[i] = xmodSrc[i] * xg + pitchRamp[i];
             } else {
                 for (size_t i = 0; i < n; ++i) fm1[i] = pitchRamp[i];
             }
             fmBuf = fm1;
             fmOct = 1.0f;
+        } else if (haveXmod) {
+            // No pitch mod: FM straight from the modulator at full octave scale.
+            for (size_t i = 0; i < n; ++i) fm1[i] = xmodSrc[i];
+            fmBuf = fm1;
+            fmOct = xg;
         } else {
-            fmBuf = haveXmod ? b2 : nullptr;
-            fmOct = xd * kXmodOctaveRange;
+            fmBuf = nullptr;
+            fmOct = 0.0f;
         }
         if (_u[0].isSupersaw()) {
-            // Supersaw takes the FM feed (v1 wired the same mixer into it)
-            // but ignores sync — combination absent in v1, see header.
-            _u[0].ss.render(b1, n, fmBuf, fmOct, nullptr);
+            _u[0].ss.render(b1, n, fmBuf, fmOct, nullptr);   // supersaw: no sync-out
         } else {
-            _u[0].core.render(b1, n, fmBuf, fmOct,
-                              (sync && need2) ? syncBuf : nullptr, nullptr);
+            _u[0].core.render(b1, n, fmBuf, fmOct, nullptr, syncOut);
         }
         if (_u[0].comb.isActive()) _u[0].comb.process(b1, n);
+    };
+
+    if (sync) {
+        // --- OSC1 master FIRST -------------------------------------------
+        // X-MOD needs OSC2's output, but OSC2 (slave) needs OSC1's syncBuf,
+        // which OSC1 hasn't produced yet.  Break the loop with a true
+        // one-sample delay that PRESERVES the modulator waveform: this
+        // block's FM feed is [last block's final sample, then this-block's
+        // OSC2 samples 0..n-2].  We only have last block's OSC2 in _xmodPrev,
+        // so we assemble the feed from _xmodPrev shifted by one (sample 0 =
+        // _xmodPrev[n-1], sample k = _xmodPrev[k-1]).  That is a whole-block
+        // delay in the worst case but keeps the modulator's SHAPE — unlike a
+        // DC seed, which would silence the X-MOD timbre during sync.  On
+        // steady tones (the X-MOD-under-sync use case) a block of delay is
+        // phase only, inaudible; on fast transients it softens by ≤2.9 ms.
+        if (need1) {
+            if (haveXmod) {
+                fm1Delayed[0] = _xmodTail;                 // carry across boundary
+                for (size_t i = 1; i < n; ++i) fm1Delayed[i] = _xmodPrev[i - 1];
+                renderOsc1(fm1Delayed, syncBuf);
+            } else {
+                renderOsc1(nullptr, syncBuf);
+            }
+        } else {
+            // OSC1 muted but still the sync master: fill syncBuf via scratch.
+            renderOsc1(nullptr, syncBuf);
+        }
+        // --- OSC2 slave, reset by OSC1's wrap buffer ----------------------
+        if (need2) {
+            renderOsc2(syncBuf);
+            _xmodTail = b2[n - 1];
+            memcpy(_xmodPrev, b2, n * sizeof(float));       // seed next block
+        }
+    } else {
+        // --- No sync: OSC2 (modulator) first, then OSC1 (carrier) ---------
+        // v1's order; X-MOD reads OSC2's fresh same-block output (no delay).
+        if (need2) renderOsc2(nullptr);
+        if (need1) renderOsc1(need2 ? b2 : nullptr, nullptr);
+        if (need2) {
+            _xmodTail = b2[n - 1];
+            memcpy(_xmodPrev, b2, n * sizeof(float));
+        }
     }
 
     // --- mix: only the terms that exist this block ---

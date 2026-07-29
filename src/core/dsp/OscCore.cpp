@@ -33,6 +33,21 @@ inline float polyBlep(float t, float dt)
     return 0.0f;
 }
 
+#if JT_SYNC_ANTIALIAS
+// F3: band-limit a HARD-SYNC reset — a step discontinuity of arbitrary height
+// (unlike the periodic edges polyBlep handles).  `frac` is the sub-sample
+// reset position (0..1, from syncIn); `stepH` is the output jump (post-reset
+// minus the level held just before).  We split an ideal band-limited step's
+// residual between the sample containing the reset and the next one; `carry`
+// receives the next-sample part.  Returns the current-sample correction.
+inline float syncStepBlep(float frac, float stepH, float& carry)
+{
+    const float d = 1.0f - frac;                    // fraction of sample after reset
+    carry        = -stepH * 0.5f * d * d;
+    return         stepH * 0.5f * (1.0f - d * d);
+}
+#endif
+
 } // namespace
 
 // -----------------------------------------------------------------------------
@@ -120,6 +135,9 @@ inline float OscCore::step(size_t i, const float* fmBuf, float fmOctaves,
         // phase restarts and advances through the REMAINDER of the sample.
         ph = (1.0f - syncIn[i]) * inc;
         wrapped = true;               // a sync reset also refreshes S&H
+#if JT_SYNC_ANTIALIAS
+        _blepFrac = syncIn[i];        // F3: consumed by JT_SYNC_BLEP in the loop
+#endif
     }
 
     _phase = ph;
@@ -142,31 +160,61 @@ void OscCore::renderImpl(float* out, size_t n,
     // Local shorthand: advances phase with the active feature set.
     #define JT_STEP() step<HasFm, HasSyncIn, HasSyncOut>(i, fmBuf, fmOctaves, syncIn, syncOut)
 
+#if JT_SYNC_ANTIALIAS
+    // F3: applied after each sample write in a braced loop.  On a sync-reset
+    // sample it band-limits the step (out[i] vs the previously held level) and
+    // carries the residual to the next sample; otherwise just applies any
+    // pending carry.  Compiles away for non-slave instantiations (no HasSyncIn)
+    // and when the flag is off.
+    #define JT_SYNC_BLEP()                                                    \
+        if (HasSyncIn) {                                                      \
+            out[i] += _blepCarry; _blepCarry = 0.0f;                          \
+            if (_blepFrac >= 0.0f) {                                          \
+                out[i] -= syncStepBlep(_blepFrac, out[i] - _preResetOut,     \
+                                       _blepCarry);                          \
+                _blepFrac = -1.0f;                                           \
+            }                                                                 \
+            _preResetOut = out[i];                                            \
+        } else ((void)0)
+#else
+    #define JT_SYNC_BLEP() ((void)0)
+#endif
+
     switch (_wave) {
 
     case Wave::Sine:
-        for (size_t i = 0; i < n; ++i)
+        for (size_t i = 0; i < n; ++i) {
             out[i] = FastMath::fastSin01(JT_STEP());
+            JT_SYNC_BLEP();
+        }
         break;
 
     case Wave::Saw:                   // naive: the JP-8000's own edge
-        for (size_t i = 0; i < n; ++i)
+        for (size_t i = 0; i < n; ++i) {
             out[i] = 2.0f * JT_STEP() - 1.0f;
+            JT_SYNC_BLEP();
+        }
         break;
 
     case Wave::SawRev:
-        for (size_t i = 0; i < n; ++i)
+        for (size_t i = 0; i < n; ++i) {
             out[i] = 1.0f - 2.0f * JT_STEP();
+            JT_SYNC_BLEP();
+        }
         break;
 
     case Wave::Square:
-        for (size_t i = 0; i < n; ++i)
+        for (size_t i = 0; i < n; ++i) {
             out[i] = (JT_STEP() < 0.5f) ? 1.0f : -1.0f;
+            JT_SYNC_BLEP();
+        }
         break;
 
     case Wave::Pulse:
-        for (size_t i = 0; i < n; ++i)
+        for (size_t i = 0; i < n; ++i) {
             out[i] = (JT_STEP() < _shape) ? 1.0f : -1.0f;
+            JT_SYNC_BLEP();
+        }
         break;
 
     case Wave::Triangle:
@@ -175,6 +223,7 @@ void OscCore::renderImpl(float* out, size_t n,
             // 0..0.5 rises -1..+1, 0.5..1 falls back — branch-free fabs form.
             const float x = ph + ph;                    // 0..2
             out[i] = 2.0f * ((x < 1.0f ? x : 2.0f - x)) - 1.0f;
+            JT_SYNC_BLEP();
         }
         break;
 
@@ -189,6 +238,7 @@ void OscCore::renderImpl(float* out, size_t n,
             const float v = (ph < _shape) ? ph * riseK
                                           : (1.0f - ph) * fallK;
             out[i] = 2.0f * v - 1.0f;
+            JT_SYNC_BLEP();
         }
         break;
     }
@@ -198,14 +248,17 @@ void OscCore::renderImpl(float* out, size_t n,
         for (size_t i = 0; i < n; ++i) {
             (void)JT_STEP();
             out[i] = _shValue;
+            JT_SYNC_BLEP();
         }
         break;
 
     case Wave::Arb:
         if (_arbData == nullptr) {
             // v1 guard behaviour: no table selected yet -> naive saw.
-            for (size_t i = 0; i < n; ++i)
+            for (size_t i = 0; i < n; ++i) {
                 out[i] = 2.0f * JT_STEP() - 1.0f;
+                JT_SYNC_BLEP();
+            }
             break;
         }
         for (size_t i = 0; i < n; ++i) {
@@ -220,6 +273,7 @@ void OscCore::renderImpl(float* out, size_t n,
             const float a = (float)_arbData[idx];
             const float b = (float)_arbData[nxt];
             out[i] = (a + (b - a) * frac) * (1.0f / 32768.0f);
+            JT_SYNC_BLEP();
         }
         break;
 
@@ -227,6 +281,7 @@ void OscCore::renderImpl(float* out, size_t n,
         for (size_t i = 0; i < n; ++i) {
             const float ph = JT_STEP();
             out[i] = 2.0f * ph - 1.0f - polyBlep(ph, _inc);
+            JT_SYNC_BLEP();
         }
         break;
 
@@ -234,6 +289,7 @@ void OscCore::renderImpl(float* out, size_t n,
         for (size_t i = 0; i < n; ++i) {
             const float ph = JT_STEP();
             out[i] = -(2.0f * ph - 1.0f - polyBlep(ph, _inc));
+            JT_SYNC_BLEP();
         }
         break;
 
@@ -251,6 +307,7 @@ void OscCore::renderImpl(float* out, size_t n,
             if (ph2 < 0.0f) ph2 += 1.0f;
             v -= polyBlep(ph2, _inc);
             out[i] = v;
+            JT_SYNC_BLEP();
         }
         break;
 
@@ -263,6 +320,7 @@ void OscCore::renderImpl(float* out, size_t n,
             if (ph2 < 0.0f) ph2 += 1.0f;
             v -= polyBlep(ph2, _inc);
             out[i] = v;
+            JT_SYNC_BLEP();
         }
         break;
 
@@ -274,6 +332,7 @@ void OscCore::renderImpl(float* out, size_t n,
     }
 
     #undef JT_STEP
+    #undef JT_SYNC_BLEP
 }
 
 // -----------------------------------------------------------------------------

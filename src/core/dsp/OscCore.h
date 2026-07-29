@@ -44,6 +44,22 @@
 
 namespace JT {
 
+// -----------------------------------------------------------------------------
+// F3 — hard-sync anti-aliasing (compile-time option, DEFAULT OFF).
+//   The JP-8000 is a digital synth and its hard sync ALIASES: the forced
+//   phase reset injects a step discontinuity with unbounded harmonics.  We
+//   keep that as the default because it is part of the instrument's actual
+//   character (leave-aliased, per sign-off).  Define JT_SYNC_ANTIALIAS=1 at
+//   build time (e.g. -DJT_SYNC_ANTIALIAS=1 in platformio.ini build_flags) to
+//   apply a 2-sample polyBLEP correction at each reset instead — cleaner, at
+//   the cost of a little maths in the phase-step hot path.
+//   The flag is read in step()'s sync-reset branch; when 0 the correction
+//   compiles to nothing.
+// -----------------------------------------------------------------------------
+#ifndef JT_SYNC_ANTIALIAS
+#define JT_SYNC_ANTIALIAS 0
+#endif
+
 // Option indices of the generated 'osc_wave' set — see ordering note above.
 enum class Wave : uint8_t {
     Sine        = 0,
@@ -116,6 +132,16 @@ private:
     float    _freq   = -1.0f;         // dirty check
     float    _shape  = 0.5f;          // pulse width / triangle skew
     float    _shValue = 0.0f;         // current Sample & Hold level
+#if JT_SYNC_ANTIALIAS
+    // F3: sub-sample position of a pending sync-reset step (<0 = none).
+    // Set in step(), consumed by the wave loop's polyBLEP correction.
+    float    _blepFrac = -1.0f;
+    // Residual BLEP energy carried into the NEXT sample (see syncStepBlep).
+    float    _blepCarry = 0.0f;
+    // Output value the slave held on the sample BEFORE a reset, so the loop
+    // can measure the step height (post − pre) at the reset instant.
+    float    _preResetOut = 0.0f;
+#endif
     uint32_t _rng    = 0x9E3779B9u;
 
     const int16_t* _arbData = nullptr;
