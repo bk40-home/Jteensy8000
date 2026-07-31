@@ -468,6 +468,39 @@ static constexpr char s393[] JT_TABLE_FLASH = "HI PASS";
 static constexpr char s394[] JT_TABLE_FLASH = "master.volume";
 static constexpr char s395[] JT_TABLE_FLASH = "Master Volume";
 static constexpr char s396[] JT_TABLE_FLASH = "VOLUME";
+static constexpr char s397[] JT_TABLE_FLASH = "arp.enable";
+static constexpr char s398[] JT_TABLE_FLASH = "Arp Enable";
+static constexpr char s399[] JT_TABLE_FLASH = "arp.mode";
+static constexpr char s400[] JT_TABLE_FLASH = "Arp Mode";
+static constexpr char s401[] JT_TABLE_FLASH = "arp.octaves";
+static constexpr char s402[] JT_TABLE_FLASH = "Arp Octaves";
+static constexpr char s403[] JT_TABLE_FLASH = "OCT";
+static constexpr char s404[] JT_TABLE_FLASH = "arp.latch";
+static constexpr char s405[] JT_TABLE_FLASH = "Arp Latch";
+static constexpr char s406[] JT_TABLE_FLASH = "LATCH";
+static constexpr char s407[] JT_TABLE_FLASH = "arp.rate";
+static constexpr char s408[] JT_TABLE_FLASH = "Arp Rate";
+static constexpr char s409[] JT_TABLE_FLASH = "arp.free_hz";
+static constexpr char s410[] JT_TABLE_FLASH = "Arp Free Rate";
+static constexpr char s411[] JT_TABLE_FLASH = "FREE";
+static constexpr char s412[] JT_TABLE_FLASH = "arp.gate_length";
+static constexpr char s413[] JT_TABLE_FLASH = "Arp Gate";
+static constexpr char s414[] JT_TABLE_FLASH = "arp.swing";
+static constexpr char s415[] JT_TABLE_FLASH = "Arp Swing";
+static constexpr char s416[] JT_TABLE_FLASH = "SWING";
+static constexpr char s417[] JT_TABLE_FLASH = "arp.step_count";
+static constexpr char s418[] JT_TABLE_FLASH = "Arp Steps";
+static constexpr char s419[] JT_TABLE_FLASH = "arp.step_select";
+static constexpr char s420[] JT_TABLE_FLASH = "Arp Step Select";
+static constexpr char s421[] JT_TABLE_FLASH = "STEP";
+static constexpr char s422[] JT_TABLE_FLASH = "arp.step_onoff";
+static constexpr char s423[] JT_TABLE_FLASH = "Arp Step On/Off";
+static constexpr char s424[] JT_TABLE_FLASH = "arp.step_accent";
+static constexpr char s425[] JT_TABLE_FLASH = "Arp Step Accent";
+static constexpr char s426[] JT_TABLE_FLASH = "ACCENT";
+static constexpr char s427[] JT_TABLE_FLASH = "arp.step_ratchet";
+static constexpr char s428[] JT_TABLE_FLASH = "Arp Step Ratchet";
+static constexpr char s429[] JT_TABLE_FLASH = "RATCH";
 } // namespace Str
 
 // --- Option sets (display strings for Select params) -------------------------
@@ -493,11 +526,13 @@ static constexpr const char* const kOpt_perf_mode[] JT_TABLE_FLASH = { "Single",
 static constexpr const char* const kOpt_edit_target[] JT_TABLE_FLASH = { "A", "B", "Both" };
 static constexpr const char* const kOpt_clock_source[] JT_TABLE_FLASH = { "Internal", "Ext MIDI" };
 static constexpr const char* const kOpt_voice_split[] JT_TABLE_FLASH = { "1+7", "2+6", "3+5", "4+4", "5+3", "6+2", "7+1" };
+static constexpr const char* const kOpt_arp_mode[] JT_TABLE_FLASH = { "Up", "Down", "UpDn Inc", "UpDn Exc", "AsPlayed", "Random", "Chord" };
+static constexpr const char* const kOpt_arp_octaves[] JT_TABLE_FLASH = { "1", "2", "3", "4" };
 static constexpr const char* const kOpt_midi_channel[] JT_TABLE_FLASH = { "Ch 1", "Ch 2", "Ch 3", "Ch 4", "Ch 5", "Ch 6", "Ch 7", "Ch 8", "Ch 9", "Ch 10", "Ch 11", "Ch 12", "Ch 13", "Ch 14", "Ch 15", "Ch 16" };
 static constexpr const char* const kOpt_layer_balance[] JT_TABLE_FLASH = { "A", "AB", "B" };
 
 // --- Section & group names (NRPN MSB == section index) -----------------------
-inline constexpr uint8_t kSectionCount = 17;
+inline constexpr uint8_t kSectionCount = 18;
 static constexpr const char* const kSectionNames[kSectionCount] JT_TABLE_FLASH = {
     "Oscillator 1",
     "Oscillator 2",
@@ -516,6 +551,7 @@ static constexpr const char* const kSectionNames[kSectionCount] JT_TABLE_FLASH =
     "Voice Mode",
     "Global Reverb",
     "Master",
+    "Arpeggiator",
 };
 
 inline constexpr uint8_t kMaxGroups = 5;
@@ -537,6 +573,7 @@ inline constexpr const char* kGroupNames[kSectionCount][kMaxGroups] = {
     { "Layer Mode", "Voice Split", nullptr, nullptr, nullptr },
     { "Tank", "Extended", nullptr, nullptr, nullptr },
     { "Output", nullptr, nullptr, nullptr, nullptr },
+    { "Control", "Timing", "Steps", nullptr, nullptr },
 };
 
 // --- One row per parameter ----------------------------------------------------
@@ -731,6 +768,19 @@ inline constexpr uint16_t REVERB_FREEZE                = 0x0786;
 inline constexpr uint16_t REVERB_LOWPASS               = 0x0787;
 inline constexpr uint16_t REVERB_HIPASS                = 0x0788;
 inline constexpr uint16_t MASTER_VOLUME                = 0x0800;
+inline constexpr uint16_t ARP_ENABLE                   = 0x0880;
+inline constexpr uint16_t ARP_MODE                     = 0x0881;
+inline constexpr uint16_t ARP_OCTAVES                  = 0x0882;
+inline constexpr uint16_t ARP_LATCH                    = 0x0883;
+inline constexpr uint16_t ARP_RATE                     = 0x0884;
+inline constexpr uint16_t ARP_FREE_HZ                  = 0x0885;
+inline constexpr uint16_t ARP_GATE_LENGTH              = 0x0886;
+inline constexpr uint16_t ARP_SWING                    = 0x0887;
+inline constexpr uint16_t ARP_STEP_COUNT               = 0x0888;
+inline constexpr uint16_t ARP_STEP_SELECT              = 0x0889;
+inline constexpr uint16_t ARP_STEP_ONOFF               = 0x088A;
+inline constexpr uint16_t ARP_STEP_ACCENT              = 0x088B;
+inline constexpr uint16_t ARP_STEP_RATCHET             = 0x088C;
 } // namespace ID
 
 // visible_when: which option indices of the dependency make a row visible.
@@ -914,6 +964,20 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::REVERB_HIPASS, Str::s391, Str::s392, Str::s393, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [16] Master ----
     { ID::MASTER_VOLUME, Str::s394, Str::s395, Str::s396, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.8f, Str::s10, false, 20, 7, 0, nullptr, 16, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    // ---- [17] Arpeggiator ----
+    { ID::ARP_ENABLE, Str::s397, Str::s398, Str::s281, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_MODE, Str::s399, Str::s400, Str::s115, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 0.0f, Str::s3, false, 0, -1, 7, kOpt_arp_mode, 17, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_OCTAVES, Str::s401, Str::s402, Str::s403, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_arp_octaves, 17, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_LATCH, Str::s404, Str::s405, Str::s406, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_RATE, Str::s407, Str::s408, Str::s189, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 7.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 17, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_FREE_HZ, Str::s409, Str::s410, Str::s411, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_GATE_LENGTH, Str::s412, Str::s413, Str::s310, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_SWING, Str::s414, Str::s415, Str::s416, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_COUNT, Str::s417, Str::s418, Str::s306, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 16.0f, Str::s307, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_SELECT, Str::s419, Str::s420, Str::s421, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s307, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ONOFF, Str::s422, Str::s423, Str::s310, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT, Str::s424, Str::s425, Str::s426, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET, Str::s427, Str::s428, Str::s429, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s307, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
 };
 
 inline constexpr size_t kParamCount = sizeof(kParams) / sizeof(kParams[0]);
@@ -943,7 +1007,7 @@ inline constexpr uint16_t idFromNrpn(uint8_t msb, uint8_t lsb) {
 }
 
 // Compile-time guarantees — a bad regeneration cannot even compile.
-static_assert(kParamCount == 147, "param count changed — regenerate consumers");
+static_assert(kParamCount == 160, "param count changed — regenerate consumers");
 // Dereferencing in a constant expression: if find() ever returned nullptr
 // this line would be a hard compile error — stronger than a null compare,
 // and clean under -Waddress (GCC can prove the pointer is never null).

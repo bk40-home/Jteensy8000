@@ -85,6 +85,76 @@ void SynthCore::sustain(bool pedalDown)                { pushEvent(kEvSustain, p
 void SynthCore::allNotesOff()                          { pushEvent(kEvNotesOff, 0, 0); }
 void SynthCore::allSoundOff()                          { pushEvent(kEvSoundOff, 0, 0); }
 
+// --- external MIDI clock producers (Phase 9) -------------------------------
+// Called from the platform's realtime-byte handlers.  They ONLY store into the
+// lock-free atomics; renderBlock's drainExternalClock() applies them next block
+// in the audio plane.  bpm is clamped to TempoClock's 40..300 range at apply
+// time; here we just carry it as BPM×1000 (0 sentinel = "no external tempo").
+void SynthCore::setExternalBpm(float bpm)
+{
+    if (bpm < 1.0f) return;                       // ignore garbage / not-yet-locked
+    const uint32_t milli = (uint32_t)(bpm * 1000.0f + 0.5f);
+    _extBpmMilli.store(milli, std::memory_order_release);
+}
+
+void SynthCore::transportStart()
+{
+    _transportAction.store(kTransStart, std::memory_order_relaxed);
+    _transportSeq.fetch_add(1, std::memory_order_release);
+}
+
+void SynthCore::transportStop()
+{
+    _transportAction.store(kTransStop, std::memory_order_relaxed);
+    _transportSeq.fetch_add(1, std::memory_order_release);
+}
+
+void SynthCore::transportContinue()
+{
+    _transportAction.store(kTransContinue, std::memory_order_relaxed);
+    _transportSeq.fetch_add(1, std::memory_order_release);
+}
+
+// --- external MIDI clock consumer (audio plane, top of renderBlock) --------
+void SynthCore::drainExternalClock()
+{
+    // BPM: apply only while the shared clock's source is External, so an
+    // incoming DAW clock drives the whole synth (LFOs + seq + arp) but a synth
+    // left on Internal ignores stray clock bytes.  refreshSyncedLfos re-resolves
+    // synced LFO rates just like a CLOCK_TEMPO edit.
+    if (_clock.source() == TempoClock::kExtMidi) {
+        const uint32_t milli = _extBpmMilli.load(std::memory_order_acquire);
+        if (milli != 0) {
+            const float bpm = (float)milli * 0.001f;
+            if (bpm != _clock.bpm()) { _clock.setBpm(bpm); refreshSyncedLfos(); }
+        }
+    }
+
+    // Transport: apply the latest action if new since we last looked.  Start
+    // resets the arp (and seq) to the downbeat; Stop silences the arp; Continue
+    // resumes without a phase reset.  Gated on the source too — transport from a
+    // DAW shouldn't reset a synth the user is driving from its own internal clock.
+    const uint32_t seq = _transportSeq.load(std::memory_order_acquire);
+    if (seq != _transportSeen) {
+        _transportSeen = seq;
+        if (_clock.source() == TempoClock::kExtMidi) {
+            switch (_transportAction.load(std::memory_order_relaxed)) {
+                case kTransStart:
+                    _arp.transportStart();
+                    _seq.reset();
+                    break;
+                case kTransStop:
+                    _arp.transportStop();
+                    _arp.allNotesOff();      // release held arp notes on stop
+                    break;
+                case kTransContinue:
+                default:
+                    break;                   // resume: nothing to reset
+            }
+        }
+    }
+}
+
 // Pitch bend: split the 14-bit value across the event's two payload bytes
 // (a = high 7 bits, b = low 7 bits) so it rides the existing 3-byte ring
 // unchanged, then recombine in the drain (spec §4.3).
@@ -112,10 +182,22 @@ void SynthCore::drainNoteEvents()
         const NoteEvent e = _ring[tail % kRingSize];
         switch (e.type) {
             case kEvOn:
-                _alloc.noteOn(e.a, e.b);
+                // Phase 9: when the arp is ENABLED, played notes are CONSUMED —
+                // they feed the arp's held-note list and only the arp sounds
+                // (classic behaviour, user-signed-off).  The arp itself drives
+                // _alloc from its tick() in renderBlock.  When the arp is OFF
+                // this whole branch is skipped and the note goes straight to the
+                // allocator exactly as before (byte-identical default path).
+                if (_arp.enabled()) {
+                    _arp.noteOn(e.a, e.b);
+                } else {
+                    _alloc.noteOn(e.a, e.b);
+                }
                 // v1's shared, global JP-8000 retrigger (spec §1.3): ANY
                 // note-on restarts BOTH LFOs' delay ramps, not just the
-                // voice that's stealing/reusing hardware.
+                // voice that's stealing/reusing hardware.  Still fires under
+                // the arp so LFO delay behaves the same whether or not the arp
+                // is between the keys and the voices.
                 _lfo1.osc.retrigger();
                 _lfo2.osc.retrigger();
                 // Phase 7: a note-on restarts the sequencer to step 0 when
@@ -124,10 +206,21 @@ void SynthCore::drainNoteEvents()
                 // untouched (free-running clock).
                 if (_seq.retrigger()) _seq.reset();
                 break;
-            case kEvOff:      _alloc.noteOff(e.a);          break;
+            case kEvOff:
+                if (_arp.enabled()) _arp.noteOff(e.a);
+                else                _alloc.noteOff(e.a);
+                break;
             case kEvSustain:  _alloc.sustain(e.a != 0);     break;
-            case kEvNotesOff: _alloc.allNotesOff();         break;
-            case kEvSoundOff: _alloc.allSoundOff();         break;
+            case kEvNotesOff:
+                // Panic clears BOTH the arp's held list and the voices, so a
+                // DAW all-notes-off silences everything regardless of routing.
+                _arp.allNotesOff();
+                _alloc.allNotesOff();
+                break;
+            case kEvSoundOff:
+                _arp.allNotesOff();
+                _alloc.allSoundOff();
+                break;
             case kEvBend: {
                 // Recombine the 14-bit value (raw form: 0..16383, centre 8192)
                 // and convert to semitones with the current range, then push the
@@ -575,6 +668,42 @@ void SynthCore::applyParam(size_t index, float norm)
         case ID::SEQ_AUX_STEP_VALUE:
             _seq.setAuxStepValue(_seqAuxEditStep, (uint8_t)lroundf(norm * 127.0f)); break;
 
+        // ------------- Arpeggiator (Phase 9, ParamTable §17) ---------------
+        // Independent clock, shared BPM.  ARP_ENABLE off by default => notes go
+        // straight to _alloc and tick() early-returns => byte-identical.  Step
+        // params use the SAME select-then-value idiom as the sequencer:
+        // ARP_STEP_SELECT moves the edit cursor, the three ARP_STEP_* writes
+        // target it.  Rate reuses the shared 12-entry timing set; ARP_RATE opt 0
+        // (Free) falls back to ARP_FREE_HZ.
+        case ID::ARP_ENABLE:
+            _arp.setEnabled(norm >= 0.5f); break;
+        case ID::ARP_MODE:
+            _arp.setMode((ArpMode)opt); break;                         // 0..6
+        case ID::ARP_OCTAVES:
+            _arp.setOctaves(1 + opt); break;                           // opt 0..3 -> 1..4
+        case ID::ARP_LATCH:
+            _arp.setLatch(norm >= 0.5f); break;
+        case ID::ARP_RATE:
+            // opt is the TempoClock::Mode index (0==Free).  The arp IS tempo-
+            // synced (freqForMode is sufficient — unlike the seq's D-1 defer).
+            _arp.setRateMode(opt); break;
+        case ID::ARP_FREE_HZ:
+            _arp.setFreeHz(norm); break;                               // engine exp-maps 0.1..20 Hz
+        case ID::ARP_GATE_LENGTH:
+            _arp.setGateLength(norm); break;
+        case ID::ARP_SWING:
+            _arp.setSwing(norm); break;
+        case ID::ARP_STEP_COUNT:
+            _arp.setStepCount(1 + (int)lroundf(norm * 15.0f)); break;  // 1..16
+        case ID::ARP_STEP_SELECT:
+            _arp.setStepSelect((int)lroundf(norm * 15.0f)); break;     // 0..15
+        case ID::ARP_STEP_ONOFF:
+            _arp.setStepOnOff(norm >= 0.5f); break;
+        case ID::ARP_STEP_ACCENT:
+            _arp.setStepAccent(norm); break;                           // 0..1
+        case ID::ARP_STEP_RATCHET:
+            _arp.setStepRatchet(1 + (int)lroundf(norm * 3.0f)); break; // 1..4
+
         default:
             // Not yet handled (remaining FX/sequencer) or deliberately unwired
             // above: consumed silently by design — see header note.
@@ -626,6 +755,12 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     // 1. Note events queued since the last block.
     drainNoteEvents();
 
+    // 1b. External MIDI clock (Phase 9): apply any BPM / transport handed off by
+    //     the platform's realtime-byte handlers.  No-op unless the clock source
+    //     is External and a tempo/transport actually arrived → byte-identical
+    //     for the internal-clock default.
+    drainExternalClock();
+
     // 2. Changed parameters only (see ParameterStore::takeNextDirty).
     const float* snap = _store.acquireSnapshot();
     size_t idx;
@@ -670,6 +805,17 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     // aux lane's Pan destination writes it; stays 0 otherwise, so the master
     // stage skips the pan multiply entirely and output is byte-identical.
     float panTarget       = 0.0f;
+
+    // Arpeggiator (Phase 9): one block-rate tick BEFORE the sequencer.  Unlike
+    // the sequencer it produces no modulation value — it drives the voices
+    // directly via _alloc (B-note), reading the shared _clock for its synced
+    // rate.  When disabled it early-returns (releasing any lingering arp note),
+    // so a disabled arp costs one bool test and leaves _alloc untouched → the
+    // default patch and render baseline are byte-identical.  Ticked here, in the
+    // same audio-plane context as drainNoteEvents, so its _alloc.noteOn/off run
+    // exactly where the note-ring drain already mutates voices — no new
+    // concurrency.
+    _arp.tick(kBlockMs, _alloc, _clock);
 
     // Sequencer (Phase 7, PHASE7_SEQUENCER_SPEC.md §3): one block-rate tick,
     // output routed to ONE of the four modulation accumulators — the same lanes

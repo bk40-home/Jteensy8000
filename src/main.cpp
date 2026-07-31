@@ -43,6 +43,7 @@
 #include "core/ParameterStore.h"
 #include "core/MidiParamTransport.h"
 #include "core/ParamBroadcast.h"
+#include "platform/ExternalClock.h"
 #include "platform/AudioSynthBlockF32.h"
 #include "platform/BoardConfig.h"
 
@@ -103,6 +104,12 @@ static JT::MidiParamTransport  gTransportUsbHost(gStore, JT::Origin::MidiUsbHost
 static JT::MidiParamTransport  gTransportSerial (gStore, JT::Origin::MidiSerial);
 
 static JT::ParamBroadcast      gBroadcast(gStore);
+
+// External MIDI clock (Phase 9): measures 24-PPQN into a BPM and forwards
+// transport to the core.  micros() is injected so ExternalClock.h stays
+// Arduino-free and host-testable; the bridge is the only Arduino coupling.
+static uint32_t jtMicros() { return micros(); }
+static JT::ExternalClock       gExtClock(gSynth.core(), jtMicros);
 
 // Audio graph — constructed once, wired once, never re-patched (F32 cables have
 // no destructor; dynamic graphs crash — v1 lesson, now a hard rule).
@@ -233,6 +240,25 @@ static void onCCUsbHost(byte /*ch*/, byte cc, byte v) { onControlChangeFor(gTran
 static void onCCSerial (byte /*ch*/, byte cc, byte v) { onControlChangeFor(gTransportSerial,  cc, v); }
 
 // -----------------------------------------------------------------------------
+// External MIDI clock — real-time byte handlers (Phase 9).
+//
+// The three libraries expose DIFFERENT real-time APIs, so the bindings differ:
+//   * usbMIDI (Teensy core) and FortySevenEffects (midi1): no-arg per-message
+//     handlers — setHandleClock/Start/Stop/Continue — bound to these trampolines.
+//   * USBHost_t36 (midiHost): ONE setHandleRealTimeSystem(uint8_t) that receives
+//     the raw status byte — routed through gExtClock.onRealtimeByte(), which
+//     decodes 0xF8/0xFA/0xFB/0xFC itself.
+// All ports share the one gExtClock (transport + tempo are global).  These fire
+// in loop() polling context (same as the note handlers), so calling into the
+// core's lock-free producers is the identical, safe context the note path uses.
+static void onClockPulse() { gExtClock.onClockPulse(); }
+static void onClockStart() { gExtClock.onStart();      }
+static void onClockStop()  { gExtClock.onStop();       }
+static void onClockCont()  { gExtClock.onContinue();   }
+// USBHost_t36 raw-byte adapter.
+static void onHostRealtime(uint8_t status) { gExtClock.onRealtimeByte(status); }
+
+// -----------------------------------------------------------------------------
 // Outbound sinks — thin NrpnSink adapters over each port's raw sender.
 // Channel 1 throughout: our editors ignore channel on NRPN, and a single
 // fixed channel keeps DAW monitoring legible.
@@ -304,6 +330,11 @@ void setup()
     usbMIDI.setHandleNoteOff(onNoteOff);
     usbMIDI.setHandleControlChange(onCCUsbDev);
     usbMIDI.setHandlePitchChange(onPitchBend);
+    // External clock (Phase 9): no-arg real-time handlers.
+    usbMIDI.setHandleClock(onClockPulse);
+    usbMIDI.setHandleStart(onClockStart);
+    usbMIDI.setHandleContinue(onClockCont);
+    usbMIDI.setHandleStop(onClockStop);
 
     // --- USB host port (controllers via hub) --------------------------------
     myusb.begin();
@@ -311,6 +342,9 @@ void setup()
     midiHost.setHandleNoteOff(onNoteOff);
     midiHost.setHandleControlChange(onCCUsbHost);
     midiHost.setHandlePitchChange(onPitchBend);
+    // External clock (Phase 9): USBHost_t36 delivers ONE raw real-time byte
+    // handler; the adapter decodes 0xF8/0xFA/0xFB/0xFC.
+    midiHost.setHandleRealTimeSystem(onHostRealtime);
 
     // --- Serial1 port (ESP32 controller, 1 Mbaud) ---------------------------
     midi1.begin(MIDI_CHANNEL_OMNI);
@@ -322,6 +356,11 @@ void setup()
     midi1.setHandleNoteOff(onNoteOff);
     midi1.setHandleControlChange(onCCSerial);
     midi1.setHandlePitchBend(onPitchBend);
+    // External clock (Phase 9): FortySevenEffects no-arg real-time handlers.
+    midi1.setHandleClock(onClockPulse);
+    midi1.setHandleStart(onClockStart);
+    midi1.setHandleContinue(onClockCont);
+    midi1.setHandleStop(onClockStop);
 
     // --- outbound: each sink registered under its port's Origin -------------
     gBroadcast.addSink(gSinkUsbDev,  JT::Origin::MidiUsbDev);
@@ -423,4 +462,4 @@ void loop()
         AudioProcessorUsageMaxReset();
         gSynth.perfReset();
     }
-}
+}

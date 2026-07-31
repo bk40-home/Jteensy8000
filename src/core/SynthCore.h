@@ -40,6 +40,7 @@
 #include "core/dsp/PlateReverb.h"
 #include "core/dsp/FxChain.h"
 #include "core/dsp/StepSequencer.h"
+#include "core/dsp/Arpeggiator.h"
 
 namespace JT {
 
@@ -117,6 +118,21 @@ public:
     // Queued like note events so it can never mutate voice pitch mid-render.
     void pitchBend(uint16_t value14);
 
+    // --- external MIDI clock (Phase 9) -------------------------------------
+    // main.cpp's realtime-byte handlers (loop/ISR context) measure 24-PPQN
+    // clock into a BPM and detect transport, then call these.  They only STORE
+    // into lock-free atomics; the values are consumed once per block at the top
+    // of renderBlock (audio plane), exactly like the note ring — so no engine
+    // state is mutated across planes.  setExternalBpm updates the shared clock
+    // only while the source is External, so LFOs, seq and arp all follow; the
+    // transport calls reset/clear the arp on the downbeat.  When no clock
+    // arrives and the source stays Internal, none of this takes effect and
+    // behaviour is byte-identical.
+    void setExternalBpm(float bpm);     // derived from 0xF8 pulse interval
+    void transportStart();              // 0xFA — reset arp phase to step 0
+    void transportStop();               // 0xFC — silence the arp
+    void transportContinue();           // 0xFB — resume without phase reset
+
     // --- audio plane: render one stereo block (n == kBlockSize) ---
     void renderBlock(float* left, float* right, size_t n);
 
@@ -153,6 +169,9 @@ private:
     // clear, so nothing accumulates) and land with Passes 5-6.
     void applyParam(size_t index, float norm);
     void drainNoteEvents();
+    // Apply any external-clock BPM / transport handed off since the last block.
+    // Runs at the top of renderBlock (audio plane); no-op when no clock present.
+    void drainExternalClock();
 
     // Tempo-sync helpers (PHASE3_BPMCLOCK_SPEC.md §6).  applyLfoRate pushes
     // the correct Hz (free knob or clock division) into one LfoState's
@@ -175,6 +194,21 @@ private:
     NoteEvent             _ring[kRingSize];
     std::atomic<uint32_t> _head { 0 };   // producer writes (control plane)
     std::atomic<uint32_t> _tail { 0 };   // consumer writes (audio plane)
+
+    // --- external MIDI clock hand-off (Phase 9) ---------------------------
+    // Written by the platform's realtime-byte handlers (setExternalBpm /
+    // transport*), consumed once per block at the top of renderBlock.  Lock-
+    // free scalars with release/acquire ordering — same discipline as the note
+    // ring, no mutex.  _extBpm carries the latest derived tempo (0 == none yet);
+    // _transport is a monotonic counter of transport events with the 2 low bits
+    // encoding the last action, so a block that misses none still applies the
+    // final state.  All default to the no-op values, so with no clock present
+    // renderBlock's drain is a couple of relaxed loads and does nothing.
+    std::atomic<uint32_t> _extBpmMilli { 0 };   // BPM×1000, 0 = no external tempo
+    std::atomic<uint32_t> _transportSeq { 0 };  // bumped on each transport event
+    uint32_t              _transportSeen { 0 };  // audio-plane copy (last applied)
+    enum : uint8_t { kTransNone = 0, kTransStart, kTransStop, kTransContinue };
+    std::atomic<uint8_t>  _transportAction { kTransNone };
     uint32_t              _dropped = 0;
 
     // --- engine state ---
@@ -261,6 +295,15 @@ private:
     StepSequencer _seq;
     int           _seqEditStep = 0;
     int           _seqAuxEditStep = 0;   // aux-lane edit cursor (Stage B)
+
+    // Arpeggiator (Phase 9, PHASE9_ARP_SPEC.md).  Independent clock, but reads
+    // the SHARED _clock BPM so internal-tempo and external-MIDI-clock changes
+    // move it with the LFOs and seq.  Disabled by default (ARP_ENABLE off) =>
+    // drainNoteEvents keeps feeding the keyboard straight to _alloc, and tick()
+    // early-returns => default patch stays byte-identical.  When ENABLED, played
+    // notes are CONSUMED into the arp's held-note list (classic behaviour) and
+    // only the arp sounds — see drainNoteEvents.
+    Arpeggiator   _arp;
 
     // Global bus pan (Stage C): ramped per-channel gains for the master stage.
     // Centre = 1.0 both (centre-normalised equal-power), so the default patch

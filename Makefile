@@ -37,6 +37,7 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/PlateReverb.cpp \
         src/core/dsp/FxChain.cpp \
         src/core/dsp/StepSequencer.cpp \
+        src/core/dsp/Arpeggiator.cpp \
         src/core/ParameterStore.cpp \
         src/core/Patch.cpp \
         src/core/MidiParamTransport.cpp \
@@ -49,6 +50,7 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/SynthCore.cpp
 
 SRCS := $(CORE) \
+        src/platform/ExternalClock.cpp \
         test/test_main.cpp \
         test/test_broadcast.cpp \
         test/test_curves.cpp \
@@ -70,7 +72,8 @@ SRCS := $(CORE) \
         test/test_performance.cpp \
         test/test_reverb.cpp \
         test/test_fxchain.cpp \
-        test/test_sequencer.cpp
+        test/test_sequencer.cpp \
+        test/test_arpeggiator.cpp
 
 OBJS := $(SRCS:%.cpp=$(BUILD)/%.o)
 

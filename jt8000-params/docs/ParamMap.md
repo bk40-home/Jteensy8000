@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 144 parameters.**
+**Schema version 1 — 160 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -210,6 +210,10 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0689` | 9 | Seq Sync | `seq.timing_mode` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch |
 | `0x068A` | 10 | Step Select | `seq.step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch |
 | `0x068B` | 11 | Step Value | `seq.step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x068C` | 12 | Seq Aux Dest | `seq.aux_destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch |
+| `0x068D` | 13 | Seq Aux Depth | `seq.aux_depth` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
+| `0x068E` | 14 | Aux Step Select | `seq.aux_step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch |
+| `0x068F` | 15 | Aux Step Value | `seq.aux_step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
 
 ## [14] Voice Mode  *(NRPN MSB 14)*
 
@@ -242,7 +246,24 @@ A curated set of standard CCs mirrors key performance parameters (the
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
 | `0x0800` | 0 | Master Volume | `master.volume` | continuous | 0–1 norm (lin) | 0.8 norm | 20 ms | 7 | global |
-| `0x0801` | 1 | USB Return Level | `master.usb_return_level` | continuous | 0–1 norm (lin) | 1 norm | 20 ms | — | global |
+
+## [17] Arpeggiator  *(NRPN MSB 17)*
+
+| ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
+|---|---|---|---|---|---|---|---|---|---|
+| `0x0880` | 0 | Arp Enable | `arp.enable` | toggle | off / on | off | 0 ms | — | patch |
+| `0x0881` | 1 | Arp Mode | `arp.mode` | select | 0–6 (index) | 0 (Up) | 0 ms | — | patch |
+| `0x0882` | 2 | Arp Octaves | `arp.octaves` | select | 0–3 (index) | 0 (1) | 0 ms | — | patch |
+| `0x0883` | 3 | Arp Latch | `arp.latch` | toggle | off / on | off | 0 ms | — | patch |
+| `0x0884` | 4 | Arp Rate | `arp.rate` | select | 0–11 (index) | 7 (1/16) | 0 ms | — | patch |
+| `0x0885` | 5 | Arp Free Rate | `arp.free_hz` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0886` | 6 | Arp Gate | `arp.gate_length` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0887` | 7 | Arp Swing | `arp.swing` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0888` | 8 | Arp Steps | `arp.step_count` | int | 1–16  (lin) | 16 | 0 ms | — | patch |
+| `0x0889` | 9 | Arp Step Select | `arp.step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch |
+| `0x088A` | 10 | Arp Step On/Off | `arp.step_onoff` | toggle | off / on | on | 0 ms | — | patch |
+| `0x088B` | 11 | Arp Step Accent | `arp.step_accent` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x088C` | 12 | Arp Step Ratchet | `arp.step_ratchet` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
 
 ### Option sets
 
@@ -263,9 +284,12 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **drive**: `OFF`, `Soft`, `Hard`
 - **seq_dir**: `Fwd`, `Rev`, `Bounce`, `Random`
 - **seq_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
+- **seq_aux_dest**: `None`, `Filter`, `Pan`, `DelaySend`, `Drive`
 - **perf_mode**: `Single`, `Layer`, `Split`
 - **edit_target**: `A`, `B`, `Both`
 - **clock_source**: `Internal`, `Ext MIDI`
 - **voice_split**: `1+7`, `2+6`, `3+5`, `4+4`, `5+3`, `6+2`, `7+1`
+- **arp_mode**: `Up`, `Down`, `UpDn Inc`, `UpDn Exc`, `AsPlayed`, `Random`, `Chord`
+- **arp_octaves**: `1`, `2`, `3`, `4`
 - **midi_channel**: `Ch 1`, `Ch 2`, `Ch 3`, `Ch 4`, `Ch 5`, `Ch 6`, `Ch 7`, `Ch 8`, `Ch 9`, `Ch 10`, `Ch 11`, `Ch 12`, `Ch 13`, `Ch 14`, `Ch 15`, `Ch 16`
 - **layer_balance**: `A`, `AB`, `B`

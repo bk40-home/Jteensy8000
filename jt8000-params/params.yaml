@@ -69,6 +69,13 @@ option_sets:
   clock_source: ["Internal", "Ext MIDI"]
   # Voice allocation across layers A+B (always sums to 8).
   voice_split: ["1+7", "2+6", "3+5", "4+4", "5+3", "6+2", "7+1"]
+  # Arpeggiator note-ordering modes (section 17).  Order is FROZEN with
+  # ArpMode in Arpeggiator.h — stored in patches, never reorder.
+  #   Up/Down INC repeats the top & bottom notes; Up/Down EXC does not.
+  #   AsPlayed follows key-press order; Chord fires all held notes per step.
+  arp_mode: ["Up", "Down", "UpDn Inc", "UpDn Exc", "AsPlayed", "Random", "Chord"]
+  # Arp octave span: how many octaves the pattern repeats up through.
+  arp_octaves: ["1", "2", "3", "4"]
   midi_channel: ["Ch 1", "Ch 2", "Ch 3", "Ch 4", "Ch 5", "Ch 6", "Ch 7", "Ch 8",
                  "Ch 9", "Ch 10", "Ch 11", "Ch 12", "Ch 13", "Ch 14", "Ch 15", "Ch 16"]
   # Which layer the front panel edits. NOT an audio crossfade — it is a
@@ -97,6 +104,7 @@ sections:
   - {index: 14, name: "Voice Mode", groups: ["Layer Mode", "Voice Split"]}
   - {index: 15, name: "Global Reverb", groups: ["Tank", "Extended"]}
   - {index: 16, name: "Master", groups: ["Output"]}
+  - {index: 17, name: "Arpeggiator", groups: ["Control", "Timing", "Steps"]}
 
 # -----------------------------------------------------------------------------
 # Parameters — 139 seeded from v1 + 1 new (master.volume).
@@ -1839,3 +1847,179 @@ params:
     smooth_ms: 20
     cc: 7               # standard MIDI Channel Volume
     ui: {section: 16, group: 0}
+
+  # ---------------------------------------------------------------------------
+  # [17] Arpeggiator (NEW in v2)
+  # ---------------------------------------------------------------------------
+  # Section base 0x0880 == (17 << 7).  Independent of the step sequencer: its
+  # own division/phase, but it reads the SHARED TempoClock BPM (so internal-
+  # tempo and external-MIDI-clock changes move the arp, LFOs and seq together).
+  #
+  # Playback model (docs/PHASE9_ARP_SPEC.md):
+  #   * When arp.enable is ON, played notes are CONSUMED — they feed the arp's
+  #     held-note list and only the arp sounds (classic hardware behaviour).
+  #   * 7 note-ordering modes x 1..4 octaves.
+  #   * A 16-step pattern layer: per step on/off + accent(0..127) + ratchet(1..4).
+  #     Ratchet subdivides the GATE portion of the step, so gate-length still
+  #     shapes staccato within each ratchet sub-hit.
+  #   * Rate uses the shared 12-entry timing_mode set.  arp.free_hz is the
+  #     fallback rate while rate==Free (mode 0), mirroring the LFO freeHz idiom.
+  #   * arp.latch holds the pattern running after keys are released.
+  #   * Start (MIDI 0xFA) resets phase to step 0; BPM follows the clock.
+  #
+  # DEFAULT PATCH INVARIANCE: arp.enable defaults OFF, so drainNoteEvents keeps
+  # its current path and the render baseline is byte-identical.
+  - id: 0x0880            # section 17, index 0
+    key: arp.enable
+    name: "Arp Enable"
+    label: "ON"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    ui: {section: 17, group: 0}
+  - id: 0x0881            # section 17, index 1
+    key: arp.mode
+    name: "Arp Mode"
+    label: "MODE"
+    type: select
+    scope: patch
+    options: arp_mode
+    default: 0
+    smooth_ms: 0
+    ui: {section: 17, group: 0}
+  - id: 0x0882            # section 17, index 2
+    key: arp.octaves
+    name: "Arp Octaves"
+    label: "OCT"
+    type: select
+    scope: patch
+    options: arp_octaves
+    default: 0            # option 0 == "1" octave
+    smooth_ms: 0
+    ui: {section: 17, group: 0}
+  - id: 0x0883            # section 17, index 3
+    key: arp.latch
+    name: "Arp Latch"
+    label: "LATCH"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    ui: {section: 17, group: 0}
+  - id: 0x0884            # section 17, index 4
+    key: arp.rate
+    name: "Arp Rate"
+    label: "RATE"
+    # Shared 12-entry musical-division set.  Option 0 (Free) falls back to
+    # arp.free_hz.  Default 1/16 is the trance staple.
+    type: select
+    scope: patch
+    options: timing_mode
+    default: 7            # timing_mode index 7 == "1/16"
+    smooth_ms: 0
+    ui: {section: 17, group: 1}
+  - id: 0x0885            # section 17, index 5
+    key: arp.free_hz
+    name: "Arp Free Rate"
+    label: "FREE"
+    # Fallback rate (Hz) used only while arp.rate == Free.  Exp-mapped in the
+    # engine (0.1..20 Hz), same law the step sequencer's SEQ_RATE uses.
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    ui: {section: 17, group: 1}
+  - id: 0x0886            # section 17, index 6
+    key: arp.gate_length
+    name: "Arp Gate"
+    label: "GATE"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    ui: {section: 17, group: 1}
+  - id: 0x0887            # section 17, index 7
+    key: arp.swing
+    name: "Arp Swing"
+    label: "SWING"
+    # 0.5 = straight; >0.5 delays even steps (shuffle).  Engine maps norm to a
+    # 0..0.75 even-step phase delay so extreme values stay musical.
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    ui: {section: 17, group: 1}
+  - id: 0x0888            # section 17, index 8
+    key: arp.step_count
+    name: "Arp Steps"
+    label: "STEPS"
+    type: int
+    scope: patch
+    range: {min: 1, max: 16, curve: lin}
+    unit: ""
+    default: 16
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0889            # section 17, index 9
+    key: arp.step_select
+    name: "Arp Step Select"
+    label: "STEP"
+    # Edit cursor: which step arp.step_onoff / _accent / _ratchet write to.
+    # Same select-then-value NRPN idiom as seq.step_select (0..15 internal).
+    type: int
+    scope: patch
+    range: {min: 1, max: 16, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x088A            # section 17, index 10
+    key: arp.step_onoff
+    name: "Arp Step On/Off"
+    label: "GATE"
+    # Per-step rest/trigger for the step at arp.step_select.  Default ON so a
+    # fresh 16-step pattern plays every step (the expected arp behaviour).
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x088B            # section 17, index 11
+    key: arp.step_accent
+    name: "Arp Step Accent"
+    label: "ACCENT"
+    # Per-step velocity scale for the step at arp.step_select, 0..127 -> 0..1
+    # multiplier on the arp's output velocity.  Default full.
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x088C            # section 17, index 12
+    key: arp.step_ratchet
+    name: "Arp Step Ratchet"
+    label: "RATCH"
+    # Per-step ratchet count 1..4 for the step at arp.step_select.  1 = single
+    # hit; N = N rapid re-triggers dividing the step's gate portion.
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  # NOTE: the arp deliberately has NO clock-source param of its own.  It follows
+  # the GLOBAL clock source (clock.clock_source) — a single shared TempoClock
+  # drives LFOs, seq and arp together.  An earlier mirror param here was removed:
+  # two params writing one piece of state fought each other at snapshot-drain
+  # time (the mirror's Internal default overwrote an External selection every
+  # block).  Select External once via clock.clock_source and the arp follows.
