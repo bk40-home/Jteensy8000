@@ -458,7 +458,33 @@ void loop()
         Serial.print(" psramMB=");
         Serial.print(external_psram_size);
         Serial.print(" cpuMax=");
-        Serial.println(AudioProcessorUsageMax());
+        Serial.print(AudioProcessorUsageMax());
+
+        // --- Phase 9 external-clock sync triage ------------------------------
+        // Flip JT_DEBUG_CLOCK on to walk the chain in one glance:
+        //   clkPulses rising  -> 0xF8 bytes ARE reaching the handler
+        //   extBpm  non-zero   -> measurement produced a tempo (needs >=2 beats)
+        //   srcExt=1           -> the drainExternalClock gate is OPEN
+        //   bpm follows extBpm -> the shared clock actually moved
+        //   arpRate>=1         -> arp is on a synced division (0=kFree ignores tempo,
+        //                         -1 = arp disabled)
+        // The usual culprit: srcExt=0 (clock source still Internal) — set
+        // CLOCK_CLOCK_SOURCE to External from any editor and it should flip to 1.
+#ifdef JT_DEBUG_CLOCK
+        Serial.print(" | clkPulses=");
+        Serial.print(gExtClock.debugPulseCount());
+        Serial.print(" extBpm=");
+        Serial.print(gExtClock.debugLastBpm(), 1);
+        Serial.print(" run=");
+        Serial.print(gExtClock.debugRunning() ? 1 : 0);
+        Serial.print(" srcExt=");
+        Serial.print(gSynth.core().debugClockSourceExternal() ? 1 : 0);
+        Serial.print(" bpm=");
+        Serial.print(gSynth.core().debugClockBpm(), 1);
+        Serial.print(" arpRate=");
+        Serial.print(gSynth.core().debugArpRateMode());
+#endif
+        Serial.println();
         AudioProcessorUsageMaxReset();
         gSynth.perfReset();
     }

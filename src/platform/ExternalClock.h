@@ -77,6 +77,13 @@ public:
     // Decodes the status byte and forwards to the matching entry point above.
     void onRealtimeByte(uint8_t status);
 
+    // ---- Debug instrumentation (Phase 9 sync bring-up) --------------------
+    // Cheap monotonic counters so a 1 Hz status line can prove which stage of
+    // the clock chain is alive.  Read-only; zero cost unless queried.
+    uint32_t debugPulseCount() const { return _dbgPulses; }    // total 0xF8 seen
+    float    debugLastBpm()    const { return _dbgLastBpm; }   // last derived BPM (0=none)
+    bool     debugRunning()    const { return _running; }      // Start..Stop
+
 private:
     void resetMeasurement();
 
@@ -89,6 +96,10 @@ private:
     bool        _haveLast    = false;   // false until the first pulse timestamp
     bool        _warmedUp    = false;   // ignore the very first beat's estimate
     bool        _running     = false;   // between Start/Continue and Stop
+
+    // Debug-only counters (see debug accessors above).
+    uint32_t    _dbgPulses   = 0;       // every 0xF8 that reached onClockPulse
+    float       _dbgLastBpm  = 0.0f;    // last BPM handed to the core
 };
 
 } // namespace JT

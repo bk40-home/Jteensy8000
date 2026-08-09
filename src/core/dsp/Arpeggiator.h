@@ -113,6 +113,9 @@ public:
     // ---- Queries -----------------------------------------------------------
     bool    enabled()   const { return _enabled; }
     ArpMode mode()      const { return _mode; }
+    // Rate-mode index (TempoClock::Mode).  Hardware-visible (not test-gated) so
+    // bring-up can see whether the arp is on a synced division or on kFree(0).
+    int     debugRateModeOrMinus1() const { return _enabled ? _rateMode : -1; }
     int     heldCount() const { return _heldCount; }
 
 #ifdef JT_TESTING

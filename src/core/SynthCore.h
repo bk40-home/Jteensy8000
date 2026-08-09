@@ -154,6 +154,17 @@ public:
         return static_cast<uint16_t>((mask << 5) | (step << 1) | run);
     }
 
+    // Clock introspection for bring-up/debug (hardware-visible, not test-gated).
+    // debugClockBpm() is the tempo the shared clock is currently running at;
+    // debugClockSourceExternal() reports whether the External gate in
+    // drainExternalClock() is OPEN — the usual reason incoming MIDI clock is
+    // ignored is that this is false (source still Internal).
+    float debugClockBpm()            const { return _clock.bpm(); }
+    bool  debugClockSourceExternal() const { return _clock.source() == TempoClock::kExtMidi; }
+    // The arp's rate mode index (TempoClock::Mode): kFree(0) means the arp is on
+    // its free-run knob and will NOT follow tempo at all.
+    int   debugArpRateMode()         const { return _arp.debugRateModeOrMinus1(); }
+
 #ifdef JT_TESTING
     // Test-only: the effective rate of LFO 0 (LFO1) or 1 (LFO2) — the Hz that
     // applyLfoRate() resolved (free knob or clock division).  Lets test_bpmclock

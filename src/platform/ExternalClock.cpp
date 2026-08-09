@@ -28,6 +28,7 @@ void ExternalClock::resetMeasurement()
 // ---------------------------------------------------------------------------
 void ExternalClock::onClockPulse()
 {
+    ++_dbgPulses;                        // debug: prove 0xF8 bytes are arriving
     const uint32_t now = _nowUs();
 
     if (!_haveLast) {                    // first pulse: no interval yet
@@ -67,6 +68,7 @@ void ExternalClock::onClockPulse()
         // BPM = 60,000,000 us-per-min / (avg us-per-pulse * 24 pulses-per-beat).
         if (avg > 0u) {
             const float bpm = 60000000.0f / ((float)avg * (float)kPPQN);
+            _dbgLastBpm = bpm;           // debug: prove measurement produced a number
             _core.setExternalBpm(bpm);   // consumer clamps to 40..300
         }
     }
