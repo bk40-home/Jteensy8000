@@ -33,6 +33,25 @@ inline float polyBlep(float t, float dt)
     return 0.0f;
 }
 
+// -----------------------------------------------------------------------------
+// reflectFold — fold x back into [-1, +1] by mirroring at the rails, repeating
+// until it lands in range (a classic triangle wavefolder).  Used by the vTRI
+// SHAPE morph: the base triangle is amplitude-scaled by a shape-driven gain
+// (1..4) then folded, so overshoot past +-1 reflects inward and each reflection
+// adds a lobe — matching the JP-8000 triangle SHAPE diagram (plain -> dense).
+// The 4.0 period is the length of one up-down cycle of the reflection triangle;
+// fmodf keeps the cost O(1) no matter how large the gain drives x.
+inline float reflectFold(float x)
+{
+    // Shift so the mirror maths is symmetric, reduce modulo one fold period.
+    float t = fmodf(x + 1.0f, 4.0f);
+    if (t < 0.0f) t += 4.0f;                 // fmodf can return negative
+    t -= 1.0f;                               // back to centred range
+    if (t >  1.0f) t =  2.0f - t;            // reflect at the top rail
+    if (t < -1.0f) t = -2.0f - t;            // reflect at the bottom rail
+    return t;
+}
+
 #if JT_SYNC_ANTIALIAS
 // F3: band-limit a HARD-SYNC reset — a step discontinuity of arbitrary height
 // (unlike the periodic edges polyBlep handles).  `frac` is the sub-sample
@@ -323,6 +342,94 @@ void OscCore::renderImpl(float* out, size_t n,
             JT_SYNC_BLEP();
         }
         break;
+
+    case Wave::VarSaw: {
+        // JP-8000 saw SHAPE (naive).  out = (1-k)*saw(ph) + k*saw(2*ph), where
+        // k = 1 - |2*shape - 1| runs 0 at the slider extremes and 1 at centre.
+        // At the extremes it is a plain saw (full fundamental, "thick bass");
+        // at centre the octave dominates and the fundamental cancels, giving
+        // the thin/HPF-like tone the manual describes.  Peak stays +-1 for all
+        // shape (verified), so JT_VSHAPE_NORMALISE is a no-op here — kept as a
+        // compile hook so the A/B switch covers every morph uniformly.
+        const float k = 1.0f - fabsf(2.0f * _shape - 1.0f);
+        const float kBase = 1.0f - k;
+        for (size_t i = 0; i < n; ++i) {
+            const float ph  = JT_STEP();
+            float oct = ph + ph;                    // 2*ph
+            oct -= (float)(int)oct;                 // frac(2*ph)
+            out[i] = kBase * (2.0f * ph - 1.0f) + k * (2.0f * oct - 1.0f);
+#if !JT_VSHAPE_NORMALISE
+            // (reserved) raw-level path — identical here since level is flat.
+#endif
+            JT_SYNC_BLEP();
+        }
+        break;
+    }
+
+    case Wave::BlVarSaw: {
+        // Band-limited saw SHAPE: three saw edges per cycle — the base saw
+        // wraps once (dt), the octave saw wraps twice (rate 2x, so its BLEP
+        // uses 2*dt).  Same blend law as VarSaw.
+        const float k = 1.0f - fabsf(2.0f * _shape - 1.0f);
+        const float kBase = 1.0f - k;
+        const float dt  = _inc;
+        const float dt2 = _inc + _inc;              // octave runs twice as fast
+        for (size_t i = 0; i < n; ++i) {
+            const float ph = JT_STEP();
+            float oct = ph + ph;
+            oct -= (float)(int)oct;
+            const float base = (2.0f * ph  - 1.0f) - polyBlep(ph,  dt);
+            const float oc   = (2.0f * oct - 1.0f) - polyBlep(oct, dt2);
+            out[i] = kBase * base + k * oc;
+            JT_SYNC_BLEP();
+        }
+        break;
+    }
+
+    case Wave::VarTri: {
+        // JP-8000 triangle SHAPE (naive): amplitude-gain the base triangle by
+        // g = 1 + 3*shape (shape 0 -> g=1 plain, shape 1 -> g=4, ~four folds,
+        // matching the manual's densest trace) then reflect-fold to +-1.  The
+        // fold is bounded by construction, so peak stays +-1 (normalise no-op).
+        const float g = 1.0f + 3.0f * _shape;
+        for (size_t i = 0; i < n; ++i) {
+            const float ph = JT_STEP();
+            const float x  = ph + ph;               // 0..2
+            const float t  = 2.0f * ((x < 1.0f) ? x : 2.0f - x) - 1.0f; // tri -1..1
+            out[i] = reflectFold(g * t);
+            JT_SYNC_BLEP();
+        }
+        break;
+    }
+
+    case Wave::BlVarTri: {
+        // Band-limited triangle SHAPE: the fold injects many corners whose
+        // positions move with shape, so per-corner BLEP is impractical; instead
+        // we run the naive fold at 2x sample rate and average adjacent pairs (a
+        // 2-tap box decimator).  This halves the alias energy of the folded
+        // corners for two triangle evals per output sample — bounded, cheap,
+        // and per your sign-off (oversample rather than per-corner BLEP).
+        const float g   = 1.0f + 3.0f * _shape;
+        const float hInc = _inc * 0.5f;             // half-step for 2x rate
+        for (size_t i = 0; i < n; ++i) {
+            // First sub-sample advances phase through step() as usual...
+            const float ph1 = JT_STEP();
+            const float x1  = ph1 + ph1;
+            const float t1  = 2.0f * ((x1 < 1.0f) ? x1 : 2.0f - x1) - 1.0f;
+            const float a   = reflectFold(g * t1);
+            // ...the second sub-sample sits half an increment further on, taken
+            // WITHOUT calling step() again (that would double the pitch); we
+            // read the intermediate phase directly.  _phase already holds ph1.
+            float ph2 = ph1 + hInc;
+            if (ph2 >= 1.0f) ph2 -= 1.0f;
+            const float x2  = ph2 + ph2;
+            const float t2  = 2.0f * ((x2 < 1.0f) ? x2 : 2.0f - x2) - 1.0f;
+            const float b   = reflectFold(g * t2);
+            out[i] = 0.5f * (a + b);                // 2-tap box decimation
+            JT_SYNC_BLEP();
+        }
+        break;
+    }
 
     case Wave::Supersaw:
         // Owned by SupersawOsc; OscSection never routes it here.  Emit

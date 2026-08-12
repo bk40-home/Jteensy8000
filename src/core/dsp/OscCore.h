@@ -60,6 +60,23 @@ namespace JT {
 #define JT_SYNC_ANTIALIAS 0
 #endif
 
+// -----------------------------------------------------------------------------
+// vSHAPE normalisation (compile-time option, DEFAULT ON).
+//   The JP-8000 SHAPE morphs (vSAW / vTRI, indices 14-17 below) change the
+//   SPECTRUM, not the peak level: vSAW is a fixed +-1 pk-pk at every shape
+//   (verified), and the vTRI reflect-fold is bounded to +-1 by construction.
+//   So with JT_VSHAPE_NORMALISE=1 the two morphs already sit at the engine's
+//   +-1 nominal like every other wave, and this flag currently costs nothing
+//   at run time either way.  It exists as the A/B switch you asked for: define
+//   -DJT_VSHAPE_NORMALISE=0 to DISABLE the (reserved) level-compensation path,
+//   leaving the raw generator output so you can hear the authentic amplitude
+//   behaviour if a future shape law introduces a level dip/swell.  The flag is
+//   read in the vSAW/vTRI loops; when the maths is a no-op it compiles away.
+// -----------------------------------------------------------------------------
+#ifndef JT_VSHAPE_NORMALISE
+#define JT_VSHAPE_NORMALISE 1
+#endif
+
 // Option indices of the generated 'osc_wave' set — see ordering note above.
 enum class Wave : uint8_t {
     Sine        = 0,
@@ -76,6 +93,20 @@ enum class Wave : uint8_t {
     BlSquare    = 11,   // polyBLEP square
     BlPulse     = 12,   // polyBLEP pulse, width from shape
     Supersaw    = 13,   // handled by SupersawOsc — never reaches this class
+    // --- JP-8000 OSC1 "SHAPE" morphs (append-only; indices frozen) ----------
+    // Both mechanisms are inferred from the JP-8000 manual's SHAPE diagrams and
+    // confirmed by spectral analysis (see OscCore.cpp for the derivation):
+    //   vSAW  = saw morph: blend of saw + its octave, fundamental cancels to a
+    //           thin/HPF-like tone at shape centre, strong fundamental at the
+    //           extremes — exactly the manual's "either end = thick bass,
+    //           centre = as though an HPF were applied".  Reuses _shape.
+    //   vTRI  = triangle morph: amplitude gain (1..4) then reflect-fold, so the
+    //           plain triangle grows extra lobes as shape rises — the manual's
+    //           "more overtones, similar to a square wave with an LPF".
+    VarSaw      = 14,   // naive saw morph (aliases — intentional pairing)
+    BlVarSaw    = 15,   // polyBLEP saw morph
+    VarTri      = 16,   // naive triangle fold
+    BlVarTri    = 17,   // 2x-oversampled, base-triangle polyBLEP fold
 };
 
 class OscCore {

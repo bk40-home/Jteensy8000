@@ -153,6 +153,70 @@ void PlateReverb::assignBuffers()
 // -----------------------------------------------------------------------------
 static inline float clamp01(float n) { return n < 0.0f ? 0.0f : (n > 1.0f ? 1.0f : n); }
 
+// -----------------------------------------------------------------------------
+// DEVIATION FROM v1 (flagged — CLAUDE.md rule 2): filter mappings are now
+// specified in HERTZ, not in raw one-pole coefficient.
+//
+// WHY.  Both OnePole_LP and OnePole_HP use the pole form
+//         y[n] = (1-a)*x[n] + a*y[n-1]          (HP output = x - y)
+// whose -3 dB corner is                a = exp(-2*pi*fc/fs).
+// That relation is violently non-linear, so v1's "a = 0.1 + 0.85*n" style
+// mappings were not linear in anything perceptual, and — for the two HIGH-PASS
+// controls — ran BACKWARDS: a small `a` is a HIGH corner, so turning lo-damp /
+// hi-pass UP moved the corner DOWN.  v1's minimum non-zero lo-damp setting was
+// a ~12 kHz high-pass sitting inside the tank feedback loop, which strips the
+// tank of essentially all its energy.  That is why every damping control had to
+// be left at zero to get a usable tail.
+//
+// Fix: map `n` exponentially across a musically chosen frequency span (equal
+// octaves per unit of n), then convert to a coefficient once, in the setter.
+// expf/powf here are fine — setters are control-rate, never per-sample.
+// -----------------------------------------------------------------------------
+
+// One-pole coefficient for a -3 dB corner at fcHz.  Returns 0 (== transparent
+// for LP, and below the HP's own bypass guard) once fc approaches Nyquist.
+static inline float onePoleCoeff(float fcHz)
+{
+    if (fcHz >= kSampleRate * 0.45f) return 0.0f;
+    return expf(-6.28318531f * fcHz / kSampleRate);
+}
+
+// Exponential (constant octaves-per-unit) sweep of n across [lo, hi].
+static inline float expSweep(float n, float loHz, float hiHz)
+{
+    return loHz * powf(hiHz / loHz, n);
+}
+
+// --- filter sweep endpoints (tune these; they are the only "voicing" knobs) --
+static constexpr float kTankLpFcMax = 18000.0f;  // hiDamp  n->0 : open plate
+static constexpr float kTankLpFcMin =   800.0f;  // hiDamp  n->1 : dark felt
+static constexpr float kTankHpFcMin =    20.0f;  // loDamp  n->0 : full weight
+static constexpr float kTankHpFcMax =   600.0f;  // loDamp  n->1 : thin/ambient
+static constexpr float kMastLpFcMax = 20000.0f;  // lowpass n->0 : off
+static constexpr float kMastLpFcMin =   500.0f;  // lowpass n->1
+static constexpr float kMastHpFcMin =    20.0f;  // hipass  n->0 : off
+static constexpr float kMastHpFcMax =  1000.0f;  // hipass  n->1
+
+// Shimmer ceiling.  The shimmer pitch shifter sits INSIDE the tank loop, so its
+// mix compounds on every round trip (~281 ms here): a static mix of m becomes an
+// unbounded stack of +12 st copies as the tail recirculates.  The musically
+// useful window in v1 measured roughly 0.02..0.05 — i.e. CC 1..3 — with the rest
+// of the control range unusable.  Cap + square-law taper spreads that window
+// across the whole control instead.
+static constexpr float kShimmerMaxMix = 0.20f;
+
+// NOT CHANGED — but measured, for the record.  The tank round trip here is
+// (1800+3720+2656+4217)/fs = 281 ms and the per-round-trip loop gain is decay^2,
+// so this mapping yields:
+//     n=0.25 -> 0.68 s    n=0.5 -> 1.17 s   n=0.75 -> 2.6 s
+//     n=0.90 -> 6.9 s     n=0.95 -> 14 s    n=1.00 -> ~1940 s (decay 0.9995)
+// i.e. everything from 3 s upward is crammed into the last 10 % of travel, and
+// n=1 is effectively self-oscillation — risky, since the MODULATED tank allpass
+// is not exactly unity gain.  If that ever bothers you, map T60 directly:
+//     const float t60   = 0.25f * powf(80.0f, n);          // 0.25 s .. 20 s
+//     _decay = powf(10.0f, -1.5f * kTankRoundTripSec / t60);
+//     if (_decay > 0.98f) _decay = 0.98f;                  // leave inf to freeze()
+// Left alone for now: this curve is the validated v1 character (rule 11).
 void PlateReverb::setSize(float n)
 {
     n = clamp01(n);
@@ -161,37 +225,52 @@ void PlateReverb::setSize(float n)
     _decay = 0.1f + 0.8995f * shaped;
 }
 
+// In-tank HF damping.  n=0 -> filter fully bypassed.  n>0 sweeps the loop LP
+// from 18 kHz down to 800 Hz, ~4.5 octaves spread evenly across the control.
+// Because the LP is inside the feedback loop, its effect is cumulative: the
+// per-pass corner is what is set here, the audible tail brightness falls faster.
 void PlateReverb::setHiDamp(float n)
 {
     n = clamp01(n);
-    _hiDampCoeff = (n > 0.001f) ? (0.1f + 0.85f * n) : 0.0f;
-    if (_hiDampCoeff > 0.95f) _hiDampCoeff = 0.95f;
+    _hiDampCoeff = (n > 0.001f)
+                 ? onePoleCoeff(expSweep(n, kTankLpFcMax, kTankLpFcMin))
+                 : 0.0f;
     _tankLPF[0].coeff = _hiDampCoeff;
     _tankLPF[1].coeff = _hiDampCoeff;
 }
 
+// In-tank LF damping.  n=0 -> bypassed.  n>0 sweeps the loop HP from 20 Hz
+// (inaudible) up to 600 Hz (thin, ambient).  NOTE the coefficient span this
+// produces is ~0.918..0.997 — i.e. the extreme top of the coefficient range.
+// v1 swept 0.1..0.9, which is the wrong end and the wrong direction entirely.
 void PlateReverb::setLoDamp(float n)
 {
     n = clamp01(n);
-    _loDampCoeff = (n > 0.001f) ? (0.1f + 0.8f * n) : 0.0f;
-    if (_loDampCoeff > 0.90f) _loDampCoeff = 0.90f;
+    _loDampCoeff = (n > 0.001f)
+                 ? onePoleCoeff(expSweep(n, kTankHpFcMin, kTankHpFcMax))
+                 : 0.0f;
     _tankHPF[0].coeff = _loDampCoeff;
     _tankHPF[1].coeff = _loDampCoeff;
 }
 
+// Post-tank master LP (wet only).  20 kHz (transparent) -> 500 Hz.
 void PlateReverb::setLowpass(float n)
 {
     n = clamp01(n);
-    _masterLpCoeff = n * 0.97f;               // 0 => transparent
+    _masterLpCoeff = (n > 0.001f)
+                   ? onePoleCoeff(expSweep(n, kMastLpFcMax, kMastLpFcMin))
+                   : 0.0f;
     _masterLPF[0].coeff = _masterLpCoeff;
     _masterLPF[1].coeff = _masterLpCoeff;
 }
 
+// Post-tank master HP (wet only).  20 Hz (transparent) -> 1 kHz.
 void PlateReverb::setHipass(float n)
 {
     n = clamp01(n);
-    _masterHpCoeff = (n > 0.001f) ? (0.3f + 0.67f * sqrtf(n)) : 0.0f;
-    if (_masterHpCoeff > 0.97f) _masterHpCoeff = 0.97f;
+    _masterHpCoeff = (n > 0.001f)
+                   ? onePoleCoeff(expSweep(n, kMastHpFcMin, kMastHpFcMax))
+                   : 0.0f;
     _masterHPF[0].coeff = _masterHpCoeff;
     _masterHPF[1].coeff = _masterHpCoeff;
 }
@@ -200,10 +279,19 @@ void PlateReverb::setShimmer(float n)
 {
     if (_frozen) return;                      // freeze() owns the mix while frozen
     n = clamp01(n);
-    n = 2.0f * n - n * n;                      // quadratic taper (v1)
-    _shimmerMix = n;
-    _pitchShimL.setMix(n);
-    _pitchShimR.setMix(n);
+
+    // DEVIATION FROM v1 (flagged).  v1 used `2n - n^2`, which EXPANDS small
+    // values (n=0.024 -> 0.047) and reaches full 1.0 mix at the top.  With the
+    // shifter in the feedback loop that made the entire usable range live below
+    // CC 4.  Square-law taper into a 0.20 ceiling instead:
+    //     n=0.25 -> 0.013   n=0.5 -> 0.050   n=0.75 -> 0.113   n=1.0 -> 0.200
+    // so v1's sweet spot now sits at mid-travel and the top is a deliberate
+    // over-the-top extreme rather than a wall of octaves.
+    const float m = kShimmerMaxMix * n * n;
+
+    _shimmerMix = m;
+    _pitchShimL.setMix(m);
+    _pitchShimR.setMix(m);
 }
 
 void PlateReverb::setFreeze(bool on)

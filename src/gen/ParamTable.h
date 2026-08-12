@@ -504,7 +504,7 @@ static constexpr char s429[] JT_TABLE_FLASH = "RATCH";
 } // namespace Str
 
 // --- Option sets (display strings for Select params) -------------------------
-static constexpr const char* const kOpt_osc_wave[] JT_TABLE_FLASH = { "SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW" };
+static constexpr const char* const kOpt_osc_wave[] JT_TABLE_FLASH = { "SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW", "vSAW", "BLvSAW", "vTRI", "BLvTRI" };
 static constexpr const char* const kOpt_pitch_offset[] JT_TABLE_FLASH = { "-24", "-12", "0", "+12", "+24" };
 static constexpr const char* const kOpt_filter_engine[] JT_TABLE_FLASH = { "OBXa", "VA" };
 static constexpr const char* const kOpt_filter_mode[] JT_TABLE_FLASH = { "4-Pole", "2-Pole", "2P BP", "2P Push", "Xpander", "Xpander M" };
@@ -801,7 +801,7 @@ static constexpr uint8_t kVis_FILTER_OBXA_XPANDER_MODE[] JT_TABLE_FLASH = { 4, 5
 // --- The table -----------------------------------------------------------------
 static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     // ---- [0] Oscillator 1 ----
-    { ID::OSC1_WAVE, Str::s0, Str::s1, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 13.0f, 0.0f, Str::s3, false, 0, -1, 14, kOpt_osc_wave, 0, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::OSC1_WAVE, Str::s0, Str::s1, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 17.0f, 0.0f, Str::s3, false, 0, -1, 18, kOpt_osc_wave, 0, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::OSC1_PITCH_OFFSET, Str::s4, Str::s5, Str::s6, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 2.0f, Str::s3, false, 0, -1, 5, kOpt_pitch_offset, 0, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::OSC1_FINE_TUNE, Str::s7, Str::s8, Str::s9, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 0, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::OSC1_DETUNE, Str::s11, Str::s12, Str::s13, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 0, 0, Control::Pot, kNoVisDep, nullptr, 0 },
@@ -816,7 +816,7 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::OSC1_ARB_INDEX, Str::s38, Str::s39, Str::s40, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 0, 4, Control::Pot, ID::OSC1_WAVE, kVis_OSC1_ARB_INDEX, 1 },
     { ID::OSC1_PWM_LFO1_DEPTH, Str::s41, Str::s42, Str::s43, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 0, 3, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [1] Oscillator 2 ----
-    { ID::OSC2_WAVE, Str::s44, Str::s45, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 13.0f, 0.0f, Str::s3, false, 0, -1, 14, kOpt_osc_wave, 1, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_WAVE, Str::s44, Str::s45, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 17.0f, 0.0f, Str::s3, false, 0, -1, 18, kOpt_osc_wave, 1, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::OSC2_PITCH_OFFSET, Str::s46, Str::s47, Str::s6, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 2.0f, Str::s3, false, 0, -1, 5, kOpt_pitch_offset, 1, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::OSC2_FINE_TUNE, Str::s48, Str::s49, Str::s9, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::OSC2_DETUNE, Str::s50, Str::s51, Str::s13, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 0, Control::Pot, kNoVisDep, nullptr, 0 },

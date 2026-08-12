@@ -29,7 +29,7 @@ retired_ids: []          # ParamIDs may enter this list; they never leave
 # Adding an option APPENDS (indices are stored in patches).
 # -----------------------------------------------------------------------------
 option_sets:
-  osc_wave: ["SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW"]
+  osc_wave: ["SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW", "vSAW", "BLvSAW", "vTRI", "BLvTRI"]
   pitch_offset: ["-24", "-12", "0", "+12", "+24"]
   filter_engine: ["OBXa", "VA"]
   filter_mode: ["4-Pole", "2-Pole", "2P BP", "2P Push", "Xpander", "Xpander M"]

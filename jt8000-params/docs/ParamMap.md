@@ -19,7 +19,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
-| `0x0000` | 0 | Osc1 Wave | `osc1.wave` | select | 0–13 (index) | 0 (SIN) | 0 ms | — | patch |
+| `0x0000` | 0 | Osc1 Wave | `osc1.wave` | select | 0–17 (index) | 0 (SIN) | 0 ms | — | patch |
 | `0x0001` | 1 | Osc1 Pitch | `osc1.pitch_offset` | select | 0–4 (index) | 2 (0) | 0 ms | — | patch |
 | `0x0002` | 2 | Osc1 Fine | `osc1.fine_tune` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0003` | 3 | Osc1 Detune | `osc1.detune` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
@@ -38,7 +38,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
-| `0x0080` | 0 | Osc2 Wave | `osc2.wave` | select | 0–13 (index) | 0 (SIN) | 0 ms | — | patch |
+| `0x0080` | 0 | Osc2 Wave | `osc2.wave` | select | 0–17 (index) | 0 (SIN) | 0 ms | — | patch |
 | `0x0081` | 1 | Osc2 Pitch | `osc2.pitch_offset` | select | 0–4 (index) | 2 (0) | 0 ms | — | patch |
 | `0x0082` | 2 | Osc2 Fine | `osc2.fine_tune` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0083` | 3 | Osc2 Detune | `osc2.detune` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
@@ -267,7 +267,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 
 ### Option sets
 
-- **osc_wave**: `SIN`, `SAW`, `SQR`, `TRI`, `ARB`, `PLS`, `rSAW`, `S&H`, `vTRI`, `BLS`, `rBLS`, `BLSQ`, `BLP`, `SSAW`
+- **osc_wave**: `SIN`, `SAW`, `SQR`, `TRI`, `ARB`, `PLS`, `rSAW`, `S&H`, `vTRI`, `BLS`, `rBLS`, `BLSQ`, `BLP`, `SSAW`, `vSAW`, `BLvSAW`, `vTRI`, `BLvTRI`
 - **pitch_offset**: `-24`, `-12`, `0`, `+12`, `+24`
 - **filter_engine**: `OBXa`, `VA`
 - **filter_mode**: `4-Pole`, `2-Pole`, `2P BP`, `2P Push`, `Xpander`, `Xpander M`
