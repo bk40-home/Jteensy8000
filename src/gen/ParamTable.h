@@ -21,7 +21,22 @@ inline constexpr uint16_t kSchemaVersion = 1;
 
 // --- Behavioural enums ------------------------------------------------------
 enum class Type   : uint8_t { Continuous, Select, Toggle, Int };
-enum class Scope  : uint8_t { Patch, Performance, Global };
+// Scope answers TWO questions at once, so read it as a pair:
+//   Patch       : saved in the patch,  ONE COPY PER LAYER (banked)
+//   PatchShared : saved in the patch,  ONE COPY TOTAL   (shared)
+//   Performance : not in the patch,    ONE COPY TOTAL
+//   Global      : not in the patch,    ONE COPY TOTAL
+// Only Patch banks — see kBankIndex below.  Enumerator order is fixed:
+// Patch must stay 0 so existing == Scope::Patch comparisons keep meaning.
+enum class Scope  : uint8_t { Patch, PatchShared, Performance, Global };
+
+// THE predicate for "does this belong in a saved patch".  Both Patch scopes
+// serialise; only the instancing differs.  Consumers must call this rather
+// than comparing to Scope::Patch — a bare == silently stops saving the
+// PatchShared params (fx.*, seq.*) and loses them on reload.
+inline constexpr bool isPatchScope(Scope s) {
+    return s == Scope::Patch || s == Scope::PatchShared;
+}
 enum class Widget : uint8_t { Knob, Envelope, Grid };  // UI rendering hint
 
 // Curve maps a normalized control position t (0..1) to engineering units:
@@ -583,7 +598,7 @@ struct ParamDesc {
     const char* name;        // full display name
     const char* label;       // short panel label
     Type        type;
-    Scope       scope;       // who owns / saves it (patch vs perf vs global)
+    Scope       scope;       // persistence + layer instancing (see enum)
     Widget      widget;      // UI rendering hint (knob / envelope / grid)
     Curve       curve;       // normalized→engineering mapping
     float       min;         // engineering range
@@ -899,20 +914,20 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::LFO2_DESTINATION, Str::s227, Str::s228, Str::s207, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_l_f_o_dest, 8, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::LFO2_DELAY, Str::s229, Str::s230, Str::s210, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 2, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [9] Effects ----
-    { ID::FX_BASS_GAIN, Str::s231, Str::s232, Str::s233, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_TREBLE_GAIN, Str::s234, Str::s235, Str::s236, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DRIVE, Str::s237, Str::s238, Str::s239, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_drive, 9, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_EFFECT, Str::s240, Str::s241, Str::s242, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_f_x_mod_effect, 9, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_MIX, Str::s243, Str::s244, Str::s245, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 93, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_RATE, Str::s246, Str::s247, Str::s248, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_FEEDBACK, Str::s249, Str::s250, Str::s251, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_EFFECT, Str::s252, Str::s253, Str::s254, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_f_x_delay_effect, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_TIME, Str::s255, Str::s256, Str::s257, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_MIX, Str::s258, Str::s259, Str::s260, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 94, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_FEEDBACK, Str::s261, Str::s262, Str::s263, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_SYNC, Str::s264, Str::s265, Str::s266, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_DRY_MIX, Str::s267, Str::s268, Str::s269, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_JPFX_MIX, Str::s270, Str::s271, Str::s272, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_BASS_GAIN, Str::s231, Str::s232, Str::s233, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_TREBLE_GAIN, Str::s234, Str::s235, Str::s236, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DRIVE, Str::s237, Str::s238, Str::s239, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_drive, 9, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_EFFECT, Str::s240, Str::s241, Str::s242, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_f_x_mod_effect, 9, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_MIX, Str::s243, Str::s244, Str::s245, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 93, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_RATE, Str::s246, Str::s247, Str::s248, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_FEEDBACK, Str::s249, Str::s250, Str::s251, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_EFFECT, Str::s252, Str::s253, Str::s254, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_f_x_delay_effect, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_TIME, Str::s255, Str::s256, Str::s257, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_MIX, Str::s258, Str::s259, Str::s260, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 94, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_FEEDBACK, Str::s261, Str::s262, Str::s263, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_SYNC, Str::s264, Str::s265, Str::s266, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_DRY_MIX, Str::s267, Str::s268, Str::s269, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_JPFX_MIX, Str::s270, Str::s271, Str::s272, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 3, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [10] Velocity ----
     { ID::VELOCITY_AMP_SENS, Str::s273, Str::s274, Str::s204, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::VELOCITY_FILTER_SENS, Str::s275, Str::s276, Str::s198, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
@@ -928,22 +943,22 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::CLOCK_CLOCK_SOURCE, Str::s297, Str::s298, Str::s299, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_clock_source, 12, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::CLOCK_TEMPO, Str::s300, Str::s301, Str::s301, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 40.0f, 0.0f, 300.0f, 170.0f, Str::s301, false, 0, -1, 0, nullptr, 12, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [13] Step Sequencer ----
-    { ID::SEQ_ENABLE, Str::s302, Str::s303, Str::s281, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 0, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEPS, Str::s304, Str::s305, Str::s306, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 9.0f, Str::s307, false, 0, -1, 0, nullptr, 13, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_GATE_LENGTH, Str::s308, Str::s309, Str::s310, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_SLIDE, Str::s311, Str::s312, Str::s313, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_DIRECTION, Str::s314, Str::s315, Str::s316, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_seq_dir, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_DESTINATION, Str::s317, Str::s318, Str::s207, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_dest, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_DEPTH, Str::s319, Str::s320, Str::s170, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_RETRIGGER, Str::s321, Str::s322, Str::s323, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_RATE, Str::s324, Str::s325, Str::s189, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_TIMING_MODE, Str::s326, Str::s327, Str::s92, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 13, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_SELECT, Str::s328, Str::s329, Str::s330, Type::Int, Scope::Patch, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s307, false, 0, -1, 0, nullptr, 13, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_VALUE, Str::s331, Str::s332, Str::s333, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_DESTINATION, Str::s334, Str::s335, Str::s336, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_aux_dest, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_DEPTH, Str::s337, Str::s338, Str::s339, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_SELECT, Str::s340, Str::s341, Str::s342, Type::Int, Scope::Patch, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s307, false, 0, -1, 0, nullptr, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_VALUE, Str::s343, Str::s344, Str::s345, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_ENABLE, Str::s302, Str::s303, Str::s281, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEPS, Str::s304, Str::s305, Str::s306, Type::Int, Scope::PatchShared, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 9.0f, Str::s307, false, 0, -1, 0, nullptr, 13, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_GATE_LENGTH, Str::s308, Str::s309, Str::s310, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_SLIDE, Str::s311, Str::s312, Str::s313, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_DIRECTION, Str::s314, Str::s315, Str::s316, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_seq_dir, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_DESTINATION, Str::s317, Str::s318, Str::s207, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_dest, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_DEPTH, Str::s319, Str::s320, Str::s170, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_RETRIGGER, Str::s321, Str::s322, Str::s323, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_RATE, Str::s324, Str::s325, Str::s189, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_TIMING_MODE, Str::s326, Str::s327, Str::s92, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 13, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_SELECT, Str::s328, Str::s329, Str::s330, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s307, false, 0, -1, 0, nullptr, 13, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_VALUE, Str::s331, Str::s332, Str::s333, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_DESTINATION, Str::s334, Str::s335, Str::s336, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_aux_dest, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_DEPTH, Str::s337, Str::s338, Str::s339, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_SELECT, Str::s340, Str::s341, Str::s342, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s307, false, 0, -1, 0, nullptr, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_VALUE, Str::s343, Str::s344, Str::s345, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [14] Voice Mode ----
     { ID::PERF_MODE, Str::s346, Str::s347, Str::s115, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_perf_mode, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::PERF_EDIT_TARGET, Str::s348, Str::s349, Str::s350, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_edit_target, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
@@ -951,7 +966,7 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::PERF_MIDI_CHANNEL_B, Str::s354, Str::s355, Str::s356, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 1.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::PERF_VOICE_SPLIT, Str::s357, Str::s358, Str::s359, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 3.0f, Str::s3, false, 0, -1, 7, kOpt_voice_split, 14, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::PERF_SPLIT_NOTE, Str::s360, Str::s361, Str::s362, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 60.0f, Str::s363, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::PERF_BALANCE, Str::s364, Str::s365, Str::s366, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 1.0f, Str::s3, false, 0, -1, 3, kOpt_layer_balance, 14, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_BALANCE, Str::s364, Str::s365, Str::s366, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 64.0f, Str::s307, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [15] Global Reverb ----
     { ID::REVERB_SIZE, Str::s367, Str::s368, Str::s369, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::REVERB_DAMP, Str::s370, Str::s371, Str::s372, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
@@ -982,6 +997,81 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
 
 inline constexpr size_t kParamCount = sizeof(kParams) / sizeof(kParams[0]);
 
+// --- Layer banking (Performance mode) ----------------------------------------
+// Two independent layer patches share ONE ParameterStore.  Layer B's copies
+// of the banked parameters are appended after the full table:
+//
+//     slot(i, A) = i                            <- unchanged from single-layer
+//     slot(i, B) = kParamCount + kBankIndex[i]  <- banked params
+//     slot(i, B) = i                            <- shared params (index -1)
+//
+// Layer A's slot staying equal to the table index is the whole point: every
+// cached index, dirty-word position and publish() flip in the single-layer
+// build keeps its exact meaning, so the render baseline stays byte-identical
+// while Performance is off.
+//
+// Shared params deliberately return the SAME slot for both layers, so callers
+// index by (param, layer) unconditionally and never branch on scope.
+//
+// kBankIndex is a plain constexpr array, i.e. .rodata -> DTCM on the IMXRT1062,
+// NOT JT_TABLE_FLASH: slotFor() runs once per dirty parameter in the
+// audio-plane drain, where a FLEXSPI miss costs more than these bytes of RAM.
+inline constexpr int16_t kBankIndex[] = {  // 160 entries, 320 B DTCM
+      0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
+     16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,
+     32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,
+     48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,
+     64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,
+     80,  81,  82,  83,  84,  85,  86,  87,  88,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  -1,  -1,  -1,  -1,  89,  90,  91,  92,  93,  94,  95,  96,  97,
+     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  98,  99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
+};
+
+inline constexpr size_t kBankedCount = 111;   // Scope::Patch params
+inline constexpr size_t kStoreSlots  = kParamCount + kBankedCount;
+
+inline constexpr bool isBanked(size_t index) { return kBankIndex[index] >= 0; }
+
+// layer: 0 = A, 1 = B.  Branch-light by design — one compare, one load.
+inline constexpr size_t slotFor(size_t index, uint8_t layer) {
+    return (layer == 0u || kBankIndex[index] < 0)
+             ? index
+             : kParamCount + static_cast<size_t>(kBankIndex[index]);
+}
+
+// Reverse of kBankIndex: which parameter owns each APPENDED (layer-B) slot.
+// The audio-plane drain pops a slot and must name the parameter again;
+// without this it would linear-scan kBankIndex per dirty param, in the ISR.
+inline constexpr int16_t kBankOwner[] = {  // 111 entries, 222 B DTCM
+      0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
+     16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,
+     32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,
+     48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,
+     64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,
+     80,  81,  82,  83,  84,  85,  86,  87,  88, 103, 104, 105, 106, 107, 108, 109,
+    110, 111, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159,
+};
+
+// Decompose a storage slot back into (parameter, layer).  Both are one
+// compare plus at most one load — the drain calls them once per changed
+// parameter, never per sample.
+//
+// NOTE on shared params: layer B writes them at their layer-A slot, so
+// layerOfSlot() reports 0 for them.  That is correct, not a rounding of
+// the truth — a shared param HAS no layer, and its consumer is the one
+// singleton FX chain / sequencer either layer feeds.
+inline constexpr size_t paramOfSlot(size_t slot) {
+    return (slot < kParamCount)
+             ? slot
+             : static_cast<size_t>(kBankOwner[slot - kParamCount]);
+}
+
+inline constexpr uint8_t layerOfSlot(size_t slot) {
+    return (slot < kParamCount) ? 0u : 1u;
+}
+
 // --- Lookups -------------------------------------------------------------------
 // Linear scans are constexpr-friendly and fine at control rate (UI, MIDI
 // dispatch).  NOTHING in the audio ISR looks parameters up by id — the
@@ -1008,6 +1098,11 @@ inline constexpr uint16_t idFromNrpn(uint8_t msb, uint8_t lsb) {
 
 // Compile-time guarantees — a bad regeneration cannot even compile.
 static_assert(kParamCount == 160, "param count changed — regenerate consumers");
+static_assert(kBankedCount == 111, "banked count changed — ParameterStore must be resized");
+static_assert(sizeof(kBankIndex) / sizeof(kBankIndex[0]) == kParamCount,
+              "bank index table must be one entry per parameter");
+static_assert(sizeof(kBankOwner) / sizeof(kBankOwner[0]) == kBankedCount,
+              "bank owner table must be one entry per banked parameter");
 // Dereferencing in a constant expression: if find() ever returned nullptr
 // this line would be a hard compile error — stronger than a null compare,
 // and clean under -Waddress (GCC can prove the pointer is never null).

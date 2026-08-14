@@ -33,6 +33,7 @@
 
 #include "core/AudioConfig.h"
 #include "core/ParameterStore.h"
+#include "core/PerfRouter.h"
 #include "core/Voice.h"
 #include "core/VoiceAllocator.h"
 #include "core/dsp/Lfo.h"
@@ -56,6 +57,18 @@ struct LfoState {
     float depthPwm    = 0.0f;
     float depthAmp    = 0.0f;
 
+    // Additive pitch depth from a PERFORMANCE control (today: the mod wheel).
+    // Kept separate from depthPitch rather than added into it, because
+    // depthPitch is patch state owned by the parameter store: folding the
+    // wheel in would make the wheel overwrite the patch, the editor would
+    // echo the overwritten value back, and the wheel and the knob would
+    // fight.  This field is engine-only and never serialised.
+    //
+    // ADDITIVE, not a multiplier: the JP-8000's default patch has
+    // lfo1.pitch_depth == 0, and a multiplier would leave the wheel dead
+    // until the user first raised the knob.
+    float depthPitchMod = 0.0f;
+
     // Tempo-sync state (Phase 3 subsystem 2, PHASE3_BPMCLOCK_SPEC.md §3
     // decision #6): freeHz is the last LFO*_FREQ knob value, kept alive
     // even while synced so switching back to Free restores it exactly
@@ -67,9 +80,20 @@ struct LfoState {
 
     // "Engaged" (spec §4): any destination depth > 0.  Gates whether this
     // block bothers to tick the oscillator at all.
+    // Total pitch depth actually applied, clamped so wheel-plus-knob cannot
+    // exceed the range a full knob already reaches.
+    float pitchDepthTotal() const
+    {
+        const float d = depthPitch + depthPitchMod;
+        return (d > 1.0f) ? 1.0f : d;
+    }
+
     bool engaged() const
     {
-        return depthPitch > 0.0f || depthFilter > 0.0f ||
+        // depthPitchMod is included, or raising the wheel on the default
+        // patch would leave the oscillator un-ticked and do nothing.
+        return depthPitch > 0.0f || depthPitchMod > 0.0f ||
+               depthFilter > 0.0f ||
                depthPwm > 0.0f  || depthAmp > 0.0f;
     }
 };
@@ -106,9 +130,22 @@ public:
     void disableExtmemPools();
 
     // --- control plane: note & pedal events (queued, applied next block) ---
-    void noteOn(uint8_t note, uint8_t velocity);
-    void noteOff(uint8_t note);
-    void sustain(bool pedalDown);
+    // 'channel1to16' is what Performance routing keys on.  It defaults to 0,
+    // a value no MIDI channel has, meaning "unrouted — send it to layer A".
+    // That default is what keeps every existing caller and test working
+    // unchanged, and it is also the honest answer for a caller that genuinely
+    // has no channel (the bring-up console, a test harness).
+    //
+    // In Single mode routing is omni, so a real channel and the sentinel give
+    // the same answer; the distinction only matters in Layer/Split.
+    void noteOn(uint8_t note, uint8_t velocity, uint8_t channel1to16 = 0);
+    void noteOff(uint8_t note, uint8_t channel1to16 = 0);
+    void sustain(bool pedalDown, uint8_t channel1to16 = 0);
+
+    // Routing is resolved on the control plane, at the moment the event is
+    // queued, because PerfRouter reads the store's control-plane view.  The
+    // resolved layer travels with the event; the audio plane never routes.
+    const PerfRouter& router() const { return _router; }
     void allNotesOff();     // CC 123
     void allSoundOff();     // CC 120
 
@@ -117,6 +154,19 @@ public:
     // here (mirrors v1 jt8000.cpp onPitchBend -> LayerManager::handlePitchBend).
     // Queued like note events so it can never mutate voice pitch mid-render.
     void pitchBend(uint16_t value14);
+
+    // Mod wheel (CC 1).  Until the mod matrix lands this has ONE fixed
+    // destination — LFO1 pitch depth, i.e. vibrato — which is what the wheel
+    // does on a JP-8000 out of the box.  'value7' is the raw 0..127 CC.
+    //
+    // Queued through the same ring as notes and bend: the wheel arrives on
+    // the control plane, and the depth it drives is read by the audio plane
+    // once per block.  A plain store would be a race for the sake of one
+    // float.
+    // Routed like any other live performance control: LFO1 is per layer now,
+    // so the wheel must reach the layer(s) its channel addresses.  Channel 0
+    // is the same "no channel -> layer A" sentinel the note handlers use.
+    void modWheel(uint8_t value7, uint8_t channel1to16 = 0);
 
     // --- external MIDI clock (Phase 9) -------------------------------------
     // main.cpp's realtime-byte handlers (loop/ISR context) measure 24-PPQN
@@ -136,8 +186,15 @@ public:
     // --- audio plane: render one stereo block (n == kBlockSize) ---
     void renderBlock(float* left, float* right, size_t n);
 
-    // Diagnostics for the bring-up console.
-    size_t activeVoices() const { return _alloc.activeCount(); }
+    // Diagnostics for the bring-up console.  Counted over the whole pool, not
+    // per layer: "how loaded is the synth" is a property of the hardware.
+    size_t activeVoices() const;
+
+    // Bit i set = pool voice i sounding.  Built from the POOL, not by OR-ing
+    // the two allocators' masks — each allocator numbers bits from its own
+    // slice, so layer B's bit 0 is really pool voice 4 or wherever the cut
+    // currently falls.
+    uint8_t activeVoiceMask() const;
 
     // ---- Status word for the controller's HOME/SEQ displays (Phase F5) ----
     // 13 bits packed into one 14-bit NRPN payload, sent on address 0x3FFF
@@ -148,7 +205,7 @@ public:
     // Loop()-context read of ISR-mutated state — same telemetry semantics as
     // activeMask() above: a momentarily torn word costs one redundant send.
     uint16_t statusWord() const {
-        const uint16_t mask = _alloc.activeMask();
+        const uint16_t mask = activeVoiceMask();
         const uint16_t step = static_cast<uint16_t>(_seq.currentStep()) & 0x0F;
         const uint16_t run  = _seq.enabled() ? 1u : 0u;
         return static_cast<uint16_t>((mask << 5) | (step << 1) | run);
@@ -163,14 +220,14 @@ public:
     bool  debugClockSourceExternal() const { return _clock.source() == TempoClock::kExtMidi; }
     // The arp's rate mode index (TempoClock::Mode): kFree(0) means the arp is on
     // its free-run knob and will NOT follow tempo at all.
-    int   debugArpRateMode()         const { return _arp.debugRateModeOrMinus1(); }
+    int   debugArpRateMode()         const { return _layers[0].arp.debugRateModeOrMinus1(); }
 
 #ifdef JT_TESTING
     // Test-only: the effective rate of LFO 0 (LFO1) or 1 (LFO2) — the Hz that
     // applyLfoRate() resolved (free knob or clock division).  Lets test_bpmclock
     // assert sync resolution exactly (PHASE3_BPMCLOCK_SPEC §7).  Firmware-free.
     float debugLfoRateHz(int which) const
-    { return (which == 0 ? _lfo1 : _lfo2).osc.debugRateHz(); }
+    { return (which == 0 ? _layers[0].lfo1 : _layers[0].lfo2).osc.debugRateHz(); }
 #endif
 
 private:
@@ -178,7 +235,11 @@ private:
     // sections on top of the Phase 1 set; filter-bank, envelope and mod
     // params still pending are deliberately ignored (their dirty flags
     // clear, so nothing accumulates) and land with Passes 5-6.
-    void applyParam(size_t index, float norm);
+    // 'layer' selects which layer's voices and per-layer state this parameter
+    // reaches.  Shared, performance and global parameters always arrive with
+    // layer 0 — Params::layerOfSlot() guarantees it — so their handlers below
+    // may ignore the argument entirely.
+    void applyParam(size_t index, float norm, uint8_t layer);
     void drainNoteEvents();
     // Apply any external-clock BPM / transport handed off since the last block.
     // Runs at the top of renderBlock (audio plane); no-op when no clock present.
@@ -191,14 +252,28 @@ private:
     // called from applyParam on an actual dirty param — no per-block clock
     // work (rule 6 / spec decision #5).
     void applyLfoRate(LfoState& lfo);
-    void refreshSyncedLfos();
+    void refreshSyncedLfos();   // both LFOs of BOTH layers
 
     // --- note event ring (control -> audio, single producer / consumer) ---
     // 32 events is > two blocks of the densest realistic MIDI input; on
     // overflow the OLDEST unconsumed event is dropped and counted, which
     // degrades gracefully (a lost note-on) rather than blocking the ISR.
     struct NoteEvent { uint8_t type; uint8_t a; uint8_t b; };
-    enum : uint8_t { kEvOn, kEvOff, kEvSustain, kEvNotesOff, kEvSoundOff, kEvBend };
+    // Bit 7 of 'type' carries the destination LAYER.  Types run 0..6, so the
+    // bit is free and the event stays three bytes — no ring growth, no extra
+    // cost on the single-layer path where the bit is always 0.
+    //
+    // An event bound for BOTH layers is pushed TWICE, once per layer, rather
+    // than encoded as a third destination: the drain then has no mask to
+    // decode, and a full ring degrades by dropping one layer's copy instead of
+    // silently halving a chord.
+    enum : uint8_t { kEvOn, kEvOff, kEvSustain, kEvNotesOff, kEvSoundOff, kEvBend,
+                     kEvModWheel };
+    static constexpr uint8_t kEvLayerB   = 0x80;
+    static constexpr uint8_t kEvTypeMask = 0x7F;
+
+    // Queue one event per layer named by 'dest'.
+    void pushRouted(uint8_t type, uint8_t a, uint8_t b, LayerMask dest);
     static constexpr size_t kRingSize = 32;          // power of two
     void pushEvent(uint8_t type, uint8_t a, uint8_t b);
 
@@ -224,41 +299,166 @@ private:
 
     // --- engine state ---
     ParameterStore& _store;
-    Voice           _voices[VoiceAllocator::kMaxVoices];
-    VoiceAllocator  _alloc;
 
-    // Arbitrary-wavetable selection is PATCH-level state (all voices share
-    // one table per unit), so the bank/index pair lives here and fans the
-    // resolved pointer to the voices whenever either knob moves.
-    void applyArbTable(int unit);
-    int _arbBank[2]  = { 0, 0 };
-    int _arbIndex[2] = { 0, 0 };
+    // Owned rather than injected: routing is a property of this engine's
+    // store, and one owner means the transports and the note handlers cannot
+    // disagree about where a channel goes.
+    // Constructed from _store, so it must be declared AFTER it — member init
+    // order is declaration order, not initialiser-list order.
+    PerfRouter      _router;
+
+    Voice           _voices[VoiceAllocator::kMaxVoices];
+
+    // -------------------------------------------------------------------------
+    // LAYERS
+    //
+    // v1 layered by owning two SynthEngine objects, because in v1 an engine WAS
+    // a patch.  v2 keeps ONE engine and gives it a layer dimension that mirrors
+    // the store's: the 8 voices are a single pool, and each layer owns a
+    // contiguous SLICE of it (perf.voice_split decides where the cut falls).
+    //
+    // What lives here is exactly what has to differ per layer AND is owned by
+    // the voices: the allocator, and the patch state that fans into them.  The
+    // LFOs, arpeggiator, sequencer, clock, FX and reverb are still singletons
+    // on SynthCore — some permanently (they are shared by design), some only
+    // until the per-layer modulation stage lands.  See the notes at each.
+    // -------------------------------------------------------------------------
+    struct VoiceSpan {
+        Voice* b;
+        Voice* e;
+        Voice* begin() const { return b; }
+        Voice* end()   const { return e; }
+        size_t size()  const { return static_cast<size_t>(e - b); }
+    };
+
+    struct Layer {
+        Layer(Voice* first, size_t count, uint32_t lfoSeed1, uint32_t lfoSeed2)
+            : alloc(first, count), lfo1(lfoSeed1), lfo2(lfoSeed2),
+              _first(first), _count(count) {}
+
+        VoiceAllocator alloc;
+
+        // Per-layer modulation.  Each layer is a whole patch, and an LFO rate,
+        // shape and depth set are patch state — sharing them would make one
+        // layer's vibrato follow the other's knob.  Seeds differ between the
+        // layers so two S&H/NOISE LFOs on the same rate do not phase-lock into
+        // sounding like one; layer A keeps the original seeds, which is what
+        // holds the render baseline byte-identical.
+        LfoState lfo1;
+        LfoState lfo2;
+
+        // Per-layer arpeggiator: it drives THIS layer's allocator, so in Split
+        // mode the lower half can arpeggiate while the upper half plays
+        // normally — the reason to have two at all.
+        Arpeggiator arp;
+
+        // Post-voice bus gain: perf.balance x this layer's VCA-mod factor,
+        // ramped per sample.  Held here rather than in a pair of arrays so a
+        // layer's gain cannot drift out of step with the voices it belongs to.
+        // 1.0 = unity.
+        float gainCur = 1.0f;
+
+        // Would this layer's VCA mod move the bus gain off unity?  Answerable
+        // WITHOUT ticking the LFOs, which is what lets renderBlock choose its
+        // bus routing before the layer loop runs — the tick that produces the
+        // actual modulation value happens inside it.
+        //
+        // Depths are 0..1 and amp_level defaults to exactly 1.0, so the default
+        // patch answers false and the mixing stage is skipped entirely.
+        bool ampModActive() const
+        {
+            return ampFixedLevel != 1.0f ||
+                   lfo1.depthAmp > 0.0f  ||
+                   lfo2.depthAmp > 0.0f;
+        }
+
+        // Patch state that fans to this layer's voices.  Defaults are the
+        // no-op values, identical to the pre-layer single-instance members
+        // they replace, so a Single-mode patch is arithmetically unchanged.
+        float bendRange     = 2.0f;   // VOICE_BEND_RANGE, 0..24 st (v1 default 2)
+        float ampFixedLevel = 1.0f;   // VOICE_AMP_LEVEL (v1 AMP_MOD_FIXED_LEVEL)
+
+        // Arbitrary-wavetable selection is PATCH-level state (every voice in
+        // the layer shares one table per oscillator), so the bank/index pair
+        // lives here and the resolved pointer fans out when either knob moves.
+        int arbBank[2]  = { 0, 0 };
+        int arbIndex[2] = { 0, 0 };
+
+        // The slice of the shared pool this layer currently owns.  A layer may
+        // legitimately own ZERO voices (layer B in Single mode), in which case
+        // every fan-out loop below simply does not execute — no branch needed
+        // at any of the ~50 call sites.
+        VoiceSpan voices() const { return { _first, _first + _count }; }
+        size_t    voiceCount() const { return _count; }
+
+        void setSlice(Voice* first, size_t count)
+        {
+            _first = first;
+            _count = count;
+            alloc.setPool(first, count);
+        }
+
+    private:
+        Voice* _first;
+        size_t _count;
+    };
+
+    Layer _layers[2];
+
+    // Layer B's scratch bus.  Layer A always renders straight into the caller's
+    // buffers, so only ONE extra stereo buffer is needed, not two.
+    //
+    // At the default balance (centre, both gains unity) this is not used at
+    // all: layer B renders into the caller's buffers too and the whole mixing
+    // stage is skipped — see renderBlock's 'balance inert' path.  The buffers
+    // are reserved but untouched, which is what keeps a Single-mode render
+    // byte-identical to the pre-layer engine.
+    float _busBL[kBlockSize];
+    float _busBR[kBlockSize];
+
+    // perf.balance, 0..127 with 64 = centre.  Kept raw so the gain law lives
+    // in exactly one place (layerGains).
+    float _balance = 64.0f;
+
+    // Resolve perf.balance into the two bus gains.  "Full at centre": A is at
+    // unity for 0..64 and fades to silence by 127; B mirrors it.  Centre gives
+    // 1.0/1.0 — the pre-Performance behaviour, and the condition the inert
+    // path tests for.
+    static void layerGains(float balance, float& gA, float& gB);
+
+    // Re-cut the voice pool from perf.mode + perf.voice_split.  Audio plane
+    // (called from applyParam): it silences voices.
+    void repartitionVoices();
+
+
+    // Cached so repartitionVoices() only does the work when the cut actually
+    // moves — perf.* params re-apply on every patch load and mode change, and
+    // an unconditional repartition would hard-kill sounding voices each time.
+    uint8_t _splitCountA = VoiceAllocator::kMaxVoices;
+
+    void applyArbTable(int unit, uint8_t layer);
 
     // Master volume: one-pole smoothed at block rate (~12 ms time constant)
     // then ramped per sample — a CC7 jump is a fade, not a click.
     float _masterTarget = 0.8f;
     float _masterCur    = 0.8f;
 
-    // Phase 3: the two global LFOs.  Seeds are arbitrary but fixed, so S&H/
-    // NOISE waveforms and renders stay deterministic across runs.
-    LfoState _lfo1{ 0x1234567u };
-    LfoState _lfo2{ 0x89ABCDEu };
+    // The two LFOs are per layer now — see Layer.  Seeds stay fixed so S&H /
+    // NOISE waveforms and renders remain deterministic across runs.
     // Phase 3 subsystem 2: the internal BPM clock (PHASE3_BPMCLOCK_SPEC.md
     // §3 decision #7).  Control-plane only — read/written from applyParam,
     // NEVER from the audio inner loop; its output only reaches the voices
     // indirectly, via applyLfoRate()'s Lfo::setRateHz() calls.
     TempoClock _clock;
-    // Tremolo (LFO -> amp, global post-mix): last block's applied gain, so
-    // renderBlock can ramp toward this block's target per sample instead of
-    // stepping (spec §3 decision #6).  1.0 = inert (default patch, no amp
-    // depth wired anywhere).
-    float _ampModCur = 1.0f;
+    // Tremolo used to be a global post-mix factor cached here.  It is now per
+    // layer and applied on the layer bus (Layer::gainCur), so no global copy
+    // exists to go stale.
 
-    // Phase 4 performance (spec §4).  All defaults are the no-op values so the
-    // default patch stays byte-identical: glide off, bend range 2 st but no
-    // bend sent (0 semis), amp-level base 1.0 (v1 AMP_MOD_FIXED_LEVEL default).
-    float _bendRange     = 2.0f;   // VOICE_BEND_RANGE, 0..24 st (v1 default 2)
-    float _ampFixedLevel = 1.0f;   // VOICE_AMP_LEVEL = v1 AMP_MOD_FIXED_LEVEL base
+    // Phase 4 performance (spec §4) now lives per layer — see Layer above.
+    // Bend range is fully per-layer.
+    //
+    // Amp level and LFO tremolo are per layer and applied on the layer bus —
+    // see Layer::ampFixedLevel and renderBlock.  Nothing global remains.
 
     // GLIDE_TIME norm -> v1 log ms -> per-sample fraction (spec §4.1).  Static:
     // no per-instance state, and constexpr-friendly for the compiler.
@@ -314,7 +514,7 @@ private:
     // early-returns => default patch stays byte-identical.  When ENABLED, played
     // notes are CONSUMED into the arp's held-note list (classic behaviour) and
     // only the arp sounds — see drainNoteEvents.
-    Arpeggiator   _arp;
+    // The arpeggiator is per layer — see Layer.
 
     // Global bus pan (Stage C): ramped per-channel gains for the master stage.
     // Centre = 1.0 both (centre-normalised equal-power), so the default patch

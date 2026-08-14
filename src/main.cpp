@@ -42,6 +42,7 @@
 
 #include "core/ParameterStore.h"
 #include "core/MidiParamTransport.h"
+#include "core/PerfRouter.h"
 #include "core/ParamBroadcast.h"
 #include "platform/ExternalClock.h"
 #include "platform/AudioSynthBlockF32.h"
@@ -98,10 +99,15 @@ EXTMEM static float            gReverbPool[JT::SynthCore::kReverbPoolFloats];
 EXTMEM static float            gFxPool[JT::SynthCore::kFxPoolFloats];
 static JT::AudioSynthBlockF32  gSynth(gStore, gCombPool, gReverbPool, gFxPool);
 // One transport per port; the Origin passed here IS the suppression identity
-// ParamBroadcast keys on (Phase B' D1).
-static JT::MidiParamTransport  gTransportUsbDev (gStore, JT::Origin::MidiUsbDev);
-static JT::MidiParamTransport  gTransportUsbHost(gStore, JT::Origin::MidiUsbHost);
-static JT::MidiParamTransport  gTransportSerial (gStore, JT::Origin::MidiSerial);
+// ParamBroadcast keys on (Phase B' D1).  The router is what lets a curated CC
+// (74 cutoff, ...) reach layer B — NRPN carries its layer in the address and
+// does not consult it.
+// The engine owns the one PerfRouter (it owns the store the router reads), so
+// the transports and the note handlers cannot disagree about where a channel
+// goes — two routers would be two answers to a question with one right one.
+static JT::MidiParamTransport  gTransportUsbDev (gStore, JT::Origin::MidiUsbDev,  &gSynth.core().router());
+static JT::MidiParamTransport  gTransportUsbHost(gStore, JT::Origin::MidiUsbHost, &gSynth.core().router());
+static JT::MidiParamTransport  gTransportSerial (gStore, JT::Origin::MidiSerial,  &gSynth.core().router());
 
 static JT::ParamBroadcast      gBroadcast(gStore);
 
@@ -183,14 +189,14 @@ static AudioConnection_F32     cI2sR(gRetMixR, 0, gI2sOut, 1);
 // -----------------------------------------------------------------------------
 // MIDI handlers — thin routing only.
 // -----------------------------------------------------------------------------
-static void onNoteOn(byte /*ch*/, byte note, byte vel)
+static void onNoteOn(byte ch, byte note, byte vel)
 {
-    gSynth.core().noteOn(note, vel);
+    gSynth.core().noteOn(note, vel, ch);
 }
 
-static void onNoteOff(byte /*ch*/, byte note, byte /*vel*/)
+static void onNoteOff(byte ch, byte note, byte /*vel*/)
 {
-    gSynth.core().noteOff(note);
+    gSynth.core().noteOff(note, ch);
 }
 
 // Pitch bend wheel (Phase 4).
@@ -218,26 +224,29 @@ static void onPitchBend(byte /*ch*/, int value)
 
 // Shared CC routing, parameterised by the receiving port's transport —
 // the split (parameters vs standard meanings) is identical on all three.
-static void onControlChangeFor(JT::MidiParamTransport& t, byte cc, byte value)
+static void onControlChangeFor(JT::MidiParamTransport& t, byte ch, byte cc, byte value)
 {
-    // Parameter traffic (NRPN cluster + curated CCs) is consumed here...
-    if (t.handleControlChange(cc, value)) return;
+    // Parameter traffic (NRPN cluster + curated CCs) is consumed here.  The
+    // channel matters only to the curated-CC branch: NRPN carries its layer
+    // in the address instead, so an editor can keep using any channel.
+    if (t.handleControlChange(cc, value, ch)) return;
 
     // ...everything else has a standard MIDI meaning and its own owner.
     switch (cc) {
-        case 64:  gSynth.core().sustain(value >= 64);   break;
+        case 1:   gSynth.core().modWheel(value, ch);    break;   // vibrato
+        case 64:  gSynth.core().sustain(value >= 64, ch); break;
         case 120: gSynth.core().allSoundOff();          break;   // panic
         case 123: gSynth.core().allNotesOff();          break;
         case 121: t.resetState();                       break;   // reset ctrls
-        default: /* mod wheel etc: mod matrix, Phase 3 */ break;
+        default: /* unassigned: mod matrix will claim these */ break;
     }
 }
 
 // Per-port trampolines — the MIDI libraries take bare function pointers
 // with no user-data argument, so the port binding has to be spelled out.
-static void onCCUsbDev (byte /*ch*/, byte cc, byte v) { onControlChangeFor(gTransportUsbDev,  cc, v); }
-static void onCCUsbHost(byte /*ch*/, byte cc, byte v) { onControlChangeFor(gTransportUsbHost, cc, v); }
-static void onCCSerial (byte /*ch*/, byte cc, byte v) { onControlChangeFor(gTransportSerial,  cc, v); }
+static void onCCUsbDev (byte ch, byte cc, byte v) { onControlChangeFor(gTransportUsbDev,  ch, cc, v); }
+static void onCCUsbHost(byte ch, byte cc, byte v) { onControlChangeFor(gTransportUsbHost, ch, cc, v); }
+static void onCCSerial (byte ch, byte cc, byte v) { onControlChangeFor(gTransportSerial,  ch, cc, v); }
 
 // -----------------------------------------------------------------------------
 // External MIDI clock — real-time byte handlers (Phase 9).
@@ -388,10 +397,16 @@ void loop()
                          // but once per loop() remains the rule ([R5])
 
     // An editor asked for the full state (reserved NRPN, spec D4)?
-    if (gTransportUsbDev.consumeResyncRequest()  ||
-        gTransportUsbHost.consumeResyncRequest() ||
-        gTransportSerial.consumeResyncRequest())
-        gBroadcast.requestFullResync();
+    // Each port is consumed separately, not short-circuited: || would skip the
+    // later transports' flags and leave a second editor's request pending for
+    // a whole poll cycle.  The layer comes from whichever port asked — an
+    // editor showing layer B gets layer B's values.
+    if (gTransportUsbDev.consumeResyncRequest())
+        gBroadcast.requestFullResync(gTransportUsbDev.resyncLayer());
+    if (gTransportUsbHost.consumeResyncRequest())
+        gBroadcast.requestFullResync(gTransportUsbHost.resyncLayer());
+    if (gTransportSerial.consumeResyncRequest())
+        gBroadcast.requestFullResync(gTransportSerial.resyncLayer());
 
     // Mirror this pass's accepted changes out to the other ports (paced).
     gBroadcast.drain();

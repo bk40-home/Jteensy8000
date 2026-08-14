@@ -48,12 +48,16 @@ ParameterStore::ParameterStore()
         _txDirty[w] = 0;
     }
 
+    // Walk SLOTS, not indices: layer B's banked copies need the same default
+    // as layer A, or a Single->Layer switch would drop B in at zero.  Shared
+    // parameters have one slot and are therefore written exactly once — which
+    // is why this loops over slots rather than (layer, index) pairs.
     beginBulk();
-    for (size_t i = 0; i < kCount; ++i) {
-        const Params::ParamDesc& d = Params::kParams[i];
-        setByIndex(i, Curves::toNorm(d, d.def), Origin::Init);
+    for (size_t slot = 0; slot < kSlots; ++slot) {
+        const Params::ParamDesc& d = Params::kParams[Params::paramOfSlot(slot)];
+        setBySlot(slot, Curves::toNorm(d, d.def), Origin::Init);
     }
-    endBulk();   // one flip; every param now published AND flagged dirty
+    endBulk();   // one flip; every slot now published AND flagged dirty
 
     // The initial publish also marked every param broadcast-dirty.  Drop
     // those bits: boot must not transmit the whole table to whatever DAW
@@ -84,19 +88,21 @@ JT_COLD size_t ParameterStore::indexOf(uint16_t id)
 // Control-plane writes
 // -----------------------------------------------------------------------------
 
-JT_COLD void ParameterStore::setByIndex(size_t index, float normalized, Origin origin)
+// The single write primitive.  Everything else resolves to a slot and calls
+// this, so the publish rule and the dirty-bit rule exist in exactly one place.
+JT_COLD void ParameterStore::setBySlot(size_t slot, float normalized, Origin origin)
 {
-    if (index >= kCount) return;             // defensive: never trust callers
+    if (slot >= kSlots) return;              // defensive: never trust callers
 
     const float v = Curves::clamp01(normalized);
 
     // Write goes into the BACK buffer only (1 - front).  The audio plane
     // never reads that buffer, so a plain store is race-free by construction.
     const uint32_t back = 1u - _front.load(std::memory_order_relaxed);
-    _values[back][index] = v;
+    _values[back][slot] = v;
 
-    _origin[index] = static_cast<uint8_t>(origin);
-    _pending[index / 32u] |= (1u << (index % 32u));
+    _origin[slot] = static_cast<uint8_t>(origin);
+    _pending[slot / 32u] |= (1u << (slot % 32u));
 
     // Outside a bulk load every set publishes immediately — a knob turn
     // reaches the engine on the next block.  Inside a bulk load publication
@@ -104,19 +110,28 @@ JT_COLD void ParameterStore::setByIndex(size_t index, float normalized, Origin o
     if (_bulkDepth == 0) publish();
 }
 
-JT_COLD bool ParameterStore::set(uint16_t id, float normalized, Origin origin)
+JT_COLD void ParameterStore::setByIndex(size_t index, float normalized,
+                                        Origin origin, uint8_t layer)
+{
+    if (index >= kCount) return;
+    setBySlot(Params::slotFor(index, layerMask(layer)), normalized, origin);
+}
+
+JT_COLD bool ParameterStore::set(uint16_t id, float normalized, Origin origin,
+                                 uint8_t layer)
 {
     const size_t i = indexOf(id);
     if (i == kInvalidIndex) return false;
-    setByIndex(i, normalized, origin);
+    setByIndex(i, normalized, origin, layer);
     return true;
 }
 
-JT_COLD bool ParameterStore::setEngineering(uint16_t id, float engineering, Origin origin)
+JT_COLD bool ParameterStore::setEngineering(uint16_t id, float engineering,
+                                            Origin origin, uint8_t layer)
 {
     const size_t i = indexOf(id);
     if (i == kInvalidIndex) return false;
-    setByIndex(i, Curves::toNorm(Params::kParams[i], engineering), origin);
+    setByIndex(i, Curves::toNorm(Params::kParams[i], engineering), origin, layer);
     return true;
 }
 
@@ -130,10 +145,12 @@ JT_COLD void ParameterStore::endBulk()
 
 JT_COLD void ParameterStore::resetToDefaults(Origin origin)
 {
+    // Slots, for the same reason as the constructor: BOTH layers reset, and
+    // shared parameters are written once rather than twice.
     beginBulk();
-    for (size_t i = 0; i < kCount; ++i) {
-        const Params::ParamDesc& d = Params::kParams[i];
-        setByIndex(i, Curves::toNorm(d, d.def), origin);
+    for (size_t slot = 0; slot < kSlots; ++slot) {
+        const Params::ParamDesc& d = Params::kParams[Params::paramOfSlot(slot)];
+        setBySlot(slot, Curves::toNorm(d, d.def), origin);
     }
     endBulk();
 }
@@ -197,31 +214,32 @@ JT_COLD void ParameterStore::publish()
 // including writes not yet published (mid-bulk).
 // -----------------------------------------------------------------------------
 
-float ParameterStore::getByIndex(size_t index) const
+float ParameterStore::getByIndex(size_t index, uint8_t layer) const
 {
     if (index >= kCount) return 0.0f;
     const uint32_t back = 1u - _front.load(std::memory_order_relaxed);
-    return _values[back][index];
+    return _values[back][Params::slotFor(index, layerMask(layer))];
 }
 
-JT_COLD float ParameterStore::get(uint16_t id) const
+JT_COLD float ParameterStore::get(uint16_t id, uint8_t layer) const
 {
     const size_t i = indexOf(id);
-    return (i == kInvalidIndex) ? 0.0f : getByIndex(i);
+    return (i == kInvalidIndex) ? 0.0f : getByIndex(i, layer);
 }
 
-JT_COLD float ParameterStore::getEngineering(uint16_t id) const
+JT_COLD float ParameterStore::getEngineering(uint16_t id, uint8_t layer) const
 {
     const size_t i = indexOf(id);
     if (i == kInvalidIndex) return 0.0f;
-    return Curves::toEngineering(Params::kParams[i], getByIndex(i));
+    return Curves::toEngineering(Params::kParams[i], getByIndex(i, layer));
 }
 
-JT_COLD Origin ParameterStore::origin(uint16_t id) const
+JT_COLD Origin ParameterStore::origin(uint16_t id, uint8_t layer) const
 {
     const size_t i = indexOf(id);
-    return (i == kInvalidIndex) ? Origin::Init
-                                : static_cast<Origin>(_origin[i]);
+    return (i == kInvalidIndex)
+             ? Origin::Init
+             : static_cast<Origin>(_origin[Params::slotFor(i, layerMask(layer))]);
 }
 
 // -----------------------------------------------------------------------------
@@ -249,7 +267,9 @@ size_t ParameterStore::takeNextDirty()
         _dirty[w].fetch_and(~(1u << b), std::memory_order_acq_rel);
 
         const size_t i = w * 32u + b;
-        return (i < kCount) ? i : kInvalidIndex;   // top-word padding guard
+        // Bound is kSlots now, not kCount: the top dirty word has padding
+        // bits above the last SLOT, and layer-B slots live above kCount.
+        return (i < kSlots) ? i : kInvalidIndex;
     }
     return kInvalidIndex;
 }
@@ -271,7 +291,9 @@ JT_COLD size_t ParameterStore::takeNextTxDirty()
         _txDirty[w] &= ~(1u << b);
 
         const size_t i = w * 32u + b;
-        return (i < kCount) ? i : kInvalidIndex;   // top-word padding guard
+        // Bound is kSlots now, not kCount: the top dirty word has padding
+        // bits above the last SLOT, and layer-B slots live above kCount.
+        return (i < kSlots) ? i : kInvalidIndex;
     }
     return kInvalidIndex;
 }
@@ -281,10 +303,11 @@ JT_COLD void ParameterStore::clearTxDirty()
     for (size_t w = 0; w < kDirtyWords; ++w) _txDirty[w] = 0;
 }
 
-JT_COLD Origin ParameterStore::originByIndex(size_t index) const
+JT_COLD Origin ParameterStore::originByIndex(size_t index, uint8_t layer) const
 {
-    return (index < kCount) ? static_cast<Origin>(_origin[index])
-                            : Origin::Init;
+    return (index < kCount)
+             ? static_cast<Origin>(_origin[Params::slotFor(index, layerMask(layer))])
+             : Origin::Init;
 }
 
 } // namespace JT

@@ -39,7 +39,9 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/StepSequencer.cpp \
         src/core/dsp/Arpeggiator.cpp \
         src/core/ParameterStore.cpp \
+        src/core/PerfRouter.cpp \
         src/core/Patch.cpp \
+        src/core/Performance.cpp \
         src/core/MidiParamTransport.cpp \
         src/core/ParamBroadcast.cpp \
         src/core/FilterSection.cpp \
@@ -55,7 +57,9 @@ SRCS := $(CORE) \
         test/test_broadcast.cpp \
         test/test_curves.cpp \
         test/test_parameter_store.cpp \
+        test/test_perf_router.cpp \
         test/test_patch.cpp \
+        test/test_performance_file.cpp \
         test/test_midi_transport.cpp \
         test/test_engine.cpp \
         test/test_osc.cpp \

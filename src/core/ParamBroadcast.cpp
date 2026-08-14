@@ -22,8 +22,9 @@ JT_COLD bool ParamBroadcast::addSink(NrpnSink& sink, Origin origin)
     return true;
 }
 
-JT_COLD void ParamBroadcast::requestFullResync()
+JT_COLD void ParamBroadcast::requestFullResync(uint8_t layer)
 {
+    _resyncLayer = (layer != 0u) ? 1u : 0u;
     // Restart from the top even if a resync is already running — the caller
     // (a just-connected editor) wants everything, and re-sends are idempotent.
     _resyncCursor = 0;
@@ -33,11 +34,20 @@ JT_COLD void ParamBroadcast::requestFullResync()
 // One parameter to every eligible sink.  'suppress' distinguishes normal
 // dirty-bit traffic (skip the last writer's port) from resync (send to all).
 // -----------------------------------------------------------------------------
-JT_COLD void ParamBroadcast::emitParam(size_t index, bool suppress)
+JT_COLD void ParamBroadcast::emitParam(size_t index, bool suppress, uint8_t layer)
 {
-    const uint16_t id  = Params::kParams[index].id;
-    const uint16_t v14 = Curves::normTo14bit(_store.getByIndex(index));
-    const Origin   who = _store.originByIndex(index);
+    // Layer travels in the ADDRESS, bit 13 — the same encoding the transport
+    // decodes on the way in, so an editor sees its own edits mirrored back with
+    // the layer it sent them for.  Shared and performance parameters are never
+    // banked, so they are always emitted as layer A whatever is asked for:
+    // tagging them would invite an editor to keep two copies of one value.
+    const bool banked = Params::isBanked(index);
+    const uint8_t lay = (banked && layer != 0u) ? 1u : 0u;
+
+    const uint16_t id  = (uint16_t)(Params::kParams[index].id |
+                                    (lay ? 0x2000u : 0x0000u));
+    const uint16_t v14 = Curves::normTo14bit(_store.getByIndex(index, lay));
+    const Origin   who = _store.originByIndex(index, lay);
 
     // Bytes are identical for every sink — build once, send per sink.
     const uint8_t idMsb = (uint8_t)((id >> 7) & 0x7Fu);
@@ -96,7 +106,7 @@ JT_COLD void ParamBroadcast::drain()
     // Resync first: it supersedes ordinary traffic (any dirty bits set
     // meanwhile stay set and drain on later passes with the newest value).
     while (budget > 0 && _resyncCursor < ParameterStore::kCount) {
-        emitParam(_resyncCursor, /*suppress=*/false);
+        emitParam(_resyncCursor, /*suppress=*/false, _resyncLayer);
         ++_resyncCursor;
         --budget;
     }
@@ -105,9 +115,10 @@ JT_COLD void ParamBroadcast::drain()
     // zero sinks so bits never accumulate stale (emitParam then loops over
     // an empty sink table — no message construction, per the CPU contract).
     while (budget > 0) {
-        const size_t i = _store.takeNextTxDirty();
-        if (i == ParameterStore::kInvalidIndex) break;   // clean — idle path
-        emitParam(i, /*suppress=*/true);
+        const size_t slot = _store.takeNextTxDirty();
+        if (slot == ParameterStore::kInvalidIndex) break;   // clean — idle path
+        emitParam(Params::paramOfSlot(slot), /*suppress=*/true,
+                  Params::layerOfSlot(slot));
         --budget;
     }
 

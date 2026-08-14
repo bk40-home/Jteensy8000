@@ -28,6 +28,17 @@ inline constexpr float  kBlocksPerSec = kSampleRate / (float)kBlockSize;
 // to convert the routed lane back to the knob-normalised X-MOD range.
 inline constexpr float  kLfoPitchMaxSemis = 7.0f;
 
+// Mod wheel (CC 1) -> LFO1 pitch depth, as a FRACTION of the knob's full
+// range.  With kLfoPitchMaxSemis at 7, 0.10 gives a full wheel about +-0.7
+// semitones: a musical vibrato, and roughly what a JP-8000 does out of the
+// box.  Wheel at rest contributes exactly 0.0f, so this constant cannot
+// affect any patch that does not move the wheel.
+//
+// This is the single tunable for wheel feel — raise it for a deeper wheel;
+// it is NOT a patch parameter, and deliberately so, until the mod matrix
+// makes wheel routing user-assignable.
+inline constexpr float  kModWheelPitchDepth = 0.10f;
+
 // Per-voice mix contribution.  8 voices at full level sum to 1.0 exactly —
 // headroom staging is finalised in the Phase 4 SignalPath doc; until then
 // this conservative value cannot clip regardless of patch.

@@ -75,7 +75,11 @@ public:
     // Emit the ENTIRE table to every sink, suppression ignored — the reply
     // to an editor's kNrpnResyncRequest, and idempotent for everyone else.
     // Paced like normal drains; ongoing dirty-bit traffic resumes after.
-    void requestFullResync();
+    // 'layer' is which layer's values the dump should carry — an editor
+    // showing layer B asks for B.  Banked parameters are tagged with the
+    // address bit so the editor can tell them apart; unbanked ones always
+    // arrive as layer A, because there is only one of them.
+    void requestFullResync(uint8_t layer = 0);
 
     // Call once per loop() pass, after store writes for the pass are done.
     void drain();
@@ -102,7 +106,7 @@ public:
     bool     resyncActive() const { return _resyncCursor < ParameterStore::kCount; }
 
 private:
-    void emitParam(size_t index, bool suppress);   // one param -> eligible sinks
+    void emitParam(size_t index, bool suppress, uint8_t layer = 0);
     void emitDeselect();                           // RPN null to sinks that sent
 
     ParameterStore& _store;
@@ -115,6 +119,7 @@ private:
 
     // kCount == "no resync in progress"; otherwise the next index to emit.
     size_t    _resyncCursor = ParameterStore::kCount;
+    uint8_t   _resyncLayer  = 0;
 
     bool      _sinkTouched[kMaxSinks] = {false, false, false};  // per-pass
     uint32_t  _sent = 0;

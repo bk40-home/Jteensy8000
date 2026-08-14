@@ -87,7 +87,7 @@ char sanitise(char c)
 // -----------------------------------------------------------------------------
 JT_COLD size_t save(const ParameterStore& store,
             const char* name, uint8_t category,
-            uint8_t* out, size_t cap)
+            uint8_t* out, size_t cap, uint8_t layer)
 {
     if (out == nullptr || cap < kMaxEncodedSize) return 0;
 
@@ -110,10 +110,10 @@ JT_COLD size_t save(const ParameterStore& store,
     uint16_t count = 0;
     for (size_t i = 0; i < Params::kParamCount; ++i) {
         const Params::ParamDesc& d = Params::kParams[i];
-        if (d.scope != Params::Scope::Patch) continue;
+        if (! Params::isPatchScope(d.scope)) continue;   // perf/global never save
         put16(p, d.id);
         // Engineering units on the wire — see the header's encoding decision.
-        putF32(p + 2, Curves::toEngineering(d, store.getByIndex(i)));
+        putF32(p + 2, Curves::toEngineering(d, store.getByIndex(i, layer)));
         p += kEntrySize;
         ++count;
     }
@@ -152,7 +152,8 @@ JT_COLD bool peekInfo(const uint8_t* data, size_t len, Info& out)
 // -----------------------------------------------------------------------------
 JT_COLD LoadResult load(const uint8_t* data, size_t len,
                 ParameterStore& store, Origin origin,
-                const Migration* migrations, size_t migrationCount)
+                const Migration* migrations, size_t migrationCount,
+                uint8_t layer)
 {
     LoadResult r{};
     r.status = Status::TooShort;
@@ -225,7 +226,7 @@ JT_COLD LoadResult load(const uint8_t* data, size_t len,
         // Curves clamps out-of-range and filters NaN, so even a value from
         // a wider-ranged future firmware degrades gracefully.
         const float norm = Curves::toNorm(Params::kParams[idx], getF32(p + 2));
-        store.setByIndex(idx, norm, origin);
+        store.setByIndex(idx, norm, origin, layer);
         ++r.applied;
         if (wasMigrated) ++r.migrated;
     }

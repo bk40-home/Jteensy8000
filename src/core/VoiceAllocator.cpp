@@ -15,6 +15,25 @@ VoiceAllocator::VoiceAllocator(Voice* voices, size_t count)
 {
 }
 
+void VoiceAllocator::setPool(Voice* voices, size_t count)
+{
+    _voices = voices;
+    _count  = (count <= kMaxVoices) ? count : kMaxVoices;
+
+    // Everything below indexes the slice we just replaced.  Sustain flags are
+    // per-voice-position, the mono stack and unison note name voices that may
+    // now belong to the other layer — all of it has to go, or the first
+    // note-off after a split change releases someone else's voice.
+    for (size_t i = 0; i < kMaxVoices; ++i) _sustained[i] = false;
+    _monoStack.clear();
+    _unisonNote = -1;
+    _pedal      = false;
+
+    // Unison spread is a property of the slice width, so re-derive it for the
+    // new one.  Cheap, and only ever on a split change.
+    applyUnisonDetune();
+}
+
 float VoiceAllocator::noteToHz(uint8_t note)
 {
     // Equal temperament, A4 = MIDI 69 = 440 Hz (same as Voice::noteOn).

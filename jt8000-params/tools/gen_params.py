@@ -75,7 +75,7 @@ RESERVED_CCS = {0, 1, 6, 11, 32, 38, 64, 96, 97, 98, 99, 100, 101,
 # UI displays/steps it as an integer and it binds to an encoder by default.
 VALID_TYPES = {"continuous", "select", "toggle", "int"}
 VALID_CONTROLS = {"pot", "encoder", "switch"}
-VALID_SCOPES = {"patch", "performance", "global"}
+VALID_SCOPES = {"patch", "patch_shared", "performance", "global"}
 VALID_CURVES = {"lin", "log", "seg2"}
 VALID_WIDGETS = {"envelope", "grid"}
 
@@ -301,8 +301,8 @@ TYPE_ENUM = {"continuous": "Type::Continuous", "select": "Type::Select",
              "toggle": "Type::Toggle", "int": "Type::Int"}
 CONTROL_ENUM = {"pot": "Control::Pot", "encoder": "Control::Encoder",
                 "switch": "Control::Switch"}
-SCOPE_ENUM = {"patch": "Scope::Patch", "performance": "Scope::Performance",
-              "global": "Scope::Global"}
+SCOPE_ENUM = {"patch": "Scope::Patch", "patch_shared": "Scope::PatchShared",
+              "performance": "Scope::Performance", "global": "Scope::Global"}
 WIDGET_ENUM = {None: "Widget::Knob", "envelope": "Widget::Envelope",
                "grid": "Widget::Grid"}
 
@@ -340,7 +340,22 @@ def emit_header(doc):
     # ---- enums ----
     a("// --- Behavioural enums ------------------------------------------------------")
     a("enum class Type   : uint8_t { Continuous, Select, Toggle, Int };")
-    a("enum class Scope  : uint8_t { Patch, Performance, Global };")
+    a("// Scope answers TWO questions at once, so read it as a pair:")
+    a("//   Patch       : saved in the patch,  ONE COPY PER LAYER (banked)")
+    a("//   PatchShared : saved in the patch,  ONE COPY TOTAL   (shared)")
+    a("//   Performance : not in the patch,    ONE COPY TOTAL")
+    a("//   Global      : not in the patch,    ONE COPY TOTAL")
+    a("// Only Patch banks — see kBankIndex below.  Enumerator order is fixed:")
+    a("// Patch must stay 0 so existing == Scope::Patch comparisons keep meaning.")
+    a("enum class Scope  : uint8_t { Patch, PatchShared, Performance, Global };")
+    a("")
+    a("// THE predicate for \"does this belong in a saved patch\".  Both Patch scopes")
+    a("// serialise; only the instancing differs.  Consumers must call this rather")
+    a("// than comparing to Scope::Patch — a bare == silently stops saving the")
+    a("// PatchShared params (fx.*, seq.*) and loses them on reload.")
+    a("inline constexpr bool isPatchScope(Scope s) {")
+    a("    return s == Scope::Patch || s == Scope::PatchShared;")
+    a("}")
     a("enum class Widget : uint8_t { Knob, Envelope, Grid };  // UI rendering hint")
     a("")
     a("// Curve maps a normalized control position t (0..1) to engineering units:")
@@ -409,7 +424,7 @@ def emit_header(doc):
     a("    const char* name;        // full display name")
     a("    const char* label;       // short panel label")
     a("    Type        type;")
-    a("    Scope       scope;       // who owns / saves it (patch vs perf vs global)")
+    a("    Scope       scope;       // persistence + layer instancing (see enum)")
     a("    Widget      widget;      // UI rendering hint (knob / envelope / grid)")
     a("    Curve       curve;       // normalized→engineering mapping")
     a("    float       min;         // engineering range")
@@ -548,6 +563,91 @@ def emit_header(doc):
     a("inline constexpr size_t kParamCount = sizeof(kParams) / sizeof(kParams[0]);")
     a("")
 
+    # ---- layer banking -------------------------------------------------------
+    # Derived from scope, never hand-listed: Scope::Patch banks, everything
+    # else is shared.  Emitting the dense index here means the store, the
+    # engine and both editors all agree by construction.
+    bank_index = []
+    banked = 0
+    for p_ in params:
+        if p_["scope"] == "patch":
+            bank_index.append(banked)
+            banked += 1
+        else:
+            bank_index.append(-1)
+
+    a("// --- Layer banking (Performance mode) ----------------------------------------")
+    a("// Two independent layer patches share ONE ParameterStore.  Layer B\'s copies")
+    a("// of the banked parameters are appended after the full table:")
+    a("//")
+    a("//     slot(i, A) = i                            <- unchanged from single-layer")
+    a("//     slot(i, B) = kParamCount + kBankIndex[i]  <- banked params")
+    a("//     slot(i, B) = i                            <- shared params (index -1)")
+    a("//")
+    a("// Layer A\'s slot staying equal to the table index is the whole point: every")
+    a("// cached index, dirty-word position and publish() flip in the single-layer")
+    a("// build keeps its exact meaning, so the render baseline stays byte-identical")
+    a("// while Performance is off.")
+    a("//")
+    a("// Shared params deliberately return the SAME slot for both layers, so callers")
+    a("// index by (param, layer) unconditionally and never branch on scope.")
+    a("//")
+    a("// kBankIndex is a plain constexpr array, i.e. .rodata -> DTCM on the IMXRT1062,")
+    a("// NOT JT_TABLE_FLASH: slotFor() runs once per dirty parameter in the")
+    a("// audio-plane drain, where a FLEXSPI miss costs more than these bytes of RAM.")
+    a(f"inline constexpr int16_t kBankIndex[] = {{  // {len(bank_index)} entries, "
+      f"{2 * len(bank_index)} B DTCM")
+    for i in range(0, len(bank_index), 16):
+        a("    " + ", ".join(f"{v:>3}" for v in bank_index[i:i + 16]) + ",")
+    a("};")
+    a("")
+    a(f"inline constexpr size_t kBankedCount = {banked};   // Scope::Patch params")
+    a("inline constexpr size_t kStoreSlots  = kParamCount + kBankedCount;")
+    a("")
+    a("inline constexpr bool isBanked(size_t index) { return kBankIndex[index] >= 0; }")
+    a("")
+    a("// layer: 0 = A, 1 = B.  Branch-light by design — one compare, one load.")
+    a("inline constexpr size_t slotFor(size_t index, uint8_t layer) {")
+    a("    return (layer == 0u || kBankIndex[index] < 0)")
+    a("             ? index")
+    a("             : kParamCount + static_cast<size_t>(kBankIndex[index]);")
+    a("}")
+    a("")
+
+    # Reverse map: appended slot -> the parameter that owns it.  The dirty-bit
+    # drain pops a SLOT and has to name the parameter again; without this it
+    # would need a linear scan of kBankIndex per dirty parameter, in the audio
+    # plane.  111 entries, 222 B.
+    owner = [i for i, b in enumerate(bank_index) if b >= 0]
+    assert len(owner) == banked
+    a("// Reverse of kBankIndex: which parameter owns each APPENDED (layer-B) slot.")
+    a("// The audio-plane drain pops a slot and must name the parameter again;")
+    a("// without this it would linear-scan kBankIndex per dirty param, in the ISR.")
+    a(f"inline constexpr int16_t kBankOwner[] = {{  // {banked} entries, "
+      f"{2 * banked} B DTCM")
+    for i in range(0, len(owner), 16):
+        a("    " + ", ".join(f"{v:>3}" for v in owner[i:i + 16]) + ",")
+    a("};")
+    a("")
+    a("// Decompose a storage slot back into (parameter, layer).  Both are one")
+    a("// compare plus at most one load — the drain calls them once per changed")
+    a("// parameter, never per sample.")
+    a("//")
+    a("// NOTE on shared params: layer B writes them at their layer-A slot, so")
+    a("// layerOfSlot() reports 0 for them.  That is correct, not a rounding of")
+    a("// the truth — a shared param HAS no layer, and its consumer is the one")
+    a("// singleton FX chain / sequencer either layer feeds.")
+    a("inline constexpr size_t paramOfSlot(size_t slot) {")
+    a("    return (slot < kParamCount)")
+    a("             ? slot")
+    a("             : static_cast<size_t>(kBankOwner[slot - kParamCount]);")
+    a("}")
+    a("")
+    a("inline constexpr uint8_t layerOfSlot(size_t slot) {")
+    a("    return (slot < kParamCount) ? 0u : 1u;")
+    a("}")
+    a("")
+
     # ---- lookup helpers ----
     a("// --- Lookups -------------------------------------------------------------------")
     a("// Linear scans are constexpr-friendly and fine at control rate (UI, MIDI");
@@ -575,6 +675,11 @@ def emit_header(doc):
     a("")
     a("// Compile-time guarantees — a bad regeneration cannot even compile.")
     a(f"static_assert(kParamCount == {len(params)}, \"param count changed — regenerate consumers\");")
+    a(f"static_assert(kBankedCount == {banked}, \"banked count changed — ParameterStore must be resized\");")
+    a("static_assert(sizeof(kBankIndex) / sizeof(kBankIndex[0]) == kParamCount,")
+    a("              \"bank index table must be one entry per parameter\");")
+    a("static_assert(sizeof(kBankOwner) / sizeof(kBankOwner[0]) == kBankedCount,")
+    a("              \"bank owner table must be one entry per banked parameter\");")
     a("// Dereferencing in a constant expression: if find() ever returned nullptr")
     a("// this line would be a hard compile error — stronger than a null compare,")
     a("// and clean under -Waddress (GCC can prove the pointer is never null).")

@@ -67,11 +67,18 @@ inline constexpr size_t   kCrcSize    = 4;
 
 // Number of patch-scope parameters, counted from the generated table at
 // compile time — so buffer bounds below are constants, not runtime queries.
+//
+// Counts BOTH patch scopes.  Scope::Patch is banked per layer and
+// Scope::PatchShared is a single shared instance, but that distinction is
+// about where the value lives in the store, not whether the patch owns it —
+// both must serialise.  isPatchScope() is the single predicate; a bare
+// '== Scope::Patch' here would silently drop fx.* and seq.* from every
+// saved patch while still compiling cleanly.
 constexpr size_t patchParamCount()
 {
     size_t n = 0;
     for (size_t i = 0; i < Params::kParamCount; ++i)
-        if (Params::kParams[i].scope == Params::Scope::Patch) ++n;
+        if (Params::isPatchScope(Params::kParams[i].scope)) ++n;
     return n;
 }
 
@@ -130,19 +137,36 @@ struct LoadResult {
 // chars and sanitised to printable ASCII (TFT and SysEx both choke on
 // control bytes).  Returns bytes written, or 0 if 'cap' is too small
 // (size buffers with kMaxEncodedSize and this cannot happen).
+//
+// 'layer' names WHICH layer's values are captured.  A patch is ONE layer: two
+// layers are two patches, which is what makes "load patch into layer B" a
+// plain decode against a different target rather than a special format.
+// Shared patch-scope parameters (fx.*, seq.*) have one value and are captured
+// identically whichever layer is named — see ParameterStore::slotFor.
 size_t save(const ParameterStore& store,
             const char* name, uint8_t category,
-            uint8_t* out, size_t cap);
+            uint8_t* out, size_t cap, uint8_t layer = 0);
 
 // Validate and apply a patch image.  On any status other than Ok the store
 // is COMPLETELY untouched — validation happens before the bulk write starts.
 // 'migrations' is normally the generator-emitted table (empty today);
 // tests inject their own.
+//
+// 'layer' is the load TARGET — the firmware half of the editor's
+// LoadTarget::LayerA / LayerB.  Loading the same image into each layer in turn
+// is exactly how a v1 dual-layer performance is reconstructed.
+//
+// NOTE the asymmetry with shared parameters: fx.* and seq.* are singletons, so
+// loading a patch into layer B DOES change the FX and sequencer that layer A
+// is also using.  That is correct — there is only one of each — but it means
+// the second load of a performance wins, which is why loadPerformance() below
+// applies the layers in a defined order.
 LoadResult load(const uint8_t* data, size_t len,
                 ParameterStore& store,
                 Origin origin = Origin::PatchLoad,
                 const Migration* migrations = nullptr,
-                size_t migrationCount = 0);
+                size_t migrationCount = 0,
+                uint8_t layer = 0);
 
 // Header-only read for the preset browser: name/category/version without
 // touching a store.  Checks magic and length but NOT the CRC (the browser

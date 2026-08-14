@@ -14,8 +14,9 @@
 
 namespace JT {
 
-MidiParamTransport::MidiParamTransport(ParameterStore& store, Origin origin)
-    : _store(store), _origin(origin)
+MidiParamTransport::MidiParamTransport(ParameterStore& store, Origin origin,
+                                       const PerfRouter* router)
+    : _store(store), _router(router), _origin(origin)
 {
     // Build the curated-CC direct map once.  The generator's validator
     // guarantees no parameter binds a reserved CC, so entries for 64,
@@ -37,17 +38,31 @@ JT_COLD void MidiParamTransport::resetState()
 
 JT_COLD void MidiParamTransport::applyNrpn(float norm)
 {
-    const uint16_t id = Params::idFromNrpn(_nrpnMsb, _nrpnLsb);
+    const uint16_t raw = Params::idFromNrpn(_nrpnMsb, _nrpnLsb);
 
     // Reserved protocol id, not a parameter: an editor asking for the full
     // state (Phase B' D4).  The data byte is ignored; main.cpp polls the
     // flag.  Checked BEFORE the store so it can never count as unknown-id.
-    if (id == kNrpnResyncRequest) {
+    //
+    // Tested on the RAW number, before the layer bit is stripped.  It has to
+    // be: 126 << 7 is 0x3F00, which HAS bit 13 set, so masking first would
+    // turn every resync request into a layer-B write to id 0x1F00.
+    if (raw == kNrpnResyncRequest) {
         _resyncRequested = true;
+        // The payload names the layer to dump.  Anything non-zero means B, so
+        // an editor may send 1 or the full 14-bit 1 and both work.
+        _resyncLayer = (norm > 0.0f) ? 1u : 0u;
         return;
     }
 
-    if (!_store.set(id, norm, _origin)) {
+    // Layer travels in the address (header, LAYER ADDRESSING).  A shared or
+    // performance-scope parameter written "as layer B" folds back onto its
+    // single slot inside the store — see Params::slotFor — so an editor need
+    // not know which parameters bank.
+    const uint8_t  layer = (raw & kLayerBit) ? 1u : 0u;
+    const uint16_t id    = raw & kIdMask;
+
+    if (!_store.set(id, norm, _origin, layer)) {
         // Unknown ParamID: a controller mapped to newer firmware, or a
         // typo in a DAW template.  Count it for the bring-up console and
         // move on — one bad assignment must not disturb the rest.
@@ -57,7 +72,8 @@ JT_COLD void MidiParamTransport::applyNrpn(float norm)
     ++_applied;
 }
 
-JT_COLD bool MidiParamTransport::handleControlChange(uint8_t cc, uint8_t value)
+JT_COLD bool MidiParamTransport::handleControlChange(uint8_t cc, uint8_t value,
+                                                     uint8_t channel1to16)
 {
     value &= 0x7Fu;   // defensive: strip a stray status bit from bad cables
 
@@ -125,7 +141,25 @@ JT_COLD bool MidiParamTransport::handleControlChange(uint8_t cc, uint8_t value)
     // --- curated performance CCs (74 cutoff, 71 resonance, ...) ---------------
     const int16_t idx = _ccToIndex[cc & 0x7Fu];
     if (idx >= 0) {
-        _store.setByIndex((size_t)idx, Curves::normFrom7bit(value), _origin);
+        // A plain CC has nowhere to put an address bit, so its layer comes
+        // from the receive channel.  The router is consulted HERE and not
+        // earlier, so NRPN traffic — the overwhelming majority — never pays
+        // for a routing decision it does not use.
+        const float norm = Curves::normFrom7bit(value);
+        const LayerMask dest = (_router != nullptr) ? _router->forChannel(channel1to16)
+                                                    : LayerMask::A;
+
+        // A CC on a channel that matches NEITHER layer is not ours: return
+        // false so the caller can still give it a standard MIDI meaning
+        // rather than having it silently vanish into a parameter write.
+        if (dest == LayerMask::None) return false;
+
+        // In Layer mode both layers commonly share one channel, so one CC
+        // legitimately edits both.  Each write is a separate slot and a
+        // separate dirty bit; for a SHARED parameter the two writes fold onto
+        // the same slot, which costs one redundant store and no wrong state.
+        if (has(dest, LayerMask::A)) _store.setByIndex((size_t)idx, norm, _origin, 0u);
+        if (has(dest, LayerMask::B)) _store.setByIndex((size_t)idx, norm, _origin, 1u);
         ++_applied;
         return true;
     }

@@ -24,7 +24,12 @@ namespace {
 SynthCore::SynthCore(ParameterStore& store, float* combPool,
                      float* reverbPool, float* fxPool)
     : _store(store),
-      _alloc(_voices, VoiceAllocator::kMaxVoices)
+      _router(store),
+      // Boot layout is Single mode: layer A owns the entire pool, layer B owns
+      // nothing.  That is the pre-Performance arrangement exactly, which is why
+      // a default patch renders byte-identically to the single-layer engine.
+      _layers{ Layer(_voices, VoiceAllocator::kMaxVoices, 0x1234567u, 0x89ABCDEu),
+               Layer(_voices + VoiceAllocator::kMaxVoices, 0, 0x2468ACEu, 0x13579BDu) }
 {
     // Attach the caller-owned reverb delay pool (PSRAM on Teensy, heap on host)
     // and apply v1 GlobalFX's ctor one-shot tank defaults.  Null pool => the
@@ -79,11 +84,68 @@ void SynthCore::pushEvent(uint8_t type, uint8_t a, uint8_t b)
     _head.store(head + 1, std::memory_order_release);
 }
 
-void SynthCore::noteOn(uint8_t note, uint8_t velocity) { pushEvent(kEvOn, note, velocity); }
-void SynthCore::noteOff(uint8_t note)                  { pushEvent(kEvOff, note, 0); }
-void SynthCore::sustain(bool pedalDown)                { pushEvent(kEvSustain, pedalDown ? 1 : 0, 0); }
-void SynthCore::allNotesOff()                          { pushEvent(kEvNotesOff, 0, 0); }
-void SynthCore::allSoundOff()                          { pushEvent(kEvSoundOff, 0, 0); }
+void SynthCore::pushRouted(uint8_t type, uint8_t a, uint8_t b, LayerMask dest)
+{
+    // Nothing queued when the mask is empty: a note on a channel neither layer
+    // answers to costs one compare and disappears here, not in the audio plane.
+    if (has(dest, LayerMask::A)) pushEvent(type, a, b);
+    if (has(dest, LayerMask::B)) pushEvent(static_cast<uint8_t>(type | kEvLayerB), a, b);
+}
+
+// Channel 0 is not a MIDI channel.  It is the "I have no channel" sentinel a
+// bring-up console or a test harness passes, and it means LAYER A — never
+// "route it and see".  Routing it would send it through forChannel(), where it
+// matches neither layer and vanishes: a caller with no channel would go silent
+// the moment a user enabled Layer mode, which is a trap, not a feature.
+static inline JT::LayerMask routeOrDefaultA(const JT::PerfRouter& r,
+                                            uint8_t note, uint8_t channel,
+                                            bool haveNote)
+{
+    if (channel == 0u) return JT::LayerMask::A;
+    return haveNote ? r.forNote(note, channel) : r.forChannel(channel);
+}
+
+void SynthCore::noteOn(uint8_t note, uint8_t velocity, uint8_t channel1to16)
+{
+    pushRouted(kEvOn, note, velocity,
+               routeOrDefaultA(_router, note, channel1to16, true));
+}
+
+void SynthCore::noteOff(uint8_t note, uint8_t channel1to16)
+{
+    // Routed identically to note-on.  It has to be: if the split point or the
+    // mode moved between the two, the note-off would arrive at a layer that
+    // never played the note and the original would hang.  That is a real risk
+    // and it is NOT fixed here — see the note in drainNoteEvents.
+    pushRouted(kEvOff, note, 0,
+               routeOrDefaultA(_router, note, channel1to16, true));
+}
+
+void SynthCore::sustain(bool pedalDown, uint8_t channel1to16)
+{
+    pushRouted(kEvSustain, pedalDown ? 1 : 0, 0,
+               routeOrDefaultA(_router, 0, channel1to16, false));
+}
+
+// Panic is never routed.  CC 120/123 must silence the instrument whatever the
+// performance setup is — that is the v1 bug this redesign started with.
+void SynthCore::allNotesOff() { pushRouted(kEvNotesOff, 0, 0, LayerMask::Both); }
+void SynthCore::allSoundOff() { pushRouted(kEvSoundOff, 0, 0, LayerMask::Both); }
+
+size_t SynthCore::activeVoices() const
+{
+    size_t n = 0;
+    for (const Voice& v : _voices) if (v.isActive()) ++n;
+    return n;
+}
+
+uint8_t SynthCore::activeVoiceMask() const
+{
+    uint8_t m = 0;
+    for (size_t i = 0; i < VoiceAllocator::kMaxVoices; ++i)
+        if (_voices[i].isActive()) m |= static_cast<uint8_t>(1u << i);
+    return m;
+}
 
 // --- external MIDI clock producers (Phase 9) -------------------------------
 // Called from the platform's realtime-byte handlers.  They ONLY store into the
@@ -140,12 +202,12 @@ void SynthCore::drainExternalClock()
         if (_clock.source() == TempoClock::kExtMidi) {
             switch (_transportAction.load(std::memory_order_relaxed)) {
                 case kTransStart:
-                    _arp.transportStart();
+                    for (Layer& lz : _layers) lz.arp.transportStart();
                     _seq.reset();
                     break;
                 case kTransStop:
-                    _arp.transportStop();
-                    _arp.allNotesOff();      // release held arp notes on stop
+                    for (Layer& lz : _layers) lz.arp.transportStop();
+                    for (Layer& lz : _layers) lz.arp.allNotesOff();   // release held arp notes
                     break;
                 case kTransContinue:
                 default:
@@ -161,6 +223,12 @@ void SynthCore::drainExternalClock()
 void SynthCore::pitchBend(uint16_t value14)
 {
     pushEvent(kEvBend, (uint8_t)((value14 >> 7) & 0x7F), (uint8_t)(value14 & 0x7F));
+}
+
+void SynthCore::modWheel(uint8_t value7, uint8_t channel1to16)
+{
+    pushRouted(kEvModWheel, (uint8_t)(value7 & 0x7F), 0,
+               routeOrDefaultA(_router, 0, channel1to16, false));
 }
 
 // GLIDE_TIME norm (0..1) -> v1 log ms (1..11880) -> v1's per-sample fraction
@@ -180,7 +248,20 @@ void SynthCore::drainNoteEvents()
     const uint32_t head = _head.load(std::memory_order_acquire);
     while (tail != head) {
         const NoteEvent e = _ring[tail % kRingSize];
-        switch (e.type) {
+
+        // The layer was resolved on the control plane when this event was
+        // queued (see pushRouted).  The audio plane only unpacks it — routing
+        // here would read the store from the wrong context AND could disagree
+        // with the routing a matching note-on already used.
+        //
+        // KNOWN GAP: if perf.mode / perf.split_note / the channels move while a
+        // note is held, its note-off routes to a layer that never played it and
+        // the note hangs.  Panic clears it, and the split-change path below
+        // silences everything anyway; a held-note re-route is deliberately not
+        // attempted here.
+        Layer&        L    = _layers[(e.type & kEvLayerB) ? 1u : 0u];
+        const uint8_t type = static_cast<uint8_t>(e.type & kEvTypeMask);
+        switch (type) {
             case kEvOn:
                 // Phase 9: when the arp is ENABLED, played notes are CONSUMED —
                 // they feed the arp's held-note list and only the arp sounds
@@ -188,18 +269,18 @@ void SynthCore::drainNoteEvents()
                 // _alloc from its tick() in renderBlock.  When the arp is OFF
                 // this whole branch is skipped and the note goes straight to the
                 // allocator exactly as before (byte-identical default path).
-                if (_arp.enabled()) {
-                    _arp.noteOn(e.a, e.b);
+                if (L.arp.enabled()) {
+                    L.arp.noteOn(e.a, e.b);
                 } else {
-                    _alloc.noteOn(e.a, e.b);
+                    L.alloc.noteOn(e.a, e.b);
                 }
                 // v1's shared, global JP-8000 retrigger (spec §1.3): ANY
                 // note-on restarts BOTH LFOs' delay ramps, not just the
                 // voice that's stealing/reusing hardware.  Still fires under
                 // the arp so LFO delay behaves the same whether or not the arp
                 // is between the keys and the voices.
-                _lfo1.osc.retrigger();
-                _lfo2.osc.retrigger();
+                L.lfo1.osc.retrigger();
+                L.lfo2.osc.retrigger();
                 // Phase 7: a note-on restarts the sequencer to step 0 when
                 // SEQ_RETRIGGER is on (v1 SynthEngine.cpp:470) — phase-locks the
                 // pattern to played notes.  Off => the running position is left
@@ -207,19 +288,32 @@ void SynthCore::drainNoteEvents()
                 if (_seq.retrigger()) _seq.reset();
                 break;
             case kEvOff:
-                if (_arp.enabled()) _arp.noteOff(e.a);
-                else                _alloc.noteOff(e.a);
+                if (L.arp.enabled()) L.arp.noteOff(e.a);
+                else                L.alloc.noteOff(e.a);
                 break;
-            case kEvSustain:  _alloc.sustain(e.a != 0);     break;
+            case kEvSustain:  L.alloc.sustain(e.a != 0);    break;
             case kEvNotesOff:
                 // Panic clears BOTH the arp's held list and the voices, so a
                 // DAW all-notes-off silences everything regardless of routing.
-                _arp.allNotesOff();
-                _alloc.allNotesOff();
+                L.arp.allNotesOff();
+                L.alloc.allNotesOff();
                 break;
             case kEvSoundOff:
-                _arp.allNotesOff();
-                _alloc.allSoundOff();
+                L.arp.allNotesOff();
+                L.alloc.allSoundOff();
+                break;
+            case kEvModWheel:
+                // Fixed destination until the mod matrix exists: the wheel
+                // adds vibrato via LFO1's pitch lane.  Full wheel is a
+                // deliberately modest kModWheelPitchDepth of the knob's full
+                // range — a wheel that reaches +-7 semitones would be
+                // unplayable, and the knob is still there for extremes.
+                //
+                // Wheel at rest writes 0.0f, so the default patch's pitch
+                // depth and engaged() state are exactly what they were
+                // before the wheel existed.
+                L.lfo1.depthPitchMod =
+                    Curves::normFrom7bit(e.a) * kModWheelPitchDepth;
                 break;
             case kEvBend: {
                 // Recombine the 14-bit value (raw form: 0..16383, centre 8192)
@@ -234,8 +328,8 @@ void SynthCore::drainNoteEvents()
                 // applied to the centred value; it is NOT a behaviour change.
                 const uint16_t value14 = (uint16_t)(((uint16_t)e.a << 7) | e.b);
                 const float normalised = ((float)value14 - 8192.0f) / 8192.0f;  // -1..+1
-                const float semis      = normalised * _bendRange;
-                for (Voice& v : _voices) v.setBendSemis(semis);
+                const float semis      = normalised * L.bendRange;
+                for (Voice& v : L.voices()) v.setBendSemis(semis);
             } break;
             default:                                        break;
         }
@@ -250,10 +344,17 @@ void SynthCore::drainNoteEvents()
 // see normalized values.
 // -----------------------------------------------------------------------------
 
-void SynthCore::applyParam(size_t index, float norm)
+void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
 {
     using namespace Params;
     const ParamDesc& d = kParams[index];
+
+    // Every voice fan-out below runs over ONE layer's slice.  Shared,
+    // performance and global parameters always arrive with layer 0 (see
+    // Params::layerOfSlot), so their handlers simply never look at L — and in
+    // Single mode layer A owns the whole pool, which is why the fan-out is
+    // identical to the pre-layer engine's.
+    Layer& L = _layers[layer & 1u];
 
     // Engineering conversion happens once, here (brief §4.3).  Select-type
     // parameters need the option INDEX, not a raw engineering float.
@@ -263,8 +364,9 @@ void SynthCore::applyParam(size_t index, float norm)
     // Fan a per-unit setter across all voices: units 0/1 share handlers
     // because OSC1/OSC2 param blocks are index-shifted twins in the table.
     auto oscs = [&](int unit, auto&& fn) {
-        for (Voice& v : _voices) fn(v.oscSection(), unit);
+        for (Voice& v : L.voices()) fn(v.oscSection(), unit);
     };
+    (void)L;   // some handlers are layer-agnostic; silence -Wunused for them
 
     switch (d.id) {
         // ------------- master / filter / amp env (Phase 1 set) -------------
@@ -275,48 +377,48 @@ void SynthCore::applyParam(size_t index, float norm)
         case ID::FILTER_CUTOFF:
             // Both views of the knob travel: VA shapes the norm per type,
             // OBXa consumes the Hz (see FilterSection::setCutoff).
-            for (Voice& v : _voices) v.filter().setCutoff(norm, eng);
+            for (Voice& v : L.voices()) v.filter().setCutoff(norm, eng);
             break;
         case ID::FILTER_RESONANCE:
-            for (Voice& v : _voices) v.filter().setResonanceNorm(norm);
+            for (Voice& v : L.voices()) v.filter().setResonanceNorm(norm);
             break;
         case ID::FILTER_ENGINE:
-            for (Voice& v : _voices) v.filter().setEngine(opt);
+            for (Voice& v : L.voices()) v.filter().setEngine(opt);
             break;
         case ID::FILTER_VA_TYPE:
-            for (Voice& v : _voices) v.filter().setVaType(opt);
+            for (Voice& v : L.voices()) v.filter().setVaType(opt);
             break;
         case ID::FILTER_MODE:
-            for (Voice& v : _voices) v.filter().setObxaMode(opt);
+            for (Voice& v : L.voices()) v.filter().setObxaMode(opt);
             break;
         case ID::FILTER_OBXA_MULTIMODE:
-            for (Voice& v : _voices) v.filter().setObxaMultimode(eng);
+            for (Voice& v : L.voices()) v.filter().setObxaMultimode(eng);
             break;
         case ID::FILTER_OBXA_XPANDER_MODE:
-            for (Voice& v : _voices) v.filter().setObxaXpanderMode(opt);
+            for (Voice& v : L.voices()) v.filter().setObxaXpanderMode(opt);
             break;
         // FILTER_OBXA_RES_MOD_DEPTH: resonance mod-bus depth (LFO/seq -> res),
         // consumed by the later mod wiring.
         case ID::ENV_AMP_ATTACK:
-            for (Voice& v : _voices) v.ampEnv().setAttackMs(eng);
+            for (Voice& v : L.voices()) v.ampEnv().setAttackMs(eng);
             break;
         case ID::ENV_AMP_DECAY:
-            for (Voice& v : _voices) v.ampEnv().setDecayMs(eng);
+            for (Voice& v : L.voices()) v.ampEnv().setDecayMs(eng);
             break;
         case ID::ENV_AMP_SUSTAIN:
-            for (Voice& v : _voices) v.ampEnv().setSustain(eng);
+            for (Voice& v : L.voices()) v.ampEnv().setSustain(eng);
             break;
         case ID::ENV_AMP_RELEASE:
-            for (Voice& v : _voices) v.ampEnv().setReleaseMs(eng);
+            for (Voice& v : L.voices()) v.ampEnv().setReleaseMs(eng);
             break;
         case ID::ENV_AMP_ATTACK_CURVE:
-            for (Voice& v : _voices) v.ampEnv().setAttackSlope(eng);
+            for (Voice& v : L.voices()) v.ampEnv().setAttackSlope(eng);
             break;
         case ID::ENV_AMP_DECAY_CURVE:
-            for (Voice& v : _voices) v.ampEnv().setDecaySlope(eng);
+            for (Voice& v : L.voices()) v.ampEnv().setDecaySlope(eng);
             break;
         case ID::ENV_AMP_RELEASE_CURVE:
-            for (Voice& v : _voices) v.ampEnv().setReleaseSlope(eng);
+            for (Voice& v : L.voices()) v.ampEnv().setReleaseSlope(eng);
             break;
 
         // ------------- filter cutoff modulation (Pass 6) -------------------
@@ -326,37 +428,37 @@ void SynthCore::applyParam(size_t index, float norm)
         // knob in the table; v1 scaled its CC by ×10 to octaves
         // (SynthEngine FILTER_OCTAVE_CONTROL: o = norm × 10) — reproduced here.
         case ID::FILTER_ENV_AMOUNT:
-            for (Voice& v : _voices) v.filter().setEnvAmount(eng);
+            for (Voice& v : L.voices()) v.filter().setEnvAmount(eng);
             break;
         case ID::FILTER_KEY_TRACK:
-            for (Voice& v : _voices) v.filter().setKeyTrackAmount(eng);
+            for (Voice& v : L.voices()) v.filter().setKeyTrackAmount(eng);
             break;
         case ID::FILTER_OCTAVE_CONTROL:
-            for (Voice& v : _voices) v.filter().setOctaveControl(eng * 10.0f);
+            for (Voice& v : L.voices()) v.filter().setOctaveControl(eng * 10.0f);
             break;
 
         // ------------- filter envelope (Pass 6) ----------------------------
         // Same EnvGen class as the amp env; destination is cutoff, not gain.
         case ID::ENV_FILTER_ATTACK:
-            for (Voice& v : _voices) v.filterEnv().setAttackMs(eng);
+            for (Voice& v : L.voices()) v.filterEnv().setAttackMs(eng);
             break;
         case ID::ENV_FILTER_DECAY:
-            for (Voice& v : _voices) v.filterEnv().setDecayMs(eng);
+            for (Voice& v : L.voices()) v.filterEnv().setDecayMs(eng);
             break;
         case ID::ENV_FILTER_SUSTAIN:
-            for (Voice& v : _voices) v.filterEnv().setSustain(eng);
+            for (Voice& v : L.voices()) v.filterEnv().setSustain(eng);
             break;
         case ID::ENV_FILTER_RELEASE:
-            for (Voice& v : _voices) v.filterEnv().setReleaseMs(eng);
+            for (Voice& v : L.voices()) v.filterEnv().setReleaseMs(eng);
             break;
         case ID::ENV_FILTER_ATTACK_CURVE:
-            for (Voice& v : _voices) v.filterEnv().setAttackSlope(eng);
+            for (Voice& v : L.voices()) v.filterEnv().setAttackSlope(eng);
             break;
         case ID::ENV_FILTER_DECAY_CURVE:
-            for (Voice& v : _voices) v.filterEnv().setDecaySlope(eng);
+            for (Voice& v : L.voices()) v.filterEnv().setDecaySlope(eng);
             break;
         case ID::ENV_FILTER_RELEASE_CURVE:
-            for (Voice& v : _voices) v.filterEnv().setReleaseSlope(eng);
+            for (Voice& v : L.voices()) v.filterEnv().setReleaseSlope(eng);
             break;
 
         // ------------- pitch envelope (Pass 7) -----------------------------
@@ -366,28 +468,28 @@ void SynthCore::applyParam(size_t index, float norm)
         // constrained the pitch-env depth to ±24 st (2 octaves) and summed it
         // into the FM mixer at unity gain.
         case ID::ENV_PITCH_DEPTH:
-            for (Voice& v : _voices) v.setPitchEnvDepthSemis(eng * 24.0f);
+            for (Voice& v : L.voices()) v.setPitchEnvDepthSemis(eng * 24.0f);
             break;
         case ID::ENV_PITCH_ATTACK:
-            for (Voice& v : _voices) v.pitchEnv().setAttackMs(eng);
+            for (Voice& v : L.voices()) v.pitchEnv().setAttackMs(eng);
             break;
         case ID::ENV_PITCH_DECAY:
-            for (Voice& v : _voices) v.pitchEnv().setDecayMs(eng);
+            for (Voice& v : L.voices()) v.pitchEnv().setDecayMs(eng);
             break;
         case ID::ENV_PITCH_SUSTAIN:
-            for (Voice& v : _voices) v.pitchEnv().setSustain(eng);
+            for (Voice& v : L.voices()) v.pitchEnv().setSustain(eng);
             break;
         case ID::ENV_PITCH_RELEASE:
-            for (Voice& v : _voices) v.pitchEnv().setReleaseMs(eng);
+            for (Voice& v : L.voices()) v.pitchEnv().setReleaseMs(eng);
             break;
         case ID::ENV_PITCH_ATTACK_CURVE:
-            for (Voice& v : _voices) v.pitchEnv().setAttackSlope(eng);
+            for (Voice& v : L.voices()) v.pitchEnv().setAttackSlope(eng);
             break;
         case ID::ENV_PITCH_DECAY_CURVE:
-            for (Voice& v : _voices) v.pitchEnv().setDecaySlope(eng);
+            for (Voice& v : L.voices()) v.pitchEnv().setDecaySlope(eng);
             break;
         case ID::ENV_PITCH_RELEASE_CURVE:
-            for (Voice& v : _voices) v.pitchEnv().setReleaseSlope(eng);
+            for (Voice& v : L.voices()) v.pitchEnv().setReleaseSlope(eng);
             break;
 
         // ------------- velocity sensitivity (Pass 8) -----------------------
@@ -396,13 +498,13 @@ void SynthCore::applyParam(size_t index, float norm)
         // == norm here (Curve::Lin, 0..1).  amp-sens curves velocity→gain;
         // filter-sens/env-sens derive per-note filter DC (see Voice::noteOn).
         case ID::VELOCITY_AMP_SENS:
-            for (Voice& v : _voices) v.setVelAmpSens(eng);
+            for (Voice& v : L.voices()) v.setVelAmpSens(eng);
             break;
         case ID::VELOCITY_FILTER_SENS:
-            for (Voice& v : _voices) v.setVelFilterSens(eng);
+            for (Voice& v : L.voices()) v.setVelFilterSens(eng);
             break;
         case ID::VELOCITY_ENV_SENS:
-            for (Voice& v : _voices) v.setVelEnvSens(eng);
+            for (Voice& v : L.voices()) v.setVelEnvSens(eng);
             break;
 
         // ------------- oscillator units (Pass 4) ---------------------------
@@ -434,34 +536,34 @@ void SynthCore::applyParam(size_t index, float norm)
         // (bank across 10 banks, index against the CURRENT bank's count),
         // and either change re-resolves the table pointer for all voices.
         case ID::OSC1_ARB_BANK:
-            _arbBank[0] = WavetableLib::bankFromNorm(norm);
-            applyArbTable(0);
+            L.arbBank[0] = WavetableLib::bankFromNorm(norm);
+            applyArbTable(0, layer);
             break;
         case ID::OSC2_ARB_BANK:
-            _arbBank[1] = WavetableLib::bankFromNorm(norm);
-            applyArbTable(1);
+            L.arbBank[1] = WavetableLib::bankFromNorm(norm);
+            applyArbTable(1, layer);
             break;
         case ID::OSC1_ARB_INDEX:
-            _arbIndex[0] = WavetableLib::indexFromNorm(norm, _arbBank[0]);
-            applyArbTable(0);
+            L.arbIndex[0] = WavetableLib::indexFromNorm(norm, L.arbBank[0]);
+            applyArbTable(0, layer);
             break;
         case ID::OSC2_ARB_INDEX:
-            _arbIndex[1] = WavetableLib::indexFromNorm(norm, _arbBank[1]);
-            applyArbTable(1);
+            L.arbIndex[1] = WavetableLib::indexFromNorm(norm, L.arbBank[1]);
+            applyArbTable(1, layer);
             break;
 
         // ------------- section mixer (Pass 4) -------------------------------
-        case ID::MIX_OSC1:      for (Voice& v : _voices) v.oscSection().setMixOsc1(eng); break;
-        case ID::MIX_OSC2:      for (Voice& v : _voices) v.oscSection().setMixOsc2(eng); break;
-        case ID::MIX_SUB:       for (Voice& v : _voices) v.oscSection().setMixSub(eng); break;
-        case ID::MIX_NOISE:     for (Voice& v : _voices) v.oscSection().setMixNoise(eng); break;
-        case ID::MIX_BALANCE:   for (Voice& v : _voices) v.oscSection().setBalance(eng); break;
-        case ID::MIX_CROSS_MOD: for (Voice& v : _voices) v.oscSection().setCrossMod(eng); break;
-        case ID::MIX_OSC_SYNC:  for (Voice& v : _voices) v.oscSection().setSyncEnabled(eng >= 0.5f); break;
+        case ID::MIX_OSC1:      for (Voice& v : L.voices()) v.oscSection().setMixOsc1(eng); break;
+        case ID::MIX_OSC2:      for (Voice& v : L.voices()) v.oscSection().setMixOsc2(eng); break;
+        case ID::MIX_SUB:       for (Voice& v : L.voices()) v.oscSection().setMixSub(eng); break;
+        case ID::MIX_NOISE:     for (Voice& v : L.voices()) v.oscSection().setMixNoise(eng); break;
+        case ID::MIX_BALANCE:   for (Voice& v : L.voices()) v.oscSection().setBalance(eng); break;
+        case ID::MIX_CROSS_MOD: for (Voice& v : L.voices()) v.oscSection().setCrossMod(eng); break;
+        case ID::MIX_OSC_SYNC:  for (Voice& v : L.voices()) v.oscSection().setSyncEnabled(eng >= 0.5f); break;
         // G1: JP-8000 "LFO1 & ENV Destination" — the voice steers the
         // (LFO1-pitch + pitch-env) lane by this each block (Voice::render).
         case ID::MIX_PITCH_MOD_DEST:
-            for (Voice& v : _voices) v.setPitchModDest((uint8_t)opt);
+            for (Voice& v : L.voices()) v.setPitchModDest((uint8_t)opt);
             break;
         // G2: per-osc share of LFO1's PWM (JP-8000 SQR Control 2).
         case ID::OSC1_PWM_LFO1_DEPTH: oscs(0, [&](OscSection& s, int u){ s.setPwmLfo1Scale(u, eng); }); break;
@@ -475,35 +577,35 @@ void SynthCore::applyParam(size_t index, float norm)
         // FREQ now only drives the oscillator while the LFO is Free — it
         // always updates freeHz so a later switch back to Free is exact
         // (Decision #6).  SYNC picks the branch via applyLfoRate.
-        case ID::LFO1_WAVEFORM:     _lfo1.osc.setWave(opt); break;
+        case ID::LFO1_WAVEFORM:     L.lfo1.osc.setWave(opt); break;
         case ID::LFO1_FREQ:
-            _lfo1.freeHz = eng;
-            if (_lfo1.syncMode == TempoClock::kFree) _lfo1.osc.setRateHz(eng);
+            L.lfo1.freeHz = eng;
+            if (L.lfo1.syncMode == TempoClock::kFree) L.lfo1.osc.setRateHz(eng);
             break;
         case ID::LFO1_SYNC:
-            _lfo1.syncMode = opt;
-            applyLfoRate(_lfo1);
+            L.lfo1.syncMode = opt;
+            applyLfoRate(L.lfo1);
             break;
-        case ID::LFO1_DELAY:       _lfo1.osc.setDelayMs(eng * 4000.0f); break;
-        case ID::LFO1_PITCH_DEPTH:  _lfo1.depthPitch  = eng; break;
-        case ID::LFO1_FILTER_DEPTH: _lfo1.depthFilter = eng; break;
-        case ID::LFO1_PWM_DEPTH:    _lfo1.depthPwm    = eng; break;
-        case ID::LFO1_AMP_DEPTH:    _lfo1.depthAmp    = eng; break;
+        case ID::LFO1_DELAY:       L.lfo1.osc.setDelayMs(eng * 4000.0f); break;
+        case ID::LFO1_PITCH_DEPTH:  L.lfo1.depthPitch  = eng; break;
+        case ID::LFO1_FILTER_DEPTH: L.lfo1.depthFilter = eng; break;
+        case ID::LFO1_PWM_DEPTH:    L.lfo1.depthPwm    = eng; break;
+        case ID::LFO1_AMP_DEPTH:    L.lfo1.depthAmp    = eng; break;
 
-        case ID::LFO2_WAVEFORM:     _lfo2.osc.setWave(opt); break;
+        case ID::LFO2_WAVEFORM:     L.lfo2.osc.setWave(opt); break;
         case ID::LFO2_FREQ:
-            _lfo2.freeHz = eng;
-            if (_lfo2.syncMode == TempoClock::kFree) _lfo2.osc.setRateHz(eng);
+            L.lfo2.freeHz = eng;
+            if (L.lfo2.syncMode == TempoClock::kFree) L.lfo2.osc.setRateHz(eng);
             break;
         case ID::LFO2_SYNC:
-            _lfo2.syncMode = opt;
-            applyLfoRate(_lfo2);
+            L.lfo2.syncMode = opt;
+            applyLfoRate(L.lfo2);
             break;
-        case ID::LFO2_DELAY:       _lfo2.osc.setDelayMs(eng * 4000.0f); break;
-        case ID::LFO2_PITCH_DEPTH:  _lfo2.depthPitch  = eng; break;
-        case ID::LFO2_FILTER_DEPTH: _lfo2.depthFilter = eng; break;
-        case ID::LFO2_PWM_DEPTH:    _lfo2.depthPwm    = eng; break;
-        case ID::LFO2_AMP_DEPTH:    _lfo2.depthAmp    = eng; break;
+        case ID::LFO2_DELAY:       L.lfo2.osc.setDelayMs(eng * 4000.0f); break;
+        case ID::LFO2_PITCH_DEPTH:  L.lfo2.depthPitch  = eng; break;
+        case ID::LFO2_FILTER_DEPTH: L.lfo2.depthFilter = eng; break;
+        case ID::LFO2_PWM_DEPTH:    L.lfo2.depthPwm    = eng; break;
+        case ID::LFO2_AMP_DEPTH:    L.lfo2.depthAmp    = eng; break;
 
         // ------------- internal BPM clock (Phase 3 subsystem 2) ------------
         // CLOCK_TEMPO only changes the internal BPM on an actual knob edit
@@ -523,37 +625,69 @@ void SynthCore::applyParam(size_t index, float norm)
             refreshSyncedLfos();
             break;
 
+        // ------------- performance / layering ------------------------------
+        // These decide how the 8-voice pool is CUT between the two layers.
+        // Only the cut is handled here: which layer a note reaches is settled
+        // on the control plane by PerfRouter, before the event is queued.
+        //
+        // Both handlers funnel into repartitionVoices(), which no-ops unless
+        // the cut actually moves — perf.* re-applies on every patch load and
+        // an unconditional repartition would hard-kill sounding voices each
+        // time a patch was recalled.
+        case ID::PERF_MODE:
+        case ID::PERF_VOICE_SPLIT:
+            repartitionVoices();
+            break;
+
+        // perf.split_note and the two channel assignments have NO engine
+        // consumer by design: PerfRouter reads them straight from the store at
+        // routing time.  Listed explicitly rather than left to fall through
+        // 'default', so that reading this switch tells you they are handled
+        // and not forgotten — which is exactly how all seven perf.* params
+        // came to be silently discarded in the first place.
+        case ID::PERF_BALANCE:
+            // Stored raw; the gain law and the per-sample ramp live in
+            // renderBlock, so a balance sweep is smoothed once, in one place.
+            _balance = eng;
+            break;
+
+        case ID::PERF_MIDI_CHANNEL_A:
+        case ID::PERF_MIDI_CHANNEL_B:
+        case ID::PERF_SPLIT_NOTE:
+        case ID::PERF_EDIT_TARGET:      // editor-only: never engine state
+            break;
+
         // ------------- performance (Phase 4, ParamTable §11) ---------------
         // Glide, poly/mono/unison, unison detune, bend range, amp level.
         // Details + v1 provenance in docs/PHASE4_PERFORMANCE_SPEC.md.
         case ID::GLIDE_ENABLE:
             // Toggle: eng is 0/1.  Fans to every voice (glide is per-voice).
-            for (Voice& v : _voices) v.setGlideEnabled(eng >= 0.5f);
+            for (Voice& v : L.voices()) v.setGlideEnabled(eng >= 0.5f);
             break;
         case ID::GLIDE_TIME: {
             // Table row is a NORM knob (0..1); map with v1's log ms law then
             // v1's 1/samples rate (block-rate quirk preserved — see helper).
             const float rate = glideRateFromNorm(norm);
-            for (Voice& v : _voices) v.setGlideRate(rate);
+            for (Voice& v : L.voices()) v.setGlideRate(rate);
         } break;
         case ID::VOICE_POLY_MODE:
             // opt is the frozen index 0/1/2 == PolyMode Poly/Mono/Unison; the
             // allocator kills sounding voices on an actual change (v1 parity).
-            _alloc.setPolyMode((PolyMode)opt);
+            L.alloc.setPolyMode((PolyMode)opt);
             break;
         case ID::VOICE_UNISON_DETUNE:
-            _alloc.setUnisonDetune(eng);            // 0..1; re-spreads if Unison
+            L.alloc.setUnisonDetune(eng);            // 0..1; re-spreads if Unison
             break;
         case ID::VOICE_BEND_RANGE:
             // eng arrives already in 0..24 st (table range) — v1 clamped to
             // PITCH_BEND_MAX_SEMITONES(24); the table bounds guarantee it.
-            _bendRange = eng;
+            L.bendRange = eng;
             break;
         case ID::VOICE_AMP_LEVEL:
             // v1 AMP_MOD_FIXED_LEVEL: the DC BASE of the VCA-mod signal (spec
             // §1.4).  Replaces the hardcoded 1.0 base in renderBlock's
             // ampMulTarget; LFO tremolo still adds on top.  Default 1.0 = unity.
-            _ampFixedLevel = eng;
+            L.ampFixedLevel = eng;
             break;
 
         // ---- [15] Global Reverb (Phase 5, PHASE5_REVERB_SPEC.md §1.2) ----
@@ -676,33 +810,33 @@ void SynthCore::applyParam(size_t index, float norm)
         // target it.  Rate reuses the shared 12-entry timing set; ARP_RATE opt 0
         // (Free) falls back to ARP_FREE_HZ.
         case ID::ARP_ENABLE:
-            _arp.setEnabled(norm >= 0.5f); break;
+            L.arp.setEnabled(norm >= 0.5f); break;
         case ID::ARP_MODE:
-            _arp.setMode((ArpMode)opt); break;                         // 0..6
+            L.arp.setMode((ArpMode)opt); break;                         // 0..6
         case ID::ARP_OCTAVES:
-            _arp.setOctaves(1 + opt); break;                           // opt 0..3 -> 1..4
+            L.arp.setOctaves(1 + opt); break;                           // opt 0..3 -> 1..4
         case ID::ARP_LATCH:
-            _arp.setLatch(norm >= 0.5f); break;
+            L.arp.setLatch(norm >= 0.5f); break;
         case ID::ARP_RATE:
             // opt is the TempoClock::Mode index (0==Free).  The arp IS tempo-
             // synced (freqForMode is sufficient — unlike the seq's D-1 defer).
-            _arp.setRateMode(opt); break;
+            L.arp.setRateMode(opt); break;
         case ID::ARP_FREE_HZ:
-            _arp.setFreeHz(norm); break;                               // engine exp-maps 0.1..20 Hz
+            L.arp.setFreeHz(norm); break;                               // engine exp-maps 0.1..20 Hz
         case ID::ARP_GATE_LENGTH:
-            _arp.setGateLength(norm); break;
+            L.arp.setGateLength(norm); break;
         case ID::ARP_SWING:
-            _arp.setSwing(norm); break;
+            L.arp.setSwing(norm); break;
         case ID::ARP_STEP_COUNT:
-            _arp.setStepCount(1 + (int)lroundf(norm * 15.0f)); break;  // 1..16
+            L.arp.setStepCount(1 + (int)lroundf(norm * 15.0f)); break;  // 1..16
         case ID::ARP_STEP_SELECT:
-            _arp.setStepSelect((int)lroundf(norm * 15.0f)); break;     // 0..15
+            L.arp.setStepSelect((int)lroundf(norm * 15.0f)); break;     // 0..15
         case ID::ARP_STEP_ONOFF:
-            _arp.setStepOnOff(norm >= 0.5f); break;
+            L.arp.setStepOnOff(norm >= 0.5f); break;
         case ID::ARP_STEP_ACCENT:
-            _arp.setStepAccent(norm); break;                           // 0..1
+            L.arp.setStepAccent(norm); break;                           // 0..1
         case ID::ARP_STEP_RATCHET:
-            _arp.setStepRatchet(1 + (int)lroundf(norm * 3.0f)); break; // 1..4
+            L.arp.setStepRatchet(1 + (int)lroundf(norm * 3.0f)); break; // 1..4
 
         default:
             // Not yet handled (remaining FX/sequencer) or deliberately unwired
@@ -726,23 +860,105 @@ void SynthCore::applyLfoRate(LfoState& lfo)
 
 void SynthCore::refreshSyncedLfos()
 {
-    // Both, unconditionally: a Free LFO harmlessly re-asserts freeHz (a
-    // no-op — same value it already has), so no branch on syncMode is
-    // needed here.  Only reached on a clock edit (BPM/source), which is
-    // rare compared to block rate.
-    applyLfoRate(_lfo1);
-    applyLfoRate(_lfo2);
+    // All four, unconditionally: a Free LFO harmlessly re-asserts freeHz (a
+    // no-op — same value it already has), so no branch on syncMode is needed
+    // here.  Only reached on a clock edit (BPM/source), which is rare compared
+    // to block rate.
+    //
+    // BOTH layers, because the clock is shared: a tempo change must re-resolve
+    // every synced LFO in the instrument, not just the audible layer's — layer
+    // B may become audible on the very next block.
+    for (Layer& lz : _layers) {
+        applyLfoRate(lz.lfo1);
+        applyLfoRate(lz.lfo2);
+    }
 }
 
-void SynthCore::applyArbTable(int unit)
+// -----------------------------------------------------------------------------
+// Re-cut the voice pool between the layers.  Audio plane (applyParam context),
+// which is what makes the hard-kill below safe: voices are only ever mutated
+// from here and from drainNoteEvents, in the same context.
+//
+// POLICY (signed off): a split change hard-kills every voice, then rebinds.
+// The alternatives — letting sounding voices finish, or killing only voices
+// that fall outside their new slice — both leave a voice being rendered by one
+// layer while another layer believes it owns it, which is how stuck notes and
+// double-triggered envelopes happen.  A split change is a deliberate,
+// non-real-time action; a clean break is the honest behaviour.
+// -----------------------------------------------------------------------------
+void SynthCore::repartitionVoices()
 {
+    using namespace Params;
+
+    const int mode = _router.mode();
+
+    // Single mode: layer A owns everything and voice_split is ignored — one
+    // patch should never be limited to half the polyphony because of a setting
+    // that is not in effect.
+    uint8_t countA;
+    if (mode == PerfRouter::kModeSingle) {
+        countA = VoiceAllocator::kMaxVoices;
+    } else {
+        // The 'voice_split' option set is "1+7", "2+6", ... so option index + 1
+        // is layer A's share and the remainder is layer B's.
+        const size_t iSplit = ParameterStore::indexOf(ID::PERF_VOICE_SPLIT);
+        const int    opt    = Curves::toOptionIndex(kParams[iSplit],
+                                                    _store.getByIndex(iSplit));
+        const int    a      = opt + 1;
+        countA = static_cast<uint8_t>(
+            (a < 1) ? 1 : (a > (int)VoiceAllocator::kMaxVoices - 1)
+                              ? (int)VoiceAllocator::kMaxVoices - 1
+                              : a);
+    }
+
+    if (countA == _splitCountA) return;      // cut unchanged: do nothing at all
+    _splitCountA = countA;
+
+    // Silence the WHOLE pool before either allocator is rebound.  Doing it per
+    // layer would let the first rebind hand voices to A that B then silences.
+    for (Voice& v : _voices) v.hardKill();
+    for (Layer& lz : _layers) lz.arp.allNotesOff();
+
+    _layers[0].setSlice(_voices, countA);
+    _layers[1].setSlice(_voices + countA,
+                        VoiceAllocator::kMaxVoices - countA);
+}
+
+// -----------------------------------------------------------------------------
+// perf.balance -> the two bus gains.  "Full at centre", NOT an equal-power or
+// linear pan law:
+//
+//     balance   0 ....... 64 ....... 127
+//     layer A   1.0 ..... 1.0 ..... 0.0
+//     layer B   0.0 ..... 1.0 ..... 1.0
+//
+// Centre therefore leaves BOTH layers at unity — which is what a layered patch
+// should sound like out of the box, and is also the condition renderBlock
+// tests to skip its mixing stage entirely.  A conventional pan law would put
+// centre at ~0.7 on each side and quietly halve the level of every existing
+// patch the moment Performance was switched on.
+// -----------------------------------------------------------------------------
+void SynthCore::layerGains(float balance, float& gA, float& gB)
+{
+    constexpr float kCentre = 64.0f;
+    constexpr float kSpan   = 127.0f - kCentre;   // 63
+
+    const float b = (balance < 0.0f) ? 0.0f : (balance > 127.0f) ? 127.0f : balance;
+
+    gA = (b <= kCentre) ? 1.0f : 1.0f - (b - kCentre) / kSpan;
+    gB = (b >= kCentre) ? 1.0f : b / kCentre;
+}
+
+void SynthCore::applyArbTable(int unit, uint8_t layer)
+{
+    Layer& L = _layers[layer & 1u];
     uint16_t len = 0;
     const int16_t* table =
-        WavetableLib::akwfTable(_arbBank[unit], _arbIndex[unit], len);
+        WavetableLib::akwfTable(L.arbBank[unit], L.arbIndex[unit], len);
     // Table swap is glitch-safe (block boundary, phase preserved) and a
     // nullptr legally selects OscCore's naive-saw fallback — see the
     // guards in WavetableLib and OscCore.
-    for (Voice& v : _voices)
+    for (Voice& v : L.voices())
         v.oscSection().setArbTable(unit, table, len);
 }
 
@@ -762,114 +978,210 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     drainExternalClock();
 
     // 2. Changed parameters only (see ParameterStore::takeNextDirty).
+    //
+    //    The store hands back a SLOT, which carries both the parameter and its
+    //    layer; the engine now consumes both.  Shared parameters (FX chain,
+    //    sequencer) report layer 0 whichever layer wrote them, so they reach
+    //    their singleton exactly once — never twice, never for the wrong one.
+    //
+    //    In Single mode layer B owns no voices, so its fan-out loops execute
+    //    zero times: B's parameters cost the switch dispatch and nothing else,
+    //    and they stay coherent for the moment the user switches to Layer.
     const float* snap = _store.acquireSnapshot();
-    size_t idx;
-    while ((idx = _store.takeNextDirty()) != ParameterStore::kInvalidIndex)
-        applyParam(idx, snap[idx]);
+    size_t slot;
+    while ((slot = _store.takeNextDirty()) != ParameterStore::kInvalidIndex)
+        applyParam(Params::paramOfSlot(slot), snap[slot], Params::layerOfSlot(slot));
 
     // 3. Clear the bus, then add every ACTIVE voice.  Idle voices cost one
     //    branch — the v1 all-voices-always-run drain is designed out.
     memset(left,  0, n * sizeof(float));
     memset(right, 0, n * sizeof(float));
 
-    // 3a. Phase 3 LFOs (spec §4/§5): tick each ENGAGED LFO (any destination
-    // depth > 0) once, then distribute the net per-destination values to
-    // every active voice.  A disengaged LFO is not ticked at all — its
-    // phase stays frozen ("do not calculate if not required"); since its
-    // depths are all zero anyway, the sums below are zero regardless, so
-    // this also gives the spec's "one final block of zero destination
-    // values" on the engaged->disengaged transition for free, with no
-    // extra state to track.
-    const float lfoUnit1 = _lfo1.engaged() ? _lfo1.osc.tickBlock() : 0.0f;
-    const float lfoUnit2 = _lfo2.engaged() ? _lfo2.osc.tickBlock() : 0.0f;
-
-    // G1/G2 lane split.  LFO1's pitch term travels its OWN lane so the voice
-    // can steer it (with the pitch env) per mix.pitch_mod_dest; LFO1's PWM
-    // term likewise, so the section can scale it per osc.  LFO2 and the
-    // sequencer stay in the common lanes — the JP-8000 never routed them
-    // (manual p.112).  Same adds as before, just not pre-summed, so the
-    // default patch is arithmetically identical.
-    float pitchSemisLfo1  = lfoUnit1 * _lfo1.depthPitch  * kLfoPitchMaxSemis;
-    float pitchSemisCommon= lfoUnit2 * _lfo2.depthPitch  * kLfoPitchMaxSemis;
-    float filterCutInput  = lfoUnit1 * _lfo1.depthFilter
-                                 + lfoUnit2 * _lfo2.depthFilter;
-    float pwmLfo1         = lfoUnit1 * _lfo1.depthPwm;
-    float pwmCommon       = lfoUnit2 * _lfo2.depthPwm;
-    // VCA-mod base = v1 AMP_MOD_FIXED_LEVEL (VOICE_AMP_LEVEL), default 1.0;
-    // the LFO tremolo terms add on top (v1 ampModMixer slots 1/2).  At the
-    // default patch this is exactly 1.0 + 0 = 1.0 → byte-identical output.
-    float ampMulTarget    = _ampFixedLevel + lfoUnit1 * _lfo1.depthAmp
-                                                  + lfoUnit2 * _lfo2.depthAmp;
-
-    // Global bus pan target (Stage C): bipolar −1..+1 (0 = centre).  Only the
-    // aux lane's Pan destination writes it; stays 0 otherwise, so the master
-    // stage skips the pan multiply entirely and output is byte-identical.
-    float panTarget       = 0.0f;
-
-    // Arpeggiator (Phase 9): one block-rate tick BEFORE the sequencer.  Unlike
-    // the sequencer it produces no modulation value — it drives the voices
-    // directly via _alloc (B-note), reading the shared _clock for its synced
-    // rate.  When disabled it early-returns (releasing any lingering arp note),
-    // so a disabled arp costs one bool test and leaves _alloc untouched → the
-    // default patch and render baseline are byte-identical.  Ticked here, in the
-    // same audio-plane context as drainNoteEvents, so its _alloc.noteOn/off run
-    // exactly where the note-ring drain already mutates voices — no new
-    // concurrency.
-    _arp.tick(kBlockMs, _alloc, _clock);
-
-    // Sequencer (Phase 7, PHASE7_SEQUENCER_SPEC.md §3): one block-rate tick,
-    // output routed to ONE of the four modulation accumulators — the same lanes
-    // the LFOs feed.  Ticks always (so the anti-click ramp completes even right
-    // after disable), but emits 0 when disabled/idle, so a disabled sequencer
-    // adds nothing and the default patch is byte-identical (Q4).  No per-voice
-    // destination-change cleanup is needed (D-4): the accumulators are rebuilt
-    // from scratch each block, so a stale lane cannot persist.  The four terms
-    // are non-const so the sequencer can add into them in place; the amp term
-    // is carried in ampMulTarget so the master-stage consumer below picks it up.
+    // 3a. Shared, once-per-block modulation sources.
+    //
+    //     The sequencer and the arpeggiator clock are SINGLETONS by design
+    //     (signed off): one global sequencer, one global BPM clock.  They are
+    //     therefore ticked ONCE, here, before either layer is rendered — a
+    //     per-layer tick would advance the pattern twice as fast the moment a
+    //     second layer became audible.
     _seq.tick(kBlockMs);
     const float seqVal = _seq.getOutput();      // ±depth, 0 when disabled/idle
-    switch (_seq.destination()) {
-        case SeqDest::Pitch:  pitchSemisCommon += seqVal * kLfoPitchMaxSemis; break; // Q3: same const as LFO; common lane — seq is never routed
-        case SeqDest::Filter: filterCutInput  += seqVal;                     break;
-        case SeqDest::Pwm:    pwmCommon         += seqVal;                    break;
-        case SeqDest::Amp:    ampMulTarget     += seqVal;                     break;
-        case SeqDest::None:
-        default:                                                             break;
-    }
-
-    // Aux lane (Stage B): a second block-rate output on the same clock, routed
-    // to its own destination.  Stage B wires Filter only (reuses the existing
-    // cutoff accumulator); Pan/DelaySend/Drive are inert placeholders that fall
-    // through until Stages C/D (D-B1).  Emits 0 while dest==None/idle, so an
-    // unused aux lane leaves every accumulator untouched → byte-identical.
     const float auxVal = _seq.getAuxOutput();
-    // Stage D FX mods are stateful on FxChain, so drive/delay-send must be set
-    // EVERY block — to auxVal when targeted, to 0 otherwise — or a stale mod
-    // would persist after the aux dest changes.  Default (dest != these) writes
-    // 0 → byte-identical.
-    float auxDriveMod    = 0.0f;
-    float auxDelaySendMod= 0.0f;
+
+    // Aux lane (Stage B/C/D): a second block-rate output on the same clock,
+    // routed to its own destination.  Emits 0 while dest==None/idle, so an
+    // unused aux lane leaves every accumulator untouched → byte-identical.
+    //
+    // Pan and the two FX mods are BUS-level: they belong to the shared chain,
+    // not to either layer, so they are resolved out here.  Stage D FX mods are
+    // stateful on FxChain and must be written EVERY block — to auxVal when
+    // targeted, to 0 otherwise — or a stale mod persists after a dest change.
+    float panTarget       = 0.0f;
+    float auxDriveMod     = 0.0f;
+    float auxDelaySendMod = 0.0f;
     switch (_seq.auxDestination()) {
-        case SeqAuxDest::Filter:    filterCutInput += auxVal;  break;
         case SeqAuxDest::Pan:       panTarget      += auxVal;  break;  // Stage C
         case SeqAuxDest::Drive:     auxDriveMod     = auxVal;  break;  // Stage D (bipolar)
         case SeqAuxDest::DelaySend: auxDelaySendMod = auxVal;  break;  // Stage D (additive)
+        case SeqAuxDest::Filter:                               break;  // per-layer, below
         case SeqAuxDest::None:
         default:                                               break;
     }
     _fx.setDriveMod(auxDriveMod);
     _fx.setDelayMixMod(auxDelaySendMod);
 
-    for (Voice& v : _voices) {
-        if (!v.isActive()) continue;
-        v.setLfoPitchSemis(pitchSemisCommon);
-        v.setRoutedLfoPitchSemis(pitchSemisLfo1);
-        v.filter().setLfoCutoff(filterCutInput);
-        v.oscSection().setLfoPwm(pwmLfo1, pwmCommon);
+    // 3b. Bus routing for perf.balance.
+    //
+    //     THE INERT PATH IS THE POINT.  At centre balance both gains are
+    //     exactly 1.0 and no ramp is in flight, so layer B is pointed at the
+    //     caller's buffers too: both layers accumulate into one bus in pool
+    //     order, exactly as the single-layer engine did, and the mixing stage
+    //     below is skipped entirely.  The scratch buffers are reserved but
+    //     never touched, and the render stays byte-identical.
+    //
+    //     Voices are contiguous and layer A owns the low slice, so rendering A
+    //     then B preserves the pool-order float accumulation the baseline had.
+    //     Changing that order would change the sum's rounding.
+    float gainA = 1.0f, gainB = 1.0f;
+    layerGains(_balance, gainA, gainB);
+
+    // The VCA-mod half of the gain is only KNOWN inside the layer loop (it
+    // needs the LFO tick), but the routing decision has to be made before it.
+    // ampModActive() answers "could it move off unity?" from state alone, so
+    // the choice is made on a cheap conservative predicate rather than by
+    // ticking the LFOs early and having to remember not to tick them again.
+    const bool ampCouldMove = _layers[0].ampModActive() ||
+                              _layers[1].ampModActive() ||
+                              _seq.destination() == SeqDest::Amp;
+
+    const bool balanceInert = (gainA >= 1.0f && gainB >= 1.0f && !ampCouldMove &&
+                               _layers[0].gainCur >= 1.0f &&
+                               _layers[1].gainCur >= 1.0f);
+
+    // Per-layer bus gain TARGETS: balance x that layer's VCA-mod factor.  The
+    // two are multiplied into one number because they are applied at the same
+    // point by the same ramp — a separate ramp each would cost a second pass
+    // over the buffer for no audible benefit.
+    float gainTarget[2] = { gainA, gainB };
+
+    float* busL[2] = { left, balanceInert ? left  : _busBL };
+    float* busR[2] = { right, balanceInert ? right : _busBR };
+    if (!balanceInert) {
+        memset(_busBL, 0, n * sizeof(float));
+        memset(_busBR, 0, n * sizeof(float));
     }
 
-    for (Voice& v : _voices)
-        if (v.isActive()) v.render(left, right, n);
+    // 3c. Per layer: tick its LFOs, distribute its modulation, render it.
+    for (size_t li = 0; li < 2; ++li) {
+        Layer& lz = _layers[li];
+
+        // A layer with no voices (layer B in Single mode) is skipped whole:
+        // no LFO tick, no fan-out, no render.  "Do not calculate if not
+        // required" — and it is what makes Single mode cost what it always did.
+        if (lz.voiceCount() == 0) continue;
+
+        // Phase 3 LFOs (spec §4/§5): tick each ENGAGED LFO (any destination
+        // depth > 0) once, then distribute the net per-destination values to
+        // every active voice of THIS layer.  A disengaged LFO is not ticked at
+        // all — its phase stays frozen; since its depths are zero the sums are
+        // zero regardless, which also gives the spec's "one final block of zero
+        // destination values" on the engaged->disengaged transition for free.
+        const float u1 = lz.lfo1.engaged() ? lz.lfo1.osc.tickBlock() : 0.0f;
+        const float u2 = lz.lfo2.engaged() ? lz.lfo2.osc.tickBlock() : 0.0f;
+
+        // G1/G2 lane split.  LFO1's pitch term travels its OWN lane so the
+        // voice can steer it (with the pitch env) per mix.pitch_mod_dest;
+        // LFO1's PWM term likewise, so the section can scale it per osc.  LFO2
+        // and the sequencer stay in the common lanes — the JP-8000 never routed
+        // them (manual p.112).
+        //
+        // pitchDepthTotal() == depthPitch when the mod wheel is at rest, so the
+        // default patch is arithmetically unchanged (see LfoState).
+        float pitchSemisLfo1   = u1 * lz.lfo1.pitchDepthTotal() * kLfoPitchMaxSemis;
+        float pitchSemisCommon = u2 * lz.lfo2.depthPitch * kLfoPitchMaxSemis;
+        float filterCutInput   = u1 * lz.lfo1.depthFilter + u2 * lz.lfo2.depthFilter;
+        float pwmLfo1          = u1 * lz.lfo1.depthPwm;
+        float pwmCommon        = u2 * lz.lfo2.depthPwm;
+
+        // The shared sequencer feeds BOTH layers' lanes — one pattern
+        // modulating the whole instrument is what "global sequencer" means.
+        switch (_seq.destination()) {
+            case SeqDest::Pitch:  pitchSemisCommon += seqVal * kLfoPitchMaxSemis; break;
+            case SeqDest::Filter: filterCutInput   += seqVal;                     break;
+            case SeqDest::Pwm:    pwmCommon        += seqVal;                     break;
+            case SeqDest::Amp:                                                    break; // global stage
+            case SeqDest::None:
+            default:                                                              break;
+        }
+        if (_seq.auxDestination() == SeqAuxDest::Filter) filterCutInput += auxVal;
+
+        // VCA mod, PER LAYER (v1 topology): base = v1 AMP_MOD_FIXED_LEVEL
+        // (voice.amp_level, default 1.0) with the two LFO tremolo terms adding
+        // on top (v1 ampModMixer slots 1/2), plus the shared sequencer when it
+        // is routed to Amp.
+        //
+        // Applied to THIS LAYER'S BUS, which puts it BEFORE the FX chain and
+        // reverb — where v1 had it, and the only place two layers can carry two
+        // different tremolos.  The consequence is deliberate and worth knowing:
+        // tremolo now modulates what is FED to the delay and reverb rather than
+        // their output, so tails are no longer chopped by it.
+        //
+        // At the default patch this is exactly 1.0 + 0 + 0, so the gain stays
+        // unity, the mixing stage stays inert, and the render is unchanged.
+        float ampMul = lz.ampFixedLevel + u1 * lz.lfo1.depthAmp
+                                        + u2 * lz.lfo2.depthAmp;
+        if (_seq.destination() == SeqDest::Amp) ampMul += seqVal;
+        gainTarget[li] *= ampMul;
+
+        // Arpeggiator (Phase 9): one block-rate tick, driving THIS layer's
+        // allocator and reading the SHARED clock for its synced rate.  When
+        // disabled it early-returns (releasing any lingering arp note), so a
+        // disabled arp costs one bool test and leaves the allocator untouched.
+        // Ticked in the same audio-plane context as drainNoteEvents, so its
+        // noteOn/off run exactly where the note ring already mutates voices.
+        lz.arp.tick(kBlockMs, lz.alloc, _clock);
+
+        for (Voice& v : lz.voices()) {
+            if (!v.isActive()) continue;
+            v.setLfoPitchSemis(pitchSemisCommon);
+            v.setRoutedLfoPitchSemis(pitchSemisLfo1);
+            v.filter().setLfoCutoff(filterCutInput);
+            v.oscSection().setLfoPwm(pwmLfo1, pwmCommon);
+        }
+
+        for (Voice& v : lz.voices())
+            if (v.isActive()) v.render(busL[li], busR[li], n);
+    }
+
+    // 3d. Mix the layers with a per-sample gain ramp.  Skipped entirely on the
+    //     inert path, where both layers already wrote the same bus.
+    //
+    //     Ramped rather than stepped for the same reason master volume is: a
+    //     balance knob swept by hand delivers a staircase of block-rate values,
+    //     and stepping a bus gain is an audible zipper.
+    if (!balanceInert) {
+        const float stepA = (gainTarget[0] - _layers[0].gainCur) / (float)n;
+        const float stepB = (gainTarget[1] - _layers[1].gainCur) / (float)n;
+        float cA = _layers[0].gainCur;
+        float cB = _layers[1].gainCur;
+        for (size_t i = 0; i < n; ++i) {
+            left[i]  = left[i]  * cA + _busBL[i] * cB;
+            right[i] = right[i] * cA + _busBR[i] * cB;
+            cA += stepA;
+            cB += stepB;
+        }
+        _layers[0].gainCur = gainTarget[0];
+        _layers[1].gainCur = gainTarget[1];
+    }
+
+    // VCA-mod base = v1 AMP_MOD_FIXED_LEVEL (VOICE_AMP_LEVEL), default 1.0;
+    // the LFO tremolo terms add on top (v1 ampModMixer slots 1/2).  At the
+    // default patch this is exactly 1.0 + 0 = 1.0 → byte-identical output.
+    //
+    // STILL GLOBAL, and fed from layer A: this stage sits AFTER the FX chain
+    // and reverb, so moving it per layer means moving it PRE-FX, which changes
+    // where tremolo sits relative to the delay and reverb tails.  That is
+    // audible for any patch with amp depth, so it is not done unasked.
 
     // 3a-bis. Per-patch FX chain (Phase 6, PHASE6_FXCHAIN_SPEC.md §3): the
     //     JP-8000 JPFX chain (saturation -> tone EQ -> mod -> delay -> limiter),
@@ -893,21 +1205,14 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         _reverb.processBlock(left, right, n, _reverbMix);
 
     // 4. Master volume: one-pole toward target at block rate (~12 ms), then
-    //    a per-sample ramp so even a hard CC7 jump is a short fade.  The
-    //    Phase 3 amp LFO (tremolo, global post-mix — spec §3 decision #6)
-    //    rides the SAME per-sample loop, ramped independently from last
-    //    block's factor to this block's target: one multiply per sample
-    //    total instead of a second pass over the buffer.  At the default
-    //    patch ampMulTarget is always exactly 1.0, so this ramp is a
-    //    permanent no-op and the output stays byte-identical to before
-    //    Phase 3.
+    //    a per-sample ramp so even a hard CC7 jump is a short fade.
+    //
+    //    The Phase 3 amp LFO used to ride this same loop as a second global
+    //    factor.  It no longer does: tremolo is per layer now and is applied on
+    //    the layer bus, pre-FX (see the layer loop above).
     const float start = _masterCur;
     _masterCur += (_masterTarget - _masterCur) * 0.25f;
     const float masterStep = (_masterCur - start) / (float)n;
-
-    const float ampStart = _ampModCur;
-    _ampModCur = ampMulTarget;
-    const float ampStep = (_ampModCur - ampStart) / (float)n;
 
     // Global bus pan (Stage C): centre-normalised equal-power law, computed
     // ONCE per block (the only sinf/cosf here), then ramped per-sample in the
@@ -930,25 +1235,20 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     }
 
     float g = start;
-    float a = ampStart;
     if (panActive) {
         float pl = panLStart, pr = panRStart;
         for (size_t i = 0; i < n; ++i) {
-            g += masterStep;
-            a += ampStep;
+            g  += masterStep;
             pl += panLStep;
             pr += panRStep;
-            const float total = g * a;
-            left[i]  *= total * pl;
-            right[i] *= total * pr;
+            left[i]  *= g * pl;
+            right[i] *= g * pr;
         }
     } else {
         for (size_t i = 0; i < n; ++i) {
             g += masterStep;
-            a += ampStep;
-            const float total = g * a;
-            left[i]  *= total;
-            right[i] *= total;
+            left[i]  *= g;
+            right[i] *= g;
         }
     }
 }

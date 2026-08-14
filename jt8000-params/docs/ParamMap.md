@@ -153,20 +153,20 @@ A curated set of standard CCs mirrors key performance parameters (the
 
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
-| `0x0480` | 0 | Bass | `fx.bass_gain` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0481` | 1 | Treble | `fx.treble_gain` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0482` | 2 | Drive | `fx.drive` | select | 0–2 (index) | 0 (OFF) | 0 ms | — | patch |
-| `0x0483` | 3 | Mod FX | `fx.mod_effect` | select | 0–11 (index) | 0 (OFF) | 0 ms | — | patch |
-| `0x0484` | 4 | Mod Mix | `fx.mod_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 93 | patch |
-| `0x0485` | 5 | Mod Rate | `fx.mod_rate` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch |
-| `0x0486` | 6 | Mod FB | `fx.mod_feedback` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0487` | 7 | Delay FX | `fx.delay_effect` | select | 0–5 (index) | 0 (OFF) | 0 ms | — | patch |
-| `0x0488` | 8 | Delay Time | `fx.delay_time` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch |
-| `0x0489` | 9 | Delay Mix | `fx.delay_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 94 | patch |
-| `0x048A` | 10 | Delay FB | `fx.delay_feedback` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x048B` | 11 | Delay Sync | `fx.delay_sync` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch |
-| `0x048C` | 12 | Dry Mix | `fx.dry_mix` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch |
-| `0x048D` | 13 | JPFX Mix | `fx.jpfx_mix` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch |
+| `0x0480` | 0 | Bass | `fx.bass_gain` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
+| `0x0481` | 1 | Treble | `fx.treble_gain` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
+| `0x0482` | 2 | Drive | `fx.drive` | select | 0–2 (index) | 0 (OFF) | 0 ms | — | patch_shared |
+| `0x0483` | 3 | Mod FX | `fx.mod_effect` | select | 0–11 (index) | 0 (OFF) | 0 ms | — | patch_shared |
+| `0x0484` | 4 | Mod Mix | `fx.mod_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 93 | patch_shared |
+| `0x0485` | 5 | Mod Rate | `fx.mod_rate` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch_shared |
+| `0x0486` | 6 | Mod FB | `fx.mod_feedback` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
+| `0x0487` | 7 | Delay FX | `fx.delay_effect` | select | 0–5 (index) | 0 (OFF) | 0 ms | — | patch_shared |
+| `0x0488` | 8 | Delay Time | `fx.delay_time` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch_shared |
+| `0x0489` | 9 | Delay Mix | `fx.delay_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 94 | patch_shared |
+| `0x048A` | 10 | Delay FB | `fx.delay_feedback` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
+| `0x048B` | 11 | Delay Sync | `fx.delay_sync` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch_shared |
+| `0x048C` | 12 | Dry Mix | `fx.dry_mix` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch_shared |
+| `0x048D` | 13 | JPFX Mix | `fx.jpfx_mix` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch_shared |
 
 ## [10] Velocity  *(NRPN MSB 10)*
 
@@ -198,22 +198,22 @@ A curated set of standard CCs mirrors key performance parameters (the
 
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
-| `0x0680` | 0 | Seq Enable | `seq.enable` | toggle | off / on | off | 0 ms | — | patch |
-| `0x0681` | 1 | Seq Steps | `seq.steps` | int | 1–16  (lin) | 9 | 0 ms | — | patch |
-| `0x0682` | 2 | Seq Gate | `seq.gate_length` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch |
-| `0x0683` | 3 | Seq Slide | `seq.slide` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0684` | 4 | Seq Dir | `seq.direction` | select | 0–3 (index) | 0 (Fwd) | 0 ms | — | patch |
-| `0x0685` | 5 | Seq Dest | `seq.destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch |
-| `0x0686` | 6 | Seq Depth | `seq.depth` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0687` | 7 | Seq Retrig | `seq.retrigger` | toggle | off / on | off | 0 ms | — | patch |
-| `0x0688` | 8 | Seq Rate | `seq.rate` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch |
-| `0x0689` | 9 | Seq Sync | `seq.timing_mode` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch |
-| `0x068A` | 10 | Step Select | `seq.step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch |
-| `0x068B` | 11 | Step Value | `seq.step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
-| `0x068C` | 12 | Seq Aux Dest | `seq.aux_destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch |
-| `0x068D` | 13 | Seq Aux Depth | `seq.aux_depth` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x068E` | 14 | Aux Step Select | `seq.aux_step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch |
-| `0x068F` | 15 | Aux Step Value | `seq.aux_step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0680` | 0 | Seq Enable | `seq.enable` | toggle | off / on | off | 0 ms | — | patch_shared |
+| `0x0681` | 1 | Seq Steps | `seq.steps` | int | 1–16  (lin) | 9 | 0 ms | — | patch_shared |
+| `0x0682` | 2 | Seq Gate | `seq.gate_length` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch_shared |
+| `0x0683` | 3 | Seq Slide | `seq.slide` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
+| `0x0684` | 4 | Seq Dir | `seq.direction` | select | 0–3 (index) | 0 (Fwd) | 0 ms | — | patch_shared |
+| `0x0685` | 5 | Seq Dest | `seq.destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch_shared |
+| `0x0686` | 6 | Seq Depth | `seq.depth` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
+| `0x0687` | 7 | Seq Retrig | `seq.retrigger` | toggle | off / on | off | 0 ms | — | patch_shared |
+| `0x0688` | 8 | Seq Rate | `seq.rate` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch_shared |
+| `0x0689` | 9 | Seq Sync | `seq.timing_mode` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch_shared |
+| `0x068A` | 10 | Step Select | `seq.step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch_shared |
+| `0x068B` | 11 | Step Value | `seq.step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch_shared |
+| `0x068C` | 12 | Seq Aux Dest | `seq.aux_destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch_shared |
+| `0x068D` | 13 | Seq Aux Depth | `seq.aux_depth` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
+| `0x068E` | 14 | Aux Step Select | `seq.aux_step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch_shared |
+| `0x068F` | 15 | Aux Step Value | `seq.aux_step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch_shared |
 
 ## [14] Voice Mode  *(NRPN MSB 14)*
 
@@ -225,7 +225,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0703` | 3 | MIDI Ch B | `perf.midi_channel_b` | select | 0–15 (index) | 1 (Ch 2) | 0 ms | — | performance |
 | `0x0704` | 4 | Voice Split | `perf.voice_split` | select | 0–6 (index) | 3 (4+4) | 0 ms | — | performance |
 | `0x0705` | 5 | Split Point | `perf.split_note` | continuous | 0–127 note (lin) | 60 note | 0 ms | — | performance |
-| `0x0706` | 6 | Layer Bal | `perf.balance` | select | 0–2 (index) | 1 (AB) | 0 ms | — | performance |
+| `0x0706` | 6 | Layer Bal | `perf.balance` | continuous | 0–127  (lin) | 64 | 0 ms | — | performance |
 
 ## [15] Global Reverb  *(NRPN MSB 15)*
 

@@ -73,6 +73,21 @@ public:
 
     explicit VoiceAllocator(Voice* voices, size_t count = kMaxVoices);
 
+    // Rebind this allocator to a different SLICE of the shared voice pool.
+    // Performance mode splits the 8 voices between two layers (perf.voice_split),
+    // and that split is a live parameter.
+    //
+    // CALLER CONTRACT: the caller MUST silence the old slice first.  This
+    // function deliberately does not do it, because when BOTH layers are being
+    // repartitioned every voice has to be killed once, before either allocator
+    // is rebound — doing it per-allocator would let layer A silence voices that
+    // layer B had just been handed.  See SynthCore::repartitionVoices().
+    //
+    // Internal note bookkeeping (mono stack, unison note, sustain flags) is
+    // cleared here: it indexes the OLD slice, so carrying it across would
+    // release or re-pitch a voice that now belongs to the other layer.
+    void setPool(Voice* voices, size_t count);
+
     void noteOn(uint8_t note, uint8_t velocity);
     void noteOff(uint8_t note);
 
@@ -117,6 +132,10 @@ public:
     // feed (voice-activity dots). Called from loop(); the audio ISR mutates
     // voice state concurrently, so a bit can be one block stale — telemetry
     // semantics, self-correcting on the next send, never used for logic.
+    // NOTE: bits are relative to THIS allocator's slice.  With Performance
+    // active each layer owns a different slice, so a caller that wants a mask
+    // over the whole 8-voice pool must build it from the pool itself rather
+    // than OR-ing two allocators' masks — see SynthCore::activeVoiceMask().
     uint8_t activeMask() const {
         uint8_t m = 0;
         for (size_t i = 0; i < _count && i < 8; ++i) {
