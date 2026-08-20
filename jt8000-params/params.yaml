@@ -690,6 +690,35 @@ params:
     ui: {section: 3, group: 3}
     # The 15-way pole mix only applies in the two Xpander modes.
     visible_when: {param: filter.mode, in: [Xpander, Xpander M]}
+  - id: 0x018B            # v2: NEW — no v1 counterpart (see note below)
+    key: filter.drive
+    name: "Filt Drive"
+    label: "F.DRIVE"
+    type: continuous
+    scope: patch
+    # RANGE IS THE MULTIPLIER ITSELF, not a norm the engine rescales.
+    # min 1 / max 4 with a linear curve makes eng = 1.0 + 3.0·norm, so the
+    # knob's ZERO position is exactly unity gain.  That is the whole reason
+    # for this range: default 1.0 sits at norm 0.0, FilterSection::setDrive
+    # flags itself inactive, its per-sample multiplies are hoisted out of the
+    # block loop, and every existing patch renders byte-identical.
+    #
+    # The JtFilterTest demo's equivalent control (JtfilterTest.ino CC25) spanned
+    # 0.1..4.0 on an AudioAmplifier ahead of the filter.  We deliberately drop
+    # the sub-unity half: attenuating into the filter is a headroom control, not
+    # a drive control, and it would put unity at an unfindable norm of 0.231.
+    # FilterSection still clamps to [0.1, 4.0] so the seam stays open for bench
+    # work, but no patch parameter can reach below 1.0.
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 5
+    ui: {section: 3, group: 0}
+    # VA engine only: the OBXa ladder carries its own coloration and is
+    # deliberately excluded from the VA saturator that drive feeds.
+    visible_when: {param: filter.engine, is: VA}
+    # No 'cc' binding: CC numbers come only from the curated performance set
+    # (§5.1) and drive is not in it.  Reachable by NRPN like any other param.
 
   # ---- [4] Amp Envelope ----
   - id: 0x0200            # v1: CC::AMP_ATTACK (was CC 25)

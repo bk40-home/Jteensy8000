@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 160 parameters.**
+**Schema version 1 — 161 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -81,6 +81,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0188` | 8 | Res Mod | `filter.obxa_res_mod_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0189` | 9 | Multimode | `filter.obxa_multimode` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x018A` | 10 | Xpander | `filter.obxa_xpander_mode` | select | 0–14 (index) | 0 (LP4) | 0 ms | — | patch |
+| `0x018B` | 11 | Filt Drive | `filter.drive` | continuous | 1–4  (lin) | 1 | 5 ms | — | patch |
 
 ## [4] Amp Envelope  *(NRPN MSB 4)*
 

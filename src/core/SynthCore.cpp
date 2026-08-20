@@ -397,6 +397,22 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::FILTER_OBXA_XPANDER_MODE:
             for (Voice& v : L.voices()) v.filter().setObxaXpanderMode(opt);
             break;
+        // Drive scales the signal INTO the VA topology so it meets that
+        // section's output saturator harder; FilterSection compensates the
+        // level by 1/√drive on the way out.  `eng` is the multiplier itself,
+        // not a norm: the table's range is min 1 / max 4 linear, so this is
+        // literally 1.0 + 3.0×norm and the knob's zero position is unity.
+        //
+        // Passing `eng` rather than `norm` is deliberate and load-bearing —
+        // setDrive() tests for exact equality with 1.0f to decide whether the
+        // drive path is active at all, and a norm would make that test fire on
+        // the wrong end of the knob.
+        //
+        // No effect under the OBXa engine (which is excluded from the
+        // saturator), so this is safe to push unconditionally to every voice.
+        case ID::FILTER_DRIVE:
+            for (Voice& v : L.voices()) v.filter().setDrive(eng);
+            break;
         // FILTER_OBXA_RES_MOD_DEPTH: resonance mod-bus depth (LFO/seq -> res),
         // consumed by the later mod wiring.
         case ID::ENV_AMP_ATTACK:

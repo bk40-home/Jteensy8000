@@ -2,46 +2,107 @@
 // FilterSection.cpp — implementation (port provenance in the header)
 // =============================================================================
 // The shape table, resonance maps and per-type dispatch are ported from v1
-// AudioFilterVABank/FilterShape VERBATIM in their numbers and structure;
-// only the packaging changed (int16 AudioStream -> in-place float block).
+// AudioFilterVABank/FilterShape; only the packaging changed (int16 AudioStream
+// -> in-place float block).  Where a number now differs from v1 it is because
+// the demo-parity pass re-tuned it — every such row carries an inline [3b]/[4c]
+// marker and the reasoning lives in the header's CHANGE LOG.
 // © 2026 Kris Bishop — MIT licensed.
 // =============================================================================
 
 #include "core/FilterSection.h"
 
-#include <cmath>   // powf — control rate only
+#include <cmath>   // powf, exp2f, tanf, sqrtf — control rate only
 
 namespace JT {
 
 // -----------------------------------------------------------------------------
-// v1 kFilterShape — one row per VA type, in option order.  The values encode
-// each topology's audible range and resonance knee (v1 FilterShape.cpp, with
-// its measurement provenance): Moog's k⁴ knee needs the strongest γ lift,
-// Korg35's in-loop tanh compresses audible resonance early, MoogDV shares
-// the Moog knee but its fcMax is pinned to the 1x-oversample ceiling.
+// kShape — one row per VA type, in option order.  The values encode each
+// topology's audible range and resonance knee.
+//
+// Provenance of the ORIGINAL numbers (v1 FilterShape.cpp): Moog's k⁴ knee needs
+// the strongest γ lift, Korg35's in-loop tanh compresses audible resonance
+// early, MoogDV shares the Moog knee but its fcMax is pinned to the
+// 1x-oversample ceiling.
+//
+// Provenance of the CHANGED numbers: the JtFilterTest demo bypassed this table
+// entirely (its own copy is dead code) and swept 30 Hz..19.4 kHz with no γ at
+// all.  Rows carrying a [3b] or [4c] marker below were re-tuned toward that
+// behaviour.  Rows with no marker are v1-verbatim and deliberately so.
 // -----------------------------------------------------------------------------
 const FilterSection::Shape FilterSection::kShape[17] JT_FLASH_DATA = {
+    // ── SVF (Zavalishin §4.1) ────────────────────────────────────────────────
+    // R = 1/(2Q) already curves the perceived peak, so γ 0.70 is a mild lift and
+    // stays as v1 had it (within a hair of the 0.65 the ladders moved to).
     /* SVF LP2    */ {   40.0f, 14000.0f, 0.70f },
-    /* SVF HP2    */ {   30.0f,  6000.0f, 0.70f },
+    // [3b] 6000 → 16000.  A 2-pole HP whose corner stops at 6 kHz can never get
+    // out of the way of the signal; 16 kHz empties the band as the knob opens,
+    // which is what the demo did.  Not taken to 19 kHz: past ~16 kHz an HP
+    // corner is inaudible and the last of the knob travel would do nothing.
+    /* SVF HP2    */ {   30.0f, 16000.0f, 0.70f },
     /* SVF BP2    */ {   40.0f, 14000.0f, 0.70f },
+    // FLAGGED, UNCHANGED: 8 kHz caps this notch well below the demo.  It sat
+    // outside the signed-off row list, so it is left alone pending a decision.
     /* SVF NOTCH  */ {  100.0f,  8000.0f, 0.70f },
+    // Note: 20 kHz exceeds the 0.45·fs (19,845 Hz) clamp in deriveCutoff, so the
+    // top sliver of this row's travel is flat.  Pre-existing; harmless for an
+    // all-pass, whose corner only moves phase.  Left as v1 had it.
     /* SVF AP     */ {   30.0f, 20000.0f, 0.70f },
-    /* Moog LP4   */ {   40.0f, 12000.0f, 0.30f },
-    /* Moog LP2   */ {   40.0f, 12000.0f, 0.30f },
-    /* Moog BP2   */ {   80.0f, 10000.0f, 0.30f },
+
+    // ── Moog ladder (Zavalishin §5.1) ────────────────────────────────────────
+    // [3b] 12000 → 18000 and [4c] γ 0.30 → 0.65 on all three taps.
+    // 18 kHz is the highest musically useful corner below the 0.45·fs clamp;
+    // it is what makes a fully-open ladder read as "open" rather than "veiled".
+    // γ 0.65 puts half travel at k = 2.53 (was 3.21, demo was 1.98) — the knee
+    // is reachable in the middle of the knob again instead of at the bottom.
+    /* Moog LP4   */ {   40.0f, 18000.0f, 0.65f },
+    /* Moog LP2   */ {   40.0f, 18000.0f, 0.65f },
+    // BP2 is the pole-subtraction tap: narrower useful range, so its ceiling is
+    // held two kHz lower than the LP taps and its floor stays at 80 Hz.
+    /* Moog BP2   */ {   80.0f, 16000.0f, 0.65f },
+
+    // ── Diode ladder (Pirkle AN-6) — OUT OF SCOPE, VERBATIM v1 ──────────────
+    // Deliberately untouched by instruction, and independently correct: k spans
+    // 0..17 so the linear map already spreads the audible range well (γ 0.45),
+    // and 12 kHz is ample for a topology whose character lives in its midrange.
     /* Diode LP4  */ {   40.0f, 12000.0f, 0.45f },
-    /* Korg35 LP  */ {   40.0f, 12000.0f, 0.40f },
-    /* Korg35 HP  */ {   30.0f,  6000.0f, 0.40f },
+
+    // ── Korg 35 / TSK (Zavalishin §5.8) ──────────────────────────────────────
+    // [3b] LP 12000 → 18000, HP 6000 → 16000; [4c] γ 0.40 → 0.65.
+    // The in-loop tanh still compresses audible resonance before the nominal
+    // k = 2, which is why γ stays below the SVF rows rather than going to 1.0.
+    // Stability re-checked at the new ceiling: at 18 kHz, G2 = g/(1+g)² ≈ 0.177,
+    // so the solve's (1 − k·G2) ≈ 0.655 at k = 1.95 — comfortably positive.
+    /* Korg35 LP  */ {   40.0f, 18000.0f, 0.65f },
+    /* Korg35 HP  */ {   30.0f, 16000.0f, 0.65f },
+
+    // ── TPT 1-pole (Zavalishin §3.1) ─────────────────────────────────────────
+    // No resonance, so γ is inert (held at 1.0 for table uniformity).
+    // FLAGGED, UNCHANGED: the HP row's 8 kHz ceiling is the same complaint as
+    // SVF NOTCH above and is left alone for the same reason.
     /* TPT1 LP    */ {   50.0f, 18000.0f, 1.00f },
     /* TPT1 HP    */ {   30.0f,  8000.0f, 1.00f },
-    /* MoogDV LP4 */ {   40.0f,  5800.0f, 0.30f },
-    /* MoogDV LP2 */ {   40.0f,  5800.0f, 0.30f },
-    /* MoogDV HP4 */ {   40.0f,  5800.0f, 0.30f },
-    /* MoogDV BP  */ {   40.0f,  5800.0f, 0.30f },
+
+    // ── MoogDV (D'Angelo–Välimäki, ICASSP'13) ────────────────────────────────
+    // [4c] γ 0.30 → 0.65 only.  fcMax is NOT a taste choice here: 5.8 kHz is
+    // MoogDV4::maxCutoffHz at 1x, the point where the paper's A coefficient
+    // peaks before zeroing inside the audio band.  Raising it would darken and
+    // then break the filter, never brighten it, so [3b] does not apply.
+    // FLAGGED: MoogDV was outside the list of topologies actually under
+    // complaint, but it carried the identical γ = 0.30 and therefore the
+    // identical fault.  These four rows revert independently if that feel was
+    // intentional.
+    /* MoogDV LP4 */ {   40.0f,  5800.0f, 0.65f },
+    /* MoogDV LP2 */ {   40.0f,  5800.0f, 0.65f },
+    /* MoogDV HP4 */ {   40.0f,  5800.0f, 0.65f },
+    /* MoogDV BP  */ {   40.0f,  5800.0f, 0.65f },
 };
 
 // -----------------------------------------------------------------------------
 // v1 mapResonance — normalized (post-γ) resonance to the topology's own k/R.
+// UNCHANGED by the demo-parity pass: the demo used exactly these thresholds, so
+// the two trees already agreed here.  The knob-feel difference lived entirely
+// in the γ applied before this call (see [4c] in the table above).
+//
 // Thresholds per Zavalishin: SVF self-osc at R=0, Moog k=4, Diode k=17,
 // Korg35 k=2; MoogDV's physical model SATURATES past k=4 rather than
 // diverging, so it maps to the threshold itself.
@@ -179,6 +240,39 @@ void FilterSection::setLfoCutoff(float x)
     _lfoCutoff = x;
 }
 
+// --- [2d] drive ---------------------------------------------------------------
+// Derives BOTH gains here, at control rate, so the audio plane never touches a
+// sqrtf.  Deliberately does NOT set _dirty: drive affects neither the cutoff
+// coefficient (tanf) nor the resonance map (powf), and flagging it would force
+// a needless recompute of both on every drive step — precisely the "do not
+// calculate if not required" rule this file is built around.
+//
+// The early-out on an unchanged value matters more than it looks: a 14-bit NRPN
+// knob sends a dense stream of identical values while it is being held, and the
+// sqrtf is the only transcendental in the control path that has no dirty gate
+// of its own.
+void FilterSection::setDrive(float d)
+{
+    const float dv = va_clamp(d, kDriveMin, kDriveMax);
+    if (dv == _drive) return;
+    _drive = dv;
+
+    // Exact float equality against 1.0f is intended: the parameter path either
+    // delivers the literal neutral value (a default patch, or the zero position
+    // of the recommended 1.0 + 3.0·n mapping) or it does not.  Anything that is
+    // merely NEAR unity should still take the driven path, because it is the
+    // 1/√drive compensation — not the multiply — that would otherwise go
+    // silently missing.
+    _driveActive = (dv != 1.0f);
+    _driveIn     = dv;
+
+    // 1/√drive: partial compensation.  Full 1/drive compensation was rejected
+    // because it cancels the level change that makes drive audible below the
+    // saturation knee, leaving a control that appears dead until it is nearly
+    // maxed.  See [2d] in the header.
+    _driveOut    = _driveActive ? (1.0f / sqrtf(dv)) : 1.0f;
+}
+
 void FilterSection::setEnvLevel(float env01)
 {
     // EnvGen output is already 0..1; clamp defensively (a stolen-voice retrigger
@@ -204,8 +298,14 @@ void FilterSection::reset()
 
     // Fresh modulation state for the new note: no smeared env level, and a
     // sentinel that forces the coefficient fold on the next process() block.
+    // [6b] depends on this: the sentinel is what guarantees the diode's
+    // setCoeffs() is re-run on the first block after any reset.
     _envLevel   = 0.0f;
     _lastModOct = 1.0e30f;
+
+    // Drive is a control-plane setting, not per-note state, so it deliberately
+    // survives reset() — a topology switch must not silently drop the user's
+    // drive setting back to unity.
 }
 
 // -----------------------------------------------------------------------------
@@ -306,6 +406,18 @@ void FilterSection::deriveCutoff(float modOct)
 // Audio plane — v1's hoisted-dispatch loop: the type switch is taken once
 // per block; each case is a tight loop over one struct so its state lives
 // in registers across the block.
+//
+// [6a] The per-sample tail (saturate → optional drive compensation → clamp →
+// store) is factored into the runBlock lambda below, so it happens in the SAME
+// pass as the filter evaluation.  The previous shape of this function walked
+// the buffer a second time purely to clamp, and the OBXa path walked it up to
+// three times.
+//
+// Why a generic lambda rather than a virtual call or a function pointer: each
+// runBlock(...) call site instantiates its own copy with the topology inlined
+// straight into the loop body, so the compiler still keeps that topology's
+// state in registers across the block — identical codegen to the hand-written
+// loops it replaces, without seventeen near-duplicate copies of the tail.
 // -----------------------------------------------------------------------------
 void FilterSection::process(float* buf, size_t n)
 {
@@ -317,65 +429,164 @@ void FilterSection::process(float* buf, size_t n)
     // OR the modulation total actually moved this block.  A held/idle envelope
     // with static knobs yields a constant modOct → the fold (one exp2f + tanf)
     // is skipped, preserving the "do not calculate if not required" discipline.
-    const float modOct = computeModOctaves();
-    if (baseChanged || modOct != _lastModOct) {
+    const float modOct     = computeModOctaves();
+    const bool  modChanged = (modOct != _lastModOct);
+    if (baseChanged || modChanged) {
         deriveCutoff(modOct);
         _lastModOct = modOct;
     }
 
+    // [6b] The one gate the diode's block-rate coefficients need.  setCoeffs()
+    // is a pure function of g (K is unused inside it), and g moved iff one of
+    // these two did.  A type switch sets _dirty and reset() restores the
+    // _lastModOct sentinel, so the first block on this topology always recomputes
+    // even if nothing else moved.
+    const bool coeffChanged = baseChanged || modChanged;
+
     if (_engine == Engine::OBXa) {
-        // The 2P/4P branch is hoisted out of the loop (mode is block-
-        // constant); the core's per-sample work is fully inlined.
+        // OUT OF SCOPE BY INSTRUCTION — math untouched.  The only change is
+        // [6a]: the ±1 clamp is folded into the same pass as the filter call.
+        // The 2P/4P branch stays hoisted out of the loop (mode is
+        // block-constant) and the core's per-sample work is fully inlined.
+        //
+        // Note the deliberate ABSENCE of the [1c] saturator here: the VA
+        // topologies needed it because they had no coloration of their own,
+        // whereas OBXaCore carries its own and must not be double-shaped.
         if (_obxa.useTwoPole) {
             for (size_t i = 0; i < n; ++i)
-                buf[i] = _obxa.process2Pole(buf[i], _obxaG);
+                buf[i] = va_clamp(_obxa.process2Pole(buf[i], _obxaG), -1.0f, 1.0f);
         } else {
             for (size_t i = 0; i < n; ++i)
-                buf[i] = _obxa.process4Pole(buf[i], _obxaG, _obxaLpc);
+                buf[i] = va_clamp(_obxa.process4Pole(buf[i], _obxaG, _obxaLpc),
+                                  -1.0f, 1.0f);
         }
-        // v1 OBXA_STATE_GUARD: self-heal a poisoned IIR (4 compares).
+        // v1 OBXA_STATE_GUARD: self-heal a poisoned IIR (4 compares).  Still
+        // evaluated AFTER the whole block, exactly as before; zeroing after the
+        // clamp is bit-identical to clamping after the zero.
         if (_obxa.stateGuard())
-            for (size_t i = 0; i < n; ++i) buf[i] = 0.0f;   // one quiet block
-        for (size_t i = 0; i < n; ++i) buf[i] = va_clamp(buf[i], -1.0f, 1.0f);
+            for (size_t i = 0; i < n; ++i) buf[i] = 0.0f;
         return;
     }
 
     const float g = _g;
     const float k = _k;
 
+    // [2d] Hoisted once per block.  When drive is neutral the else-branch below
+    // is byte-for-byte the pre-drive code path.
+    const bool  drv  = _driveActive;
+    const float dIn  = _driveIn;
+    const float dOut = _driveOut;
+
+    // Common per-sample tail for every VA topology.
+    //   in  → [×drive] → topology → va_tanh_fast → [×1/√drive] → clamp → out
+    //
+    // [1c] va_tanh_fast is the Padé [3/3] rational.  It tracks tanh to better
+    // than 0.5% across the audible range and reaches EXACTLY 1.0 at x = 3,
+    // beyond which it climbs again (asymptote x/9).  The clamp immediately
+    // after is therefore load-bearing, not defensive: the pair forms a soft
+    // knee up to x = 3 and a hard ceiling past it.  Never remove one without
+    // the other.
+    auto runBlock = [&](auto evalFilter)
+    {
+        if (drv) {
+            for (size_t i = 0; i < n; ++i) {
+                const float y = va_tanh_fast(evalFilter(buf[i] * dIn));
+                buf[i] = va_clamp(y * dOut, -1.0f, 1.0f);
+            }
+        } else {
+            for (size_t i = 0; i < n; ++i) {
+                const float y = va_tanh_fast(evalFilter(buf[i]));
+                buf[i] = va_clamp(y, -1.0f, 1.0f);
+            }
+        }
+    };
+
+    // Same tail WITHOUT the [1c] saturator — used by the Diode ladder only.
+    //
+    // WHY THE DIODE IS THE EXCEPTION.  The standing instruction is that the
+    // diode must not be touched, and it is already the topology signed off as
+    // sounding right in this firmware — i.e. right WITHOUT a saturator.  It is
+    // also the one filter for which the saturator is not merely inaudible but
+    // actively lossy: its derived passband compensation holds peak near 0.8,
+    // and va_tanh_fast(0.8) = 0.675, a ~16% level cut applied to a topology
+    // whose whole point is that it stays loud into resonance.  Adding it here
+    // would quietly undo DIODE_COMP_DC.
+    //
+    // The demo did saturate this path (its SAT_TANH stage was unconditional),
+    // so this is a deliberate, flagged divergence from demo parity in favour of
+    // the explicit instruction.  To take the demo's behaviour instead, delete
+    // this lambda and point case 8 back at runBlock — one line, no other edits.
+    //
+    // CONSEQUENCE OF THE EXCLUSION: the diode reaches the hard clamp with no
+    // knee, so drive above roughly 1.25 will clip it rather than saturate it.
+    // Acceptable while drive is not yet a patch parameter; revisit when the
+    // params.yaml work in NEXT DELIVERY lands.
+    auto runBlockClean = [&](auto evalFilter)
+    {
+        if (drv) {
+            for (size_t i = 0; i < n; ++i)
+                buf[i] = va_clamp(evalFilter(buf[i] * dIn) * dOut, -1.0f, 1.0f);
+        } else {
+            for (size_t i = 0; i < n; ++i)
+                buf[i] = va_clamp(evalFilter(buf[i]), -1.0f, 1.0f);
+        }
+    };
+
     switch (_vaType) {
-        case 0:  for (size_t i = 0; i < n; ++i) { _svf.process(buf[i], g, k); buf[i] = _svf.lp; } break;
-        case 1:  for (size_t i = 0; i < n; ++i) { _svf.process(buf[i], g, k); buf[i] = _svf.hp; } break;
-        case 2:  for (size_t i = 0; i < n; ++i) { _svf.process(buf[i], g, k); buf[i] = _svf.bp; } break;
-        case 3:  for (size_t i = 0; i < n; ++i) { _svf.process(buf[i], g, k); buf[i] = _svf.notch; } break;
-        case 4:  for (size_t i = 0; i < n; ++i) { _svf.process(buf[i], g, k); buf[i] = _svf.allpass(k); } break;
+        // ── SVF family (Zavalishin §4.1 p.95) ────────────────────────────────
+        case 0:  runBlock([&](float x){ _svf.process(x, g, k); return _svf.lp;    }); break;
+        case 1:  runBlock([&](float x){ _svf.process(x, g, k); return _svf.hp;    }); break;
+        case 2:  runBlock([&](float x){ _svf.process(x, g, k); return _svf.bp;    }); break;
+        case 3:  runBlock([&](float x){ _svf.process(x, g, k); return _svf.notch; }); break;
+        // SVF AP is the second [1c] exclusion, on a different ground from the
+        // Diode.  An all-pass is DEFINED by |H| = 1 at every frequency — it
+        // rearranges phase and changes nothing else, which is exactly why it is
+        // useful as a phaser stage or a phase-alignment element.  A saturator
+        // is a magnitude-shaping device, so putting one here does not colour an
+        // all-pass, it stops it being one.
+        // test_filter_section.cpp:125 asserts precisely this property (saw RMS
+        // 0.577 survives intact) and caught the mistake; that assertion is
+        // correct and is deliberately left unmodified.
+        case 4:  runBlockClean([&](float x){ _svf.process(x, g, k); return _svf.allpass(k); }); break;
 
-        case 5:  for (size_t i = 0; i < n; ++i) { _moog.process(buf[i], g, k); buf[i] = _moog.y4; } break;
-        case 6:  for (size_t i = 0; i < n; ++i) { _moog.process(buf[i], g, k); buf[i] = _moog.y2; } break;
-        case 7:  // BP from pole subtraction (Zavalishin §5.1 p.135)
-                 for (size_t i = 0; i < n; ++i) { _moog.process(buf[i], g, k); buf[i] = _moog.y2 - _moog.y4; } break;
+        // ── Linear Moog ladder (Zavalishin §5.1 p.133) ───────────────────────
+        // Left at nl = VA_NL_NONE / drive = 1 (the struct's defaults), matching
+        // both v1 and the demo: the ladder's in-loop saturation option costs
+        // ~20% CPU for little gain at 8-voice polyphony, and with [1c] the
+        // character now comes from the output stage instead.
+        case 5:  runBlock([&](float x){ _moog.process(x, g, k); return _moog.y4; }); break;
+        case 6:  runBlock([&](float x){ _moog.process(x, g, k); return _moog.y2; }); break;
+        // BP from pole subtraction (Zavalishin §5.1 p.135)
+        case 7:  runBlock([&](float x){ _moog.process(x, g, k); return _moog.y2 - _moog.y4; }); break;
 
-        case 8:  // diode: block-rate coeffs + cheap per-sample tick (v1 path)
-                 _diode.setCoeffs(g, k);
-                 for (size_t i = 0; i < n; ++i) buf[i] = _diode.tick(buf[i], k);
-                 break;
+        // ── Diode ladder — block-rate coefficients + cheap per-sample tick ────
+        // [6b]: setCoeffs is now gated.  Core math untouched (out of scope), and
+        // runBlockClean (not runBlock) keeps the [1c] saturator off this path —
+        // see the lambda's comment for the full reasoning.  At drive == 1 this
+        // case is bit-identical to the pre-change firmware.
+        case 8:
+            if (coeffChanged) _diode.setCoeffs(g, k);
+            runBlockClean([&](float x){ return _diode.tick(x, k); });
+            break;
 
-        // Korg35: VA_NL_SAT ALWAYS — linear feedback diverges (v1 lesson).
-        case 9:  for (size_t i = 0; i < n; ++i) buf[i] = _k35lp.process(buf[i], g, k, VA_NL_SAT); break;
-        case 10: for (size_t i = 0; i < n; ++i) buf[i] = _k35hp.process(buf[i], g, k, VA_NL_SAT); break;
+        // ── Korg35 / TSK: VA_NL_SAT ALWAYS — linear feedback diverges ────────
+        case 9:  runBlock([&](float x){ return _k35lp.process(x, g, k, VA_NL_SAT); }); break;
+        case 10: runBlock([&](float x){ return _k35hp.process(x, g, k, VA_NL_SAT); }); break;
 
-        case 11: for (size_t i = 0; i < n; ++i) buf[i] = _tpt1.processLP(buf[i], g); break;
-        case 12: for (size_t i = 0; i < n; ++i) { float lp; buf[i] = _tpt1.processHP(buf[i], g, lp); } break;
+        // ── TPT 1-pole (Zavalishin §3.1 p.45) ────────────────────────────────
+        // These carry the [1c] saturator too, exactly as the demo did (its
+        // SAT_TANH stage was unconditional).  A 1-pole has no resonant peak to
+        // tame, so the saturator here is pure output coloration — audible only
+        // once the signal approaches full scale, or under drive.
+        case 11: runBlock([&](float x){ return _tpt1.processLP(x, g); }); break;
+        case 12: runBlock([&](float x){ float lp; return _tpt1.processHP(x, g, lp); }); break;
 
-        // MoogDV: qcomp true == the v1 bank default.
-        case 13: for (size_t i = 0; i < n; ++i) { _moogdv.tick(buf[i], k, true); buf[i] = _moogdv.lp4; } break;
-        case 14: for (size_t i = 0; i < n; ++i) { _moogdv.tick(buf[i], k, true); buf[i] = _moogdv.lp2; } break;
-        case 15: for (size_t i = 0; i < n; ++i) { _moogdv.tick(buf[i], k, true); buf[i] = _moogdv.hp4; } break;
-        default: for (size_t i = 0; i < n; ++i) { _moogdv.tick(buf[i], k, true); buf[i] = _moogdv.bp;  } break;
+        // ── MoogDV (D'Angelo–Välimäki) — qcomp true == the v1 bank default ───
+        case 13: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.lp4; }); break;
+        case 14: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.lp2; }); break;
+        case 15: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.hp4; }); break;
+        default: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.bp;  }); break;
     }
-
-    // v1's output clamp: the last line of defence stays (±1 on the wire).
-    for (size_t i = 0; i < n; ++i) buf[i] = va_clamp(buf[i], -1.0f, 1.0f);
 }
 
 } // namespace JT
