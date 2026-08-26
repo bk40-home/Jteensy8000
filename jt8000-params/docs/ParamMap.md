@@ -173,9 +173,9 @@ A curated set of standard CCs mirrors key performance parameters (the
 
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
-| `0x0500` | 0 | Vel Amp | `velocity.amp_sens` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0501` | 1 | Vel Filter | `velocity.filter_sens` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0502` | 2 | Vel Env | `velocity.env_sens` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
+| `0x0500` | 0 | Vel Amp | `velocity.amp_sens` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch |
+| `0x0501` | 1 | Vel Filter | `velocity.filter_sens` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch |
+| `0x0502` | 2 | Vel Env | `velocity.env_sens` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch |
 
 ## [11] Performance  *(NRPN MSB 11)*
 

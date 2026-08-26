@@ -37,6 +37,7 @@
 #include "core/Voice.h"
 #include "core/VoiceAllocator.h"
 #include "core/dsp/Lfo.h"
+#include "core/dsp/SlewedValue.h"
 #include "core/dsp/TempoClock.h"
 #include "core/dsp/PlateReverb.h"
 #include "core/dsp/FxChain.h"
@@ -211,6 +212,49 @@ public:
         return static_cast<uint16_t>((mask << 5) | (step << 1) | run);
     }
 
+    // ── Generic parameter smoothing ────────────────────────────────────────
+    // Every param whose table row declares smooth_ms > 0 glides to its new
+    // value instead of stepping to it.  All 76 of them, from one mechanism.
+    //
+    // WHY IT LIVES HERE, at the drain, rather than in ParameterStore or in the
+    // individual DSP objects:
+    //   * Not the store: the store is a lock-free dual-plane structure with a
+    //     published snapshot; adding mutable per-block state to it would put
+    //     control-plane writes and audio-plane ticks on the same cells.
+    //   * Not the DSP objects: renderBlock skips inactive voices, so a
+    //     per-voice smoother goes stale on an idle voice and a note triggered
+    //     mid-sweep starts from a stale value while its siblings do not.  It
+    //     would also cost 8x the instances for an identical result.
+    //   * Here, applyParam is already the single fan-out point for every
+    //     parameter, so one mechanism covers all of them and no DSP object
+    //     needs to know smoothing exists.
+    //
+    // WHY NOT A SlewedValue PER SLOT: 272 of them would be ~8.7 kB and would
+    // tick 272 times a block to move at most a handful.  There are only TWO
+    // distinct time constants in the whole table (5 ms and 20 ms), so the
+    // per-sample coefficient is shared: the bank keeps one float of state per
+    // slot plus a short list of which slots are actually moving.  Cost when
+    // nothing is moving is one integer compare for the whole block.
+    //
+    // The decay factors are derived FROM SlewedValue at construction rather
+    // than rewritten here, so the maths stays single-sourced and the ported
+    // class remains the authority on what smooth_ms means.
+    struct SlewBank {
+        static constexpr size_t kMaxActive = 24;   // simultaneous gliding params
+        float    cur[ParameterStore::kSlots];      // last value handed to applyParam
+        bool     seen[ParameterStore::kSlots];     // false until first write
+        uint16_t active[kMaxActive];
+        uint8_t  nActive = 0;
+        float    decayFast = 0.0f;                 // smooth_ms 5, per BLOCK
+        float    decaySlow = 0.0f;                 // smooth_ms 20, per BLOCK
+    };
+    SlewBank _slew;
+    void initSlewBank();
+    // Route one drained parameter: glide it, or apply it straight through.
+    void routeParam(size_t slot, float target);
+    // Advance every gliding parameter by one block and re-apply it.
+    void tickSlewBank(const float* snap);
+
     // Clock introspection for bring-up/debug (hardware-visible, not test-gated).
     // debugClockBpm() is the tempo the shared clock is currently running at;
     // debugClockSourceExternal() reports whether the External gate in
@@ -226,6 +270,14 @@ public:
     // Test-only: the effective rate of LFO 0 (LFO1) or 1 (LFO2) — the Hz that
     // applyLfoRate() resolved (free knob or clock division).  Lets test_bpmclock
     // assert sync resolution exactly (PHASE3_BPMCLOCK_SPEC §7).  Firmware-free.
+    // Bring-up/test: layer A's current SMOOTHED cutoff norm, i.e. what the
+    // voices were actually given this block, not the knob target.
+    // Bring-up/test: the SMOOTHED value a parameter is currently sitting at,
+    // i.e. what the engine was last handed - not the knob target in the store.
+    float debugSlewCur(uint16_t id, uint8_t layer = 0) const
+    { return _slew.cur[Params::slotFor(ParameterStore::indexOf(id), layer)]; }
+    uint8_t debugSlewActiveCount() const { return _slew.nActive; }
+
     float debugLfoRateHz(int which) const
     { return (which == 0 ? _layers[0].lfo1 : _layers[0].lfo2).osc.debugRateHz(); }
 #endif

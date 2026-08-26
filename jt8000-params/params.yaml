@@ -716,6 +716,10 @@ params:
     ui: {section: 3, group: 0}
     # VA engine only: the OBXa ladder carries its own coloration and is
     # deliberately excluded from the VA saturator that drive feeds.
+    # Also inert on SVF AP and Diode LP4, which are excluded from that
+    # saturator for their own reasons (see FilterSection.h).
+    # Level RISES with drive by design: an earlier 1/sqrt(drive) make-up was
+    # measured to turn this into a fader on self-oscillation and nothing else.
     visible_when: {param: filter.engine, is: VA}
     # No 'cc' binding: CC numbers come only from the curated performance set
     # (§5.1) and drive is not in it.  Reachable by NRPN like any other param.
@@ -1391,7 +1395,9 @@ params:
     range: {min: 0, max: 1, curve: lin}
     unit: "norm"
     default: 0.0        # Pass-8 hand-edit re-synced: v1 boot state is 0.0 = linear velocity (VoiceBlock.h:368)
-    smooth_ms: 5
+    smooth_ms: 0   # latched at note-on (Voice.cpp:84), so a slew can never
+    # run: the value is read once and held as per-note DC.  A non-zero
+    # smooth_ms here claimed a smoothing that was physically impossible.
     ui: {section: 10, group: 0}
   - id: 0x0501            # v1: CC::VELOCITY_FILTER_SENS (was CC 11)
     key: velocity.filter_sens
@@ -1402,7 +1408,9 @@ params:
     range: {min: 0, max: 1, curve: lin}
     unit: "norm"
     default: 0
-    smooth_ms: 5
+    smooth_ms: 0   # latched at note-on (Voice.cpp:97), so a slew can never
+    # run: the value is read once and held as per-note DC.  A non-zero
+    # smooth_ms here claimed a smoothing that was physically impossible.
     ui: {section: 10, group: 0}
   - id: 0x0502            # v1: CC::VELOCITY_ENV_SENS (was CC 12)
     key: velocity.env_sens
@@ -1413,7 +1421,9 @@ params:
     range: {min: 0, max: 1, curve: lin}
     unit: "norm"
     default: 0
-    smooth_ms: 5
+    smooth_ms: 0   # latched at note-on (Voice.cpp:101), so a slew can never
+    # run: the value is read once and held as per-note DC.  A non-zero
+    # smooth_ms here claimed a smoothing that was physically impossible.
     ui: {section: 10, group: 0}
 
   # ---- [11] Performance ----

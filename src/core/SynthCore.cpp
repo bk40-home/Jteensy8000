@@ -36,6 +36,10 @@ SynthCore::SynthCore(ParameterStore& store, float* combPool,
     // reverb is inert (processBlock bails) — legal for tests that ignore it.
     _reverb.begin(reverbPool);
 
+    // Parameter smoothing bank: clears state and derives the two per-block
+    // decay factors from SlewedValue.  Must run before any drain.
+    initSlewBank();
+
     // Attach the caller-owned FX-chain delay pool (Phase 6).  Same ownership
     // model as reverb: PSRAM on Teensy, heap on host, null => inert.  The chain
     // stays disengaged (all stage-selectors OFF) until a param wires it up.
@@ -344,6 +348,110 @@ void SynthCore::drainNoteEvents()
 // see normalized values.
 // -----------------------------------------------------------------------------
 
+// =============================================================================
+// Generic parameter smoothing
+// =============================================================================
+// Consumes ParamTable's smooth_ms, which until this existed was declared on 76
+// parameters and read by nobody.  See the SlewBank comment in the header for
+// the placement argument.
+// =============================================================================
+
+void SynthCore::initSlewBank()
+{
+    for (size_t i = 0; i < ParameterStore::kSlots; ++i) {
+        _slew.cur[i]  = 0.0f;
+        _slew.seen[i] = false;
+    }
+    _slew.nActive = 0;
+
+    // Derive the two per-block decay factors FROM SlewedValue rather than
+    // restating its maths here, so the ported class stays the single authority
+    // on what a smooth_ms value means.  Only two distinct values exist in the
+    // whole table (5 and 20), which is what makes the shared-coefficient
+    // approach possible instead of one smoother object per slot.
+    SlewedValue probe;
+    probe.setSampleRate(kSampleRate);
+    probe.setBlockSize((int)kBlockSize);
+    for (int pass = 0; pass < 2; ++pass) {
+        probe.setTimeMs(pass == 0 ? 5.0f : 20.0f);
+        probe.reset(0.0f);
+        probe.setTarget(1.0f);
+        // One block from 0 toward 1 leaves exactly the decay factor behind.
+        const float remaining = 1.0f - probe.tickBlock();
+        (pass == 0 ? _slew.decayFast : _slew.decaySlow) = remaining;
+    }
+}
+
+void SynthCore::routeParam(size_t slot, float target)
+{
+    const size_t  index = Params::paramOfSlot(slot);
+    const uint8_t layer = Params::layerOfSlot(slot);
+    const uint8_t ms    = Params::kParams[index].smoothMs;
+
+    // Straight through when the table says step (smooth_ms 0), and ALSO on the
+    // first write to a slot.  That first-write snap is deliberate: a patch load
+    // must land on its values, not sweep into them from whatever the previous
+    // patch left behind - which would be audible as the whole synth swooping on
+    // every program change.
+    if (ms == 0 || !_slew.seen[slot]) {
+        _slew.cur[slot]  = target;
+        _slew.seen[slot] = true;
+        applyParam(index, target, layer);
+        return;
+    }
+
+    if (target == _slew.cur[slot]) return;   // nowhere to go; stay quiet
+
+    // Enrol in the active list if it is not already there.  Linear scan over at
+    // most kMaxActive entries, only on an actual parameter change, never per
+    // block and never per sample.
+    for (uint8_t i = 0; i < _slew.nActive; ++i)
+        if (_slew.active[i] == (uint16_t)slot) return;   // already gliding
+
+    if (_slew.nActive < SlewBank::kMaxActive) {
+        _slew.active[_slew.nActive++] = (uint16_t)slot;
+        return;
+    }
+
+    // List full: more than kMaxActive parameters moving at once, which in
+    // practice means automation rather than hands.  Apply this one immediately
+    // rather than dropping it - a stepped parameter is a far smaller fault than
+    // a parameter that silently never reaches its target.
+    _slew.cur[slot] = target;
+    applyParam(index, target, layer);
+}
+
+void SynthCore::tickSlewBank(const float* snap)
+{
+    if (_slew.nActive == 0) return;   // the common case: one compare per block
+
+    uint8_t w = 0;                    // compacting write cursor
+    for (uint8_t r = 0; r < _slew.nActive; ++r) {
+        const uint16_t slot   = _slew.active[r];
+        const size_t   index  = Params::paramOfSlot(slot);
+        const uint8_t  layer  = Params::layerOfSlot(slot);
+        const float    target = snap[slot];   // the store IS the target store
+
+        const float decay = (Params::kParams[index].smoothMs >= 20)
+                              ? _slew.decaySlow : _slew.decayFast;
+        float cur = target + (_slew.cur[slot] - target) * decay;
+
+        // Settle test mirrors SlewedValue::kSlewEps (1e-5, about -100 dB on a
+        // 0..1 range).  Snapping the last sliver matters: without it the value
+        // creeps forever, every block, and the parameter never leaves the
+        // active list.
+        if (fabsf(cur - target) < 1.0e-5f) {
+            cur = target;                     // arrive exactly, then drop out
+        } else {
+            _slew.active[w++] = slot;         // still moving: keep it
+        }
+
+        _slew.cur[slot] = cur;
+        applyParam(index, cur, layer);
+    }
+    _slew.nActive = w;
+}
+
 void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
 {
     using namespace Params;
@@ -377,6 +485,11 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::FILTER_CUTOFF:
             // Both views of the knob travel: VA shapes the norm per type,
             // OBXa consumes the Hz (see FilterSection::setCutoff).
+            //
+            // Not smoothed here: smoothing is generic now and happens upstream
+            // in the drain (see routeParam / tickSlewBank), so by the time this
+            // runs `norm` is ALREADY the glided value.  Every case in this
+            // switch gets that for free and none of them has to know about it.
             for (Voice& v : L.voices()) v.filter().setCutoff(norm, eng);
             break;
         case ID::FILTER_RESONANCE:
@@ -398,18 +511,23 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             for (Voice& v : L.voices()) v.filter().setObxaXpanderMode(opt);
             break;
         // Drive scales the signal INTO the VA topology so it meets that
-        // section's output saturator harder; FilterSection compensates the
-        // level by 1/√drive on the way out.  `eng` is the multiplier itself,
-        // not a norm: the table's range is min 1 / max 4 linear, so this is
-        // literally 1.0 + 3.0×norm and the knob's zero position is unity.
+        // section's output saturator harder.  There is deliberately NO output
+        // compensation — the demo bank had none (AudioFilterVABank.cpp:334 is
+        // a bare `x *= _drive`), and an earlier 1/√drive make-up here was
+        // measured to turn drive into a fader on self-oscillation and nothing
+        // else.  Level is allowed to rise with drive, as the demo's did.
+        //
+        // `eng` is the multiplier itself, not a norm: the table's range is
+        // min 1 / max 4 linear, so this is literally 1.0 + 3.0×norm and the
+        // knob's zero position is unity.
         //
         // Passing `eng` rather than `norm` is deliberate and load-bearing —
         // setDrive() tests for exact equality with 1.0f to decide whether the
         // drive path is active at all, and a norm would make that test fire on
         // the wrong end of the knob.
         //
-        // No effect under the OBXa engine (which is excluded from the
-        // saturator), so this is safe to push unconditionally to every voice.
+        // No effect under the OBXa engine: the demo bank was VA-only, so OBXa
+        // has no drive path here.  Safe to push unconditionally to every voice.
         case ID::FILTER_DRIVE:
             for (Voice& v : L.voices()) v.filter().setDrive(eng);
             break;
@@ -1006,7 +1124,12 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     const float* snap = _store.acquireSnapshot();
     size_t slot;
     while ((slot = _store.takeNextDirty()) != ParameterStore::kInvalidIndex)
-        applyParam(Params::paramOfSlot(slot), snap[slot], Params::layerOfSlot(slot));
+        routeParam(slot, snap[slot]);
+
+    // Advance anything still gliding.  This is what turns a stepped knob into a
+    // continuous one; see the SlewBank comment in the header for why it lives
+    // at the drain rather than in the store or the DSP objects.
+    tickSlewBank(snap);
 
     // 3. Clear the bus, then add every ACTIVE voice.  Idle voices cost one
     //    branch — the v1 all-voices-always-run drain is designed out.
@@ -1096,6 +1219,18 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         // required" — and it is what makes Single mode cost what it always did.
         if (lz.voiceCount() == 0) continue;
 
+        // filter.cutoff smoothing.  Advanced BEFORE the voice work so this block
+        // renders with the new value, and fanned out to EVERY voice of the
+        // layer - including idle ones.  Pushing to idle voices is the point:
+        // renderBlock skips them, so if they were not kept in step, a note
+        // triggered mid-sweep would start on a stale cutoff while its siblings
+        // sat on the current one.
+        //
+        // tickBlock() is the closed-form N-sample advance - one multiply, exact,
+        // not an approximation of the per-sample recurrence.  At smooth_ms = 5
+        // it covers ~44% of the remaining distance per block, spreading a detent
+        // over roughly three blocks (~9 ms) instead of landing whole.  When
+        // settled it is a single bool test, so a static filter costs nothing.
         // Phase 3 LFOs (spec §4/§5): tick each ENGAGED LFO (any destination
         // depth > 0) once, then distribute the net per-destination values to
         // every active voice of THIS layer.  A disengaged LFO is not ticked at

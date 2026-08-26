@@ -29,6 +29,7 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/Crc32.cpp \
         src/core/dsp/EnvGen.cpp \
         src/core/dsp/Lfo.cpp \
+        src/core/dsp/SlewedValue.cpp \
         src/core/dsp/TempoClock.cpp \
         src/core/dsp/FeedbackComb.cpp \
         src/core/dsp/OBXaCore.cpp \
@@ -67,6 +68,8 @@ SRCS := $(CORE) \
         test/test_osc_section.cpp \
         test/test_feedback.cpp \
         test/test_filter_section.cpp \
+        test/test_moogdv.cpp \
+        test/test_param_slew.cpp \
         test/test_filter_env.cpp \
         test/test_pitch_env.cpp \
         test/test_velocity.cpp \

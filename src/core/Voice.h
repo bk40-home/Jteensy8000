@@ -70,6 +70,9 @@ public:
     // DSP state so per-voice modulation (Phase 3) needs no rework.
     OscSection&    oscSection() { return _oscs; }
     FilterSection& filter()     { return _filter; }
+    // const overload: lets SynthCore's const bring-up probes read filter state
+    // without handing out a mutable reference to it.
+    const FilterSection& filter() const { return _filter; }
     EnvGen&        ampEnv()     { return _ampEnv; }
     EnvGen&        filterEnv()  { return _filterEnv; }
     EnvGen&        pitchEnv()   { return _pitchEnv; }

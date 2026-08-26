@@ -499,6 +499,40 @@ void loop()
         Serial.print(" arpRate=");
         Serial.print(gSynth.core().debugArpRateMode());
 #endif
+
+        // --- filter drive triage (walk the chain left to right) -------------
+        // Turn JT_DEBUG_DRIVE on and turn the drive knob. Read the line in
+        // this order; the FIRST thing that does not move is the fault:
+        //   nrpnApplied rising / nrpnUnknown flat (above) -> the NRPN arrived
+        //     and the firmware recognised 0x018B.  If nrpnUnknown is the one
+        //     rising instead, the flashed ParamTable.h predates filter.drive:
+        //     reflash the Teensy, not just the ESP32.
+        //   drvStore -> the value the ParameterStore holds, in engineering
+        //     units (1.000 .. 4.000).  Flat while the panel moves means the
+        //     ESP32 is displaying a value it never actually transmitted.
+        //   drv -> what FilterSection ACTUALLY holds. Store moving but this
+        //     flat means applyParam never reached the voices.
+        //   drvOn -> 0 while drv > 1.0 would mean setDrive's neutral test is
+        //     wrong; it should be impossible and is printed to prove it.
+        //   va -> 0 means the OBXa engine is selected and drive is INERT BY
+        //     DESIGN. This is the expected answer when everything else looks
+        //     right and nothing is audible.
+        //   vaType -> 8 (Diode) and 4 (SVF AP) are excluded from the
+        //     saturator, so drive there changes level and not timbre. 5
+        //     (Moog LP4) is the loudest test case at roughly +9 dB.
+        // Any probe reading -1 means layer A currently owns no voices.
+#ifdef JT_DEBUG_DRIVE
+        Serial.print(" | drvStore=");
+        Serial.print(gStore.getEngineering(JT::Params::ID::FILTER_DRIVE), 3);
+        Serial.print(" drv=");
+        Serial.print(gSynth.core().debugFilterDrive(), 3);
+        Serial.print(" drvOn=");
+        Serial.print(gSynth.core().debugFilterDriveActive() ? 1 : 0);
+        Serial.print(" va=");
+        Serial.print(gSynth.core().debugFilterEngineIsVa() ? 1 : 0);
+        Serial.print(" vaType=");
+        Serial.print(gSynth.core().debugFilterVaType());
+#endif
         Serial.println();
         AudioProcessorUsageMaxReset();
         gSynth.perfReset();

@@ -266,6 +266,16 @@ public:
     static constexpr float kDriveMin = 0.1f;
     static constexpr float kDriveMax = 4.0f;
 
+    // --- bring-up introspection (hardware-visible, NOT test-gated) ---
+    // Deliberately outside JT_TESTING, following debugClockBpm()'s precedent:
+    // these answer "did the knob actually reach the DSP?" on a real board over
+    // serial, which is the one question a host test cannot settle.  All four
+    // are trivial accessors and cost nothing when nothing calls them.
+    float debugDrive()       const { return _drive; }        // clamped user value
+    bool  debugDriveActive() const { return _driveActive; }  // false ⇒ neutral path
+    int   debugVaType()      const { return _vaType; }
+    bool  debugEngineIsVa()  const { return _engine == Engine::VA; }
+
 #ifdef JT_TESTING
     // Test hooks: the effective (post-modulation, post-clamp) cutoff Hz and the
     // total modulation in octaves, both as of the last process() call.  Let the

@@ -935,9 +935,9 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::FX_DRY_MIX, Str::s271, Str::s272, Str::s273, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 3, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::FX_JPFX_MIX, Str::s274, Str::s275, Str::s276, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 3, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [10] Velocity ----
-    { ID::VELOCITY_AMP_SENS, Str::s277, Str::s278, Str::s208, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::VELOCITY_FILTER_SENS, Str::s279, Str::s280, Str::s202, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::VELOCITY_ENV_SENS, Str::s281, Str::s282, Str::s106, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VELOCITY_AMP_SENS, Str::s277, Str::s278, Str::s208, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VELOCITY_FILTER_SENS, Str::s279, Str::s280, Str::s202, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VELOCITY_ENV_SENS, Str::s281, Str::s282, Str::s106, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [11] Performance ----
     { ID::GLIDE_ENABLE, Str::s283, Str::s284, Str::s285, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, 65, 0, nullptr, 11, 0, Control::Switch, kNoVisDep, nullptr, 0 },
     { ID::GLIDE_TIME, Str::s286, Str::s287, Str::s288, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 5, 0, nullptr, 11, 0, Control::Pot, kNoVisDep, nullptr, 0 },
