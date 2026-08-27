@@ -219,9 +219,14 @@ void FxChain::setDelayMix(float mix)
 }
 
 // ---- Stage D aux-lane mod setters -----------------------------------------
-void FxChain::setDriveMod(float bipolar)
+void FxChain::setToneTiltMod(float bipolar)
 {
     _tiltTarget = clampf(bipolar, -1.0f, 1.0f);
+}
+
+void FxChain::setDriveAmountMod(float bipolar)
+{
+    _driveModTarget = clampf(bipolar, -1.0f, 1.0f);
 }
 
 void FxChain::setDelayMixMod(float offset)
@@ -476,17 +481,21 @@ void FxChain::processBlock(float* left, float* right, size_t n)
     // colour.  Skipped (and tone left exactly as computeTone left it) when the
     // tilt is flat and already settled, so an unmodulated chain is byte-identical.
     {
-        constexpr float kTiltMaxDb = 6.0f;                     // ±6 dB at full depth
+        constexpr float kTiltMaxDb  = 6.0f;                    // +/-6 dB at full depth
         constexpr float kTiltSmooth = 0.25f;                   // ~4-block one-pole
+        // dB -> linear without powf: 10^(d/20) == 2^(d * log2(10)/20).
+        // Two powf per block became two exp2f, which the M7 does far cheaper.
+        constexpr float kDbToLog2 = 0.16609640f;               // log2(10) / 20
+
         if (_tiltCur != _tiltTarget)
             _tiltCur += (_tiltTarget - _tiltCur) * kTiltSmooth;
 
         if (fabsf(_tiltCur) > 0.0001f) {
-            // Effective = base + tilt, rebuilt from base each block (never
-            // accumulates).  +db treble / −db bass see-saw.
+            // Effective = base + tilt, rebuilt from base each block so it can
+            // never accumulate.  Treble up / bass down see-saw.
             const float db = _tiltCur * kTiltMaxDb;
-            _toneTrebDelta = _toneTrebBase + (powf(10.0f,  db / 20.0f) - 1.0f);
-            _toneBassDelta = _toneBassBase + (powf(10.0f, -db / 20.0f) - 1.0f);
+            _toneTrebDelta = _toneTrebBase + (exp2f( db * kDbToLog2) - 1.0f);
+            _toneBassDelta = _toneBassBase + (exp2f(-db * kDbToLog2) - 1.0f);
             _toneActive = true;                                // force the stage on
         } else if (_toneBassDelta != _toneBassBase || _toneTrebDelta != _toneTrebBase) {
             // Tilt just settled to flat — restore the pure base deltas and
@@ -496,6 +505,21 @@ void FxChain::processBlock(float* left, float* right, size_t n)
             _toneActive = (fabsf(_toneBassBase) > 0.0001f ||
                            fabsf(_toneTrebBase) > 0.0001f);
         }
+    }
+
+    // Aux 'Drive' -> saturator INPUT gain.  Smoothed on the same one-pole as
+    // the tilt, then folded into _satInputGain ONCE here so applySaturation
+    // keeps its single per-sample multiply.  At rest this is exactly
+    // _satInputGain, so an unmodulated chain is bit-identical.
+    {
+        constexpr float kDriveSmooth   = 0.25f;   // ~4-block one-pole
+        constexpr float kDriveModOct   = 1.5f;    // +/-1.5 octaves ~ +/-9 dB
+        if (_driveModCur != _driveModTarget)
+            _driveModCur += (_driveModTarget - _driveModCur) * kDriveSmooth;
+
+        _satInputEff = (fabsf(_driveModCur) > 0.0001f)
+                     ? _satInputGain * exp2f(_driveModCur * kDriveModOct)
+                     : _satInputGain;
     }
 
     prepareDelay();

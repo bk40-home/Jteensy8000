@@ -70,10 +70,12 @@ option_sets:
   seq_dir: ["Fwd", "Rev", "Bounce", "Random"]
   seq_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
   # Aux lane runs parallel to the gate lane on the SAME clock (shared position/
-  # rate/direction/gate).  Its destinations are the CamelSpace set.  Stage B
-  # wires None + Filter only; Pan/DelaySend/Drive are INERT placeholders (the
-  # option exists, selecting it routes nowhere) until Stages C/D land them.
-  seq_aux_dest: ["None", "Filter", "Pan", "DelaySend", "Drive"]
+  # rate/direction/gate/slide).  All six destinations are wired.
+  # Index 4 was historically labelled "Drive" but the engine has always
+  # implemented it as a bass<->treble TILT on the Tone EQ.  Renamed to the
+  # truth (the stored INDEX is unchanged, so patches are unaffected); a real
+  # drive-amount destination is APPENDED at index 5.
+  seq_aux_dest: ["None", "Filter", "Pan", "DelaySend", "Tone", "Drive"]
   perf_mode: ["Single", "Layer", "Split"]
   edit_target: ["A", "B", "Both"]
   clock_source: ["Internal", "Ext MIDI"]
@@ -1712,6 +1714,436 @@ params:
     smooth_ms: 0
     ui: {section: 13, group: 4}
 
+  # ---- [13] Step Sequencer — EXPLICIT STEP ARRAYS -------------------------
+  # WHY THESE EXIST.  The original design addressed steps through a CURSOR
+  # (seq.step_select then seq.step_value), which meant the store held ONE
+  # scalar for a sixteen-value pattern.  Consequences: a patch saved the last
+  # edited step instead of the pattern, a full resync sent one value, and two
+  # editors could never agree on what the pattern was.  These 32 parameters
+  # give every step its own permanent ParamID, so the pattern is ordinary
+  # parameter state — saved, broadcast and resynced like any knob.
+  #
+  # The cursor parameters (seq.step_select / seq.step_value and their aux
+  # twins) are RETAINED because ParamIDs are permanent, but the engine now
+  # IGNORES them.  See DEFERRALS_LEDGER.md.
+  #
+  # Defaults are 0.0 (no modulation), matching the engine's own zero-filled
+  # step array.  seq.depth defaults to 0 as well, so the pattern is silent at
+  # the default patch whatever these hold.
+  - id: 0x0690
+    key: seq.step_1
+    name: "Seq Step 1"
+    label: "S1"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0691
+    key: seq.step_2
+    name: "Seq Step 2"
+    label: "S2"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0692
+    key: seq.step_3
+    name: "Seq Step 3"
+    label: "S3"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0693
+    key: seq.step_4
+    name: "Seq Step 4"
+    label: "S4"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0694
+    key: seq.step_5
+    name: "Seq Step 5"
+    label: "S5"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0695
+    key: seq.step_6
+    name: "Seq Step 6"
+    label: "S6"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0696
+    key: seq.step_7
+    name: "Seq Step 7"
+    label: "S7"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0697
+    key: seq.step_8
+    name: "Seq Step 8"
+    label: "S8"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0698
+    key: seq.step_9
+    name: "Seq Step 9"
+    label: "S9"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x0699
+    key: seq.step_10
+    name: "Seq Step 10"
+    label: "S10"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x069A
+    key: seq.step_11
+    name: "Seq Step 11"
+    label: "S11"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x069B
+    key: seq.step_12
+    name: "Seq Step 12"
+    label: "S12"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x069C
+    key: seq.step_13
+    name: "Seq Step 13"
+    label: "S13"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x069D
+    key: seq.step_14
+    name: "Seq Step 14"
+    label: "S14"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x069E
+    key: seq.step_15
+    name: "Seq Step 15"
+    label: "S15"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+  - id: 0x069F
+    key: seq.step_16
+    name: "Seq Step 16"
+    label: "S16"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 3}
+
+  # Aux-lane step array — same clock and position as the gate lane, its own
+  # sixteen values.
+  - id: 0x06A0
+    key: seq.aux_step_1
+    name: "Seq Aux Step 1"
+    label: "A1"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A1
+    key: seq.aux_step_2
+    name: "Seq Aux Step 2"
+    label: "A2"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A2
+    key: seq.aux_step_3
+    name: "Seq Aux Step 3"
+    label: "A3"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A3
+    key: seq.aux_step_4
+    name: "Seq Aux Step 4"
+    label: "A4"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A4
+    key: seq.aux_step_5
+    name: "Seq Aux Step 5"
+    label: "A5"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A5
+    key: seq.aux_step_6
+    name: "Seq Aux Step 6"
+    label: "A6"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A6
+    key: seq.aux_step_7
+    name: "Seq Aux Step 7"
+    label: "A7"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A7
+    key: seq.aux_step_8
+    name: "Seq Aux Step 8"
+    label: "A8"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A8
+    key: seq.aux_step_9
+    name: "Seq Aux Step 9"
+    label: "A9"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06A9
+    key: seq.aux_step_10
+    name: "Seq Aux Step 10"
+    label: "A10"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06AA
+    key: seq.aux_step_11
+    name: "Seq Aux Step 11"
+    label: "A11"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06AB
+    key: seq.aux_step_12
+    name: "Seq Aux Step 12"
+    label: "A12"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06AC
+    key: seq.aux_step_13
+    name: "Seq Aux Step 13"
+    label: "A13"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06AD
+    key: seq.aux_step_14
+    name: "Seq Aux Step 14"
+    label: "A14"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06AE
+    key: seq.aux_step_15
+    name: "Seq Aux Step 15"
+    label: "A15"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+  - id: 0x06AF
+    key: seq.aux_step_16
+    name: "Seq Aux Step 16"
+    label: "A16"
+    type: continuous
+    widget: grid
+    scope: patch_shared
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 0
+    ui: {section: 13, group: 4}
+
+  # ---- [13] Step Sequencer — BIPOLAR STEP INTERPRETATION ------------------
+  # OFF (default): a step reads 0..1 and the depth sign chooses the direction,
+  # so the pattern can only depart from base in ONE direction.  ON: a step
+  # reads (2v - 1), so 0.5 is the centre and a single pattern can go both
+  # above and below base — the only way an aux Pan lane can sweep L<->R
+  # rather than centre->one side.  Default OFF keeps existing patches sounding
+  # exactly as they did.
+  - id: 0x06B0
+    key: seq.step_bipolar
+    name: "Seq Step Bipolar"
+    label: "BIPOL"
+    type: toggle
+    scope: patch_shared
+    default: false
+    smooth_ms: 0
+    ui: {section: 13, group: 1}
+  - id: 0x06B1
+    key: seq.aux_bipolar
+    name: "Seq Aux Bipolar"
+    label: "AUX BIP"
+    type: toggle
+    scope: patch_shared
+    default: false
+    smooth_ms: 0
+    ui: {section: 13, group: 1}
+
   # ---- [14] Voice Mode ----
   - id: 0x0700            # v1: CC::PERF_MODE (was CC 140)
     key: perf.mode
@@ -2075,6 +2507,536 @@ params:
     default: 1
     smooth_ms: 0
     ui: {section: 17, group: 2}
+  # ---- [17] Arpeggiator — EXPLICIT STEP ARRAYS ----------------------------
+  # Same reasoning as the sequencer's explicit arrays above: three lanes of
+  # sixteen steps each get permanent ParamIDs so the pattern is saved,
+  # broadcast and resynced.  The cursor parameters (arp.step_select and the
+  # three arp.step_* writes) are retained for ID permanence but the engine
+  # now IGNORES them.
+  #
+  # Lane meanings, stated once here because they were previously only
+  # discoverable from the engine source:
+  #   on      — REST vs TRIGGER.  Off is a rest: no note sounds, but the
+  #             melodic pointer still advances, so rhythm and note order stay
+  #             independent.
+  #   accent  — VELOCITY MULTIPLIER (0..1) applied to the held key's own
+  #             velocity.  It attenuates; it never boosts above the key.
+  #   ratchet — number of re-triggers packed into the step's GATE window.
+  - id: 0x088D
+    key: arp.step_on_1
+    name: "Arp Step On 1"
+    label: "O1"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x088E
+    key: arp.step_on_2
+    name: "Arp Step On 2"
+    label: "O2"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x088F
+    key: arp.step_on_3
+    name: "Arp Step On 3"
+    label: "O3"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0890
+    key: arp.step_on_4
+    name: "Arp Step On 4"
+    label: "O4"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0891
+    key: arp.step_on_5
+    name: "Arp Step On 5"
+    label: "O5"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0892
+    key: arp.step_on_6
+    name: "Arp Step On 6"
+    label: "O6"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0893
+    key: arp.step_on_7
+    name: "Arp Step On 7"
+    label: "O7"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0894
+    key: arp.step_on_8
+    name: "Arp Step On 8"
+    label: "O8"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0895
+    key: arp.step_on_9
+    name: "Arp Step On 9"
+    label: "O9"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0896
+    key: arp.step_on_10
+    name: "Arp Step On 10"
+    label: "O10"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0897
+    key: arp.step_on_11
+    name: "Arp Step On 11"
+    label: "O11"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0898
+    key: arp.step_on_12
+    name: "Arp Step On 12"
+    label: "O12"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x0899
+    key: arp.step_on_13
+    name: "Arp Step On 13"
+    label: "O13"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x089A
+    key: arp.step_on_14
+    name: "Arp Step On 14"
+    label: "O14"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x089B
+    key: arp.step_on_15
+    name: "Arp Step On 15"
+    label: "O15"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x089C
+    key: arp.step_on_16
+    name: "Arp Step On 16"
+    label: "O16"
+    type: toggle
+    scope: patch
+    default: true
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+
+  - id: 0x089D
+    key: arp.step_accent_1
+    name: "Arp Step Accent 1"
+    label: "C1"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x089E
+    key: arp.step_accent_2
+    name: "Arp Step Accent 2"
+    label: "C2"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x089F
+    key: arp.step_accent_3
+    name: "Arp Step Accent 3"
+    label: "C3"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A0
+    key: arp.step_accent_4
+    name: "Arp Step Accent 4"
+    label: "C4"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A1
+    key: arp.step_accent_5
+    name: "Arp Step Accent 5"
+    label: "C5"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A2
+    key: arp.step_accent_6
+    name: "Arp Step Accent 6"
+    label: "C6"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A3
+    key: arp.step_accent_7
+    name: "Arp Step Accent 7"
+    label: "C7"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A4
+    key: arp.step_accent_8
+    name: "Arp Step Accent 8"
+    label: "C8"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A5
+    key: arp.step_accent_9
+    name: "Arp Step Accent 9"
+    label: "C9"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A6
+    key: arp.step_accent_10
+    name: "Arp Step Accent 10"
+    label: "C10"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A7
+    key: arp.step_accent_11
+    name: "Arp Step Accent 11"
+    label: "C11"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A8
+    key: arp.step_accent_12
+    name: "Arp Step Accent 12"
+    label: "C12"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08A9
+    key: arp.step_accent_13
+    name: "Arp Step Accent 13"
+    label: "C13"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08AA
+    key: arp.step_accent_14
+    name: "Arp Step Accent 14"
+    label: "C14"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08AB
+    key: arp.step_accent_15
+    name: "Arp Step Accent 15"
+    label: "C15"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08AC
+    key: arp.step_accent_16
+    name: "Arp Step Accent 16"
+    label: "C16"
+    type: continuous
+    widget: grid
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+
+  - id: 0x08AD
+    key: arp.step_ratchet_1
+    name: "Arp Step Ratchet 1"
+    label: "R1"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08AE
+    key: arp.step_ratchet_2
+    name: "Arp Step Ratchet 2"
+    label: "R2"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08AF
+    key: arp.step_ratchet_3
+    name: "Arp Step Ratchet 3"
+    label: "R3"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B0
+    key: arp.step_ratchet_4
+    name: "Arp Step Ratchet 4"
+    label: "R4"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B1
+    key: arp.step_ratchet_5
+    name: "Arp Step Ratchet 5"
+    label: "R5"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B2
+    key: arp.step_ratchet_6
+    name: "Arp Step Ratchet 6"
+    label: "R6"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B3
+    key: arp.step_ratchet_7
+    name: "Arp Step Ratchet 7"
+    label: "R7"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B4
+    key: arp.step_ratchet_8
+    name: "Arp Step Ratchet 8"
+    label: "R8"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B5
+    key: arp.step_ratchet_9
+    name: "Arp Step Ratchet 9"
+    label: "R9"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B6
+    key: arp.step_ratchet_10
+    name: "Arp Step Ratchet 10"
+    label: "R10"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B7
+    key: arp.step_ratchet_11
+    name: "Arp Step Ratchet 11"
+    label: "R11"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B8
+    key: arp.step_ratchet_12
+    name: "Arp Step Ratchet 12"
+    label: "R12"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08B9
+    key: arp.step_ratchet_13
+    name: "Arp Step Ratchet 13"
+    label: "R13"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08BA
+    key: arp.step_ratchet_14
+    name: "Arp Step Ratchet 14"
+    label: "R14"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08BB
+    key: arp.step_ratchet_15
+    name: "Arp Step Ratchet 15"
+    label: "R15"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+  - id: 0x08BC
+    key: arp.step_ratchet_16
+    name: "Arp Step Ratchet 16"
+    label: "R16"
+    type: int
+    scope: patch
+    range: {min: 1, max: 4, curve: lin}
+    unit: ""
+    default: 1
+    smooth_ms: 0
+    ui: {section: 17, group: 2}
+
   # NOTE: the arp deliberately has NO clock-source param of its own.  It follows
   # the GLOBAL clock source (clock.clock_source) — a single shared TempoClock
   # drives LFOs, seq and arp together.  An earlier mirror param here was removed:

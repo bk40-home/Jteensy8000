@@ -8,8 +8,6 @@
 // =============================================================================
 #include "core/dsp/StepSequencer.h"
 
-#include <math.h>   // powf (not used here) — kept minimal
-
 namespace JT {
 
 namespace {
@@ -74,12 +72,12 @@ void StepSequencer::tick(float deltaMs)
         // silences a depthed aux lane (the two lanes are independent).  Skips
         // its own work when the aux lane is idle (dest None or depth 0).
         if (_auxDest != SeqAuxDest::None && _auxDepth != 0.0f) {
-            const float auxCur = ccToUnipolar(_auxValues[_currentStep]);
+            const float auxCur = stepValueOf(_auxValues[_currentStep], _auxBipolar);
             float auxRaw;
             if (_slide <= 0.0f) {
                 auxRaw = auxCur;
             } else {
-                const float auxNext  = ccToUnipolar(_auxValues[nextStepIndex()]);
+                const float auxNext  = stepValueOf(_auxValues[nextStepIndex()], _auxBipolar);
                 const float gateFrac = (_gateLength > 0.0f) ? (phaseFrac / _gateLength) : 0.0f;
                 const float t = gateFrac * _slide;
                 auxRaw = auxCur + t * (auxNext - auxCur);
@@ -89,20 +87,20 @@ void StepSequencer::tick(float deltaMs)
 
         if (!hasOutput) { _output = 0.0f; return; }
 
-        const float currentVal = ccToUnipolar(_stepValues[_currentStep]);
+        const float currentVal = stepValueOf(_stepValues[_currentStep], _stepBipolar);
         float raw;
         if (_slide <= 0.0f) {
             raw = currentVal;                         // hold flat
         } else {
             // Slide toward the next step; slide 1.0 reaches it exactly at gate
             // close (v1 :124-138).
-            const float nextVal  = ccToUnipolar(_stepValues[nextStepIndex()]);
+            const float nextVal  = stepValueOf(_stepValues[nextStepIndex()], _stepBipolar);
             const float gateFrac = (_gateLength > 0.0f) ? (phaseFrac / _gateLength) : 0.0f;
             const float t = gateFrac * _slide;
             raw = currentVal + t * (nextVal - currentVal);
         }
 
-        _output = raw * _depth;                       // unipolar × bipolar
+        _output = raw * _depth;                       // step value x depth
         _lastGateOutput = _output;                    // freeze for ramp (v2.1 FIX 1)
     } else {
         if (wasOpen && !_gateOpen) { _ramping = true; _rampValue = 1.0f; }
@@ -228,9 +226,15 @@ void StepSequencer::setAuxDestination(SeqAuxDest dest)
     _auxDest = (dest < SeqAuxDest::Count) ? dest : SeqAuxDest::None;
 }
 
+// Bipolar interpretation is a READ-TIME decision, so flipping it takes effect
+// on the next tick with no state to migrate and no click beyond the ordinary
+// step-to-step change the gate ramp already covers.
+void StepSequencer::setStepBipolar(bool on) { _stepBipolar = on; }
+void StepSequencer::setAuxBipolar(bool on)  { _auxBipolar  = on; }
+
 void StepSequencer::setRate(float hz)
 {
-    _rateHz = clampf(hz, 0.05f, 50.0f);
+    _rateHz = clampf(hz, kFreeHzMin, kFreeHzMax);
     if (_timingMode == TempoClock::kFree) recalcDuration();
 }
 

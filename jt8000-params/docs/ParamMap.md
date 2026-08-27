@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 161 parameters.**
+**Schema version 1 — 243 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -211,10 +211,44 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0689` | 9 | Seq Sync | `seq.timing_mode` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch_shared |
 | `0x068A` | 10 | Step Select | `seq.step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch_shared |
 | `0x068B` | 11 | Step Value | `seq.step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch_shared |
-| `0x068C` | 12 | Seq Aux Dest | `seq.aux_destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch_shared |
+| `0x068C` | 12 | Seq Aux Dest | `seq.aux_destination` | select | 0–5 (index) | 0 (None) | 0 ms | — | patch_shared |
 | `0x068D` | 13 | Seq Aux Depth | `seq.aux_depth` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
 | `0x068E` | 14 | Aux Step Select | `seq.aux_step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch_shared |
 | `0x068F` | 15 | Aux Step Value | `seq.aux_step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch_shared |
+| `0x0690` | 16 | Seq Step 1 | `seq.step_1` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0691` | 17 | Seq Step 2 | `seq.step_2` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0692` | 18 | Seq Step 3 | `seq.step_3` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0693` | 19 | Seq Step 4 | `seq.step_4` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0694` | 20 | Seq Step 5 | `seq.step_5` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0695` | 21 | Seq Step 6 | `seq.step_6` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0696` | 22 | Seq Step 7 | `seq.step_7` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0697` | 23 | Seq Step 8 | `seq.step_8` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0698` | 24 | Seq Step 9 | `seq.step_9` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x0699` | 25 | Seq Step 10 | `seq.step_10` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x069A` | 26 | Seq Step 11 | `seq.step_11` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x069B` | 27 | Seq Step 12 | `seq.step_12` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x069C` | 28 | Seq Step 13 | `seq.step_13` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x069D` | 29 | Seq Step 14 | `seq.step_14` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x069E` | 30 | Seq Step 15 | `seq.step_15` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x069F` | 31 | Seq Step 16 | `seq.step_16` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A0` | 32 | Seq Aux Step 1 | `seq.aux_step_1` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A1` | 33 | Seq Aux Step 2 | `seq.aux_step_2` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A2` | 34 | Seq Aux Step 3 | `seq.aux_step_3` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A3` | 35 | Seq Aux Step 4 | `seq.aux_step_4` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A4` | 36 | Seq Aux Step 5 | `seq.aux_step_5` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A5` | 37 | Seq Aux Step 6 | `seq.aux_step_6` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A6` | 38 | Seq Aux Step 7 | `seq.aux_step_7` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A7` | 39 | Seq Aux Step 8 | `seq.aux_step_8` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A8` | 40 | Seq Aux Step 9 | `seq.aux_step_9` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06A9` | 41 | Seq Aux Step 10 | `seq.aux_step_10` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06AA` | 42 | Seq Aux Step 11 | `seq.aux_step_11` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06AB` | 43 | Seq Aux Step 12 | `seq.aux_step_12` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06AC` | 44 | Seq Aux Step 13 | `seq.aux_step_13` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06AD` | 45 | Seq Aux Step 14 | `seq.aux_step_14` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06AE` | 46 | Seq Aux Step 15 | `seq.aux_step_15` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06AF` | 47 | Seq Aux Step 16 | `seq.aux_step_16` | continuous | 0–1 norm (lin) | 0 norm | 0 ms | — | patch_shared |
+| `0x06B0` | 48 | Seq Step Bipolar | `seq.step_bipolar` | toggle | off / on | off | 0 ms | — | patch_shared |
+| `0x06B1` | 49 | Seq Aux Bipolar | `seq.aux_bipolar` | toggle | off / on | off | 0 ms | — | patch_shared |
 
 ## [14] Voice Mode  *(NRPN MSB 14)*
 
@@ -265,6 +299,54 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x088A` | 10 | Arp Step On/Off | `arp.step_onoff` | toggle | off / on | on | 0 ms | — | patch |
 | `0x088B` | 11 | Arp Step Accent | `arp.step_accent` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
 | `0x088C` | 12 | Arp Step Ratchet | `arp.step_ratchet` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x088D` | 13 | Arp Step On 1 | `arp.step_on_1` | toggle | off / on | on | 0 ms | — | patch |
+| `0x088E` | 14 | Arp Step On 2 | `arp.step_on_2` | toggle | off / on | on | 0 ms | — | patch |
+| `0x088F` | 15 | Arp Step On 3 | `arp.step_on_3` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0890` | 16 | Arp Step On 4 | `arp.step_on_4` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0891` | 17 | Arp Step On 5 | `arp.step_on_5` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0892` | 18 | Arp Step On 6 | `arp.step_on_6` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0893` | 19 | Arp Step On 7 | `arp.step_on_7` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0894` | 20 | Arp Step On 8 | `arp.step_on_8` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0895` | 21 | Arp Step On 9 | `arp.step_on_9` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0896` | 22 | Arp Step On 10 | `arp.step_on_10` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0897` | 23 | Arp Step On 11 | `arp.step_on_11` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0898` | 24 | Arp Step On 12 | `arp.step_on_12` | toggle | off / on | on | 0 ms | — | patch |
+| `0x0899` | 25 | Arp Step On 13 | `arp.step_on_13` | toggle | off / on | on | 0 ms | — | patch |
+| `0x089A` | 26 | Arp Step On 14 | `arp.step_on_14` | toggle | off / on | on | 0 ms | — | patch |
+| `0x089B` | 27 | Arp Step On 15 | `arp.step_on_15` | toggle | off / on | on | 0 ms | — | patch |
+| `0x089C` | 28 | Arp Step On 16 | `arp.step_on_16` | toggle | off / on | on | 0 ms | — | patch |
+| `0x089D` | 29 | Arp Step Accent 1 | `arp.step_accent_1` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x089E` | 30 | Arp Step Accent 2 | `arp.step_accent_2` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x089F` | 31 | Arp Step Accent 3 | `arp.step_accent_3` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A0` | 32 | Arp Step Accent 4 | `arp.step_accent_4` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A1` | 33 | Arp Step Accent 5 | `arp.step_accent_5` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A2` | 34 | Arp Step Accent 6 | `arp.step_accent_6` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A3` | 35 | Arp Step Accent 7 | `arp.step_accent_7` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A4` | 36 | Arp Step Accent 8 | `arp.step_accent_8` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A5` | 37 | Arp Step Accent 9 | `arp.step_accent_9` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A6` | 38 | Arp Step Accent 10 | `arp.step_accent_10` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A7` | 39 | Arp Step Accent 11 | `arp.step_accent_11` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A8` | 40 | Arp Step Accent 12 | `arp.step_accent_12` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08A9` | 41 | Arp Step Accent 13 | `arp.step_accent_13` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08AA` | 42 | Arp Step Accent 14 | `arp.step_accent_14` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08AB` | 43 | Arp Step Accent 15 | `arp.step_accent_15` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08AC` | 44 | Arp Step Accent 16 | `arp.step_accent_16` | continuous | 0–1 norm (lin) | 1 norm | 0 ms | — | patch |
+| `0x08AD` | 45 | Arp Step Ratchet 1 | `arp.step_ratchet_1` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08AE` | 46 | Arp Step Ratchet 2 | `arp.step_ratchet_2` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08AF` | 47 | Arp Step Ratchet 3 | `arp.step_ratchet_3` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B0` | 48 | Arp Step Ratchet 4 | `arp.step_ratchet_4` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B1` | 49 | Arp Step Ratchet 5 | `arp.step_ratchet_5` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B2` | 50 | Arp Step Ratchet 6 | `arp.step_ratchet_6` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B3` | 51 | Arp Step Ratchet 7 | `arp.step_ratchet_7` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B4` | 52 | Arp Step Ratchet 8 | `arp.step_ratchet_8` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B5` | 53 | Arp Step Ratchet 9 | `arp.step_ratchet_9` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B6` | 54 | Arp Step Ratchet 10 | `arp.step_ratchet_10` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B7` | 55 | Arp Step Ratchet 11 | `arp.step_ratchet_11` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B8` | 56 | Arp Step Ratchet 12 | `arp.step_ratchet_12` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08B9` | 57 | Arp Step Ratchet 13 | `arp.step_ratchet_13` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08BA` | 58 | Arp Step Ratchet 14 | `arp.step_ratchet_14` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08BB` | 59 | Arp Step Ratchet 15 | `arp.step_ratchet_15` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
+| `0x08BC` | 60 | Arp Step Ratchet 16 | `arp.step_ratchet_16` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
 
 ### Option sets
 
@@ -285,7 +367,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **drive**: `OFF`, `Soft`, `Hard`
 - **seq_dir**: `Fwd`, `Rev`, `Bounce`, `Random`
 - **seq_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
-- **seq_aux_dest**: `None`, `Filter`, `Pan`, `DelaySend`, `Drive`
+- **seq_aux_dest**: `None`, `Filter`, `Pan`, `DelaySend`, `Tone`, `Drive`
 - **perf_mode**: `Single`, `Layer`, `Split`
 - **edit_target**: `A`, `B`, `Both`
 - **clock_source**: `Internal`, `Ext MIDI`

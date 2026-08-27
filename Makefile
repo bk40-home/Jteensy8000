@@ -68,6 +68,8 @@ SRCS := $(CORE) \
         test/test_osc_section.cpp \
         test/test_feedback.cpp \
         test/test_filter_section.cpp \
+        test/test_korg35.cpp \
+        test/test_moog_ladder.cpp \
         test/test_moogdv.cpp \
         test/test_param_slew.cpp \
         test/test_filter_env.cpp \

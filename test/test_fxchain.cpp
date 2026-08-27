@@ -323,3 +323,74 @@ TEST_CASE("fxchain: worst case (hard drive + max-fb delay + chorus) stays finite
     CHECK(allFinite(out));
     CHECK(peakAbs(out) <= 0.97f + 1e-4f);
 }
+
+// ===========================================================================
+// Aux-lane destinations (review item 6c)
+// ===========================================================================
+// The aux destination at index 4 was LABELLED "Drive" while the engine
+// implemented a bass<->treble tone TILT.  The label was the thing that was
+// wrong, so it is now "Tone" — and a real drive-amount destination was
+// appended at index 5.  These prove the two are genuinely different effects.
+
+TEST_CASE("fx: tone tilt engages the chain on its own and colours the signal")
+{
+    // toneTiltActive() exists so SynthCore can run the chain for the tilt
+    // alone.  Without it, selecting the aux Tone destination on an all-OFF
+    // chain did nothing whatsoever: _fxEngaged only tracks drive/mod/delay.
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+
+    CHECK(fx.driveActive()   == false);
+    CHECK(fx.modActive()     == false);
+    CHECK(fx.delayActive()   == false);
+    CHECK(fx.toneTiltActive() == false);   // nothing would run the chain
+
+    fx.setToneTiltMod(1.0f);
+    CHECK(fx.toneTiltActive() == true);    // now something does
+}
+
+TEST_CASE("fx: tone tilt changes the output, drive mod does not without drive")
+{
+    auto render = [](float tilt, float driveMod, int driveMode) {
+        FxChain fx;
+        std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+        fx.begin(pool.data());
+        fx.setDriveMode(driveMode);
+        fx.setToneTiltMod(tilt);
+        fx.setDriveAmountMod(driveMod);
+
+        std::vector<float> out;
+        float L[kBlockSize], R[kBlockSize];
+        double ph = 0.0;
+        for (int b = 0; b < 40; ++b) {              // long enough to settle both
+            for (size_t i = 0; i < kBlockSize; ++i) {   // 220 Hz test tone
+                const float x = 0.3f * (float)std::sin(ph);
+                ph += 2.0 * 3.14159265358979 * 220.0 / (double)kSampleRate;
+                L[i] = x; R[i] = x;
+            }
+            fx.processBlock(L, R, kBlockSize);
+            for (size_t i = 0; i < kBlockSize; ++i) out.push_back(L[i]);
+        }
+        return out;
+    };
+    auto diff = [](const std::vector<float>& a, const std::vector<float>& b) {
+        double d = 0.0;
+        for (size_t i = 0; i < a.size(); ++i) d += std::fabs((double)a[i] - (double)b[i]);
+        return d;
+    };
+
+    const auto flat = render(0.0f, 0.0f, 0);
+
+    // Tone tilt colours the signal whatever the drive mode is — drive OFF here.
+    CHECK(diff(flat, render(1.0f, 0.0f, 0)) > 0.0);
+
+    // Drive mod with drive OFF is inaudible: applySaturation bypasses entirely
+    // in that mode, so the aux lane cannot conjure a saturator that is not
+    // running.  This is a documented limitation, asserted so it stays honest.
+    CHECK(diff(flat, render(0.0f, 1.0f, 0)) == doctest::Approx(0.0));
+
+    // With a drive mode selected, the SAME mod is clearly audible.
+    const auto driven = render(0.0f, 0.0f, 1);
+    CHECK(diff(driven, render(0.0f, 1.0f, 1)) > 0.0);
+}

@@ -234,13 +234,12 @@ TEST_CASE("seq: default patch is byte-identical to never touching SEQ params")
 // =============================================================================
 TEST_CASE("seq: FILTER destination modulates the signal when enabled")
 {
-    // NOTE ON TEST DATA: SEQ_STEP_VALUE is addressed through the shared
-    // _seqEditStep, so two writes of the SAME norm to different steps would be
-    // de-duplicated by the dirty-param queue (only the last survives).  We
-    // therefore give each step a DISTINCT value so every write lands, and we
-    // run long enough (many step durations) for the pattern to actually reach
-    // its non-zero steps — otherwise step 0 (value 0) plays for the whole
-    // window and the sequencer legitimately contributes nothing.
+    // Steps are addressed EXPLICITLY now (SEQ_STEP_n), each with its own
+    // ParamID and its own store slot.  The old cursor idiom needed distinct
+    // values per step purely so the dirty-param queue would not collapse two
+    // writes to one shared slot into one — that hazard is gone, but distinct
+    // values are still good test data because they make the pattern audibly
+    // move.  The run is long enough to cycle the whole pattern.
     auto build = [](bool enable) {
         Rig rig;
         rig.setE(ID::FILTER_CUTOFF, 2000.0f);
@@ -252,10 +251,10 @@ TEST_CASE("seq: FILTER destination modulates the signal when enabled")
         rig.setNorm(ID::SEQ_GATE_LENGTH, 1.0f);               // gate fully open
         // Distinct, non-zero values on every step so writes don't dedup and
         // the pattern is audibly moving.
-        rig.setNorm(ID::SEQ_STEP_SELECT, 0.0f);        rig.setNorm(ID::SEQ_STEP_VALUE, 0.9f);
-        rig.setNorm(ID::SEQ_STEP_SELECT, 1.0f / 15.0f); rig.setNorm(ID::SEQ_STEP_VALUE, 0.3f);
-        rig.setNorm(ID::SEQ_STEP_SELECT, 2.0f / 15.0f); rig.setNorm(ID::SEQ_STEP_VALUE, 0.7f);
-        rig.setNorm(ID::SEQ_STEP_SELECT, 3.0f / 15.0f); rig.setNorm(ID::SEQ_STEP_VALUE, 0.5f);
+        rig.setNorm(ID::SEQ_STEP_1, 0.9f);
+        rig.setNorm(ID::SEQ_STEP_2, 0.3f);
+        rig.setNorm(ID::SEQ_STEP_3, 0.7f);
+        rig.setNorm(ID::SEQ_STEP_4, 0.5f);
         rig.setNorm(ID::SEQ_ENABLE, enable ? 1.0f : 0.0f);
         return run(rig, 300, -1);                              // long enough to cycle
     };
@@ -290,4 +289,88 @@ TEST_CASE("seq: retrigger on resets to step 0 on note-on; off leaves it running"
     // pattern.  With a ~1.1 s step and 2.9 ms blocks it stays at 0.
     // (No public getter through SynthCore; the guard is that it ran finite.)
     CHECK(std::isfinite(L[0]));
+}
+
+// ===========================================================================
+// REGRESSION PROOFS for the sequencer review changes
+// ===========================================================================
+
+// Bipolar lanes (5a).  Unipolar is the default and must be unchanged; bipolar
+// re-reads the SAME stored step as (2v - 1), so cc 64 is the centre and one
+// pattern reaches both sides of base.  This is what lets an aux Pan lane sweep
+// L<->R instead of centre->one side.
+TEST_CASE("seq: bipolar step interpretation is opt-in and centres at cc 64")
+{
+    StepSequencer s;
+    s.setEnabled(true);
+    s.setStepCount(1);
+    s.setGateLength(1.0f);
+    s.setDepth(1.0f);
+    s.setRate(2.0f);
+
+    // Unipolar (default): 0 -> 0.0, 64 -> ~0.5, 127 -> 1.0.  Never negative.
+    CHECK(s.stepBipolar() == false);
+    s.setStepValue(0, 0);   s.tick(1.0f); CHECK(s.getOutput() == doctest::Approx(0.0f));
+    s.setStepValue(0, 127); s.tick(1.0f); CHECK(s.getOutput() == doctest::Approx(1.0f));
+
+    // Bipolar: 0 -> -1.0, 64 -> ~0.0 (centre), 127 -> +1.0.
+    s.setStepBipolar(true);
+    CHECK(s.stepBipolar() == true);
+    s.setStepValue(0, 0);   s.tick(1.0f); CHECK(s.getOutput() == doctest::Approx(-1.0f));
+    s.setStepValue(0, 64);  s.tick(1.0f); CHECK(s.getOutput() == doctest::Approx(0.0f).epsilon(0.02));
+    s.setStepValue(0, 127); s.tick(1.0f); CHECK(s.getOutput() == doctest::Approx(1.0f));
+}
+
+TEST_CASE("seq: aux lane carries its own bipolar flag")
+{
+    StepSequencer s;
+    s.setEnabled(true);
+    s.setStepCount(1);
+    s.setGateLength(1.0f);
+    s.setAuxDestination(SeqAuxDest::Pan);
+    s.setAuxDepth(1.0f);
+    s.setRate(2.0f);
+    s.setAuxStepValue(0, 0);
+
+    s.tick(1.0f);
+    CHECK(s.getAuxOutput() == doctest::Approx(0.0f));   // unipolar floor
+
+    s.setAuxBipolar(true);
+    s.tick(1.0f);
+    CHECK(s.getAuxOutput() == doctest::Approx(-1.0f));  // now reaches the far side
+    CHECK(s.stepBipolar() == false);                    // lanes are independent
+}
+
+// Free-run rate: the clamp must admit both synced extremes.
+TEST_CASE("seq: free rate clamp spans the synced extremes")
+{
+    StepSequencer s;
+    s.setRate(StepSequencer::kFreeHzMin);
+    CHECK(s.debugStepDurMs() == doctest::Approx(1000.0f / StepSequencer::kFreeHzMin));
+    s.setRate(StepSequencer::kFreeHzMax);
+    CHECK(s.debugStepDurMs() == doctest::Approx(1000.0f / StepSequencer::kFreeHzMax));
+
+    TempoClock slow; slow.setBpm(40.0f);
+    CHECK(slow.freqForMode(TempoClock::k4Bars) > StepSequencer::kFreeHzMin);
+    TempoClock fast; fast.setBpm(300.0f);
+    CHECK(fast.freqForMode(TempoClock::k1_32) < StepSequencer::kFreeHzMax);
+}
+
+// Explicit step arrays reach the engine, and each step owns its own slot —
+// the property the retired cursor idiom could not provide.
+TEST_CASE("seq: explicit SEQ_STEP_n params each address their own step")
+{
+    Rig rig;
+    rig.setNorm(ID::SEQ_STEPS, 1.0f);            // 16 steps
+    rig.setNorm(ID::SEQ_STEP_1,  0.0f);
+    rig.setNorm(ID::SEQ_STEP_2,  1.0f);
+    rig.setNorm(ID::SEQ_STEP_16, 0.5f);
+    float L[kBlockSize], R[kBlockSize];
+    rig.block(L, R);                             // drain params into the engine
+
+    // Distinct values survive side by side: with one shared slot the last
+    // write would have been the only survivor.
+    CHECK(rig.core.debugSeq().debugStepValue(0)  == 0);
+    CHECK(rig.core.debugSeq().debugStepValue(1)  == 127);
+    CHECK(rig.core.debugSeq().debugStepValue(15) == doctest::Approx(64).epsilon(0.03));
 }

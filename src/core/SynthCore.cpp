@@ -476,6 +476,42 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
     };
     (void)L;   // some handlers are layer-agnostic; silence -Wunused for them
 
+    // ---- Explicit per-step arrays (5 lanes x 16 steps) --------------------
+    // Decoded ARITHMETICALLY from contiguous ParamID blocks rather than as 80
+    // switch labels: the table guarantees the blocks are contiguous (the
+    // generator refuses non-contiguous indices within a section), the branch
+    // count stays flat, and adding a lane never touches this switch.
+    //
+    // These replaced a CURSOR idiom (a step_select parameter followed by a
+    // value write).  One store slot cannot represent a sixteen-value pattern,
+    // so patterns were never saved in a patch and never reached an editor.
+    {
+        const uint16_t id = d.id;
+        if (id >= ID::SEQ_STEP_1 && id <= ID::SEQ_STEP_16) {
+            _seq.setStepValue((int)(id - ID::SEQ_STEP_1),
+                              (uint8_t)lroundf(norm * 127.0f));
+            return;
+        }
+        if (id >= ID::SEQ_AUX_STEP_1 && id <= ID::SEQ_AUX_STEP_16) {
+            _seq.setAuxStepValue((int)(id - ID::SEQ_AUX_STEP_1),
+                                 (uint8_t)lroundf(norm * 127.0f));
+            return;
+        }
+        if (id >= ID::ARP_STEP_ON_1 && id <= ID::ARP_STEP_ON_16) {
+            L.arp.setStepOn((int)(id - ID::ARP_STEP_ON_1), norm >= 0.5f);
+            return;
+        }
+        if (id >= ID::ARP_STEP_ACCENT_1 && id <= ID::ARP_STEP_ACCENT_16) {
+            L.arp.setStepAccent((int)(id - ID::ARP_STEP_ACCENT_1), norm);
+            return;
+        }
+        if (id >= ID::ARP_STEP_RATCHET_1 && id <= ID::ARP_STEP_RATCHET_16) {
+            L.arp.setStepRatchet((int)(id - ID::ARP_STEP_RATCHET_1),
+                                 1 + (int)lroundf(norm * 3.0f));
+            return;
+        }
+    }
+
     switch (d.id) {
         // ------------- master / filter / amp env (Phase 1 set) -------------
         case ID::MASTER_VOLUME:    _masterTarget = eng; break;
@@ -913,38 +949,58 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::SEQ_RETRIGGER:
             _seq.setRetrigger(norm >= 0.5f); break;
         case ID::SEQ_RATE:
-            _seq.setRate(0.1f * powf(200.0f, norm)); break;             // 0.1..20 Hz exp
+            // 0.02..50 Hz, logarithmic.  Widened from 0.1..20 Hz, which could
+            // reach NEITHER synced extreme (1/32 @ 300 BPM = 40 Hz; 4 bars @
+            // 40 BPM = 0.0417 Hz), so switching sync off lost range at both
+            // ends.  exp2f rather than powf: same curve, cheaper call.
+            // log2(50 / 0.02) = 11.2877124.
+            _seq.setRate(StepSequencer::kFreeHzMin * exp2f(norm * 11.2877124f));
+            break;
         case ID::SEQ_TIMING_MODE:
             // D-1: tempo-sync deferred (TempoClock has no getTimeForMode(ms)
             // yet).  Stored inert; sequencer stays free-running at SEQ_RATE.
             _seq.setTimingMode(opt);
             break;
-        case ID::SEQ_STEP_SELECT:
-            _seqEditStep = (int)lroundf(norm * 15.0f); break;           // 0..15
-        case ID::SEQ_STEP_VALUE:
-            _seq.setStepValue(_seqEditStep, (uint8_t)lroundf(norm * 127.0f)); break;
+        // SEQ_STEP_SELECT / SEQ_STEP_VALUE and their aux twins are RETIRED.
+        // ParamIDs are permanent so the rows stay in the table, but the engine
+        // ignores them: the explicit SEQ_STEP_n / SEQ_AUX_STEP_n arrays decoded
+        // above are the only step path now.  Falling through to `default`
+        // consumes them silently, which is what a retired row should do.
+        case ID::SEQ_STEP_BIPOLAR:
+            _seq.setStepBipolar(norm >= 0.5f); break;
+        case ID::SEQ_AUX_BIPOLAR:
+            _seq.setAuxBipolar(norm >= 0.5f); break;
 
         // ---- Aux lane (Stage B).  Shares the gate lane's clock; carries its
         //      own dest/depth/steps.  Stage B routes None+Filter; Pan/Delay
-        //      Send/Drive are inert placeholders (D-B1). ----
+        //      All six destinations are wired: None, Filter, Pan, DelaySend,
+        //      Tone (the +/-6 dB EQ tilt) and Drive (saturator input gain). ----
         case ID::SEQ_AUX_DESTINATION:
-            _seq.setAuxDestination((SeqAuxDest)opt); break;             // 0..4
+            _seq.setAuxDestination((SeqAuxDest)opt); break;             // 0..5
         case ID::SEQ_AUX_DEPTH:
             _seq.setAuxDepth(eng); break;                              // table bipolar -1..+1
-        case ID::SEQ_AUX_STEP_SELECT:
-            _seqAuxEditStep = (int)lroundf(norm * 15.0f); break;       // 0..15
-        case ID::SEQ_AUX_STEP_VALUE:
-            _seq.setAuxStepValue(_seqAuxEditStep, (uint8_t)lroundf(norm * 127.0f)); break;
 
-        // ------------- Arpeggiator (Phase 9, ParamTable §17) ---------------
+        // ------------- Arpeggiator (ParamTable section 17) -----------------
         // Independent clock, shared BPM.  ARP_ENABLE off by default => notes go
-        // straight to _alloc and tick() early-returns => byte-identical.  Step
-        // params use the SAME select-then-value idiom as the sequencer:
-        // ARP_STEP_SELECT moves the edit cursor, the three ARP_STEP_* writes
-        // target it.  Rate reuses the shared 12-entry timing set; ARP_RATE opt 0
-        // (Free) falls back to ARP_FREE_HZ.
-        case ID::ARP_ENABLE:
-            L.arp.setEnabled(norm >= 0.5f); break;
+        // straight to _alloc and tick() early-returns => byte-identical.  The
+        // three step LANES arrive through the explicit ARP_STEP_ON_n /
+        // _ACCENT_n / _RATCHET_n arrays decoded above; ARP_STEP_SELECT and the
+        // three cursor writes are RETIRED and fall through to `default`.
+        // Rate reuses the shared 12-entry timing set; ARP_RATE opt 0 (Free)
+        // falls back to ARP_FREE_HZ.
+        case ID::ARP_ENABLE: {
+            // Toggling the arp re-routes where held keys go, so the SIDE that
+            // is losing them must be cleared or its voices hang: a key pressed
+            // before the toggle sends its note-off to the other side, which
+            // never knew about it.
+            const bool on = (norm >= 0.5f);
+            if (on != L.arp.enabled()) {
+                if (on) L.alloc.allNotesOff();   // keys move keyboard -> arp
+                else    L.arp.allNotesOff();     // keys move arp -> keyboard
+            }
+            L.arp.setEnabled(on);
+            break;
+        }
         case ID::ARP_MODE:
             L.arp.setMode((ArpMode)opt); break;                         // 0..6
         case ID::ARP_OCTAVES:
@@ -956,21 +1012,15 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             // synced (freqForMode is sufficient — unlike the seq's D-1 defer).
             L.arp.setRateMode(opt); break;
         case ID::ARP_FREE_HZ:
-            L.arp.setFreeHz(norm); break;                               // engine exp-maps 0.1..20 Hz
+            // Engine exp-maps over Arpeggiator::kFreeHzMin..kFreeHzMax
+            // (0.02..50 Hz), chosen to cover the synced extremes.
+            L.arp.setFreeHz(norm); break;
         case ID::ARP_GATE_LENGTH:
             L.arp.setGateLength(norm); break;
         case ID::ARP_SWING:
             L.arp.setSwing(norm); break;
         case ID::ARP_STEP_COUNT:
             L.arp.setStepCount(1 + (int)lroundf(norm * 15.0f)); break;  // 1..16
-        case ID::ARP_STEP_SELECT:
-            L.arp.setStepSelect((int)lroundf(norm * 15.0f)); break;     // 0..15
-        case ID::ARP_STEP_ONOFF:
-            L.arp.setStepOnOff(norm >= 0.5f); break;
-        case ID::ARP_STEP_ACCENT:
-            L.arp.setStepAccent(norm); break;                           // 0..1
-        case ID::ARP_STEP_RATCHET:
-            L.arp.setStepRatchet(1 + (int)lroundf(norm * 3.0f)); break; // 1..4
 
         default:
             // Not yet handled (remaining FX/sequencer) or deliberately unwired
@@ -1156,17 +1206,20 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     // stateful on FxChain and must be written EVERY block — to auxVal when
     // targeted, to 0 otherwise — or a stale mod persists after a dest change.
     float panTarget       = 0.0f;
+    float auxToneTiltMod  = 0.0f;
     float auxDriveMod     = 0.0f;
     float auxDelaySendMod = 0.0f;
     switch (_seq.auxDestination()) {
-        case SeqAuxDest::Pan:       panTarget      += auxVal;  break;  // Stage C
-        case SeqAuxDest::Drive:     auxDriveMod     = auxVal;  break;  // Stage D (bipolar)
-        case SeqAuxDest::DelaySend: auxDelaySendMod = auxVal;  break;  // Stage D (additive)
+        case SeqAuxDest::Pan:       panTarget      += auxVal;  break;
+        case SeqAuxDest::Tone:      auxToneTiltMod  = auxVal;  break;  // EQ tilt
+        case SeqAuxDest::Drive:     auxDriveMod     = auxVal;  break;  // saturator input
+        case SeqAuxDest::DelaySend: auxDelaySendMod = auxVal;  break;  // additive on mix
         case SeqAuxDest::Filter:                               break;  // per-layer, below
         case SeqAuxDest::None:
         default:                                               break;
     }
-    _fx.setDriveMod(auxDriveMod);
+    _fx.setToneTiltMod(auxToneTiltMod);
+    _fx.setDriveAmountMod(auxDriveMod);
     _fx.setDelayMixMod(auxDelaySendMod);
 
     // 3b. Bus routing for perf.balance.
@@ -1343,7 +1396,12 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
     //     output stays byte-identical to pre-Phase-6 (Q6).  The chain mono-sums
     //     the bus (v1's single mono input), processes to stereo, and blends the
     //     wet result back against the dry bus via FX_DRY_MIX / FX_JPFX_MIX.
-    if (_fxEngaged)
+    // _fxEngaged is recomputed only when a stage SELECTOR moves, so it cannot
+    // see the aux lane.  The tone tilt colours the bus whatever the drive mode
+    // is, so it has to be able to engage the chain by itself — otherwise
+    // choosing the aux Tone destination on an all-OFF chain did nothing at
+    // all.  One bool OR per block; zero when the lane is idle.
+    if (_fxEngaged || _fx.toneTiltActive())
         _fx.processBlock(left, right, n);
 
     // 3b. Global reverb (Phase 5, spec §3): a single post-mix stereo processor

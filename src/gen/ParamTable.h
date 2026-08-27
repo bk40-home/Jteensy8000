@@ -435,90 +435,336 @@ static constexpr char s345[] JT_TABLE_FLASH = "AUX SEL";
 static constexpr char s346[] JT_TABLE_FLASH = "seq.aux_step_value";
 static constexpr char s347[] JT_TABLE_FLASH = "Aux Step Value";
 static constexpr char s348[] JT_TABLE_FLASH = "AUX VAL";
-static constexpr char s349[] JT_TABLE_FLASH = "perf.mode";
-static constexpr char s350[] JT_TABLE_FLASH = "Perf Mode";
-static constexpr char s351[] JT_TABLE_FLASH = "perf.edit_target";
-static constexpr char s352[] JT_TABLE_FLASH = "Edit Target";
-static constexpr char s353[] JT_TABLE_FLASH = "EDIT";
-static constexpr char s354[] JT_TABLE_FLASH = "perf.midi_channel_a";
-static constexpr char s355[] JT_TABLE_FLASH = "MIDI Ch A";
-static constexpr char s356[] JT_TABLE_FLASH = "CH A";
-static constexpr char s357[] JT_TABLE_FLASH = "perf.midi_channel_b";
-static constexpr char s358[] JT_TABLE_FLASH = "MIDI Ch B";
-static constexpr char s359[] JT_TABLE_FLASH = "CH B";
-static constexpr char s360[] JT_TABLE_FLASH = "perf.voice_split";
-static constexpr char s361[] JT_TABLE_FLASH = "Voice Split";
-static constexpr char s362[] JT_TABLE_FLASH = "VOICES";
-static constexpr char s363[] JT_TABLE_FLASH = "perf.split_note";
-static constexpr char s364[] JT_TABLE_FLASH = "Split Point";
-static constexpr char s365[] JT_TABLE_FLASH = "SPLIT";
-static constexpr char s366[] JT_TABLE_FLASH = "note";
-static constexpr char s367[] JT_TABLE_FLASH = "perf.balance";
-static constexpr char s368[] JT_TABLE_FLASH = "Layer Bal";
-static constexpr char s369[] JT_TABLE_FLASH = "BALANCE";
-static constexpr char s370[] JT_TABLE_FLASH = "reverb.size";
-static constexpr char s371[] JT_TABLE_FLASH = "Rev Size";
-static constexpr char s372[] JT_TABLE_FLASH = "SIZE";
-static constexpr char s373[] JT_TABLE_FLASH = "reverb.damp";
-static constexpr char s374[] JT_TABLE_FLASH = "Rev Hi Damp";
-static constexpr char s375[] JT_TABLE_FLASH = "HI DMP";
-static constexpr char s376[] JT_TABLE_FLASH = "reverb.lodamp";
-static constexpr char s377[] JT_TABLE_FLASH = "Rev Lo Damp";
-static constexpr char s378[] JT_TABLE_FLASH = "LO DMP";
-static constexpr char s379[] JT_TABLE_FLASH = "reverb.mix";
-static constexpr char s380[] JT_TABLE_FLASH = "Rev Mix";
-static constexpr char s381[] JT_TABLE_FLASH = "MIX";
-static constexpr char s382[] JT_TABLE_FLASH = "reverb.bypass";
-static constexpr char s383[] JT_TABLE_FLASH = "Rev Bypass";
-static constexpr char s384[] JT_TABLE_FLASH = "BYPASS";
-static constexpr char s385[] JT_TABLE_FLASH = "reverb.shimmer";
-static constexpr char s386[] JT_TABLE_FLASH = "Rev Shimmer";
-static constexpr char s387[] JT_TABLE_FLASH = "SHIMMER";
-static constexpr char s388[] JT_TABLE_FLASH = "reverb.freeze";
-static constexpr char s389[] JT_TABLE_FLASH = "Rev Freeze";
-static constexpr char s390[] JT_TABLE_FLASH = "FREEZE";
-static constexpr char s391[] JT_TABLE_FLASH = "reverb.lowpass";
-static constexpr char s392[] JT_TABLE_FLASH = "Rev Lo Pass";
-static constexpr char s393[] JT_TABLE_FLASH = "LO PASS";
-static constexpr char s394[] JT_TABLE_FLASH = "reverb.hipass";
-static constexpr char s395[] JT_TABLE_FLASH = "Rev Hi Pass";
-static constexpr char s396[] JT_TABLE_FLASH = "HI PASS";
-static constexpr char s397[] JT_TABLE_FLASH = "master.volume";
-static constexpr char s398[] JT_TABLE_FLASH = "Master Volume";
-static constexpr char s399[] JT_TABLE_FLASH = "VOLUME";
-static constexpr char s400[] JT_TABLE_FLASH = "arp.enable";
-static constexpr char s401[] JT_TABLE_FLASH = "Arp Enable";
-static constexpr char s402[] JT_TABLE_FLASH = "arp.mode";
-static constexpr char s403[] JT_TABLE_FLASH = "Arp Mode";
-static constexpr char s404[] JT_TABLE_FLASH = "arp.octaves";
-static constexpr char s405[] JT_TABLE_FLASH = "Arp Octaves";
-static constexpr char s406[] JT_TABLE_FLASH = "OCT";
-static constexpr char s407[] JT_TABLE_FLASH = "arp.latch";
-static constexpr char s408[] JT_TABLE_FLASH = "Arp Latch";
-static constexpr char s409[] JT_TABLE_FLASH = "LATCH";
-static constexpr char s410[] JT_TABLE_FLASH = "arp.rate";
-static constexpr char s411[] JT_TABLE_FLASH = "Arp Rate";
-static constexpr char s412[] JT_TABLE_FLASH = "arp.free_hz";
-static constexpr char s413[] JT_TABLE_FLASH = "Arp Free Rate";
-static constexpr char s414[] JT_TABLE_FLASH = "FREE";
-static constexpr char s415[] JT_TABLE_FLASH = "arp.gate_length";
-static constexpr char s416[] JT_TABLE_FLASH = "Arp Gate";
-static constexpr char s417[] JT_TABLE_FLASH = "arp.swing";
-static constexpr char s418[] JT_TABLE_FLASH = "Arp Swing";
-static constexpr char s419[] JT_TABLE_FLASH = "SWING";
-static constexpr char s420[] JT_TABLE_FLASH = "arp.step_count";
-static constexpr char s421[] JT_TABLE_FLASH = "Arp Steps";
-static constexpr char s422[] JT_TABLE_FLASH = "arp.step_select";
-static constexpr char s423[] JT_TABLE_FLASH = "Arp Step Select";
-static constexpr char s424[] JT_TABLE_FLASH = "STEP";
-static constexpr char s425[] JT_TABLE_FLASH = "arp.step_onoff";
-static constexpr char s426[] JT_TABLE_FLASH = "Arp Step On/Off";
-static constexpr char s427[] JT_TABLE_FLASH = "arp.step_accent";
-static constexpr char s428[] JT_TABLE_FLASH = "Arp Step Accent";
-static constexpr char s429[] JT_TABLE_FLASH = "ACCENT";
-static constexpr char s430[] JT_TABLE_FLASH = "arp.step_ratchet";
-static constexpr char s431[] JT_TABLE_FLASH = "Arp Step Ratchet";
-static constexpr char s432[] JT_TABLE_FLASH = "RATCH";
+static constexpr char s349[] JT_TABLE_FLASH = "seq.step_1";
+static constexpr char s350[] JT_TABLE_FLASH = "Seq Step 1";
+static constexpr char s351[] JT_TABLE_FLASH = "S1";
+static constexpr char s352[] JT_TABLE_FLASH = "seq.step_2";
+static constexpr char s353[] JT_TABLE_FLASH = "Seq Step 2";
+static constexpr char s354[] JT_TABLE_FLASH = "S2";
+static constexpr char s355[] JT_TABLE_FLASH = "seq.step_3";
+static constexpr char s356[] JT_TABLE_FLASH = "Seq Step 3";
+static constexpr char s357[] JT_TABLE_FLASH = "S3";
+static constexpr char s358[] JT_TABLE_FLASH = "seq.step_4";
+static constexpr char s359[] JT_TABLE_FLASH = "Seq Step 4";
+static constexpr char s360[] JT_TABLE_FLASH = "S4";
+static constexpr char s361[] JT_TABLE_FLASH = "seq.step_5";
+static constexpr char s362[] JT_TABLE_FLASH = "Seq Step 5";
+static constexpr char s363[] JT_TABLE_FLASH = "S5";
+static constexpr char s364[] JT_TABLE_FLASH = "seq.step_6";
+static constexpr char s365[] JT_TABLE_FLASH = "Seq Step 6";
+static constexpr char s366[] JT_TABLE_FLASH = "S6";
+static constexpr char s367[] JT_TABLE_FLASH = "seq.step_7";
+static constexpr char s368[] JT_TABLE_FLASH = "Seq Step 7";
+static constexpr char s369[] JT_TABLE_FLASH = "S7";
+static constexpr char s370[] JT_TABLE_FLASH = "seq.step_8";
+static constexpr char s371[] JT_TABLE_FLASH = "Seq Step 8";
+static constexpr char s372[] JT_TABLE_FLASH = "S8";
+static constexpr char s373[] JT_TABLE_FLASH = "seq.step_9";
+static constexpr char s374[] JT_TABLE_FLASH = "Seq Step 9";
+static constexpr char s375[] JT_TABLE_FLASH = "S9";
+static constexpr char s376[] JT_TABLE_FLASH = "seq.step_10";
+static constexpr char s377[] JT_TABLE_FLASH = "Seq Step 10";
+static constexpr char s378[] JT_TABLE_FLASH = "S10";
+static constexpr char s379[] JT_TABLE_FLASH = "seq.step_11";
+static constexpr char s380[] JT_TABLE_FLASH = "Seq Step 11";
+static constexpr char s381[] JT_TABLE_FLASH = "S11";
+static constexpr char s382[] JT_TABLE_FLASH = "seq.step_12";
+static constexpr char s383[] JT_TABLE_FLASH = "Seq Step 12";
+static constexpr char s384[] JT_TABLE_FLASH = "S12";
+static constexpr char s385[] JT_TABLE_FLASH = "seq.step_13";
+static constexpr char s386[] JT_TABLE_FLASH = "Seq Step 13";
+static constexpr char s387[] JT_TABLE_FLASH = "S13";
+static constexpr char s388[] JT_TABLE_FLASH = "seq.step_14";
+static constexpr char s389[] JT_TABLE_FLASH = "Seq Step 14";
+static constexpr char s390[] JT_TABLE_FLASH = "S14";
+static constexpr char s391[] JT_TABLE_FLASH = "seq.step_15";
+static constexpr char s392[] JT_TABLE_FLASH = "Seq Step 15";
+static constexpr char s393[] JT_TABLE_FLASH = "S15";
+static constexpr char s394[] JT_TABLE_FLASH = "seq.step_16";
+static constexpr char s395[] JT_TABLE_FLASH = "Seq Step 16";
+static constexpr char s396[] JT_TABLE_FLASH = "S16";
+static constexpr char s397[] JT_TABLE_FLASH = "seq.aux_step_1";
+static constexpr char s398[] JT_TABLE_FLASH = "Seq Aux Step 1";
+static constexpr char s399[] JT_TABLE_FLASH = "A1";
+static constexpr char s400[] JT_TABLE_FLASH = "seq.aux_step_2";
+static constexpr char s401[] JT_TABLE_FLASH = "Seq Aux Step 2";
+static constexpr char s402[] JT_TABLE_FLASH = "A2";
+static constexpr char s403[] JT_TABLE_FLASH = "seq.aux_step_3";
+static constexpr char s404[] JT_TABLE_FLASH = "Seq Aux Step 3";
+static constexpr char s405[] JT_TABLE_FLASH = "A3";
+static constexpr char s406[] JT_TABLE_FLASH = "seq.aux_step_4";
+static constexpr char s407[] JT_TABLE_FLASH = "Seq Aux Step 4";
+static constexpr char s408[] JT_TABLE_FLASH = "A4";
+static constexpr char s409[] JT_TABLE_FLASH = "seq.aux_step_5";
+static constexpr char s410[] JT_TABLE_FLASH = "Seq Aux Step 5";
+static constexpr char s411[] JT_TABLE_FLASH = "A5";
+static constexpr char s412[] JT_TABLE_FLASH = "seq.aux_step_6";
+static constexpr char s413[] JT_TABLE_FLASH = "Seq Aux Step 6";
+static constexpr char s414[] JT_TABLE_FLASH = "A6";
+static constexpr char s415[] JT_TABLE_FLASH = "seq.aux_step_7";
+static constexpr char s416[] JT_TABLE_FLASH = "Seq Aux Step 7";
+static constexpr char s417[] JT_TABLE_FLASH = "A7";
+static constexpr char s418[] JT_TABLE_FLASH = "seq.aux_step_8";
+static constexpr char s419[] JT_TABLE_FLASH = "Seq Aux Step 8";
+static constexpr char s420[] JT_TABLE_FLASH = "A8";
+static constexpr char s421[] JT_TABLE_FLASH = "seq.aux_step_9";
+static constexpr char s422[] JT_TABLE_FLASH = "Seq Aux Step 9";
+static constexpr char s423[] JT_TABLE_FLASH = "A9";
+static constexpr char s424[] JT_TABLE_FLASH = "seq.aux_step_10";
+static constexpr char s425[] JT_TABLE_FLASH = "Seq Aux Step 10";
+static constexpr char s426[] JT_TABLE_FLASH = "A10";
+static constexpr char s427[] JT_TABLE_FLASH = "seq.aux_step_11";
+static constexpr char s428[] JT_TABLE_FLASH = "Seq Aux Step 11";
+static constexpr char s429[] JT_TABLE_FLASH = "A11";
+static constexpr char s430[] JT_TABLE_FLASH = "seq.aux_step_12";
+static constexpr char s431[] JT_TABLE_FLASH = "Seq Aux Step 12";
+static constexpr char s432[] JT_TABLE_FLASH = "A12";
+static constexpr char s433[] JT_TABLE_FLASH = "seq.aux_step_13";
+static constexpr char s434[] JT_TABLE_FLASH = "Seq Aux Step 13";
+static constexpr char s435[] JT_TABLE_FLASH = "A13";
+static constexpr char s436[] JT_TABLE_FLASH = "seq.aux_step_14";
+static constexpr char s437[] JT_TABLE_FLASH = "Seq Aux Step 14";
+static constexpr char s438[] JT_TABLE_FLASH = "A14";
+static constexpr char s439[] JT_TABLE_FLASH = "seq.aux_step_15";
+static constexpr char s440[] JT_TABLE_FLASH = "Seq Aux Step 15";
+static constexpr char s441[] JT_TABLE_FLASH = "A15";
+static constexpr char s442[] JT_TABLE_FLASH = "seq.aux_step_16";
+static constexpr char s443[] JT_TABLE_FLASH = "Seq Aux Step 16";
+static constexpr char s444[] JT_TABLE_FLASH = "A16";
+static constexpr char s445[] JT_TABLE_FLASH = "seq.step_bipolar";
+static constexpr char s446[] JT_TABLE_FLASH = "Seq Step Bipolar";
+static constexpr char s447[] JT_TABLE_FLASH = "BIPOL";
+static constexpr char s448[] JT_TABLE_FLASH = "seq.aux_bipolar";
+static constexpr char s449[] JT_TABLE_FLASH = "Seq Aux Bipolar";
+static constexpr char s450[] JT_TABLE_FLASH = "AUX BIP";
+static constexpr char s451[] JT_TABLE_FLASH = "perf.mode";
+static constexpr char s452[] JT_TABLE_FLASH = "Perf Mode";
+static constexpr char s453[] JT_TABLE_FLASH = "perf.edit_target";
+static constexpr char s454[] JT_TABLE_FLASH = "Edit Target";
+static constexpr char s455[] JT_TABLE_FLASH = "EDIT";
+static constexpr char s456[] JT_TABLE_FLASH = "perf.midi_channel_a";
+static constexpr char s457[] JT_TABLE_FLASH = "MIDI Ch A";
+static constexpr char s458[] JT_TABLE_FLASH = "CH A";
+static constexpr char s459[] JT_TABLE_FLASH = "perf.midi_channel_b";
+static constexpr char s460[] JT_TABLE_FLASH = "MIDI Ch B";
+static constexpr char s461[] JT_TABLE_FLASH = "CH B";
+static constexpr char s462[] JT_TABLE_FLASH = "perf.voice_split";
+static constexpr char s463[] JT_TABLE_FLASH = "Voice Split";
+static constexpr char s464[] JT_TABLE_FLASH = "VOICES";
+static constexpr char s465[] JT_TABLE_FLASH = "perf.split_note";
+static constexpr char s466[] JT_TABLE_FLASH = "Split Point";
+static constexpr char s467[] JT_TABLE_FLASH = "SPLIT";
+static constexpr char s468[] JT_TABLE_FLASH = "note";
+static constexpr char s469[] JT_TABLE_FLASH = "perf.balance";
+static constexpr char s470[] JT_TABLE_FLASH = "Layer Bal";
+static constexpr char s471[] JT_TABLE_FLASH = "BALANCE";
+static constexpr char s472[] JT_TABLE_FLASH = "reverb.size";
+static constexpr char s473[] JT_TABLE_FLASH = "Rev Size";
+static constexpr char s474[] JT_TABLE_FLASH = "SIZE";
+static constexpr char s475[] JT_TABLE_FLASH = "reverb.damp";
+static constexpr char s476[] JT_TABLE_FLASH = "Rev Hi Damp";
+static constexpr char s477[] JT_TABLE_FLASH = "HI DMP";
+static constexpr char s478[] JT_TABLE_FLASH = "reverb.lodamp";
+static constexpr char s479[] JT_TABLE_FLASH = "Rev Lo Damp";
+static constexpr char s480[] JT_TABLE_FLASH = "LO DMP";
+static constexpr char s481[] JT_TABLE_FLASH = "reverb.mix";
+static constexpr char s482[] JT_TABLE_FLASH = "Rev Mix";
+static constexpr char s483[] JT_TABLE_FLASH = "MIX";
+static constexpr char s484[] JT_TABLE_FLASH = "reverb.bypass";
+static constexpr char s485[] JT_TABLE_FLASH = "Rev Bypass";
+static constexpr char s486[] JT_TABLE_FLASH = "BYPASS";
+static constexpr char s487[] JT_TABLE_FLASH = "reverb.shimmer";
+static constexpr char s488[] JT_TABLE_FLASH = "Rev Shimmer";
+static constexpr char s489[] JT_TABLE_FLASH = "SHIMMER";
+static constexpr char s490[] JT_TABLE_FLASH = "reverb.freeze";
+static constexpr char s491[] JT_TABLE_FLASH = "Rev Freeze";
+static constexpr char s492[] JT_TABLE_FLASH = "FREEZE";
+static constexpr char s493[] JT_TABLE_FLASH = "reverb.lowpass";
+static constexpr char s494[] JT_TABLE_FLASH = "Rev Lo Pass";
+static constexpr char s495[] JT_TABLE_FLASH = "LO PASS";
+static constexpr char s496[] JT_TABLE_FLASH = "reverb.hipass";
+static constexpr char s497[] JT_TABLE_FLASH = "Rev Hi Pass";
+static constexpr char s498[] JT_TABLE_FLASH = "HI PASS";
+static constexpr char s499[] JT_TABLE_FLASH = "master.volume";
+static constexpr char s500[] JT_TABLE_FLASH = "Master Volume";
+static constexpr char s501[] JT_TABLE_FLASH = "VOLUME";
+static constexpr char s502[] JT_TABLE_FLASH = "arp.enable";
+static constexpr char s503[] JT_TABLE_FLASH = "Arp Enable";
+static constexpr char s504[] JT_TABLE_FLASH = "arp.mode";
+static constexpr char s505[] JT_TABLE_FLASH = "Arp Mode";
+static constexpr char s506[] JT_TABLE_FLASH = "arp.octaves";
+static constexpr char s507[] JT_TABLE_FLASH = "Arp Octaves";
+static constexpr char s508[] JT_TABLE_FLASH = "OCT";
+static constexpr char s509[] JT_TABLE_FLASH = "arp.latch";
+static constexpr char s510[] JT_TABLE_FLASH = "Arp Latch";
+static constexpr char s511[] JT_TABLE_FLASH = "LATCH";
+static constexpr char s512[] JT_TABLE_FLASH = "arp.rate";
+static constexpr char s513[] JT_TABLE_FLASH = "Arp Rate";
+static constexpr char s514[] JT_TABLE_FLASH = "arp.free_hz";
+static constexpr char s515[] JT_TABLE_FLASH = "Arp Free Rate";
+static constexpr char s516[] JT_TABLE_FLASH = "FREE";
+static constexpr char s517[] JT_TABLE_FLASH = "arp.gate_length";
+static constexpr char s518[] JT_TABLE_FLASH = "Arp Gate";
+static constexpr char s519[] JT_TABLE_FLASH = "arp.swing";
+static constexpr char s520[] JT_TABLE_FLASH = "Arp Swing";
+static constexpr char s521[] JT_TABLE_FLASH = "SWING";
+static constexpr char s522[] JT_TABLE_FLASH = "arp.step_count";
+static constexpr char s523[] JT_TABLE_FLASH = "Arp Steps";
+static constexpr char s524[] JT_TABLE_FLASH = "arp.step_select";
+static constexpr char s525[] JT_TABLE_FLASH = "Arp Step Select";
+static constexpr char s526[] JT_TABLE_FLASH = "STEP";
+static constexpr char s527[] JT_TABLE_FLASH = "arp.step_onoff";
+static constexpr char s528[] JT_TABLE_FLASH = "Arp Step On/Off";
+static constexpr char s529[] JT_TABLE_FLASH = "arp.step_accent";
+static constexpr char s530[] JT_TABLE_FLASH = "Arp Step Accent";
+static constexpr char s531[] JT_TABLE_FLASH = "ACCENT";
+static constexpr char s532[] JT_TABLE_FLASH = "arp.step_ratchet";
+static constexpr char s533[] JT_TABLE_FLASH = "Arp Step Ratchet";
+static constexpr char s534[] JT_TABLE_FLASH = "RATCH";
+static constexpr char s535[] JT_TABLE_FLASH = "arp.step_on_1";
+static constexpr char s536[] JT_TABLE_FLASH = "Arp Step On 1";
+static constexpr char s537[] JT_TABLE_FLASH = "O1";
+static constexpr char s538[] JT_TABLE_FLASH = "arp.step_on_2";
+static constexpr char s539[] JT_TABLE_FLASH = "Arp Step On 2";
+static constexpr char s540[] JT_TABLE_FLASH = "O2";
+static constexpr char s541[] JT_TABLE_FLASH = "arp.step_on_3";
+static constexpr char s542[] JT_TABLE_FLASH = "Arp Step On 3";
+static constexpr char s543[] JT_TABLE_FLASH = "O3";
+static constexpr char s544[] JT_TABLE_FLASH = "arp.step_on_4";
+static constexpr char s545[] JT_TABLE_FLASH = "Arp Step On 4";
+static constexpr char s546[] JT_TABLE_FLASH = "O4";
+static constexpr char s547[] JT_TABLE_FLASH = "arp.step_on_5";
+static constexpr char s548[] JT_TABLE_FLASH = "Arp Step On 5";
+static constexpr char s549[] JT_TABLE_FLASH = "O5";
+static constexpr char s550[] JT_TABLE_FLASH = "arp.step_on_6";
+static constexpr char s551[] JT_TABLE_FLASH = "Arp Step On 6";
+static constexpr char s552[] JT_TABLE_FLASH = "O6";
+static constexpr char s553[] JT_TABLE_FLASH = "arp.step_on_7";
+static constexpr char s554[] JT_TABLE_FLASH = "Arp Step On 7";
+static constexpr char s555[] JT_TABLE_FLASH = "O7";
+static constexpr char s556[] JT_TABLE_FLASH = "arp.step_on_8";
+static constexpr char s557[] JT_TABLE_FLASH = "Arp Step On 8";
+static constexpr char s558[] JT_TABLE_FLASH = "O8";
+static constexpr char s559[] JT_TABLE_FLASH = "arp.step_on_9";
+static constexpr char s560[] JT_TABLE_FLASH = "Arp Step On 9";
+static constexpr char s561[] JT_TABLE_FLASH = "O9";
+static constexpr char s562[] JT_TABLE_FLASH = "arp.step_on_10";
+static constexpr char s563[] JT_TABLE_FLASH = "Arp Step On 10";
+static constexpr char s564[] JT_TABLE_FLASH = "O10";
+static constexpr char s565[] JT_TABLE_FLASH = "arp.step_on_11";
+static constexpr char s566[] JT_TABLE_FLASH = "Arp Step On 11";
+static constexpr char s567[] JT_TABLE_FLASH = "O11";
+static constexpr char s568[] JT_TABLE_FLASH = "arp.step_on_12";
+static constexpr char s569[] JT_TABLE_FLASH = "Arp Step On 12";
+static constexpr char s570[] JT_TABLE_FLASH = "O12";
+static constexpr char s571[] JT_TABLE_FLASH = "arp.step_on_13";
+static constexpr char s572[] JT_TABLE_FLASH = "Arp Step On 13";
+static constexpr char s573[] JT_TABLE_FLASH = "O13";
+static constexpr char s574[] JT_TABLE_FLASH = "arp.step_on_14";
+static constexpr char s575[] JT_TABLE_FLASH = "Arp Step On 14";
+static constexpr char s576[] JT_TABLE_FLASH = "O14";
+static constexpr char s577[] JT_TABLE_FLASH = "arp.step_on_15";
+static constexpr char s578[] JT_TABLE_FLASH = "Arp Step On 15";
+static constexpr char s579[] JT_TABLE_FLASH = "O15";
+static constexpr char s580[] JT_TABLE_FLASH = "arp.step_on_16";
+static constexpr char s581[] JT_TABLE_FLASH = "Arp Step On 16";
+static constexpr char s582[] JT_TABLE_FLASH = "O16";
+static constexpr char s583[] JT_TABLE_FLASH = "arp.step_accent_1";
+static constexpr char s584[] JT_TABLE_FLASH = "Arp Step Accent 1";
+static constexpr char s585[] JT_TABLE_FLASH = "C1";
+static constexpr char s586[] JT_TABLE_FLASH = "arp.step_accent_2";
+static constexpr char s587[] JT_TABLE_FLASH = "Arp Step Accent 2";
+static constexpr char s588[] JT_TABLE_FLASH = "C2";
+static constexpr char s589[] JT_TABLE_FLASH = "arp.step_accent_3";
+static constexpr char s590[] JT_TABLE_FLASH = "Arp Step Accent 3";
+static constexpr char s591[] JT_TABLE_FLASH = "C3";
+static constexpr char s592[] JT_TABLE_FLASH = "arp.step_accent_4";
+static constexpr char s593[] JT_TABLE_FLASH = "Arp Step Accent 4";
+static constexpr char s594[] JT_TABLE_FLASH = "C4";
+static constexpr char s595[] JT_TABLE_FLASH = "arp.step_accent_5";
+static constexpr char s596[] JT_TABLE_FLASH = "Arp Step Accent 5";
+static constexpr char s597[] JT_TABLE_FLASH = "C5";
+static constexpr char s598[] JT_TABLE_FLASH = "arp.step_accent_6";
+static constexpr char s599[] JT_TABLE_FLASH = "Arp Step Accent 6";
+static constexpr char s600[] JT_TABLE_FLASH = "C6";
+static constexpr char s601[] JT_TABLE_FLASH = "arp.step_accent_7";
+static constexpr char s602[] JT_TABLE_FLASH = "Arp Step Accent 7";
+static constexpr char s603[] JT_TABLE_FLASH = "C7";
+static constexpr char s604[] JT_TABLE_FLASH = "arp.step_accent_8";
+static constexpr char s605[] JT_TABLE_FLASH = "Arp Step Accent 8";
+static constexpr char s606[] JT_TABLE_FLASH = "C8";
+static constexpr char s607[] JT_TABLE_FLASH = "arp.step_accent_9";
+static constexpr char s608[] JT_TABLE_FLASH = "Arp Step Accent 9";
+static constexpr char s609[] JT_TABLE_FLASH = "C9";
+static constexpr char s610[] JT_TABLE_FLASH = "arp.step_accent_10";
+static constexpr char s611[] JT_TABLE_FLASH = "Arp Step Accent 10";
+static constexpr char s612[] JT_TABLE_FLASH = "C10";
+static constexpr char s613[] JT_TABLE_FLASH = "arp.step_accent_11";
+static constexpr char s614[] JT_TABLE_FLASH = "Arp Step Accent 11";
+static constexpr char s615[] JT_TABLE_FLASH = "C11";
+static constexpr char s616[] JT_TABLE_FLASH = "arp.step_accent_12";
+static constexpr char s617[] JT_TABLE_FLASH = "Arp Step Accent 12";
+static constexpr char s618[] JT_TABLE_FLASH = "C12";
+static constexpr char s619[] JT_TABLE_FLASH = "arp.step_accent_13";
+static constexpr char s620[] JT_TABLE_FLASH = "Arp Step Accent 13";
+static constexpr char s621[] JT_TABLE_FLASH = "C13";
+static constexpr char s622[] JT_TABLE_FLASH = "arp.step_accent_14";
+static constexpr char s623[] JT_TABLE_FLASH = "Arp Step Accent 14";
+static constexpr char s624[] JT_TABLE_FLASH = "C14";
+static constexpr char s625[] JT_TABLE_FLASH = "arp.step_accent_15";
+static constexpr char s626[] JT_TABLE_FLASH = "Arp Step Accent 15";
+static constexpr char s627[] JT_TABLE_FLASH = "C15";
+static constexpr char s628[] JT_TABLE_FLASH = "arp.step_accent_16";
+static constexpr char s629[] JT_TABLE_FLASH = "Arp Step Accent 16";
+static constexpr char s630[] JT_TABLE_FLASH = "C16";
+static constexpr char s631[] JT_TABLE_FLASH = "arp.step_ratchet_1";
+static constexpr char s632[] JT_TABLE_FLASH = "Arp Step Ratchet 1";
+static constexpr char s633[] JT_TABLE_FLASH = "R1";
+static constexpr char s634[] JT_TABLE_FLASH = "arp.step_ratchet_2";
+static constexpr char s635[] JT_TABLE_FLASH = "Arp Step Ratchet 2";
+static constexpr char s636[] JT_TABLE_FLASH = "R2";
+static constexpr char s637[] JT_TABLE_FLASH = "arp.step_ratchet_3";
+static constexpr char s638[] JT_TABLE_FLASH = "Arp Step Ratchet 3";
+static constexpr char s639[] JT_TABLE_FLASH = "R3";
+static constexpr char s640[] JT_TABLE_FLASH = "arp.step_ratchet_4";
+static constexpr char s641[] JT_TABLE_FLASH = "Arp Step Ratchet 4";
+static constexpr char s642[] JT_TABLE_FLASH = "R4";
+static constexpr char s643[] JT_TABLE_FLASH = "arp.step_ratchet_5";
+static constexpr char s644[] JT_TABLE_FLASH = "Arp Step Ratchet 5";
+static constexpr char s645[] JT_TABLE_FLASH = "R5";
+static constexpr char s646[] JT_TABLE_FLASH = "arp.step_ratchet_6";
+static constexpr char s647[] JT_TABLE_FLASH = "Arp Step Ratchet 6";
+static constexpr char s648[] JT_TABLE_FLASH = "R6";
+static constexpr char s649[] JT_TABLE_FLASH = "arp.step_ratchet_7";
+static constexpr char s650[] JT_TABLE_FLASH = "Arp Step Ratchet 7";
+static constexpr char s651[] JT_TABLE_FLASH = "R7";
+static constexpr char s652[] JT_TABLE_FLASH = "arp.step_ratchet_8";
+static constexpr char s653[] JT_TABLE_FLASH = "Arp Step Ratchet 8";
+static constexpr char s654[] JT_TABLE_FLASH = "R8";
+static constexpr char s655[] JT_TABLE_FLASH = "arp.step_ratchet_9";
+static constexpr char s656[] JT_TABLE_FLASH = "Arp Step Ratchet 9";
+static constexpr char s657[] JT_TABLE_FLASH = "R9";
+static constexpr char s658[] JT_TABLE_FLASH = "arp.step_ratchet_10";
+static constexpr char s659[] JT_TABLE_FLASH = "Arp Step Ratchet 10";
+static constexpr char s660[] JT_TABLE_FLASH = "R10";
+static constexpr char s661[] JT_TABLE_FLASH = "arp.step_ratchet_11";
+static constexpr char s662[] JT_TABLE_FLASH = "Arp Step Ratchet 11";
+static constexpr char s663[] JT_TABLE_FLASH = "R11";
+static constexpr char s664[] JT_TABLE_FLASH = "arp.step_ratchet_12";
+static constexpr char s665[] JT_TABLE_FLASH = "Arp Step Ratchet 12";
+static constexpr char s666[] JT_TABLE_FLASH = "R12";
+static constexpr char s667[] JT_TABLE_FLASH = "arp.step_ratchet_13";
+static constexpr char s668[] JT_TABLE_FLASH = "Arp Step Ratchet 13";
+static constexpr char s669[] JT_TABLE_FLASH = "R13";
+static constexpr char s670[] JT_TABLE_FLASH = "arp.step_ratchet_14";
+static constexpr char s671[] JT_TABLE_FLASH = "Arp Step Ratchet 14";
+static constexpr char s672[] JT_TABLE_FLASH = "R14";
+static constexpr char s673[] JT_TABLE_FLASH = "arp.step_ratchet_15";
+static constexpr char s674[] JT_TABLE_FLASH = "Arp Step Ratchet 15";
+static constexpr char s675[] JT_TABLE_FLASH = "R15";
+static constexpr char s676[] JT_TABLE_FLASH = "arp.step_ratchet_16";
+static constexpr char s677[] JT_TABLE_FLASH = "Arp Step Ratchet 16";
+static constexpr char s678[] JT_TABLE_FLASH = "R16";
 } // namespace Str
 
 // --- Option sets (display strings for Select params) -------------------------
@@ -539,7 +785,7 @@ static constexpr const char* const kOpt_f_x_delay_effect[] JT_TABLE_FLASH = { "O
 static constexpr const char* const kOpt_drive[] JT_TABLE_FLASH = { "OFF", "Soft", "Hard" };
 static constexpr const char* const kOpt_seq_dir[] JT_TABLE_FLASH = { "Fwd", "Rev", "Bounce", "Random" };
 static constexpr const char* const kOpt_seq_dest[] JT_TABLE_FLASH = { "None", "Pitch", "Filter", "PWM", "Amp" };
-static constexpr const char* const kOpt_seq_aux_dest[] JT_TABLE_FLASH = { "None", "Filter", "Pan", "DelaySend", "Drive" };
+static constexpr const char* const kOpt_seq_aux_dest[] JT_TABLE_FLASH = { "None", "Filter", "Pan", "DelaySend", "Tone", "Drive" };
 static constexpr const char* const kOpt_perf_mode[] JT_TABLE_FLASH = { "Single", "Layer", "Split" };
 static constexpr const char* const kOpt_edit_target[] JT_TABLE_FLASH = { "A", "B", "Both" };
 static constexpr const char* const kOpt_clock_source[] JT_TABLE_FLASH = { "Internal", "Ext MIDI" };
@@ -770,6 +1016,40 @@ inline constexpr uint16_t SEQ_AUX_DESTINATION          = 0x068C;
 inline constexpr uint16_t SEQ_AUX_DEPTH                = 0x068D;
 inline constexpr uint16_t SEQ_AUX_STEP_SELECT          = 0x068E;
 inline constexpr uint16_t SEQ_AUX_STEP_VALUE           = 0x068F;
+inline constexpr uint16_t SEQ_STEP_1                   = 0x0690;
+inline constexpr uint16_t SEQ_STEP_2                   = 0x0691;
+inline constexpr uint16_t SEQ_STEP_3                   = 0x0692;
+inline constexpr uint16_t SEQ_STEP_4                   = 0x0693;
+inline constexpr uint16_t SEQ_STEP_5                   = 0x0694;
+inline constexpr uint16_t SEQ_STEP_6                   = 0x0695;
+inline constexpr uint16_t SEQ_STEP_7                   = 0x0696;
+inline constexpr uint16_t SEQ_STEP_8                   = 0x0697;
+inline constexpr uint16_t SEQ_STEP_9                   = 0x0698;
+inline constexpr uint16_t SEQ_STEP_10                  = 0x0699;
+inline constexpr uint16_t SEQ_STEP_11                  = 0x069A;
+inline constexpr uint16_t SEQ_STEP_12                  = 0x069B;
+inline constexpr uint16_t SEQ_STEP_13                  = 0x069C;
+inline constexpr uint16_t SEQ_STEP_14                  = 0x069D;
+inline constexpr uint16_t SEQ_STEP_15                  = 0x069E;
+inline constexpr uint16_t SEQ_STEP_16                  = 0x069F;
+inline constexpr uint16_t SEQ_AUX_STEP_1               = 0x06A0;
+inline constexpr uint16_t SEQ_AUX_STEP_2               = 0x06A1;
+inline constexpr uint16_t SEQ_AUX_STEP_3               = 0x06A2;
+inline constexpr uint16_t SEQ_AUX_STEP_4               = 0x06A3;
+inline constexpr uint16_t SEQ_AUX_STEP_5               = 0x06A4;
+inline constexpr uint16_t SEQ_AUX_STEP_6               = 0x06A5;
+inline constexpr uint16_t SEQ_AUX_STEP_7               = 0x06A6;
+inline constexpr uint16_t SEQ_AUX_STEP_8               = 0x06A7;
+inline constexpr uint16_t SEQ_AUX_STEP_9               = 0x06A8;
+inline constexpr uint16_t SEQ_AUX_STEP_10              = 0x06A9;
+inline constexpr uint16_t SEQ_AUX_STEP_11              = 0x06AA;
+inline constexpr uint16_t SEQ_AUX_STEP_12              = 0x06AB;
+inline constexpr uint16_t SEQ_AUX_STEP_13              = 0x06AC;
+inline constexpr uint16_t SEQ_AUX_STEP_14              = 0x06AD;
+inline constexpr uint16_t SEQ_AUX_STEP_15              = 0x06AE;
+inline constexpr uint16_t SEQ_AUX_STEP_16              = 0x06AF;
+inline constexpr uint16_t SEQ_STEP_BIPOLAR             = 0x06B0;
+inline constexpr uint16_t SEQ_AUX_BIPOLAR              = 0x06B1;
 inline constexpr uint16_t PERF_MODE                    = 0x0700;
 inline constexpr uint16_t PERF_EDIT_TARGET             = 0x0701;
 inline constexpr uint16_t PERF_MIDI_CHANNEL_A          = 0x0702;
@@ -800,6 +1080,54 @@ inline constexpr uint16_t ARP_STEP_SELECT              = 0x0889;
 inline constexpr uint16_t ARP_STEP_ONOFF               = 0x088A;
 inline constexpr uint16_t ARP_STEP_ACCENT              = 0x088B;
 inline constexpr uint16_t ARP_STEP_RATCHET             = 0x088C;
+inline constexpr uint16_t ARP_STEP_ON_1                = 0x088D;
+inline constexpr uint16_t ARP_STEP_ON_2                = 0x088E;
+inline constexpr uint16_t ARP_STEP_ON_3                = 0x088F;
+inline constexpr uint16_t ARP_STEP_ON_4                = 0x0890;
+inline constexpr uint16_t ARP_STEP_ON_5                = 0x0891;
+inline constexpr uint16_t ARP_STEP_ON_6                = 0x0892;
+inline constexpr uint16_t ARP_STEP_ON_7                = 0x0893;
+inline constexpr uint16_t ARP_STEP_ON_8                = 0x0894;
+inline constexpr uint16_t ARP_STEP_ON_9                = 0x0895;
+inline constexpr uint16_t ARP_STEP_ON_10               = 0x0896;
+inline constexpr uint16_t ARP_STEP_ON_11               = 0x0897;
+inline constexpr uint16_t ARP_STEP_ON_12               = 0x0898;
+inline constexpr uint16_t ARP_STEP_ON_13               = 0x0899;
+inline constexpr uint16_t ARP_STEP_ON_14               = 0x089A;
+inline constexpr uint16_t ARP_STEP_ON_15               = 0x089B;
+inline constexpr uint16_t ARP_STEP_ON_16               = 0x089C;
+inline constexpr uint16_t ARP_STEP_ACCENT_1            = 0x089D;
+inline constexpr uint16_t ARP_STEP_ACCENT_2            = 0x089E;
+inline constexpr uint16_t ARP_STEP_ACCENT_3            = 0x089F;
+inline constexpr uint16_t ARP_STEP_ACCENT_4            = 0x08A0;
+inline constexpr uint16_t ARP_STEP_ACCENT_5            = 0x08A1;
+inline constexpr uint16_t ARP_STEP_ACCENT_6            = 0x08A2;
+inline constexpr uint16_t ARP_STEP_ACCENT_7            = 0x08A3;
+inline constexpr uint16_t ARP_STEP_ACCENT_8            = 0x08A4;
+inline constexpr uint16_t ARP_STEP_ACCENT_9            = 0x08A5;
+inline constexpr uint16_t ARP_STEP_ACCENT_10           = 0x08A6;
+inline constexpr uint16_t ARP_STEP_ACCENT_11           = 0x08A7;
+inline constexpr uint16_t ARP_STEP_ACCENT_12           = 0x08A8;
+inline constexpr uint16_t ARP_STEP_ACCENT_13           = 0x08A9;
+inline constexpr uint16_t ARP_STEP_ACCENT_14           = 0x08AA;
+inline constexpr uint16_t ARP_STEP_ACCENT_15           = 0x08AB;
+inline constexpr uint16_t ARP_STEP_ACCENT_16           = 0x08AC;
+inline constexpr uint16_t ARP_STEP_RATCHET_1           = 0x08AD;
+inline constexpr uint16_t ARP_STEP_RATCHET_2           = 0x08AE;
+inline constexpr uint16_t ARP_STEP_RATCHET_3           = 0x08AF;
+inline constexpr uint16_t ARP_STEP_RATCHET_4           = 0x08B0;
+inline constexpr uint16_t ARP_STEP_RATCHET_5           = 0x08B1;
+inline constexpr uint16_t ARP_STEP_RATCHET_6           = 0x08B2;
+inline constexpr uint16_t ARP_STEP_RATCHET_7           = 0x08B3;
+inline constexpr uint16_t ARP_STEP_RATCHET_8           = 0x08B4;
+inline constexpr uint16_t ARP_STEP_RATCHET_9           = 0x08B5;
+inline constexpr uint16_t ARP_STEP_RATCHET_10          = 0x08B6;
+inline constexpr uint16_t ARP_STEP_RATCHET_11          = 0x08B7;
+inline constexpr uint16_t ARP_STEP_RATCHET_12          = 0x08B8;
+inline constexpr uint16_t ARP_STEP_RATCHET_13          = 0x08B9;
+inline constexpr uint16_t ARP_STEP_RATCHET_14          = 0x08BA;
+inline constexpr uint16_t ARP_STEP_RATCHET_15          = 0x08BB;
+inline constexpr uint16_t ARP_STEP_RATCHET_16          = 0x08BC;
 } // namespace ID
 
 // visible_when: which option indices of the dependency make a row visible.
@@ -961,44 +1289,126 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::SEQ_TIMING_MODE, Str::s329, Str::s330, Str::s92, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 13, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::SEQ_STEP_SELECT, Str::s331, Str::s332, Str::s333, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 13, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::SEQ_STEP_VALUE, Str::s334, Str::s335, Str::s336, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_DESTINATION, Str::s337, Str::s338, Str::s339, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_aux_dest, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_DESTINATION, Str::s337, Str::s338, Str::s339, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_seq_aux_dest, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::SEQ_AUX_DEPTH, Str::s340, Str::s341, Str::s342, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::SEQ_AUX_STEP_SELECT, Str::s343, Str::s344, Str::s345, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::SEQ_AUX_STEP_VALUE, Str::s346, Str::s347, Str::s348, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_1, Str::s349, Str::s350, Str::s351, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_2, Str::s352, Str::s353, Str::s354, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_3, Str::s355, Str::s356, Str::s357, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_4, Str::s358, Str::s359, Str::s360, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_5, Str::s361, Str::s362, Str::s363, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_6, Str::s364, Str::s365, Str::s366, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_7, Str::s367, Str::s368, Str::s369, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_8, Str::s370, Str::s371, Str::s372, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_9, Str::s373, Str::s374, Str::s375, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_10, Str::s376, Str::s377, Str::s378, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_11, Str::s379, Str::s380, Str::s381, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_12, Str::s382, Str::s383, Str::s384, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_13, Str::s385, Str::s386, Str::s387, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_14, Str::s388, Str::s389, Str::s390, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_15, Str::s391, Str::s392, Str::s393, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_16, Str::s394, Str::s395, Str::s396, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_1, Str::s397, Str::s398, Str::s399, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_2, Str::s400, Str::s401, Str::s402, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_3, Str::s403, Str::s404, Str::s405, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_4, Str::s406, Str::s407, Str::s408, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_5, Str::s409, Str::s410, Str::s411, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_6, Str::s412, Str::s413, Str::s414, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_7, Str::s415, Str::s416, Str::s417, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_8, Str::s418, Str::s419, Str::s420, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_9, Str::s421, Str::s422, Str::s423, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_10, Str::s424, Str::s425, Str::s426, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_11, Str::s427, Str::s428, Str::s429, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_12, Str::s430, Str::s431, Str::s432, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_13, Str::s433, Str::s434, Str::s435, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_14, Str::s436, Str::s437, Str::s438, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_15, Str::s439, Str::s440, Str::s441, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_16, Str::s442, Str::s443, Str::s444, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_BIPOLAR, Str::s445, Str::s446, Str::s447, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_BIPOLAR, Str::s448, Str::s449, Str::s450, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
     // ---- [14] Voice Mode ----
-    { ID::PERF_MODE, Str::s349, Str::s350, Str::s115, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_perf_mode, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_EDIT_TARGET, Str::s351, Str::s352, Str::s353, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_edit_target, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_MIDI_CHANNEL_A, Str::s354, Str::s355, Str::s356, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 0.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_MIDI_CHANNEL_B, Str::s357, Str::s358, Str::s359, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 1.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_VOICE_SPLIT, Str::s360, Str::s361, Str::s362, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 3.0f, Str::s3, false, 0, -1, 7, kOpt_voice_split, 14, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_SPLIT_NOTE, Str::s363, Str::s364, Str::s365, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 60.0f, Str::s366, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::PERF_BALANCE, Str::s367, Str::s368, Str::s369, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 64.0f, Str::s134, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::PERF_MODE, Str::s451, Str::s452, Str::s115, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_perf_mode, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_EDIT_TARGET, Str::s453, Str::s454, Str::s455, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_edit_target, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_MIDI_CHANNEL_A, Str::s456, Str::s457, Str::s458, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 0.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_MIDI_CHANNEL_B, Str::s459, Str::s460, Str::s461, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 1.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_VOICE_SPLIT, Str::s462, Str::s463, Str::s464, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 3.0f, Str::s3, false, 0, -1, 7, kOpt_voice_split, 14, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_SPLIT_NOTE, Str::s465, Str::s466, Str::s467, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 60.0f, Str::s468, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::PERF_BALANCE, Str::s469, Str::s470, Str::s471, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 64.0f, Str::s134, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [15] Global Reverb ----
-    { ID::REVERB_SIZE, Str::s370, Str::s371, Str::s372, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_DAMP, Str::s373, Str::s374, Str::s375, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_LODAMP, Str::s376, Str::s377, Str::s378, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_MIX, Str::s379, Str::s380, Str::s381, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 91, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_BYPASS, Str::s382, Str::s383, Str::s384, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 15, 0, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_SHIMMER, Str::s385, Str::s386, Str::s387, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_FREEZE, Str::s388, Str::s389, Str::s390, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 15, 1, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_LOWPASS, Str::s391, Str::s392, Str::s393, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_HIPASS, Str::s394, Str::s395, Str::s396, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_SIZE, Str::s472, Str::s473, Str::s474, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_DAMP, Str::s475, Str::s476, Str::s477, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_LODAMP, Str::s478, Str::s479, Str::s480, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_MIX, Str::s481, Str::s482, Str::s483, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 91, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_BYPASS, Str::s484, Str::s485, Str::s486, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 15, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_SHIMMER, Str::s487, Str::s488, Str::s489, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_FREEZE, Str::s490, Str::s491, Str::s492, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 15, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_LOWPASS, Str::s493, Str::s494, Str::s495, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_HIPASS, Str::s496, Str::s497, Str::s498, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [16] Master ----
-    { ID::MASTER_VOLUME, Str::s397, Str::s398, Str::s399, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.8f, Str::s10, false, 20, 7, 0, nullptr, 16, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MASTER_VOLUME, Str::s499, Str::s500, Str::s501, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.8f, Str::s10, false, 20, 7, 0, nullptr, 16, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [17] Arpeggiator ----
-    { ID::ARP_ENABLE, Str::s400, Str::s401, Str::s285, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::ARP_MODE, Str::s402, Str::s403, Str::s115, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 0.0f, Str::s3, false, 0, -1, 7, kOpt_arp_mode, 17, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::ARP_OCTAVES, Str::s404, Str::s405, Str::s406, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_arp_octaves, 17, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::ARP_LATCH, Str::s407, Str::s408, Str::s409, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::ARP_RATE, Str::s410, Str::s411, Str::s193, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 7.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 17, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::ARP_FREE_HZ, Str::s412, Str::s413, Str::s414, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ARP_GATE_LENGTH, Str::s415, Str::s416, Str::s313, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ARP_SWING, Str::s417, Str::s418, Str::s419, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ARP_STEP_COUNT, Str::s420, Str::s421, Str::s310, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 16.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::ARP_STEP_SELECT, Str::s422, Str::s423, Str::s424, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::ARP_STEP_ONOFF, Str::s425, Str::s426, Str::s313, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::ARP_STEP_ACCENT, Str::s427, Str::s428, Str::s429, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ARP_STEP_RATCHET, Str::s430, Str::s431, Str::s432, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_ENABLE, Str::s502, Str::s503, Str::s285, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_MODE, Str::s504, Str::s505, Str::s115, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 0.0f, Str::s3, false, 0, -1, 7, kOpt_arp_mode, 17, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_OCTAVES, Str::s506, Str::s507, Str::s508, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_arp_octaves, 17, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_LATCH, Str::s509, Str::s510, Str::s511, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_RATE, Str::s512, Str::s513, Str::s193, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 7.0f, Str::s3, false, 0, -1, 12, kOpt_timing_mode, 17, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_FREE_HZ, Str::s514, Str::s515, Str::s516, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_GATE_LENGTH, Str::s517, Str::s518, Str::s313, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_SWING, Str::s519, Str::s520, Str::s521, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_COUNT, Str::s522, Str::s523, Str::s310, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 16.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_SELECT, Str::s524, Str::s525, Str::s526, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ONOFF, Str::s527, Str::s528, Str::s313, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT, Str::s529, Str::s530, Str::s531, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET, Str::s532, Str::s533, Str::s534, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_1, Str::s535, Str::s536, Str::s537, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_2, Str::s538, Str::s539, Str::s540, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_3, Str::s541, Str::s542, Str::s543, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_4, Str::s544, Str::s545, Str::s546, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_5, Str::s547, Str::s548, Str::s549, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_6, Str::s550, Str::s551, Str::s552, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_7, Str::s553, Str::s554, Str::s555, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_8, Str::s556, Str::s557, Str::s558, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_9, Str::s559, Str::s560, Str::s561, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_10, Str::s562, Str::s563, Str::s564, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_11, Str::s565, Str::s566, Str::s567, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_12, Str::s568, Str::s569, Str::s570, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_13, Str::s571, Str::s572, Str::s573, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_14, Str::s574, Str::s575, Str::s576, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_15, Str::s577, Str::s578, Str::s579, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ON_16, Str::s580, Str::s581, Str::s582, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_1, Str::s583, Str::s584, Str::s585, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_2, Str::s586, Str::s587, Str::s588, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_3, Str::s589, Str::s590, Str::s591, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_4, Str::s592, Str::s593, Str::s594, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_5, Str::s595, Str::s596, Str::s597, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_6, Str::s598, Str::s599, Str::s600, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_7, Str::s601, Str::s602, Str::s603, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_8, Str::s604, Str::s605, Str::s606, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_9, Str::s607, Str::s608, Str::s609, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_10, Str::s610, Str::s611, Str::s612, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_11, Str::s613, Str::s614, Str::s615, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_12, Str::s616, Str::s617, Str::s618, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_13, Str::s619, Str::s620, Str::s621, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_14, Str::s622, Str::s623, Str::s624, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_15, Str::s625, Str::s626, Str::s627, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_ACCENT_16, Str::s628, Str::s629, Str::s630, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_1, Str::s631, Str::s632, Str::s633, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_2, Str::s634, Str::s635, Str::s636, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_3, Str::s637, Str::s638, Str::s639, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_4, Str::s640, Str::s641, Str::s642, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_5, Str::s643, Str::s644, Str::s645, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_6, Str::s646, Str::s647, Str::s648, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_7, Str::s649, Str::s650, Str::s651, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_8, Str::s652, Str::s653, Str::s654, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_9, Str::s655, Str::s656, Str::s657, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_10, Str::s658, Str::s659, Str::s660, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_11, Str::s661, Str::s662, Str::s663, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_12, Str::s664, Str::s665, Str::s666, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_13, Str::s667, Str::s668, Str::s669, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_14, Str::s670, Str::s671, Str::s672, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_15, Str::s673, Str::s674, Str::s675, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ARP_STEP_RATCHET_16, Str::s676, Str::s677, Str::s678, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
 };
 
 inline constexpr size_t kParamCount = sizeof(kParams) / sizeof(kParams[0]);
@@ -1022,7 +1432,7 @@ inline constexpr size_t kParamCount = sizeof(kParams) / sizeof(kParams[0]);
 // kBankIndex is a plain constexpr array, i.e. .rodata -> DTCM on the IMXRT1062,
 // NOT JT_TABLE_FLASH: slotFor() runs once per dirty parameter in the
 // audio-plane drain, where a FLEXSPI miss costs more than these bytes of RAM.
-inline constexpr int16_t kBankIndex[] = {  // 161 entries, 322 B DTCM
+inline constexpr int16_t kBankIndex[] = {  // 243 entries, 486 B DTCM
       0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
      16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,
      32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,
@@ -1032,11 +1442,16 @@ inline constexpr int16_t kBankIndex[] = {  // 161 entries, 322 B DTCM
      -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  90,  91,  92,  93,  94,  95,  96,  97,
      98,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
      -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
-     -1,  -1,  -1,  -1,  99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110,
-    111,
+     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  -1,  -1,  -1,  99, 100, 101, 102, 103, 104, 105, 106, 107, 108,
+    109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124,
+    125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140,
+    141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156,
+    157, 158, 159,
 };
 
-inline constexpr size_t kBankedCount = 112;   // Scope::Patch params
+inline constexpr size_t kBankedCount = 160;   // Scope::Patch params
 inline constexpr size_t kStoreSlots  = kParamCount + kBankedCount;
 
 inline constexpr bool isBanked(size_t index) { return kBankIndex[index] >= 0; }
@@ -1051,14 +1466,17 @@ inline constexpr size_t slotFor(size_t index, uint8_t layer) {
 // Reverse of kBankIndex: which parameter owns each APPENDED (layer-B) slot.
 // The audio-plane drain pops a slot and must name the parameter again;
 // without this it would linear-scan kBankIndex per dirty param, in the ISR.
-inline constexpr int16_t kBankOwner[] = {  // 112 entries, 224 B DTCM
+inline constexpr int16_t kBankOwner[] = {  // 160 entries, 320 B DTCM
       0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
      16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,
      32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,
      48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,
      64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,
      80,  81,  82,  83,  84,  85,  86,  87,  88,  89, 104, 105, 106, 107, 108, 109,
-    110, 111, 112, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160,
+    110, 111, 112, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194,
+    195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210,
+    211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226,
+    227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242,
 };
 
 // Decompose a storage slot back into (parameter, layer).  Both are one
@@ -1104,8 +1522,8 @@ inline constexpr uint16_t idFromNrpn(uint8_t msb, uint8_t lsb) {
 }
 
 // Compile-time guarantees — a bad regeneration cannot even compile.
-static_assert(kParamCount == 161, "param count changed — regenerate consumers");
-static_assert(kBankedCount == 112, "banked count changed — ParameterStore must be resized");
+static_assert(kParamCount == 243, "param count changed — regenerate consumers");
+static_assert(kBankedCount == 160, "banked count changed — ParameterStore must be resized");
 static_assert(sizeof(kBankIndex) / sizeof(kBankIndex[0]) == kParamCount,
               "bank index table must be one entry per parameter");
 static_assert(sizeof(kBankOwner) / sizeof(kBankOwner[0]) == kBankedCount,

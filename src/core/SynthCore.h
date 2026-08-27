@@ -212,6 +212,24 @@ public:
         return static_cast<uint16_t>((mask << 5) | (step << 1) | run);
     }
 
+    // ---- Arp status word for the controller's ARP lane (NRPN 0x3FFE) ------
+    //
+    //     [13..5] reserved 0   [4..1] arpStep:4   [0] arpRunning:1
+    //
+    // A SECOND address because statusWord() above already spends 13 of its 14
+    // bits.  Without it the controller had no arp playhead at all and drew the
+    // SEQUENCER's instead.
+    //
+    // The arp is per layer but the controller shows one lane, so this reports
+    // the FIRST layer whose arp is actually running, falling back to layer A.
+    // In Single mode — the overwhelmingly common case — that is simply A.
+    uint16_t arpStatusWord() const {
+        const Layer& lz = _layers[0].arp.running() ? _layers[0] : _layers[1];
+        const uint16_t step = static_cast<uint16_t>(lz.arp.currentStep()) & 0x0F;
+        const uint16_t run  = lz.arp.running() ? 1u : 0u;
+        return static_cast<uint16_t>((step << 1) | run);
+    }
+
     // ── Generic parameter smoothing ────────────────────────────────────────
     // Every param whose table row declares smooth_ms > 0 glides to its new
     // value instead of stepping to it.  All 76 of them, from one mechanism.
@@ -267,6 +285,12 @@ public:
     int   debugArpRateMode()         const { return _layers[0].arp.debugRateModeOrMinus1(); }
 
 #ifdef JT_TESTING
+    // Test-only: the shared step sequencer, so tests can assert that the
+    // explicit SEQ_STEP_n params each landed on their OWN step.  That is the
+    // property the retired cursor idiom could not provide, so it is worth
+    // asserting directly rather than only through audio.
+    const StepSequencer& debugSeq() const { return _seq; }
+
     // Test-only: the effective rate of LFO 0 (LFO1) or 1 (LFO2) — the Hz that
     // applyLfoRate() resolved (free knob or clock division).  Lets test_bpmclock
     // assert sync resolution exactly (PHASE3_BPMCLOCK_SPEC §7).  Firmware-free.
@@ -553,11 +577,10 @@ private:
     // modulation accumulators (pitch/filter/pwm/amp).  No pool, no per-sample
     // work.  Disabled by default (SEQ_ENABLE off) => emits 0 => the four
     // accumulators are unchanged => default patch stays byte-identical.
-    // _seqEditStep is the "currently selected step for editing" (v1
-    // seqSelectedStep): SEQ_STEP_SELECT sets it, SEQ_STEP_VALUE writes it.
+    // The edit-cursor members this once carried are gone: steps are addressed
+    // explicitly now (SEQ_STEP_n / SEQ_AUX_STEP_n), so there is no "currently
+    // selected step" for the engine to remember.
     StepSequencer _seq;
-    int           _seqEditStep = 0;
-    int           _seqAuxEditStep = 0;   // aux-lane edit cursor (Stage B)
 
     // Arpeggiator (Phase 9, PHASE9_ARP_SPEC.md).  Independent clock, but reads
     // the SHARED _clock BPM so internal-tempo and external-MIDI-clock changes

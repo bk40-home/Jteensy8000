@@ -121,7 +121,12 @@ public:
     // (shelf gains are one-pole smoothed).  Works regardless of drive mode — it
     // is a tone colour, not a saturation-amount change.  Name kept for the
     // SynthCore aux-Drive wiring.
-    void setDriveMod(float bipolar);
+    void setToneTiltMod(float bipolar);
+    // Drive-amount mod: scales the saturator's INPUT gain by 2^(mod * 1.5),
+    // i.e. about +/-9 dB into the shaper at full depth.  Inaudible while
+    // fx.drive is OFF, because applySaturation bypasses in that mode — the
+    // aux lane cannot conjure a saturator that is not running.
+    void setDriveAmountMod(float bipolar);
     // Delay-send mod: additive offset onto the FX_DELAY_MIX knob value, the sum
     // clamped 0..1 (Q19).  Only audible when a delay effect is selected.
     void setDelayMixMod(float offset);
@@ -133,6 +138,11 @@ public:
     // Engaged-gate queries for SynthCore (D-3).  "Active" == this stage would
     // do audible work.  If none are active SynthCore skips processBlock.
     bool driveActive() const { return _driveMode != 0; }
+    // The tone TILT colours the signal whatever the drive mode is, so it must
+    // be able to engage the chain on its own — otherwise selecting the aux
+    // Tone destination on an all-OFF chain does nothing at all.  Includes
+    // _tiltCur so the chain stays engaged while the tilt smooths back to flat.
+    bool toneTiltActive() const { return _tiltTarget != 0.0f || _tiltCur != 0.0f; }
     bool modActive()   const { return _modType >= 0; }
     bool delayActive() const { return _delayType >= 0; }
 
@@ -164,7 +174,7 @@ private:
     {
         if (_driveMode == 0) return x;                 // OFF: bypass, zero cost
 
-        const float driven = x * _satInputGain;
+        const float driven = x * _satInputEff;
         float shaped;
         if (_satIsSoft) {
             shaped = tanhf(driven);                    // FPU-accelerated on M7
@@ -232,8 +242,15 @@ private:
     // block-rate smoothed tilt actually applied.  At full depth → ±kTiltMaxDb
     // (treble +, bass −, and vice-versa).  Default 0 → no effect, tone EQ
     // behaviour byte-identical.
-    float _tiltTarget = 0.0f;     // −1..+1 (raw aux value)
+    float _tiltTarget = 0.0f;     // -1..+1 (raw aux value)
     float _tiltCur    = 0.0f;     // smoothed, 0 = flat
+
+    // Drive-amount mod, same smoothing idiom as the tilt.  _satInputEff is
+    // _satInputGain folded with the smoothed mod ONCE PER BLOCK, so the
+    // per-sample saturator keeps its single multiply.
+    float _driveModTarget = 0.0f; // -1..+1 (raw aux value)
+    float _driveModCur    = 0.0f; // smoothed, 0 = no change
+    float _satInputEff    = 1.0f; // _satInputGain * 2^(_driveModCur * 1.5)
     float _delayMixMod  = 0.0f;   // additive offset onto _delayMix (Q19)
     float _satOutputGain= 1.0f;
     bool  _satIsSoft    = true;

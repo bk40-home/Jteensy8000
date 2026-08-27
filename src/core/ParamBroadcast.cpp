@@ -80,23 +80,36 @@ JT_COLD void ParamBroadcast::emitDeselect()
     }
 }
 
-void ParamBroadcast::sendStatusIfChanged(uint16_t status14)
+// One reserved-address message, self-contained (address + data + park).  Both
+// status feeds go through here so the 6-CC form is written down exactly once.
+void ParamBroadcast::emitReserved(uint16_t addr, uint16_t value14)
 {
-    if (status14 == _lastStatus) return;   // idle cost: one compare
-    _lastStatus = status14;
-
     for (size_t s = 0; s < _sinkCount; ++s) {
         if (!_sinks[s]) continue;
         NrpnSink& out = *_sinks[s];
-        out.sendCC(99, static_cast<uint8_t>((kStatusAddr >> 7) & 0x7F));
-        out.sendCC(98, static_cast<uint8_t>(kStatusAddr & 0x7F));
-        out.sendCC(6,  static_cast<uint8_t>((status14 >> 7) & 0x7F));
-        out.sendCC(38, static_cast<uint8_t>(status14 & 0x7F));
+        out.sendCC(99, static_cast<uint8_t>((addr >> 7) & 0x7F));
+        out.sendCC(98, static_cast<uint8_t>(addr & 0x7F));
+        out.sendCC(6,  static_cast<uint8_t>((value14 >> 7) & 0x7F));
+        out.sendCC(38, static_cast<uint8_t>(value14 & 0x7F));
         // Self-contained park — see the header note.
         out.sendCC(101, 127);
         out.sendCC(100, 127);
     }
     ++_sent;
+}
+
+void ParamBroadcast::sendStatusIfChanged(uint16_t status14)
+{
+    if (status14 == _lastStatus) return;   // idle cost: one compare
+    _lastStatus = status14;
+    emitReserved(kStatusAddr, status14);
+}
+
+void ParamBroadcast::sendArpStatusIfChanged(uint16_t status14)
+{
+    if (status14 == _lastArpStatus) return;   // idle cost: one compare
+    _lastArpStatus = status14;
+    emitReserved(kArpStatusAddr, status14);
 }
 
 JT_COLD void ParamBroadcast::drain()

@@ -94,12 +94,24 @@ public:
     static constexpr uint16_t kStatusAddr = 0x3FFF;  // reserved, never a ParamID
     void sendStatusIfChanged(uint16_t status14);
 
-    // Heartbeat support: forget the last-sent word so the next
-    // sendStatusIfChanged() transmits even if nothing changed. The caller
-    // owns the clock (core stays platform-free); main.cpp ticks this once a
-    // second so the controller's LINK indicator means "wire alive", not
-    // merely "something changed lately".
-    void invalidateStatus() { _lastStatus = 0xFFFF; }
+    // ARP status, on its OWN reserved address.  The sequencer word above is
+    // already 13 of its 14 bits (voiceMask:8 | seqStep:4 | seqRunning:1), so
+    // the arp playhead cannot be packed alongside it — hence a second address
+    // rather than a wider word.  Layout:
+    //
+    //     [13..5] reserved 0   [4..1] arpStep:4   [0] arpRunning:1
+    //
+    // Without this the controller drew the SEQUENCER's playhead on the arp
+    // lane, or none at all when the sequencer was stopped.
+    static constexpr uint16_t kArpStatusAddr = 0x3FFE;  // reserved, never a ParamID
+    void sendArpStatusIfChanged(uint16_t status14);
+
+    // Heartbeat support: forget the last-sent words so the next
+    // send*IfChanged() transmits even if nothing changed. The caller owns the
+    // clock (core stays platform-free); main.cpp ticks this once a second so
+    // the controller's LINK indicator means "wire alive", not merely
+    // "something changed lately".
+    void invalidateStatus() { _lastStatus = 0xFFFF; _lastArpStatus = 0xFFFF; }
 
     // Diagnostics for the 1 Hz status line.
     uint32_t sentCount() const { return _sent; }
@@ -108,6 +120,10 @@ public:
 private:
     void emitParam(size_t index, bool suppress, uint8_t layer = 0);
     void emitDeselect();                           // RPN null to sinks that sent
+    // One SELF-CONTAINED reserved-address message: address + data + RPN-null
+    // park, 6 CCs.  Shared by both status feeds so the wire format can only be
+    // defined once.
+    void emitReserved(uint16_t addr, uint16_t value14);
 
     ParameterStore& _store;
 
@@ -115,7 +131,8 @@ private:
     Origin    _origins[kMaxSinks] = {Origin::Init, Origin::Init, Origin::Init};
     size_t    _sinkCount = 0;
 
-    uint16_t  _lastStatus = 0xFFFF;   // impossible value -> first word always sends
+    uint16_t  _lastStatus    = 0xFFFF;  // impossible value -> first word always sends
+    uint16_t  _lastArpStatus = 0xFFFF;
 
     // kCount == "no resync in progress"; otherwise the next index to emit.
     size_t    _resyncCursor = ParameterStore::kCount;

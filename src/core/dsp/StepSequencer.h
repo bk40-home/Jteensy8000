@@ -15,13 +15,24 @@
 //   Ticked once per SynthCore::renderBlock at kBlockMs (≈ 2.9025 ms), which
 //   reproduces v1's once-per-update tick exactly (same block rate).
 //
-// STEP / DEPTH CONVENTION (v1, unchanged)
-//   Steps are UNIPOLAR: 0..127 -> 0.0..1.0 ("how much").
+// STEP / DEPTH CONVENTION
+//   Steps read UNIPOLAR by default: 0..127 -> 0.0..1.0 ("how much").
 //   Depth is BIPOLAR:  -1.0..+1.0 ("which direction" + amount).
-//   Output = step × depth.  Unipolar steps avoid the amp-mod zero-crossing
-//   noise that bipolar steps caused; the depth sign carries direction.
+//   Output = stepValue x depth.
+//
+//   Unipolar steps avoid the amp-mod zero-crossing noise that bipolar steps
+//   caused, and the depth sign carries direction — but they can only depart
+//   from base in ONE direction, which is why an aux Pan lane could sweep
+//   centre->one side and never L<->R.  Each lane therefore has an optional
+//   BIPOLAR interpretation (setStepBipolar / setAuxBipolar): a step reads
+//   (2v - 1), so 0.5 is the centre and one pattern reaches both sides.
+//   Default OFF, so existing patches are unchanged.
 //
 // GATE (v1, unchanged)
+//   NOTE for anyone chasing "why is the modulation so subtle": BOTH lanes are
+//   held at zero outside the gate window, so at the default gate of 0.5 each
+//   lane is silent for half of every step.  That is inherited v1 behaviour and
+//   is deliberate — it is a gated modulator, not a stepped one.
 //   Gate open while phaseFrac < gateLength.  On close the output ramps LINEARLY
 //   to zero over SEQ_GATE_RAMP_MS (2 ms) from a FROZEN gate-close value, not an
 //   instant snap (which clicks) and not a compounding multiply (v1's original
@@ -61,16 +72,32 @@ enum class SeqDir : uint8_t { Forward = 0, Reverse, Bounce, Random, Count };
 // Shares the LFO destination space (v1 LFODestination).
 enum class SeqDest : uint8_t { None = 0, Pitch, Filter, Pwm, Amp, Count };
 
-// AUX-lane destinations — order matches kOpt_seq_aux_dest {None,Filter,Pan,
-// DelaySend,Drive} (a DIFFERENT set/order from the gate lane's SeqDest, so it
-// gets its own enum).  Stage B routes None + Filter; Pan/DelaySend/Drive are
-// inert placeholders until Stages C/D (DEFERRALS_LEDGER D-B1).
-enum class SeqAuxDest : uint8_t { None = 0, Filter, Pan, DelaySend, Drive, Count };
+// AUX-lane destinations — order matches kOpt_seq_aux_dest and is FROZEN
+// (patches store the INDEX).  A DIFFERENT set and order from the gate lane's
+// SeqDest, so it gets its own enum.
+//
+//   Tone  index 4.  Bass<->treble TILT on the FX Tone EQ, +/-6 dB at full
+//         depth.  Previously LABELLED "Drive" while doing this; the label was
+//         the thing that was wrong, so it was corrected rather than the
+//         behaviour.  Works whatever the drive mode is.
+//   Drive index 5.  The real thing: modulates the saturation INPUT gain.  It
+//         can only be heard when fx.drive is not OFF, because the saturator
+//         bypasses entirely in that mode.
+enum class SeqAuxDest : uint8_t {
+    None = 0, Filter, Pan, DelaySend, Tone, Drive, Count
+};
 
 class StepSequencer {
 public:
     static constexpr int   kMaxSteps    = 16;    // v1 SEQ_MAX_STEPS
     static constexpr float kGateRampMs   = 2.0f; // v1 SEQ_GATE_RAMP_MS (anti-click)
+
+    // Free-run rate limits.  Widened to COVER the synced extremes (fastest
+    // synced = 1/32 @ 300 BPM = 40 Hz; slowest = 4 bars @ 40 BPM = 0.0417 Hz),
+    // which the previous 0.05..50 clamp allowed but the 0.1..20 knob law in
+    // SynthCore did not reach.  Both now agree.
+    static constexpr float kFreeHzMin   = 0.02f;
+    static constexpr float kFreeHzMax   = 50.0f;
 
     StepSequencer();
 
@@ -113,6 +140,12 @@ public:
     void setAuxDepth(float d);                    // -1..+1 bipolar
     void setAuxDestination(SeqAuxDest dest);
 
+    // ---- Bipolar step interpretation (per lane, default OFF) --------------
+    void setStepBipolar(bool on);
+    void setAuxBipolar(bool on);
+    bool stepBipolar() const { return _stepBipolar; }
+    bool auxBipolar()  const { return _auxBipolar; }
+
     // D-1: tempo-sync deferred.  Stored but inert — the sequencer stays free-
     // running at SEQ_RATE until TempoClock gains a getTimeForMode(ms) accessor.
     void setTimingMode(int mode);
@@ -132,6 +165,14 @@ private:
     int   nextStepIndex() const;
     void  recalcDuration();
     static float ccToUnipolar(uint8_t cc) { return (float)cc * (1.0f / 127.0f); }
+
+    // One step's value in its lane's interpretation.  Unipolar 0..1, or
+    // bipolar -1..+1 with 0.5 (cc 64) as the centre.
+    static float stepValueOf(uint8_t cc, bool bipolar)
+    {
+        const float u = ccToUnipolar(cc);
+        return bipolar ? (u * 2.0f - 1.0f) : u;
+    }
 
     // D-2: house xorshift (matches SupersawOsc/VoiceAllocator).  Non-zero seed.
     inline uint32_t nextRand()
@@ -162,7 +203,7 @@ private:
     SeqDir  _direction  = SeqDir::Forward;
     SeqDest _destination= SeqDest::None;
     int     _timingMode = TempoClock::kFree;
-    bool    _retrigger  = true;
+    bool    _retrigger  = false;   // matches seq.retrigger's table default
 
     // ---- Output ----
     float   _output = 0.0f;
@@ -175,6 +216,11 @@ private:
     float      _auxDepth = 0.0f;                 // bipolar
     SeqAuxDest _auxDest  = SeqAuxDest::None;
     float      _auxOutput = 0.0f;
+
+    // Per-lane bipolar interpretation.  Both default OFF so the default patch
+    // and every existing patch behave exactly as before.
+    bool       _stepBipolar = false;
+    bool       _auxBipolar  = false;
 
     uint32_t _rng = 0x51F5A3C7u;
 };

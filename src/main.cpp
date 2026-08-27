@@ -438,6 +438,14 @@ void loop()
     }
     gBroadcast.sendStatusIfChanged(gSynth.core().statusWord());
 
+    // Arp playhead, on its own reserved address (0x3FFE). The sequencer
+    // word above is already 13 of its 14 bits, so the arp could not be
+    // packed alongside it — without this second feed the controller drew
+    // the SEQUENCER's playhead on the arp lane, or none at all whenever
+    // the sequencer was stopped. Same change-only + 1 s heartbeat rules:
+    // invalidateStatus() above clears both words together.
+    gBroadcast.sendArpStatusIfChanged(gSynth.core().arpStatusWord());
+
     // 1 Hz status line — everything the bring-up guide asks you to watch.
     static uint32_t lastStatus = 0;
     const uint32_t now = millis();

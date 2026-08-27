@@ -23,11 +23,14 @@ using namespace JT::Params;
 namespace {
 
 // Capture sink: records the raw CC stream a real port would transmit.
-// Fixed capacity (no heap): the largest stream any test produces is a full
-// resync — kCount*4 NRPN CCs plus per-pass deselect pairs — well under 1024.
+// Fixed capacity (no heap).  The largest stream any test produces is a full
+// resync: kCount*4 NRPN CCs plus a deselect pair per pass.  Sized from the
+// table rather than a magic number, because it silently overflowed the moment
+// the explicit step arrays pushed kCount past 256.
 struct CaptureSink : NrpnSink {
     struct Msg { uint8_t cc, value; };
-    static constexpr size_t kCap = 1024;
+    static constexpr size_t kCap =
+        Params::kParamCount * 4 + (Params::kParamCount / ParamBroadcast::kMaxPerPass + 2) * 2 + 64;
     Msg    log[kCap];
     size_t size = 0;
     void sendCC(uint8_t cc, uint8_t value) override {
@@ -185,4 +188,56 @@ TEST_CASE("broadcast: tx bits survive the modelled publish() preemption") {
 
     CHECK(dev.paramCount() == 2);            // both, exactly once each
     store.testPreemptHook = nullptr;
+}
+
+// ===========================================================================
+// Reserved-address status feeds (review item 2a)
+// ===========================================================================
+// The sequencer status word already spends 13 of its 14 bits
+// (voiceMask:8 | seqStep:4 | seqRunning:1), so the arp playhead could not be
+// packed alongside it — it gets its OWN reserved address, 0x3FFE.  Before this
+// the controller had no arp playhead at all and drew the SEQUENCER's on the
+// arp lane, or none whenever the sequencer was stopped.
+TEST_CASE("broadcast: arp status is a separate reserved address, change-only") {
+    ParameterStore store;
+    ParamBroadcast bc(store);
+    CaptureSink sink;
+    bc.addSink(sink, Origin::MidiUsbDev);
+
+    // Each reserved message is SELF-CONTAINED: address + data + RPN-null park,
+    // six CCs, because it is sporadic and must never depend on nor disturb
+    // whatever address a parameter drain last latched.
+    sink.size = 0;
+    bc.sendArpStatusIfChanged(0x001F);
+    REQUIRE(sink.size == 6);
+    CHECK(sink.log[0].cc == 99);
+    CHECK(sink.log[0].value == (uint8_t)((ParamBroadcast::kArpStatusAddr >> 7) & 0x7F));
+    CHECK(sink.log[1].cc == 98);
+    CHECK(sink.log[1].value == (uint8_t)(ParamBroadcast::kArpStatusAddr & 0x7F));
+    CHECK(sink.log[4].cc == 101);
+    CHECK(sink.log[5].cc == 100);
+
+    // Change-only: an identical word costs one compare and sends nothing.
+    sink.size = 0;
+    bc.sendArpStatusIfChanged(0x001F);
+    CHECK(sink.size == 0);
+
+    // The two feeds are independent — one must not suppress the other.
+    sink.size = 0;
+    bc.sendStatusIfChanged(0x001F);
+    CHECK(sink.size == 6);
+    CHECK(sink.log[1].value == (uint8_t)(ParamBroadcast::kStatusAddr & 0x7F));
+
+    // The heartbeat clears BOTH last-sent words together, so a 1 Hz beat
+    // re-proves the wire for the arp lane as well as the sequencer's.
+    bc.invalidateStatus();
+    sink.size = 0;
+    bc.sendArpStatusIfChanged(0x001F);
+    CHECK(sink.size == 6);
+
+    // Neither reserved address may ever collide with a real ParamID.
+    CHECK(ParameterStore::indexOf(ParamBroadcast::kArpStatusAddr)
+          == ParameterStore::kInvalidIndex);
+    CHECK(ParameterStore::indexOf(ParamBroadcast::kStatusAddr)
+          == ParameterStore::kInvalidIndex);
 }
