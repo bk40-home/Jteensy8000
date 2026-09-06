@@ -59,9 +59,22 @@ void Voice::startNote(uint8_t note, uint8_t velocity, float phaseRandom01)
     // OFFSET into the FM path (render()), never by retuning the cores, so it
     // stacks with env/LFO/bend and costs nothing once settled.
     if (_glideEnabled && _glideRate > 0.0f && _baseHz > 20.0f) {
-        _glideTargetHz  = hz;
-        _glideCurrentHz = _baseHz;     // slide starts from the previous pitch
-        _glideActive    = true;
+        _glideTargetHz = hz;
+        // A1 (retrigger continuity): if a slide is ALREADY in flight on this
+        // voice, keep sliding from where the pitch actually is right now
+        // (_glideCurrentHz) instead of snapping the start back to _baseHz.
+        // This is the fix for the "note-off / repress mid-slide snaps to the
+        // destination" bug: a mono legato return (VoiceAllocator retriggers
+        // the held note) and a poly repress both re-enter startNote() while
+        // _glideActive is still true — reseeding from _baseHz (already the
+        // TARGET pitch) collapsed the glide to target->target (an instant
+        // jump).  A genuinely FRESH strike (no active glide) still seeds from
+        // _baseHz, which the allocator pre-seeds to the synth's last note in
+        // poly (setGlideFromHz).  One branch, no new state.
+        if (!_glideActive) {
+            _glideCurrentHz = _baseHz; // fresh strike: start from previous pitch
+        }                              // else: leave _glideCurrentHz untouched
+        _glideActive = true;
     } else {
         _glideCurrentHz = _glideTargetHz = hz;
         _glideActive    = false;

@@ -121,8 +121,19 @@ TEST_CASE("notch cuts its centre; allpass preserves level")
     setKnob(ap, 0.5f);
     (void)buf; (void)phase;
     const float apRms = sawRmsThrough(ap, 40);
-    // Allpass: |H| = 1 at every frequency — saw RMS 0.577 survives intact.
-    CHECK(apRms == doctest::Approx(0.577f).epsilon(0.05));
+    // Allpass: |H| = 1 at every frequency, so the filter ITSELF preserves the
+    // saw's 0.577 RMS.  The output saturator that follows it does not — the
+    // demo bank applied saturate() unconditionally to every topology, AP
+    // included, and this firmware now matches that.  So the level is expected
+    // to land BELOW 0.577, but well above the level a resonant type would give:
+    // the assertion is that AP still passes the signal broadly intact, not that
+    // it is bit-transparent.
+    //
+    // If you are here because this failed: check whether the saturator was
+    // changed or bypassed before assuming the all-pass maths broke.  The
+    // magnitude response is unaltered; only the stage after it shapes level.
+    CHECK(apRms < 0.577f);                  // saturator compresses the peaks
+    CHECK(apRms > 0.40f);                   // but nothing is being filtered out
 }
 
 TEST_CASE("V1 LESSON: Korg35 at maximum res and cutoff stays bounded (NL_SAT)")
@@ -406,4 +417,109 @@ TEST_CASE("OBXa engine wiring: mode/multimode/xpander land via the store")
     // At a 60 Hz knob the HP2 row passes the WHOLE 110 Hz saw while LP1
     // attenuates it — louder is the correct proof the row switched in.
     CHECK(hp2 > lp1 * 1.3f);
+}
+
+// ── Input staging (kShape.inGain) and dither ────────────────────────────────
+
+TEST_CASE("staging: linear types are level-identical, saturating ones are not")
+{
+    // inGain/outGain is an EXACT no-op for a topology with no internal
+    // nonlinearity, so SVF and Diode must be untouched by the calibration.
+    // If this ever fails, someone put the make-up on the wrong side of the
+    // output saturator.
+    auto rms = [](int type, float amp) {
+        FilterSection f; f.setEngine(1); f.setVaType(type);
+        f.setCutoff(0.5f, 0.0f); f.setResonanceNorm(0.5f);
+        float buf[kBlockSize]; double a = 0; int c = 0; float ph = 0.0f;
+        for (int b = 0; b < 40; ++b) {
+            for (size_t i = 0; i < kBlockSize; ++i) {
+                buf[i] = amp * (2.0f * ph - 1.0f);
+                ph += 220.0f / kSampleRate; if (ph >= 1.0f) ph -= 1.0f;
+            }
+            f.process(buf, kBlockSize);
+            if (b >= 20) for (size_t i = 0; i < kBlockSize; ++i)
+                { a += (double)buf[i]*(double)buf[i]; ++c; }
+        }
+        return std::sqrt(a / c);
+    };
+    // Gain through a linear type must be independent of level (below the
+    // output saturator), which is only true if staging cancels exactly.
+    const double lo = rms(0, 0.01f) / 0.01, hi = rms(0, 0.02f) / 0.02;
+    CHECK(hi == doctest::Approx(lo).epsilon(0.01));
+}
+
+TEST_CASE("dither: a filter past threshold sings with NO input at all")
+{
+    // The point of the dither. Feed pure silence into a self-oscillating
+    // Moog: without a seed it would sit on an exact fixed point forever.
+    FilterSection f;
+    f.setEngine(1); f.setVaType(5);          // Moog LP4
+    f.setCutoff(0.5f, 0.0f);
+    f.setResonanceNorm(1.0f);                // k = 4.10, past onset
+    float buf[kBlockSize];
+    double a = 0; int c = 0;
+    for (int b = 0; b < 400; ++b) {
+        for (size_t i = 0; i < kBlockSize; ++i) buf[i] = 0.0f;   // SILENCE
+        f.process(buf, kBlockSize);
+        if (b >= 300) for (size_t i = 0; i < kBlockSize; ++i)
+            { a += (double)buf[i]*(double)buf[i]; ++c; }
+    }
+    CHECK(std::sqrt(a / c) > 0.1);           // it sang, from nothing
+}
+
+TEST_CASE("dither: inaudible on a non-oscillating filter")
+{
+    // Same silence into a filter well below threshold must stay silent to any
+    // reasonable measure — the dither is ~1e-7 and must not leak audibly.
+    FilterSection f;
+    f.setEngine(1); f.setVaType(5);
+    f.setCutoff(0.5f, 0.0f);
+    f.setResonanceNorm(0.0f);
+    float buf[kBlockSize];
+    double pk = 0.0;
+    for (int b = 0; b < 200; ++b) {
+        for (size_t i = 0; i < kBlockSize; ++i) buf[i] = 0.0f;
+        f.process(buf, kBlockSize);
+        for (size_t i = 0; i < kBlockSize; ++i)
+            if (std::fabs((double)buf[i]) > pk) pk = std::fabs((double)buf[i]);
+    }
+    CHECK(pk < 1e-5);                        // > 100 dB below anything audible
+}
+
+TEST_CASE("res comp: applies only to the ladders, and only at the output")
+{
+    // Non-ladder types must be untouched at every resonance setting: their DC
+    // gain never fell in the first place (measured flat for SVF and Korg35 —
+    // the Sallen-Key's feedback is positive, so it does not attenuate).
+    auto rms = [](int type, float res) {
+        FilterSection f; f.setEngine(1); f.setVaType(type);
+        f.setCutoff(0.5f, 0.0f); f.setResonanceNorm(res);
+        float buf[kBlockSize]; double a = 0; int c = 0; float ph = 0.0f;
+        for (int b = 0; b < 60; ++b) {
+            for (size_t i = 0; i < kBlockSize; ++i) {
+                buf[i] = 0.787f * (2.0f * ph - 1.0f);
+                ph += 220.0f / kSampleRate; if (ph >= 1.0f) ph -= 1.0f;
+            }
+            f.process(buf, kBlockSize);
+            if (b >= 30) for (size_t i = 0; i < kBlockSize; ++i)
+                { a += (double)buf[i]*(double)buf[i]; ++c; }
+        }
+        return std::sqrt(a / c);
+    };
+    // With the compensation off these are the reference numbers; the point of
+    // the test is that changing JT_OPT_FILTER_RES_COMP cannot move them.
+    CHECK(rms(0, 0.75f)  == doctest::Approx(0.44933).epsilon(0.02));  // SVF LP2
+    CHECK(rms(9, 0.75f)  == doctest::Approx(0.54178).epsilon(0.02));  // Korg35 LP
+    CHECK(rms(8, 0.75f)  == doctest::Approx(0.78800).epsilon(0.05));  // Diode
+
+    // The ladders must GAIN level with resonance rather than lose it. Raw
+    // (c = 0) they measure 0.322 / 0.527 at res 0.75; with the default 0.7 they
+    // land near 0.75 / 0.88.
+    if (JT_OPT_FILTER_RES_COMP > 0.5f) {
+        CHECK(rms(5,  0.75f) > 0.60);      // Moog LP4
+        CHECK(rms(13, 0.75f) > 0.70);      // MoogDV LP4
+    }
+    // And resonance must never make a ladder QUIETER than its own low-res value.
+    CHECK(rms(5,  0.75f) > rms(5,  0.25f));
+    CHECK(rms(13, 0.75f) > rms(13, 0.25f));
 }

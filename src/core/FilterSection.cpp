@@ -21,23 +21,23 @@ namespace JT {
 // the Moog knee but its fcMax is pinned to the 1x-oversample ceiling.
 // -----------------------------------------------------------------------------
 const FilterSection::Shape FilterSection::kShape[17] JT_FLASH_DATA = {
-    /* SVF LP2    */ {   40.0f, 14000.0f, 0.70f },
-    /* SVF HP2    */ {   30.0f,  6000.0f, 0.70f },
-    /* SVF BP2    */ {   40.0f, 14000.0f, 0.70f },
-    /* SVF NOTCH  */ {  100.0f,  8000.0f, 0.70f },
-    /* SVF AP     */ {   30.0f, 20000.0f, 0.70f },
-    /* Moog LP4   */ {   40.0f, 12000.0f, 0.30f },
-    /* Moog LP2   */ {   40.0f, 12000.0f, 0.30f },
-    /* Moog BP2   */ {   80.0f, 10000.0f, 0.30f },
-    /* Diode LP4  */ {   40.0f, 12000.0f, 0.45f },
-    /* Korg35 LP  */ {   40.0f, 12000.0f, 0.40f },
-    /* Korg35 HP  */ {   30.0f,  6000.0f, 0.40f },
-    /* TPT1 LP    */ {   50.0f, 18000.0f, 1.00f },
-    /* TPT1 HP    */ {   30.0f,  8000.0f, 1.00f },
-    /* MoogDV LP4 */ {   40.0f,  5800.0f, 0.30f },
-    /* MoogDV LP2 */ {   40.0f,  5800.0f, 0.30f },
-    /* MoogDV HP4 */ {   40.0f,  5800.0f, 0.30f },
-    /* MoogDV BP  */ {   40.0f,  5800.0f, 0.30f },
+    /* SVF LP2    */ {   40.0f, 14000.0f, 0.70f, 1.000f, 0.0f },
+    /* SVF HP2    */ {   30.0f,  6000.0f, 0.70f, 1.000f, 0.0f },
+    /* SVF BP2    */ {   40.0f, 14000.0f, 0.70f, 1.000f, 0.0f },
+    /* SVF NOTCH  */ {  100.0f,  8000.0f, 0.70f, 1.000f, 0.0f },
+    /* SVF AP     */ {   30.0f, 20000.0f, 0.70f, 1.000f, 0.0f },
+    /* Moog LP4   */ {   40.0f, 12000.0f, 0.30f, 0.845f, 1.0f },
+    /* Moog LP2   */ {   40.0f, 12000.0f, 0.30f, 0.845f, 1.0f },
+    /* Moog BP2   */ {   80.0f, 10000.0f, 0.30f, 0.845f, 1.0f },
+    /* Diode LP4  */ {   40.0f, 12000.0f, 0.45f, 1.000f, 0.0f },
+    /* Korg35 LP  */ {   40.0f, 12000.0f, 0.40f, 0.445f, 0.0f },
+    /* Korg35 HP  */ {   30.0f,  6000.0f, 0.40f, 0.445f, 0.0f },
+    /* TPT1 LP    */ {   50.0f, 18000.0f, 1.00f, 1.000f, 0.0f },
+    /* TPT1 HP    */ {   30.0f,  8000.0f, 1.00f, 1.000f, 0.0f },
+    /* MoogDV LP4 */ {   40.0f,  5800.0f, 0.30f, 0.290f, 1.0f },
+    /* MoogDV LP2 */ {   40.0f,  5800.0f, 0.30f, 0.290f, 1.0f },
+    /* MoogDV HP4 */ {   40.0f,  5800.0f, 0.30f, 0.290f, 1.0f },
+    /* MoogDV BP  */ {   40.0f,  5800.0f, 0.30f, 0.290f, 1.0f },
 };
 
 // -----------------------------------------------------------------------------
@@ -277,6 +277,20 @@ void FilterSection::updateBaseIfDirty()
     // Resonance: per-type γ lift, then the topology map.
     const float rShaped = powf(_resNorm, s.resGamma);
     _k = mapResonance(rShaped, _vaType);
+
+    // Input staging: level INTO the topology, and the matching make-up so the
+    // voice's output level is untouched.  See the Shape comment in the header.
+    _inGain  = s.inGain;
+
+    // Output make-up: input-staging inverse, times the ladder resonance
+    // compensation. Both are block-rate and both are pure output gain, so they
+    // collapse into a single multiply in the audio plane.
+    //
+    // POST, not PRE - see JT_OPT_FILTER_RES_COMP. Doing it here means the
+    // topology's own saturator sees exactly what it saw before, so the
+    // compensation restores level without touching character.
+    _outGain = (1.0f / s.inGain)
+             * (1.0f + JT_OPT_FILTER_RES_COMP * s.resComp * _k);
 }
 
 // -----------------------------------------------------------------------------
@@ -397,8 +411,18 @@ void FilterSection::process(float* buf, size_t n)
     const float k = _k;
 
     // Hoisted once per block, exactly as the demo hoisted `hasDrive`.
-    const bool  drv = _driveActive;
-    const float dIn = _drive;
+    // The per-type input staging folds straight into the same multiply, so it
+    // costs nothing extra: drive and calibration are one gain, not two.
+    const float dIn  = _driveActive ? (_drive * _inGain) : _inGain;
+    const float dOut = _outGain;
+
+    // ── Dither: what lets a filter past its self-oscillation threshold start ─
+    // At exactly 0.0 with zero state the filter is on a fixed point and stays
+    // there. This is ~1e-7, which measures 131 dB below the resulting limit
+    // cycle — inaudible, and it also keeps the state out of denormal range.
+    // Added BEFORE the input staging so a heavily-trimmed type still gets it.
+    constexpr float kDither = 1.0e-7f;
+    uint32_t rng = _ditherState;
 
     // ---- The demo's per-sample tail, restored ------------------------------
     //   x → [×drive] → topology → saturate() → clamp → out
@@ -416,14 +440,22 @@ void FilterSection::process(float* buf, size_t n)
     //
     // The ±1 clamp stays as v1's last line of defence, now folded into the
     // same pass instead of a second walk over the buffer.
+    // Per-sample tail:
+    //   x -> +dither -> x(drive * inGain) -> topology -> x(1/inGain)
+    //     -> saturate() -> clamp -> out
+    //
+    // The make-up sits BEFORE the saturator, not after. That matters: the
+    // demo's output stage is calibrated to a full-scale signal, so the level
+    // reaching it must be the true voice level. Putting the make-up after the
+    // tanh would move the knee by 1/inGain per type and undo the very
+    // consistency the staging exists to create.
     auto runBlock = [&](auto evalFilter)
     {
-        if (drv) {
-            for (size_t i = 0; i < n; ++i)
-                buf[i] = va_clamp(va_tanh(evalFilter(buf[i] * dIn)), -1.0f, 1.0f);
-        } else {
-            for (size_t i = 0; i < n; ++i)
-                buf[i] = va_clamp(va_tanh(evalFilter(buf[i])), -1.0f, 1.0f);
+        for (size_t i = 0; i < n; ++i) {
+            rng = rng * 1664525u + 1013904223u;
+            const float d = kDither * ((float)(int32_t)rng * (1.0f / 2147483648.0f));
+            const float y = evalFilter((buf[i] + d) * dIn) * dOut;
+            buf[i] = va_clamp(va_tanh(y), -1.0f, 1.0f);
         }
     };
 
@@ -432,12 +464,10 @@ void FilterSection::process(float* buf, size_t n)
     // an input gain, independent of what the output stage does.
     auto runBlockNoSat = [&](auto evalFilter)
     {
-        if (drv) {
-            for (size_t i = 0; i < n; ++i)
-                buf[i] = va_clamp(evalFilter(buf[i] * dIn), -1.0f, 1.0f);
-        } else {
-            for (size_t i = 0; i < n; ++i)
-                buf[i] = va_clamp(evalFilter(buf[i]), -1.0f, 1.0f);
+        for (size_t i = 0; i < n; ++i) {
+            rng = rng * 1664525u + 1013904223u;
+            const float d = kDither * ((float)(int32_t)rng * (1.0f / 2147483648.0f));
+            buf[i] = va_clamp(evalFilter((buf[i] + d) * dIn) * dOut, -1.0f, 1.0f);
         }
     };
 #endif
@@ -491,11 +521,15 @@ void FilterSection::process(float* buf, size_t n)
         case 12: runBlock([&](float x){ float lp; return _tpt1.processHP(x, g, lp); }); break;
 
         // ── MoogDV: qcomp true == the v1 bank default ───────────────────
-        case 13: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.lp4; }); break;
-        case 14: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.lp2; }); break;
-        case 15: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.hp4; }); break;
-        default: runBlock([&](float x){ _moogdv.tick(x, k, true); return _moogdv.bp;  }); break;
+        case 13: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.lp4; }); break;
+        case 14: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.lp2; }); break;
+        case 15: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.hp4; }); break;
+        default: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.bp;  }); break;
     }
+
+    // Carry the dither generator across blocks so it never repeats a short
+    // sequence, which would be a tone rather than noise.
+    _ditherState = rng;
 }
 
 } // namespace JT

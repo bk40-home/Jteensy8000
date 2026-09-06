@@ -58,7 +58,7 @@ inline constexpr const char* kBackendName = "USB audio only";
 // any more — a future 5-pin DIN jack must use another UART at 31250.
 // The ESP32 firmware must open its UART at this same constant (Phase C).
 // -----------------------------------------------------------------------------
-inline constexpr long kSerial1MidiBaud = 1000000;
+inline constexpr long kSerial1MidiBaud = 115200;
 
 } // namespace Board
 } // namespace JT

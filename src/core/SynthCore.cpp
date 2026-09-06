@@ -6,7 +6,7 @@
 #include "core/SynthCore.h"
 
 #include <string.h>   // memset
-#include <cmath>      // powf (glide ms->rate map)
+#include <cmath>      // exp2f, fabsf, sinf/cosf (glide map now needs no powf)
 
 #include "core/dsp/Curves.h"
 #include "gen/ParamTable.h"
@@ -235,15 +235,41 @@ void SynthCore::modWheel(uint8_t value7, uint8_t channel1to16)
                routeOrDefaultA(_router, 0, channel1to16, false));
 }
 
-// GLIDE_TIME norm (0..1) -> v1 log ms (1..11880) -> v1's per-sample fraction
-// 1/samples.  Applied ONCE PER BLOCK in Voice, which is v1's documented ~128×
-// "quirk" (spec §1.1/§4.1), preserved so preset glide-times feel identical.
+// GLIDE_TIME norm (0..1) -> per-BLOCK slew fraction consumed by Voice::render.
+//
+// Voice advances the glide ONCE PER BLOCK, moving a fixed fraction `rate` of
+// the remaining pitch distance each block (a geometric / constant-ratio slew).
+// For that slew the wall-clock time to essentially arrive is
+//     T_seconds ~= 1 / (rate * kBlocksPerSec)
+// so to hit a chosen glide time we simply invert it:
+//     rate = 1 / (T_seconds * kBlocksPerSec).
+// Using kBlocksPerSec here divides out the once-per-block cadence explicitly —
+// no hidden ~128x factor, the number below IS the felt time.  (Voice snaps the
+// last <0.1 Hz, so the asymptotic tail never stalls the note.)
+//
+// Curve: LINEAR in time across the knob, so travel feels even end to end
+// (replaces v1's log map, which crammed all usable glide into the bottom ~20%
+// of the knob).  norm 0 is a hard OFF (instant jump, no glide).
+//
+// >>> To change the maximum glide time, edit kGlideMaxMs ONLY. <<<
+// e.g. 5000 for 5 s, 10000 for 10 s.  Nothing else needs touching.
 float SynthCore::glideRateFromNorm(float norm)
 {
-    // v1 Mapping.h: ms = msMin·(msMax/msMin)^norm, msMin=1, msMax=11880.
-    const float ms      = 1.0f * powf(11880.0f, norm);
-    const float samples = (ms / 1000.0f) * kSampleRate;   // v1 setGlideTime
-    return (samples > 0.0f) ? (1.0f / samples) : 0.0f;
+    constexpr float kGlideMaxMs = 5000.0f;   // knob-max glide time, ms  <-- EDIT
+    constexpr float kGlideMinMs = 2.0f;      // shortest audible slide (norm just
+                                             // above 0); keeps a musical floor.
+
+    if (norm <= 0.0f) return 1.0f;           // OFF: rate 1.0 => close 100% of the
+                                             // gap in one block => instant jump.
+
+    // Linear time in ms across the usable knob range.
+    const float ms      = kGlideMinMs + (kGlideMaxMs - kGlideMinMs) * norm;
+    const float seconds = ms * (1.0f / 1000.0f);
+    const float rate    = 1.0f / (seconds * kBlocksPerSec);
+
+    // Guard the fast end: a rate >= 1.0 would over-shoot the geometric step, so
+    // clamp to an instant jump there (matches the norm==0 OFF behaviour).
+    return (rate >= 1.0f) ? 1.0f : rate;
 }
 
 void SynthCore::drainNoteEvents()

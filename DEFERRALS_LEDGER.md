@@ -143,3 +143,81 @@ These are gaps in what could be PROVEN, not known defects.
   that would cover the store resize (273 → 403 slots) and the patch round-trip
   across 82 new parameters — the highest-risk part of this change is the part
   with the least coverage. Restore them and re-run before hardware.
+
+
+The two entries below are append-ready blocks. They target DIFFERENT repos:
+
+  • D-11  → Jteensy8000/DEFERRALS_LEDGER.md  (firmware — voice allocator)
+  • D-12  → JtMidiController                 (controller — accepted UI deviation;
+                                              this repo has no ledger yet, so see
+                                              the note at the bottom before pasting)
+
+Paste each under the "## Open deferrals" section of the relevant ledger, after
+the highest existing D-entry.
+
+═══════════════════════════════════════════════════════════════════════════════
+ FOR  Jteensy8000/DEFERRALS_LEDGER.md
+═══════════════════════════════════════════════════════════════════════════════
+
+### D-11 — Split/Layer voice allocation spills into layer B's partition (OPEN)
+
+**Symptom (observed on ESP32 session, 2025).** With `perf.voice_split` at the
+default `4+4` and the performance mode stacking both layers, playing a fifth
+simultaneous note sounds it on a LAYER B voice: layer A's four-voice partition
+is exhausted and the fifth note is drawn from B's pool instead of stealing
+within A.
+
+**Where it lives.** The Teensy voice allocator / `PerfRouter` partition logic,
+NOT the controller. `perf.voice_split` divides the eight-voice pool between the
+two layers (`1+7 … 7+1`); the allocator is expected to keep each layer's note
+assignment inside that layer's own partition and steal within it when the
+partition is full. The reported behaviour is the allocator crossing the
+partition boundary once layer A is saturated.
+
+**Why it is not the controller.** The ESP32 only sends `perf.voice_split` as a
+normalised NRPN value; it has no role in per-note voice assignment. Confirmed
+during the ESP32 fault batch — the controller-side edit-layer, chip, and NRPN
+paths were fixed there and are unrelated to this.
+
+**Not yet diagnosed at file:line.** Needs a dedicated firmware session:
+reproduce at `4+4` in Layer mode, trace the allocator's steal search to
+confirm whether it (a) searches the whole pool instead of the layer's
+sub-range, or (b) computes the sub-range boundary off by the layer offset.
+Fix and the `make render` + `cmp` byte-identical gate to follow from there.
+
+═══════════════════════════════════════════════════════════════════════════════
+ FOR  JtMidiController  (accepted UI deviation from the ESP32 fault batch)
+═══════════════════════════════════════════════════════════════════════════════
+
+### D-12 — Two-finger gesture now releases after a grace window, not on full lift
+
+**Change.** The two-finger paging gesture previously held ownership of the
+input until ALL contacts lifted (`pts == 0`), swallowing any lingering single
+finger's taps and drags for as long as it stayed down. It now tears down after
+`Config::TWO_FINGER_DROP_GRACE` (4) consecutive sub-two-contact frames
+(~120 ms at the 30 ms poll), after which a single remaining finger resumes
+normal editing.
+
+**Why.** The grace window was added to survive the FT6336 intermittently
+dropping its second contact mid-swipe (fault 6). The same counter that tolerates
+a blink necessarily also bounds how long a deliberate one-finger-remaining hold
+keeps the gesture alive — the sensor cannot distinguish "finger blinked out"
+from "finger deliberately lifted", so both are treated as lean frames.
+
+**Accepted deviation.** Signed off as an improvement: lifting one finger while
+keeping the other should not lock out editing. Travel is still only measured on
+solid (`pts >= 2`) frames, so no corpse coordinate is ever read as movement.
+
+**Revert path if it ever bites.** Restore the strict teardown by replacing the
+grace-counter branch in `ViewController::handleTouch` with the original
+`if (pts == 0) twoFinger_ = false;` and drop `twoFingerDrop_` /
+`TWO_FINGER_DROP_GRACE`.
+
+───────────────────────────────────────────────────────────────────────────────
+NOTE: JtMidiController has no DEFERRALS_LEDGER.md yet. Options:
+  1. Start one in that repo with the same header block as the firmware ledger,
+     then paste D-12 under "## Open deferrals".
+  2. Keep a single cross-repo ledger in Jteensy8000 and paste D-12 there,
+     tagged [controller], alongside D-11.
+Recommend option 1 for symmetry with the firmware and params repos — but your
+call, since it sets a convention.

@@ -57,6 +57,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "core/JtDebugFlags.h"
 
 #include "core/ParameterStore.h"
 #include "core/PerfRouter.h"
@@ -108,6 +109,18 @@ public:
     // arrived for an id this firmware doesn't have.
     uint32_t appliedCount() const { return _applied; }
     uint32_t unknownIdCount() const { return _unknownId; }
+
+#if JT_DEBUG_NOTEKILL
+    // Debug-only view of the NRPN assembler state, for the per-CC Serial trace
+    // (fault-2 hunt).  Lets the trace show WHY a data byte did or didn't apply:
+    // e.g. a CC6 arriving while sel=0 (None) or addr=127/127 (null) is silently
+    // swallowed and never counts as applied OR unknown — the exact signature of
+    // "ser1msg climbs but nrpnApplied stays flat".  Compiled out in release.
+    uint8_t  dbgSelected() const { return (uint8_t)_selected; }   // 0 None 1 Nrpn 2 Rpn
+    uint8_t  dbgNrpnMsb()  const { return _nrpnMsb; }
+    uint8_t  dbgNrpnLsb()  const { return _nrpnLsb; }
+    bool     dbgDataMsbValid() const { return _dataMsbValid; }
+#endif
 
     // Which layer the last resync request asked for.  The reserved resync
     // address carries no parameter, so its 14-bit DATA payload was previously

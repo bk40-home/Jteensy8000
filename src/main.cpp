@@ -189,14 +189,80 @@ static AudioConnection_F32     cI2sR(gRetMixR, 0, gI2sOut, 1);
 // -----------------------------------------------------------------------------
 // MIDI handlers — thin routing only.
 // -----------------------------------------------------------------------------
-static void onNoteOn(byte ch, byte note, byte vel)
+// ===========================================================================
+// NOTE-KILL DEBUG INSTRUMENTATION (temporary — remove once the ESP32 note
+// cut-off bug is closed).  Set to 1 to trace WHICH event stops a held note
+// and WHICH port it arrived on.  Changes no synth behaviour: the counters are
+// bumped alongside the unchanged noteOn/noteOff/CC calls, and printed on the
+// existing 1 Hz status line.
+//
+// WHAT WE ARE TRYING TO SEPARATE:
+//   * a spurious NoteOff parsed on the Serial1 (ESP32) port — the signature of
+//     UART byte-corruption at 1 Mbaud turning a benign byte into an 0x8n
+//     status.  This is the prime suspect: midi1 has note handlers wired
+//     (setup below), so a corrupted off KILLS a note that arrived on any
+//     port.  Watch for offSerial climbing while you play.
+//   * a channel-mode CC (120 allSoundOff / 123 allNotesOff) or a stuck
+//     sustain (64) leaking through onControlChangeFor — watch killCc*.
+//
+// Read the 1 Hz line while slowly playing ONE key with the ESP32 on: the
+// counter that ticks at the moment the note dies is the culprit.
+// ===========================================================================
+// ===========================================================================
+// JT_DEBUG_NOTEKILL now lives in core/JtDebugFlags.h (included via the headers
+// above) so MidiParamTransport.h and this file share one definition.  Set it
+// to 0 THERE to compile out all bring-up instrumentation.
+// ===========================================================================
+
+#if JT_DEBUG_NOTEKILL
+// Per-port note tallies.  A healthy single keypress is +1 on and +1 off on the
+// SAME port; an extra off on a DIFFERENT port than the on is the smoking gun.
+static volatile uint32_t gDbgOnUsbDev  = 0, gDbgOffUsbDev  = 0;
+static volatile uint32_t gDbgOnUsbHost = 0, gDbgOffUsbHost = 0;
+static volatile uint32_t gDbgOnSerial  = 0, gDbgOffSerial  = 0;
+// Channel-mode kills, tagged by the port their CC arrived on (0=dev,1=host,2=ser).
+static volatile uint32_t gDbgKillCc120[3] = {0,0,0};
+static volatile uint32_t gDbgKillCc123[3] = {0,0,0};
+static volatile uint32_t gDbgKillCc64Off[3] = {0,0,0};
+// Raw Serial1 (ESP32 link) RX probe: bytes seen waiting vs messages parsed.
+static volatile uint32_t gDbgSer1RawBytes = 0;
+static volatile uint32_t gDbgSer1Msgs     = 0;
+#endif
+
+// Core note entry points — behaviour UNCHANGED.  Keeping one implementation
+// each means the synth path is identical whether or not debug is on.
+static inline void doNoteOn(byte ch, byte note, byte vel)
 {
     gSynth.core().noteOn(note, vel, ch);
 }
 
-static void onNoteOff(byte ch, byte note, byte /*vel*/)
+static inline void doNoteOff(byte ch, byte note)
 {
     gSynth.core().noteOff(note, ch);
+}
+
+#if JT_DEBUG_NOTEKILL
+// Port-tagged trampolines: used ONLY so the debug build can attribute a note
+// event to the port it arrived on.  Each tags a counter and forwards to the
+// unchanged core call — no logic difference.
+static void onNoteOnUsbDev (byte ch, byte note, byte vel){ ++gDbgOnUsbDev;  doNoteOn(ch,note,vel); }
+static void onNoteOnUsbHost(byte ch, byte note, byte vel){ ++gDbgOnUsbHost; doNoteOn(ch,note,vel); }
+static void onNoteOnSerial (byte ch, byte note, byte vel){ ++gDbgOnSerial;  doNoteOn(ch,note,vel); }
+
+static void onNoteOffUsbDev (byte ch, byte note, byte){ ++gDbgOffUsbDev;  doNoteOff(ch,note); }
+static void onNoteOffUsbHost(byte ch, byte note, byte){ ++gDbgOffUsbHost; doNoteOff(ch,note); }
+static void onNoteOffSerial (byte ch, byte note, byte){ ++gDbgOffSerial;  doNoteOff(ch,note); }
+#endif
+
+// Shared handlers, still used when debug is OFF (single wiring, no port tag).
+static void onNoteOn(byte ch, byte note, byte vel)
+{
+    doNoteOn(ch, note, vel);
+}
+
+static void onNoteOff(byte ch, byte note, byte /*vel*/)
+{
+    doNoteOff(ch, note);
 }
 
 // Pitch bend wheel (Phase 4).
@@ -224,12 +290,28 @@ static void onPitchBend(byte /*ch*/, int value)
 
 // Shared CC routing, parameterised by the receiving port's transport —
 // the split (parameters vs standard meanings) is identical on all three.
-static void onControlChangeFor(JT::MidiParamTransport& t, byte ch, byte cc, byte value)
+// MIDI source port, passed to onControlChangeFor.  Used by the note-kill
+// guard (Option C) in every build, and by the debug counters when enabled.
+enum : uint8_t { kPortUsbDev = 0, kPortUsbHost = 1, kPortSerial = 2 };
+
+static void onControlChangeFor(JT::MidiParamTransport& t, byte ch, byte cc, byte value,
+                               uint8_t port)
 {
     // Parameter traffic (NRPN cluster + curated CCs) is consumed here.  The
     // channel matters only to the curated-CC branch: NRPN carries its layer
     // in the address instead, so an editor can keep using any channel.
     if (t.handleControlChange(cc, value, ch)) return;
+
+    // The Serial port is the ESP32 control surface — never a keyboard.  It has
+    // no business commanding all-notes-off / all-sound-off, yet a DAW patched
+    // through the ESP32's USB relay used to stream CC 123 down this link and
+    // panic held notes ~2x/sec.  The ESP32 side no longer forwards these
+    // (Option A), but this end refuses them too so no future relay, thru, or
+    // stray byte on the control link can silence the voices.  Kept narrow:
+    // only the two voice-killers, and only on Serial — 120/123 from a real
+    // keyboard on the USB ports still work.
+    if (port == kPortSerial && (cc == 120 || cc == 123))
+        return;
 
     // ...everything else has a standard MIDI meaning and its own owner.
     switch (cc) {
@@ -240,13 +322,66 @@ static void onControlChangeFor(JT::MidiParamTransport& t, byte ch, byte cc, byte
         case 121: t.resetState();                       break;   // reset ctrls
         default: /* unassigned: mod matrix will claim these */ break;
     }
+
+#if JT_DEBUG_NOTEKILL
+    // Tag channel-mode kills that reached here.  The Option C guard above
+    // returns first for Serial 120/123, so after this fix cc123(s) stays FLAT
+    // — that flat counter is the confirmation the relay is no longer panicking
+    // the voices.  USB-port 120/123 and any sustain-release (64 falling) still
+    // count, so a genuine keyboard panic is still visible.
+    if (port < 3) {
+        if      (cc == 120) ++gDbgKillCc120[port];
+        else if (cc == 123) ++gDbgKillCc123[port];
+        else if (cc == 64 && value < 64) ++gDbgKillCc64Off[port];
+    }
+#endif
 }
 
 // Per-port trampolines — the MIDI libraries take bare function pointers
 // with no user-data argument, so the port binding has to be spelled out.
-static void onCCUsbDev (byte ch, byte cc, byte v) { onControlChangeFor(gTransportUsbDev,  ch, cc, v); }
-static void onCCUsbHost(byte ch, byte cc, byte v) { onControlChangeFor(gTransportUsbHost, ch, cc, v); }
-static void onCCSerial (byte ch, byte cc, byte v) { onControlChangeFor(gTransportSerial,  ch, cc, v); }
+static void onCCUsbDev (byte ch, byte cc, byte v) { onControlChangeFor(gTransportUsbDev,  ch, cc, v, kPortUsbDev);  }
+static void onCCUsbHost(byte ch, byte cc, byte v) { onControlChangeFor(gTransportUsbHost, ch, cc, v, kPortUsbHost); }
+
+#if JT_DEBUG_NOTEKILL
+// Per-CC Serial NRPN trace (fault-2 hunt).  Wraps the Serial CC handler: reads
+// the applied/unknown counters before and after, and prints what the assembler
+// did with THIS byte plus its state afterwards.  Reading the trace of one knob
+// turn tells us exactly where a cluster breaks:
+//   * a clean edit is  99(sel=1) 98(sel=1) 06 ->APPLIED  38 ->APPLIED
+//   * CC6 with sel=0/None or addr=127/127 -> "swallow" and neither counter
+//     moves == the "ser1msg climbs, nrpnApplied flat" signature.
+//   * CC99/98 never appearing before CC6 -> the address never gets set ->
+//     every data byte is a null-selection swallow.
+// Rate-limited to the first N events after boot so a knob turn is legible and
+// the console is not flooded; bump kTraceMax if you need a longer window.
+static uint32_t gDbgTraceCount = 0;
+static void onCCSerial(byte ch, byte cc, byte v)
+{
+    constexpr uint32_t kTraceMax = 80;
+    const uint32_t a0 = gTransportSerial.appliedCount();
+    const uint32_t u0 = gTransportSerial.unknownIdCount();
+
+    onControlChangeFor(gTransportSerial, ch, cc, v, kPortSerial);
+
+    if (gDbgTraceCount < kTraceMax) {
+        ++gDbgTraceCount;
+        const uint32_t da = gTransportSerial.appliedCount()   - a0;
+        const uint32_t du = gTransportSerial.unknownIdCount() - u0;
+        Serial.print("[CCTRACE] cc=");   Serial.print(cc);
+        Serial.print(" v=");             Serial.print(v);
+        Serial.print(" sel=");           Serial.print(gTransportSerial.dbgSelected());
+        Serial.print(" addr=");          Serial.print(gTransportSerial.dbgNrpnMsb());
+        Serial.print('/');               Serial.print(gTransportSerial.dbgNrpnLsb());
+        Serial.print(" dV=");            Serial.print(gTransportSerial.dbgDataMsbValid() ? 1 : 0);
+        if      (da) Serial.print(" ->APPLIED");
+        else if (du) Serial.print(" ->UNKNOWN");
+        else         Serial.print(" ->swallow");
+        Serial.println();
+    }
+}
+#else
+static void onCCSerial (byte ch, byte cc, byte v) { onControlChangeFor(gTransportSerial,  ch, cc, v, kPortSerial); }
+#endif
 
 // -----------------------------------------------------------------------------
 // External MIDI clock — real-time byte handlers (Phase 9).
@@ -335,8 +470,13 @@ void setup()
     }
 
     // --- USB device port (DAW / JUCE editor) --------------------------------
+#if JT_DEBUG_NOTEKILL
+    usbMIDI.setHandleNoteOn(onNoteOnUsbDev);
+    usbMIDI.setHandleNoteOff(onNoteOffUsbDev);
+#else
     usbMIDI.setHandleNoteOn(onNoteOn);
     usbMIDI.setHandleNoteOff(onNoteOff);
+#endif
     usbMIDI.setHandleControlChange(onCCUsbDev);
     usbMIDI.setHandlePitchChange(onPitchBend);
     // External clock (Phase 9): no-arg real-time handlers.
@@ -347,8 +487,13 @@ void setup()
 
     // --- USB host port (controllers via hub) --------------------------------
     myusb.begin();
+#if JT_DEBUG_NOTEKILL
+    midiHost.setHandleNoteOn(onNoteOnUsbHost);
+    midiHost.setHandleNoteOff(onNoteOffUsbHost);
+#else
     midiHost.setHandleNoteOn(onNoteOn);
     midiHost.setHandleNoteOff(onNoteOff);
+#endif
     midiHost.setHandleControlChange(onCCUsbHost);
     midiHost.setHandlePitchChange(onPitchBend);
     // External clock (Phase 9): USBHost_t36 delivers ONE raw real-time byte
@@ -361,8 +506,13 @@ void setup()
                            // traffic straight back to it, defeating the echo
                            // suppression this whole phase exists to provide
                            // (v1 did the same for its reason: Jteensy8000.cpp:551)
+#if JT_DEBUG_NOTEKILL
+    midi1.setHandleNoteOn(onNoteOnSerial);
+    midi1.setHandleNoteOff(onNoteOffSerial);
+#else
     midi1.setHandleNoteOn(onNoteOn);
     midi1.setHandleNoteOff(onNoteOff);
+#endif
     midi1.setHandleControlChange(onCCSerial);
     midi1.setHandlePitchBend(onPitchBend);
     // External clock (Phase 9): FortySevenEffects no-arg real-time handlers.
@@ -389,12 +539,89 @@ void setup()
 // -----------------------------------------------------------------------------
 void loop()
 {
-    // Drain every inbound port; handlers above fire from these calls.
-    usbMIDI.read();
-    myusb.Task();        // USBHost housekeeping — required every pass ([R4])
-    midiHost.read();
-    midi1.read();        // 1 Mbaud: FIFO headroom is ~32x the v1 DIN case,
-                         // but once per loop() remains the rule ([R5])
+    // Drain every inbound port to EMPTY each pass; handlers above fire from
+    // these calls.
+    //
+    // WHY A while-DRAIN, NOT ONE read() PER PORT (regression fix, Aug 2026):
+    //   The old code read exactly one message per port per loop().  That kept
+    //   up only while loop() spun fast.  With the ESP32 controller live, two
+    //   things arrive at once: NRPN clusters stream in on Serial1, AND
+    //   gBroadcast.drain() (below) mirrors ESP32-originated edits back OUT the
+    //   usbMIDI device port — the same port the keyboard plays through.  A
+    //   single usbMIDI.read() then serviced one inbound packet per loop while
+    //   the port was also busy transmitting mirror CCs, so note-on/off packets
+    //   queued and were parsed a full cycle late: notes arrived cut short, and
+    //   once the endpoint buffer overflowed, bytes were lost mid-message and
+    //   whole notes dropped.  Draining to empty clears a burst in the pass it
+    //   arrives, so playing is never held behind parameter traffic.
+    //
+    // WHY THE CAP:  an unbounded while would let one flooding port (e.g. the
+    //   ESP32 mid-resync dumping ~140 params) spin here and starve the other
+    //   ports plus the status/return housekeeping further down.  The cap
+    //   bounds worst-case loop() latency — the intent of the old
+    //   "once per loop" rule ([R5]) — while giving enough headroom to clear a
+    //   normal note+param burst in a single pass.  32 messages ≈ five 6-CC
+    //   NRPN clusters plus notes; at 1 Mbaud that drains in well under the
+    //   audio block period, so the DSP ISR is never at risk.
+    static constexpr int kMaxMidiDrain = 32;
+
+    // USBHost housekeeping MUST run before its MIDIDevice is read, and every
+    // pass regardless of traffic ([R4]).  Kept outside the drain loop: it is
+    // servicing, not a message read.
+    myusb.Task();
+
+    for (int i = 0; i < kMaxMidiDrain && usbMIDI.read();  ++i) { }
+    for (int i = 0; i < kMaxMidiDrain && midiHost.read(); ++i) { }
+
+#if JT_DEBUG_NOTEKILL
+    // ONE-SHOT raw byte capture.  Before the MIDI parser ever touches Serial1,
+    // grab the first bytes verbatim and print them as hex, ONCE.  This shows
+    // the literal bytes on the ESP32 link so we can read the framing directly:
+    //   * clean NRPN clusters look like  B0 63 xx  B0 62 xx  B0 06 xx  B0 26 xx
+    //     B0 65 7F  B0 64 7F   (status B0 = CC ch1; 63/62=NRPN MSB/LSB;
+    //     06/26=data; 65/64=RPN park).
+    //   * garbage / half-speed framing shows random-looking bytes with no B0
+    //     structure -> baud or level problem on the ESP32's TX.
+    //   * a repeating 1-byte value (e.g. FE FE FE) -> active sensing / stuck.
+    // After the dump we STOP intercepting and hand the port to the parser for
+    // good, so normal operation is unaffected.
+    {
+        static bool  s_capDone = false;
+        static uint8_t s_cap[48];
+        static uint8_t s_capN = 0;
+        if (!s_capDone) {
+            while (s_capN < sizeof(s_cap) && Serial1.available()) {
+                s_cap[s_capN++] = (uint8_t)Serial1.read();
+            }
+            if (s_capN >= sizeof(s_cap)) {
+                Serial.print("[SER1RAW]");
+                for (uint8_t i = 0; i < s_capN; ++i) {
+                    Serial.print(' ');
+                    if (s_cap[i] < 0x10) { Serial.print('0'); }
+                    Serial.print(s_cap[i], HEX);
+                }
+                Serial.println();
+                s_capDone = true;
+            }
+        }
+    }
+
+    // RAW Serial1 RX probe.  midi1.read() consumes the bytes, so we cannot read
+    // Serial1 ourselves without stealing them.  Instead PEEK the count waiting
+    // in the RX buffer just before draining (non-consuming), and separately
+    // count complete messages the parser returns.  Comparing the two localises
+    // the ESP32->Teensy failure:
+    //   rawRx climbs, msgs flat -> bytes ARRIVE at the pin but the parser
+    //     rejects them -> framing / baud / status problem (software/UART).
+    //   rawRx flat              -> nothing reaches the UART buffer despite the
+    //     ESP32 comms LED -> Teensy RX1 pin / Serial1 not actually receiving
+    //     (wrong pins, pinMode conflict, level issue on THIS pin only).
+    //   both climb, nrpnApplied flat -> parse OK, apply fails -> store/ID path.
+    gDbgSer1RawBytes += (uint32_t)Serial1.available();
+    for (int i = 0; i < kMaxMidiDrain && midi1.read(); ++i) { ++gDbgSer1Msgs; }
+#else
+    for (int i = 0; i < kMaxMidiDrain && midi1.read();    ++i) { }
+#endif
 
     // An editor asked for the full state (reserved NRPN, spec D4)?
     // Each port is consumed separately, not short-circuited: || would skip the
@@ -542,7 +769,45 @@ void loop()
         Serial.print(gSynth.core().debugFilterVaType());
 #endif
         Serial.println();
+
+#if JT_DEBUG_NOTEKILL
+        // Note-kill trace.  on/off per port (dev/host/ser); a single clean
+        // keypress on the DEVICE port is on(dev) +1, off(dev) +1 with off(ser)
+        // and off(host) FLAT.  If off(ser) climbs while you hold a note, the
+        // ESP32 link is injecting spurious NoteOffs (UART corruption at 1
+        // Mbaud).  If killCc123/120/64off climb, a channel-mode CC is leaking
+        // through the NRPN parser.  Whichever moves at the instant the note
+        // dies is the cause.
+        Serial.print("[NKILL] on(d/h/s)=");
+        Serial.print(gDbgOnUsbDev);  Serial.print('/');
+        Serial.print(gDbgOnUsbHost); Serial.print('/');
+        Serial.print(gDbgOnSerial);
+        Serial.print(" off(d/h/s)=");
+        Serial.print(gDbgOffUsbDev);  Serial.print('/');
+        Serial.print(gDbgOffUsbHost); Serial.print('/');
+        Serial.print(gDbgOffSerial);
+        Serial.print(" cc123(d/h/s)=");
+        Serial.print(gDbgKillCc123[0]); Serial.print('/');
+        Serial.print(gDbgKillCc123[1]); Serial.print('/');
+        Serial.print(gDbgKillCc123[2]);
+        Serial.print(" cc120(d/h/s)=");
+        Serial.print(gDbgKillCc120[0]); Serial.print('/');
+        Serial.print(gDbgKillCc120[1]); Serial.print('/');
+        Serial.print(gDbgKillCc120[2]);
+        Serial.print(" cc64off(d/h/s)=");
+        Serial.print(gDbgKillCc64Off[0]); Serial.print('/');
+        Serial.print(gDbgKillCc64Off[1]); Serial.print('/');
+        Serial.print(gDbgKillCc64Off[2]);
+        // ser1rx = raw bytes seen in the Serial1 RX buffer (ESP32->Teensy);
+        // ser1msg = complete MIDI messages the parser returned from that port.
+        Serial.print(" ser1rx=");
+        Serial.print(gDbgSer1RawBytes);
+        Serial.print(" ser1msg=");
+        Serial.print(gDbgSer1Msgs);
+        Serial.println();
+#endif
+
         AudioProcessorUsageMaxReset();
         gSynth.perfReset();
     }
-}
+}
