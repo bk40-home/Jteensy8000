@@ -14,7 +14,7 @@
 #define JT_DEBUG_FLAGS_H
 
 #ifndef JT_DEBUG_NOTEKILL
-#define JT_DEBUG_NOTEKILL 1
+#define JT_DEBUG_NOTEKILL 0
 #endif
 
 #endif // JT_DEBUG_FLAGS_H

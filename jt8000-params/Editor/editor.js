@@ -230,7 +230,12 @@ function render() {
       var cwpx2 = Math.round(cb.cw * scale), chpx2 = Math.round(cb.ch * scale);
       var relLY = Math.round((cb.ly - it.y) * scale);
 
-      if (kind === "display") {
+      if (kind === "grouplabel") {
+        /* Section sub-heading: just left-aligned text, no control sprite. */
+        spr.style.cssText = "display:none;";
+        lab.style.cssText = "left:0;top:0;width:" + wpx + "px;text-align:left;font-size:" + px(26) + ";font-weight:600;";
+        lab.textContent = label || "GROUP";
+      } else if (kind === "display") {
         spr.style.cssText = "left:0;top:" + Math.round(20 * scale) + "px;width:" + wpx + "px;height:" + (hpx - Math.round(20 * scale)) + "px;";
         lab.style.cssText = "left:0;top:0;font-size:" + px(26 * 0.9) + ";";
         lab.textContent = (it.role ? "[" + it.role + "] " : "") + (label || "");
@@ -239,7 +244,7 @@ function render() {
         lab.style.cssText = "left:0;top:" + relLY + "px;width:" + wpx + "px;text-align:" + cb.lalign + ";font-size:" + px(28 * 0.9) + ";"
           + (cb.labelPos === "none" ? "display:none;" : "");
       }
-      if (kind !== "display") lab.textContent = (label || "") + (it.sh ? " *" : "") + (conditional ? " ▸" : "");
+      if (kind !== "display" && kind !== "grouplabel") lab.textContent = (label || "") + (it.sh ? " *" : "") + (conditional ? " ▸" : "");
       node.appendChild(spr); node.appendChild(lab);
       if (sel.indexOf(it) >= 0) addHandles(node);
       el.appendChild(node);
@@ -443,6 +448,16 @@ function buildInspector() {
   var it = sel[0];
   if (isBlock(it)) { chip.textContent = "block"; return inspBlock(it); }
   if (isDisplay(it)) { chip.textContent = "display"; return inspDisplay(it); }
+  if ((it.k || "") === "grouplabel") {
+    chip.textContent = "group label";
+    ihead("grouplabel", "Group label");
+    var g = ig();
+    tfield(g, it, "t", "Text", true);
+    gnum(g, "X", it.x, function (v) { it.x = v; }); gnum(g, "Y", it.y, function (v) { it.y = v; });
+    gnum(g, "W", it.w, function (v) { it.w = v; });
+    insp.appendChild(mbtn("Delete", function () { pushHistory(); removeItem(it); sel = []; render(); }, "danger"));
+    return;
+  }
   chip.textContent = "item"; return inspItem(it);
 }
 function ihead(k, n) { var h = document.createElement("div"); h.className = "ihead"; h.appendChild(sp("k", k)); h.appendChild(sp("", n || "")); insp.appendChild(h); }
@@ -469,6 +484,7 @@ function inspBlock(b) {
   tfield(g, b, "name", "Name", true); gnum(g, "X", b.x, function (v) { b.x = v; }); gnum(g, "Y", b.y, function (v) { b.y = v; }); gnum(g, "W", b.w, function (v) { b.w = v; }); gnum(g, "H", b.h, function (v) { b.h = v; });
   cfield("Layer block", !!b.layer, function (on) { pushHistory(); b.layer = on; render(); });
   insp.appendChild(mbtn("+ Add control", function () { pushHistory(); b.items.push({ k: "knob", t: "NEW", key: "", x: b.x + 24, y: b.y + 60, w: 160, h: 194, lw: 60 }); inside = b; sel = [b.items[b.items.length - 1]]; render(); }));
+  insp.appendChild(mbtn("+ Add group label", function () { pushHistory(); b.items.push({ k: "grouplabel", t: "GROUP", x: b.x + 24, y: b.y + 24, w: 460, h: 40 }); inside = b; sel = [b.items[b.items.length - 1]]; render(); }));
   insp.appendChild(mbtn("Delete block", function () { if (confirm("Delete block " + b.name + "?")) { pushHistory(); DOC.blocks.splice(DOC.blocks.indexOf(b), 1); sel = []; render(); } }, "danger"));
 }
 function inspItem(it) {
@@ -781,6 +797,14 @@ function exportRml() {
     lines.push('\t<div class="sectitle ' + blockVC + '" style="left:' + Math.round(b.x) + 'dp; top:' + Math.round(b.y + 5) + 'dp; width:' + Math.round(b.w) + 'dp; text-align:center;">' + esc(b.name.toUpperCase()) + '</div>');
     b.items.forEach(function (it) {
       if (isDisplay(it)) return;   // displays are not interactive controls
+      if ((it.k || "") === "grouplabel") {
+        /* Section sub-heading: a positioned text div the plugin renders as
+           styled text (like the factory's WAVE / SUPERSAW headings). Tagged
+           with the block's view class so it shows on the right page. */
+        var gvc = blockViewClass(b);
+        lines.push('\t<div class="grouplabel ' + gvc + '" style="left:' + Math.round(it.x) + 'dp; top:' + Math.round(it.y) + 'dp; width:' + Math.round(it.w || 460) + 'dp; text-align:left;">' + esc(it.t || "") + '</div>');
+        return;
+      }
       var map = PMAP[it.key];
       var kind = (map && map.kind) ? map.kind : (it.k || "knob");
       /* View class: the factory's per-control value for known keys (so layer

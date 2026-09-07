@@ -8,14 +8,24 @@
 //
 // SIGNAL PATH (F1b — all F32, all cables static for life):
 //   AudioSynthBlockF32 ──► AudioOutputI2S_F32          (PCM5102A/SGTL5000)
-//                      └─► AudioConvert_F32toI16 ──► AudioOutputUSB
+//                      ├─► AudioConvert_F32toI16 ──► AudioOutputUSB
+//                      └─► AudioSinkUsbHost_F32   (USB host port, 4a tap:
+//                          actually fed from gRetMix, see below)
 //
 // MIDI ROUTING CONTRACT (brief §5.1 + Phase B' spec §3/§6):
 //   THREE ports, each with its own MidiParamTransport instance (per-port
 //   Origin = echo suppression identity):
 //     usbMIDI   USB device — DAW / JUCE editor        Origin::MidiUsbDev
-//     midiHost  USB host   — controllers via hub      Origin::MidiUsbHost
+//     hostPort  USB host   — controllers/keyboards    Origin::MidiUsbHost
 //     midi1     Serial1    — ESP32 controller, 1 Mbaud Origin::MidiSerial
+//
+//   USB HOST PORT, CHANGED: USBHost_t36 has been replaced by
+//   platform/UsbHostPort (A-Dunstan's teensy4_usbhost).  The old library has
+//   no isochronous transport, so it could carry MIDI from the host port but
+//   never audio; both drive the same EHCI controller, so this is a swap and
+//   not an addition.  Every handler the old port bound is bound here, and
+//   ParamBroadcast still mirrors CCs outbound.  What is new: the attached
+//   instrument's own speakers are now an output for the synth.
 //   ControlChange ─► that port's MidiParamTransport first (NRPN + curated
 //   CCs); what it declines routes to the shared fallthrough: 64 sustain,
 //   120 all-sound-off, 123 all-notes-off, 121 reset-controllers.  A DAW
@@ -38,7 +48,7 @@
 #include <Audio.h>                     // stock lib: AudioOutputUSB + int16 pool
 #include <OpenAudio_ArduinoLibrary.h>  // F32: AudioOutputI2S_F32, converters
 #include <MIDI.h>                      // FortySevenEffects — Serial1 link
-#include <USBHost_t36.h>               // USB host port (controllers via hub)
+// USB host port.  NOT USBHost_t36 — see the routing contract above.
 
 #include "core/ParameterStore.h"
 #include "core/MidiParamTransport.h"
@@ -47,6 +57,18 @@
 #include "platform/ExternalClock.h"
 #include "platform/AudioSynthBlockF32.h"
 #include "platform/BoardConfig.h"
+// JT_USBHOST_AUDIO is defined in platform/UsbHostPort.h, which also decides
+// whether the audio driver is built at all.  Override it from build_flags
+// (-D JT_USBHOST_AUDIO=0) to bisect: MIDI keeps working, and nothing of the
+// audio path is compiled, registered or executed.
+
+#include "platform/IsrStackProbe.h"
+#include "platform/UsbHostPort.h"
+#if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
+#if JT_USBHOST_AUDIO_BUILD
+#include "platform/AudioSinkUsbHost_F32.h"
+#endif
+#endif
 
 // -----------------------------------------------------------------------------
 // Serial1 MIDI — the ESP32 controller link at 1 Mbaud (Board::kSerial1MidiBaud;
@@ -72,9 +94,17 @@ MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial1, midi1, JTSerialMidiSettings
 // Powering a device like a Launchkey straight from VUSB stresses the
 // VUSB->VIN path beyond what it survives.
 // -----------------------------------------------------------------------------
-static USBHost    myusb;
-static USBHub     hub1(myusb);
-static MIDIDevice midiHost(myusb);
+// The host stack, its two drivers and the resampler are file-scope statics
+// inside UsbHostPort.cpp: the controller and every DMA buffer must live in
+// OCRAM, and keeping that requirement in one translation unit means nothing
+// here has to care.  JT::gUsbHostPort is the facade.
+//
+// Cables accepted from the host port.  The Studiologic NC2x mirrors one
+// keypress onto cable 0 (its internal sound module) AND cable 1 (its MIDI
+// mode output), often at different transpositions, so accepting both sounds
+// every note twice.  Bit 1 alone takes the MIDI-mode stream.  Set to 0xFFFF
+// for a controller that uses a single cable.
+static constexpr uint16_t kHostCableMask = 0x0002u;
 
 // -----------------------------------------------------------------------------
 // Audio objects — constructed once, wired once, never re-patched (F32 cables
@@ -185,6 +215,17 @@ static AudioConnection_F32     cRetDawR  (gUsbInConvR, 0, gRetMixR, 1);
 static AudioOutputI2S_F32      gI2sOut(audioSettings);
 static AudioConnection_F32     cI2sL(gRetMixL, 0, gI2sOut, 0);
 static AudioConnection_F32     cI2sR(gRetMixR, 0, gI2sOut, 1);
+
+// -- USB host audio: the same signal the DAC gets (decision 4a), so an
+//    attached instrument's speakers act as a monitor rather than carrying a
+//    second and subtly different mix.  Costs one branch per block while
+//    nothing is plugged in.  Not built on USBONLY: there are no return
+//    mixers there to tap.
+#if JT_USBHOST_AUDIO_BUILD
+static JT::AudioSinkUsbHost_F32 gHostAudioOut;
+static AudioConnection_F32     cHostL(gRetMixL, 0, gHostAudioOut, 0);
+static AudioConnection_F32     cHostR(gRetMixR, 0, gHostAudioOut, 1);
+#endif
 #endif
 // -----------------------------------------------------------------------------
 // MIDI handlers — thin routing only.
@@ -268,8 +309,7 @@ static void onNoteOff(byte ch, byte note, byte /*vel*/)
 // Pitch bend wheel (Phase 4).
 //
 // ⚠ THE RECURRING PITCH-BEND BUG — read before touching:  Teensy's usbMIDI
-// (and USBHost_t36 setHandlePitchChange, and the FortySevenEffects lib) all
-// deliver the wheel ALREADY CENTRED ON ZERO: value ∈ [-8192, +8191], with a
+// (and the FortySevenEffects lib) deliver the wheel ALREADY CENTRED ON ZERO: value ∈ [-8192, +8191], with a
 // RESTING wheel = 0.  v1's comments claimed "0..16383, centre 8192" — that was
 // WRONG for every transport, and each time an AI trusted the comment it
 // "corrected" the maths and broke a working wheel (resting wheel jumped by a
@@ -281,8 +321,10 @@ static void onNoteOff(byte ch, byte note, byte /*vel*/)
 // numerically identical to v1's (value/8192) applied to the centred value.
 //
 // Thin routing only — no Serial: bend streams fast (v1 Jteensy8000.cpp note).
-// The +8192 conversion applies IDENTICALLY on every port: usbMIDI,
-// USBHost_t36 and FortySevenEffects all deliver the centred form.
+// The +8192 conversion applies IDENTICALLY on every port.  usbMIDI and
+// FortySevenEffects deliver the centred form natively; the USB host port
+// carries the RAW form on the wire and UsbHostPort subtracts 8192 in its
+// adapter so that this one convention still holds everywhere.
 static void onPitchBend(byte /*ch*/, int value)
 {
     gSynth.core().pitchBend((uint16_t)(value + 8192));
@@ -389,7 +431,7 @@ static void onCCSerial (byte ch, byte cc, byte v) { onControlChangeFor(gTranspor
 // The three libraries expose DIFFERENT real-time APIs, so the bindings differ:
 //   * usbMIDI (Teensy core) and FortySevenEffects (midi1): no-arg per-message
 //     handlers — setHandleClock/Start/Stop/Continue — bound to these trampolines.
-//   * USBHost_t36 (midiHost): ONE setHandleRealTimeSystem(uint8_t) that receives
+//   * UsbHostPort (host port): ONE setHandleRealTimeSystem(uint8_t) that receives
 //     the raw status byte — routed through gExtClock.onRealtimeByte(), which
 //     decodes 0xF8/0xFA/0xFB/0xFC itself.
 // All ports share the one gExtClock (transport + tempo are global).  These fire
@@ -399,7 +441,7 @@ static void onClockPulse() { gExtClock.onClockPulse(); }
 static void onClockStart() { gExtClock.onStart();      }
 static void onClockStop()  { gExtClock.onStop();       }
 static void onClockCont()  { gExtClock.onContinue();   }
-// USBHost_t36 raw-byte adapter.
+// Raw-byte adapter, used by the USB host port.
 static void onHostRealtime(uint8_t status) { gExtClock.onRealtimeByte(status); }
 
 // -----------------------------------------------------------------------------
@@ -410,16 +452,65 @@ static void onHostRealtime(uint8_t status) { gExtClock.onRealtimeByte(status); }
 struct UsbDevSink : JT::NrpnSink {
     void sendCC(uint8_t cc, uint8_t v) override { usbMIDI.sendControlChange(cc, v, 1); }
 };
-struct UsbHostSink : JT::NrpnSink {
-    // USBHost_t36 no-ops safely when no device is attached.
-    void sendCC(uint8_t cc, uint8_t v) override { midiHost.sendControlChange(cc, v, 1); }
-};
+// NOTE: there is deliberately NO UsbHostSink.
+//
+// The old firmware registered one, so ParamBroadcast mirrored every parameter
+// edit AND the periodic status feed (0x3FFF voice/step word, 0x3FFE arp
+// playhead) out of the USB host port.  That made sense when the port might
+// hold an editor.  It holds a keyboard, which has no use for telemetry, and
+// the cost was two NRPNs per second — twelve control changes — transmitted
+// forever at a device that ignores them.
+//
+// It also broke the port: with bulk OUT traffic running, bulk IN transfers on
+// the same device stopped completing altogether, so the keyboard's own notes
+// never arrived.  Removing the sink removes the traffic and the fault with it.
+//
+// UsbHostPort::sendControlChange still exists and still works.  To mirror
+// parameters to a USB-host controller in future, add a sink here and register
+// it below; nothing else has to change.
 struct SerialSink : JT::NrpnSink {
     void sendCC(uint8_t cc, uint8_t v) override { midi1.sendControlChange(cc, v, 1); }
 };
 static UsbDevSink  gSinkUsbDev;
-static UsbHostSink gSinkUsbHost;
 static SerialSink  gSinkSerial;
+
+// Host-port forwarding (routing decision 6a).  Everything that passes the
+// cable filter is re-sent verbatim on the USB device port, so a DAW sees the
+// keyboard exactly as it played — both parts, on their own channels, as
+// separate tracks.  Deliberately verbatim: no channel remap, no filtering.
+//
+// This cannot loop.  Traffic only ever moves host -> device here; nothing
+// forwards the device port back to the host.
+static void onHostForward(uint8_t /*cable*/, const uint8_t* data, uint8_t length)
+{
+    if (length == 0u) { return; }
+
+    const uint8_t status  = data[0];
+    const uint8_t type    = static_cast<uint8_t>(status & 0xF0u);
+    const uint8_t channel = static_cast<uint8_t>((status & 0x0Fu) + 1u);
+
+    switch (type) {
+        case 0x80u: usbMIDI.sendNoteOff(data[1], data[2], channel);        break;
+        case 0x90u: usbMIDI.sendNoteOn(data[1], data[2], channel);         break;
+        case 0xA0u: usbMIDI.sendAfterTouchPoly(data[1], data[2], channel); break;
+        case 0xB0u: usbMIDI.sendControlChange(data[1], data[2], channel);  break;
+        case 0xC0u: usbMIDI.sendProgramChange(data[1], channel);           break;
+        case 0xD0u: usbMIDI.sendAfterTouch(data[1], channel);              break;
+        case 0xE0u:
+            // usbMIDI.sendPitchBend takes the CENTRED form; the wire carries
+            // the raw 14-bit.  Same conversion, same reason, as everywhere
+            // else in this file.
+            usbMIDI.sendPitchBend(
+                (static_cast<int>(data[1]) |
+                 (static_cast<int>(data[2]) << 7)) - 8192, channel);
+            break;
+        default:
+            // Real-time and system common are not forwarded: the DAW has its
+            // own transport, and echoing clock into it causes more trouble
+            // than it solves.
+            break;
+    }
+}
 
 // -----------------------------------------------------------------------------
 void setup()
@@ -435,7 +526,14 @@ void setup()
     // Two pools: F32 blocks for the synth path, a small int16 pool for the
     // stock USB output object.  Sizes per brief §10 — edges only.
     AudioMemory(16);   // +4: AudioInputUSB (int16 stereo) needs its own blocks
-    AudioMemory_F32(20, audioSettings);
+    // F32 pool.  Was 20, sized "edges only" per brief §10 — which left no
+    // slack for another consumer on the return mixers.  The USB host sink
+    // holds one more block reference per channel per block period, and a
+    // pool run dry does not fail loudly: allocate_f32() returns null, the
+    // mixers return early, and every output goes silent at almost no CPU.
+    // Watch f32Blk in the status line: if the max sits well under this, the
+    // headroom can come back down.
+    AudioMemory_F32(28, audioSettings);
 
     // Return mixer init (Region D): synth at unity, DAW return at its stored
     // default.  Set once here; loop() tracks the return level thereafter.
@@ -485,20 +583,27 @@ void setup()
     usbMIDI.setHandleContinue(onClockCont);
     usbMIDI.setHandleStop(onClockStop);
 
-    // --- USB host port (controllers via hub) --------------------------------
-    myusb.begin();
+    // --- USB host port (keyboards and controllers) --------------------------
+    // Handlers are bound BEFORE begin(): the host stack enumerates on its own
+    // thread and a device can attach before setup() returns.
 #if JT_DEBUG_NOTEKILL
-    midiHost.setHandleNoteOn(onNoteOnUsbHost);
-    midiHost.setHandleNoteOff(onNoteOffUsbHost);
+    JT::gUsbHostPort.setHandleNoteOn(onNoteOnUsbHost);
+    JT::gUsbHostPort.setHandleNoteOff(onNoteOffUsbHost);
 #else
-    midiHost.setHandleNoteOn(onNoteOn);
-    midiHost.setHandleNoteOff(onNoteOff);
+    JT::gUsbHostPort.setHandleNoteOn(onNoteOn);
+    JT::gUsbHostPort.setHandleNoteOff(onNoteOff);
 #endif
-    midiHost.setHandleControlChange(onCCUsbHost);
-    midiHost.setHandlePitchChange(onPitchBend);
-    // External clock (Phase 9): USBHost_t36 delivers ONE raw real-time byte
-    // handler; the adapter decodes 0xF8/0xFA/0xFB/0xFC.
-    midiHost.setHandleRealTimeSystem(onHostRealtime);
+    JT::gUsbHostPort.setHandleControlChange(onCCUsbHost);
+    // Delivered CENTRED, exactly as every other port delivers it, so
+    // onPitchBend needs no special case.  The adapter does the conversion
+    // from the wire's raw form; see UsbHostPort.h.
+    JT::gUsbHostPort.setHandlePitchChange(onPitchBend);
+    // External clock (Phase 9): one raw real-time byte, same shape as the
+    // old adapter, so onHostRealtime is unchanged.
+    JT::gUsbHostPort.setHandleRealTimeSystem(onHostRealtime);
+    JT::gUsbHostPort.setHandleForward(onHostForward);
+    JT::gUsbHostPort.setCableMask(kHostCableMask);
+    JT::gUsbHostPort.begin();
 
     // --- Serial1 port (ESP32 controller, 1 Mbaud) ---------------------------
     midi1.begin(MIDI_CHANNEL_OMNI);
@@ -523,10 +628,31 @@ void setup()
 
     // --- outbound: each sink registered under its port's Origin -------------
     gBroadcast.addSink(gSinkUsbDev,  JT::Origin::MidiUsbDev);
-    gBroadcast.addSink(gSinkUsbHost, JT::Origin::MidiUsbHost);
+    // No host-port sink: see the note above UsbDevSink.  Origin::MidiUsbHost
+    // is still a valid origin for INBOUND edits, and gTransportUsbHost still
+    // resyncs; only the outbound mirror is gone.
     gBroadcast.addSink(gSinkSerial,  JT::Origin::MidiSerial);
 
+    // Teensy 4.x keeps fault state across a reboot.  If the last run ended in
+    // a hard fault this prints the faulting address, the fault type and the
+    // stack — the difference between diagnosing a crash and guessing at one.
+    // Prints nothing after a clean start or a fresh upload.
+    if (CrashReport) {
+        Serial.println("[S3.0] previous run ended in a fault:");
+        Serial.print(CrashReport);
+    }
+
+    // Interrupt-stack probe, before the audio graph starts so no ISR has run
+    // yet.  TeensyAtomThreads repoints MSP at a 2 KB buffer during startup, so
+    // every interrupt — including the audio render — shares that.  Watch
+    // isrStk on the status line: if used approaches capacity, the audio ISR is
+    // overflowing it and corrupting whatever lies below.
+    JT::gIsrStackProbe.begin();
+
     Serial.println("[S3.1] JT-8000 v2 boot");
+    // Which host-port switches this binary was actually built with.  Every
+    // log then identifies its own build, which a bisect depends on.
+    JT::gUsbHostPort.printBuildConfig();
     Serial.print  ("[S3.2] backend: ");
     Serial.println(JT::Board::kBackendName);
     Serial.print  ("[S3.3] params: ");
@@ -565,13 +691,14 @@ void loop()
     //   audio block period, so the DSP ISR is never at risk.
     static constexpr int kMaxMidiDrain = 32;
 
-    // USBHost housekeeping MUST run before its MIDIDevice is read, and every
-    // pass regardless of traffic ([R4]).  Kept outside the drain loop: it is
-    // servicing, not a message read.
-    myusb.Task();
-
     for (int i = 0; i < kMaxMidiDrain && usbMIDI.read();  ++i) { }
-    for (int i = 0; i < kMaxMidiDrain && midiHost.read(); ++i) { }
+
+    // Host port: drains inbound to empty under the same cap as the other
+    // ports, dispatches to the handlers in this same loop() context, and
+    // starts any queued outbound transfer.  Replaces both myusb.Task() and
+    // the midiHost.read() drain — the library services itself on its own
+    // thread, so there is no housekeeping call to make here.
+    JT::gUsbHostPort.poll(kMaxMidiDrain);
 
 #if JT_DEBUG_NOTEKILL
     // ONE-SHOT raw byte capture.  Before the MIDI parser ever touches Serial1,
@@ -709,6 +836,31 @@ void loop()
         Serial.print(external_psram_size);
         Serial.print(" cpuMax=");
         Serial.print(AudioProcessorUsageMax());
+
+        // F32 block pool: 'now' and 'worst since boot'.  If the worst reaches
+        // the pool size the graph has been starved, which shows up as silence
+        // on every output and a CPU figure near zero — not as an error.
+        Serial.print(" f32Blk=");
+        Serial.print(AudioMemoryUsage_F32());
+        Serial.print("/");
+        Serial.print(AudioMemoryUsageMax_F32());
+
+        // Deepest interrupt-stack excursion since boot, against the buffer
+        // AtomThreads installed.  Reaching capacity means the pattern is gone
+        // entirely: the real figure is at least that and the stack has
+        // overflowed.
+        if (JT::gIsrStackProbe.valid()) {
+            Serial.print(" isrStk=");
+            Serial.print(JT::gIsrStackProbe.used());
+            Serial.print("/");
+            Serial.print(JT::gIsrStackProbe.capacity());
+        }
+
+        // USB host port: silent until something is attached.  Read fill and
+        // ratio together — a fill that walks away from ~512 while the ratio
+        // sits at a clamp means the servo has saturated, and ur/or rising
+        // means it lost the race.
+        JT::gUsbHostPort.printStatus();
 
         // --- Phase 9 external-clock sync triage ------------------------------
         // Flip JT_DEBUG_CLOCK on to walk the chain in one glance:
