@@ -51,6 +51,7 @@
 // USB host port.  NOT USBHost_t36 — see the routing contract above.
 
 #include "core/ParameterStore.h"
+#include "core/PsramArena.h"
 #include "core/MidiParamTransport.h"
 #include "core/PerfRouter.h"
 #include "core/ParamBroadcast.h"
@@ -62,7 +63,7 @@
 // (-D JT_USBHOST_AUDIO=0) to bisect: MIDI keeps working, and nothing of the
 // audio path is compiled, registered or executed.
 
-#include "platform/IsrStackProbe.h"
+#include "platform/IsrStack.h"
 #include "platform/UsbHostPort.h"
 #if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
 #if JT_USBHOST_AUDIO_BUILD
@@ -116,18 +117,59 @@ static JT::ParameterStore      gStore;
 // once-per-sample access is the ideal cached-RAM2 pattern, and DTCM is
 // the scarce resource (see JT_COLD in AudioConfig.h for the memory model).
 DMAMEM static float            gCombPool[JT::SynthCore::kCombPoolFloats];
-// Global-reverb delay lines (~155 KB): PSRAM via EXTMEM.  Random-access delay
-// taps tolerate PSRAM latency far better than DTCM can spare the space, and the
-// input diffusers (the latency-sensitive part) stay in DTCM inside PlateReverb.
-// Requires a PSRAM chip fitted on the Teensy 4.1; without one this pool fails to
-// place and the reverb should be left bypassed (its default state anyway).
-EXTMEM static float            gReverbPool[JT::SynthCore::kReverbPoolFloats];
-// Per-patch FX-chain delay/mod lines (~534 KB): PSRAM via EXTMEM.  Sized for
-// v1's 1500 ms max delay + 50 ms mod, stereo.  Also requires a PSRAM chip fitted
-// on the Teensy 4.1; without one this pool fails to place and the FX chain stays
-// inert (FxChain::begin sees a null-equivalent and processBlock bails).
-EXTMEM static float            gFxPool[JT::SynthCore::kFxPoolFloats];
-static JT::AudioSynthBlockF32  gSynth(gStore, gCombPool, gReverbPool, gFxPool);
+// ---- PSRAM: ONE region, carved by PsramArena ------------------------------
+// Every PSRAM consumer used to declare its own EXTMEM array here.  That does
+// not scale past two: each pool is resident whether or not its feature is on,
+// a 16 MB board behaves exactly like an 8 MB one, and the only failure mode
+// available is the all-or-nothing SynthCore::disableExtmemPools().  One region
+// plus a bump allocator fixes all three — see core/PsramArena.h.
+//
+// SIZE (6.00 MB of the 8 MB minimum chip).  Current tenants:
+//     reverb tank      39707 floats  =  0.15 MB   (PlateReverb::kPoolFloats)
+//     FX delay + mod  886418 floats  =  3.38 MB   (FxChain::kPoolFloats, 10 s)
+//     ------------------------------------------
+//     carved           926136 floats =  3.53 MB   (after 32-byte alignment)
+// The remaining ~2.5 MB is deliberate headroom for the next tenants (tape
+// delay, multi-tap) so adding one does not mean re-sizing this array.  The
+// 2 MB left outside the arena on an 8 MB board is reserve — raise
+// kPsramArenaFloats before spending it, never allocate around the arena.
+static constexpr size_t        kPsramArenaFloats = 1572864u;   // 6 MB / sizeof(float)
+EXTMEM static float            gPsramRegion[kPsramArenaFloats];
+static JT::PsramArena          gArena;
+
+// Carving has to happen BEFORE gSynth's constructor runs, because gSynth takes
+// the pools as constructor arguments.  Static initialisation inside one
+// translation unit is strictly top-to-bottom, and external_psram_size is set by
+// the core's startup BEFORE any C++ static constructor (the same fact the old
+// PSRAM guard below relied on) — so this struct is a legal place to do it.
+//
+// ORDER MATTERS: reverb is requested first so that on a chip smaller than the
+// arena expects, the small tenant survives and only the 3.38 MB one fails.
+// Real hardware is 8 or 16 MB and cannot hit this, but the ordering costs
+// nothing and makes the degradation sensible rather than arbitrary.
+struct PsramPools {
+    float* reverb = nullptr;
+    float* fx     = nullptr;
+
+    PsramPools()
+    {
+        const size_t availFloats =
+            (size_t)external_psram_size * (1024u * 1024u / sizeof(float));
+        const size_t cap = (availFloats < kPsramArenaFloats) ? availFloats
+                                                             : kPsramArenaFloats;
+        // No chip -> begin(nullptr, 0): every allocate() returns nullptr and
+        // both engines take their documented inert path.  This REPLACES the
+        // old detach-after-the-fact guard: the pools are never handed out in
+        // the first place, so there is no window in which the ISR could touch
+        // unbacked bus space.
+        gArena.begin((external_psram_size > 0) ? gPsramRegion : nullptr, cap);
+
+        reverb = gArena.allocate(JT::SynthCore::kReverbPoolFloats, "reverb");
+        fx     = gArena.allocate(JT::SynthCore::kFxPoolFloats,     "fx");
+    }
+};
+static PsramPools              gPools;
+static JT::AudioSynthBlockF32  gSynth(gStore, gCombPool, gPools.reverb, gPools.fx);
 // One transport per port; the Origin passed here IS the suppression identity
 // ParamBroadcast keys on (Phase B' D1).  The router is what lets a curated CC
 // (74 cutoff, ...) reach layer B — NRPN carries its layer in the address and
@@ -515,6 +557,17 @@ static void onHostForward(uint8_t /*cable*/, const uint8_t* data, uint8_t length
 // -----------------------------------------------------------------------------
 void setup()
 {
+    // FIRST STATEMENT, and it must stay first.  TeensyAtomThreads points MSP
+    // at a 2 KB buffer during startup, and on Cortex-M every exception runs on
+    // MSP — including the software interrupt this synth renders from.  This
+    // installs a larger stack in its place.
+    //
+    // ORDERING MATTERS AND IS EASY TO GET WRONG: it must run before the audio
+    // graph is started and before gUsbHostPort.begin(), because that starts the
+    // host thread and enumeration begins immediately on it.  Repointing MSP
+    // underneath a running USB host stack breaks enumeration.
+    JT::gIsrStack.install();
+
     Serial.begin(115200);
 
 #if defined(JT_BACKEND_PCM5102)
@@ -526,14 +579,12 @@ void setup()
     // Two pools: F32 blocks for the synth path, a small int16 pool for the
     // stock USB output object.  Sizes per brief §10 — edges only.
     AudioMemory(16);   // +4: AudioInputUSB (int16 stereo) needs its own blocks
-    // F32 pool.  Was 20, sized "edges only" per brief §10 — which left no
-    // slack for another consumer on the return mixers.  The USB host sink
-    // holds one more block reference per channel per block period, and a
-    // pool run dry does not fail loudly: allocate_f32() returns null, the
-    // mixers return early, and every output goes silent at almost no CPU.
-    // Watch f32Blk in the status line: if the max sits well under this, the
-    // headroom can come back down.
-    AudioMemory_F32(28, audioSettings);
+    // F32 pool.  Back to the original 20 after measurement: peak usage with
+    // the USB host sink connected and a chord held was well inside it.  It was
+    // briefly raised to 28 while chasing a suspected block shortage; that
+    // turned out not to be the fault, and the headroom was never justified.
+    // Watch f32Blk on the status line if the graph grows.
+    AudioMemory_F32(20, audioSettings);
 
     // Return mixer init (Region D): synth at unity, DAW return at its stored
     // default.  Set once here; loop() tracks the return level thereafter.
@@ -552,19 +603,39 @@ void setup()
     digitalWrite(JT::Board::kMutePin, HIGH);
 #endif
 
-    // --- PSRAM guard (bench-earned, 2026-07-11) -----------------------------
+    // --- PSRAM arena report (bench-earned guard, 2026-07-11; arena 2026-09) --
     // EXTMEM symbols get a "valid" address whether or not a PSRAM chip is
     // detected; with none, begin()'s memset vanishes into unbacked bus space
     // and every FX/reverb wet read returns garbage — dry path intact,
-    // delay/mod pure noise.  Detach the pools instead: silent FX and a loud
-    // warning beat noise every time.  (external_psram_size is set by the
-    // core's startup BEFORE C++ static ctors, so gSynth saw the pools first;
-    // detaching here overrides that cleanly via the engines' null-pool mode.)
-    if (external_psram_size == 0) {
-        gSynth.core().disableExtmemPools();
+    // delay/mod pure noise.  The ARENA now prevents that at the source: with
+    // no chip it holds no region, every allocate() returned nullptr during
+    // static init, and both engines are already inert.  Nothing to detach
+    // here any more — this block only REPORTS what happened, which is why the
+    // per-pool lines matter: a partial failure is now possible and visible.
+    if (!gArena.ok()) {
         Serial.println("!! PSRAM NOT DETECTED — reverb + FX chain DISABLED.");
         Serial.println("!! Check chip fitting, or PIO core version vs Arduino");
         Serial.println("!! IDE (pio pkg update) — see psramMB in status line.");
+    } else {
+        Serial.print("[S3.0] PSRAM arena ");
+        Serial.print((unsigned long)(gArena.used() * sizeof(float) / 1024u));
+        Serial.print(" KB used / ");
+        Serial.print((unsigned long)(gArena.capacity() * sizeof(float) / 1024u));
+        Serial.println(" KB");
+        for (uint8_t i = 0; i < gArena.recordCount(); ++i) {
+            Serial.print("       pool ");
+            Serial.print(gArena.recordTag(i));
+            Serial.print(" = ");
+            Serial.print((unsigned long)(gArena.recordSize(i) * sizeof(float) / 1024u));
+            Serial.println(" KB");
+        }
+        // Non-zero means a tenant asked for more than was left: that feature is
+        // silently inert, so say so rather than let it look like a DSP fault.
+        if (gArena.failedCount() > 0) {
+            Serial.print("!! PSRAM arena EXHAUSTED — ");
+            Serial.print((int)gArena.failedCount());
+            Serial.println(" pool(s) unallocated and INERT.");
+        }
     }
 
     // --- USB device port (DAW / JUCE editor) --------------------------------
@@ -642,17 +713,7 @@ void setup()
         Serial.print(CrashReport);
     }
 
-    // Interrupt-stack probe, before the audio graph starts so no ISR has run
-    // yet.  TeensyAtomThreads repoints MSP at a 2 KB buffer during startup, so
-    // every interrupt — including the audio render — shares that.  Watch
-    // isrStk on the status line: if used approaches capacity, the audio ISR is
-    // overflowing it and corrupting whatever lies below.
-    JT::gIsrStackProbe.begin();
-
     Serial.println("[S3.1] JT-8000 v2 boot");
-    // Which host-port switches this binary was actually built with.  Every
-    // log then identifies its own build, which a bisect depends on.
-    JT::gUsbHostPort.printBuildConfig();
     Serial.print  ("[S3.2] backend: ");
     Serial.println(JT::Board::kBackendName);
     Serial.print  ("[S3.3] params: ");
@@ -845,15 +906,14 @@ void loop()
         Serial.print("/");
         Serial.print(AudioMemoryUsageMax_F32());
 
-        // Deepest interrupt-stack excursion since boot, against the buffer
-        // AtomThreads installed.  Reaching capacity means the pattern is gone
-        // entirely: the real figure is at least that and the stack has
-        // overflowed.
-        if (JT::gIsrStackProbe.valid()) {
+        // Deepest interrupt-stack excursion since boot, against the stack we
+        // installed.  Reaching capacity means the pattern is gone entirely and
+        // the stack has overflowed: expect a hard fault at a nonsense address.
+        if (JT::gIsrStack.valid()) {
             Serial.print(" isrStk=");
-            Serial.print(JT::gIsrStackProbe.used());
+            Serial.print(JT::gIsrStack.used());
             Serial.print("/");
-            Serial.print(JT::gIsrStackProbe.capacity());
+            Serial.print(JT::gIsrStack.capacity());
         }
 
         // USB host port: silent until something is attached.  Read fill and

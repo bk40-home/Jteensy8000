@@ -132,8 +132,32 @@ TEST_CASE("fxchain: mod rate & delay time endpoints")
     CHECK(fx.debugModRateHz() == doctest::Approx(20.0f));
 
     fx.setDelayEffect(1);            // MONO_LONG (so ratio resolves)
-    fx.setDelayTime(1.0f * 1500.0f); // norm 1.0 -> 1500 ms
+    fx.setDelayTime(1500.0f);        // an ordinary explicit time, mid-sweep now
     CHECK(fx.debugDelayMs() == doctest::Approx(1500.0f));
+}
+
+TEST_CASE("fxchain: delay time — E2 explicit-only, clamped to the Log range")
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setDelayEffect(1);            // MONO_LONG (so the L/R ratio resolves)
+
+    // The top of the new sweep must actually be reachable — this is the whole
+    // point of the 10 s buffer, and a stale kDelayLen would clamp it here.
+    fx.setDelayTime(FxChain::kMaxDelayMs);
+    CHECK(fx.debugDelayMs() == doctest::Approx(FxChain::kMaxDelayMs));
+
+    // E2: 0 no longer means "use the preset time".  It used to install a -1
+    // sentinel; it must now clamp to kMinDelayMs like any other out-of-range
+    // value, so the bottom of the knob is a real 10 ms delay.
+    fx.setDelayTime(0.0f);
+    CHECK(fx.debugDelayMs() == doctest::Approx(FxChain::kMinDelayMs));
+
+    // Over-range is clamped rather than wrapped — a wrapped read pointer would
+    // be an out-of-bounds access on the delay buffer, not merely a wrong time.
+    fx.setDelayTime(FxChain::kMaxDelayMs * 10.0f);
+    CHECK(fx.debugDelayMs() == doctest::Approx(FxChain::kMaxDelayMs));
 }
 
 TEST_CASE("fxchain: feedback sentinel — 0 -> use preset (-1), else norm*0.99")

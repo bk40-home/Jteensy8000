@@ -162,7 +162,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0485` | 5 | Mod Rate | `fx.mod_rate` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch_shared |
 | `0x0486` | 6 | Mod FB | `fx.mod_feedback` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
 | `0x0487` | 7 | Delay FX | `fx.delay_effect` | select | 0–5 (index) | 0 (OFF) | 0 ms | — | patch_shared |
-| `0x0488` | 8 | Delay Time | `fx.delay_time` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch_shared |
+| `0x0488` | 8 | Delay Time | `fx.delay_time` | continuous | 10–10000 ms (log) | 750 ms | 5 ms | — | patch_shared |
 | `0x0489` | 9 | Delay Mix | `fx.delay_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 94 | patch_shared |
 | `0x048A` | 10 | Delay FB | `fx.delay_feedback` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
 | `0x048B` | 11 | Delay Sync | `fx.delay_sync` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch_shared |

@@ -478,6 +478,41 @@ void SynthCore::tickSlewBank(const float* snap)
     _slew.nActive = w;
 }
 
+// -----------------------------------------------------------------------------
+// C2 guard: fx.delay_time's engineering range lives in params.yaml, but the
+// BUFFER that has to hold it is sized by FxChain::kDelayLen.  Those are two
+// files in two repositories, and the old hardcoded `norm * 1500.0f` in
+// applyParam was exactly what happens when nothing checks that they agree —
+// a yaml edit would have silently clamped the top of the knob instead of
+// failing.  This finds the descriptor at compile time and refuses to build on
+// a mismatch.
+//
+// The linear scan is constexpr-only: it costs nothing at run time and lets the
+// assert key on the ParamID rather than a table position that reorders every
+// time a parameter is inserted above it.
+namespace {
+constexpr size_t constexprIndexOfParam(uint16_t id)
+{
+    for (size_t i = 0; i < Params::kParamCount; ++i)
+        if (Params::kParams[i].id == id) return i;
+    return static_cast<size_t>(-1);
+}
+constexpr size_t kFxDelayTimeIdx = constexprIndexOfParam(Params::ID::FX_DELAY_TIME);
+
+static_assert(kFxDelayTimeIdx != static_cast<size_t>(-1),
+              "fx.delay_time missing from the generated ParamTable");
+static_assert(Params::kParams[kFxDelayTimeIdx].curve == Params::Curve::Log,
+              "fx.delay_time must use a Log curve: applyParam feeds its "
+              "engineering value straight to FxChain::setDelayTime, and the "
+              "10 ms..10 s sweep is unusable on a linear knob");
+static_assert(Params::kParams[kFxDelayTimeIdx].max <= FxChain::kMaxDelayMs,
+              "fx.delay_time max exceeds the FxChain delay buffer — raise "
+              "FxChain::kMaxDelayMs and kDelayLen together, and re-check the "
+              "PsramArena budget in main.cpp");
+static_assert(Params::kParams[kFxDelayTimeIdx].min >= FxChain::kMinDelayMs,
+              "fx.delay_time min is below FxChain::kMinDelayMs");
+}  // namespace
+
 void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
 {
     using namespace Params;
@@ -939,7 +974,13 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::FX_DELAY_EFFECT:                            // Q3: opt-1 = v1 DelayEffectType
             _fx.setDelayEffect(opt - 1); recomputeFxEngaged(); break;
         case ID::FX_DELAY_TIME:
-            _fx.setDelayTime(norm * 1500.0f); break;         // 0..1500 ms (0 = preset)
+            // C2: the scale used to be a hardcoded `norm * 1500.0f` here, a
+            // silent duplicate of FxChain::kMaxDelayMs that no compiler could
+            // keep in step.  The range now lives in params.yaml as a Log curve
+            // (10 ms .. 10 s) and `eng` is already the converted value — see
+            // the static_assert below, which fails the build if the two ever
+            // disagree again.
+            _fx.setDelayTime(eng); break;
         case ID::FX_DELAY_MIX:
             _fx.setDelayMix(norm); break;                    // D-6: 0..1, no phase invert
         case ID::FX_DELAY_FEEDBACK:                          // D-5
@@ -1132,6 +1173,43 @@ void SynthCore::repartitionVoices()
     _layers[0].setSlice(_voices, countA);
     _layers[1].setSlice(_voices + countA,
                         VoiceAllocator::kMaxVoices - countA);
+
+    // Re-fan both layers' patch state onto their NEW slices (fault 3 / D-11).
+    //
+    // The ~80 parameter fan-outs in applyParam() write to L.voices(), i.e. the
+    // slice a layer owned AT THE MOMENT THE KNOB MOVED — they only run on a
+    // parameter change. A voice therefore keeps whatever patch was last fanned
+    // into it. When repartition hands a voice from one layer to the other (any
+    // A-growing voice_split: 5+3, 6+2, 7+1, and every Single<->Layer/Split mode
+    // change), the acquiring layer's allocator will play that voice while its
+    // DSP still holds the DONOR layer's cutoff, envelopes, bend range, arb
+    // table and per-voice DC — so the note sounds like the wrong layer. That is
+    // exactly the "5th key triggers layer B" report: voice 4, freshly given to
+    // A, still carried B's patch.
+    //
+    // Rehydrating here — once, off the back of an operation that has already
+    // hard-killed the pool, and which only happens on a mode/split knob move —
+    // costs nothing in the audio path and closes the mode-change variants too,
+    // not just voice_split. Perf/global params are deliberately skipped: they
+    // are not per-layer patch state (this mirrors the save filter in
+    // Patch.cpp — isPatchScope()).
+    rehydrateLayer(0);
+    rehydrateLayer(1);
+}
+
+// Push every patch-scoped parameter's CURRENT stored value back onto one
+// layer's voices, reproducing what a patch load does for that layer. Called
+// after repartitionVoices() moves the slice boundary (fault 3 / D-11). Control
+// plane only (applyParam context); never per-block. A layer that owns zero
+// voices (layer B in Single mode) still runs cheaply — every fan-out loop over
+// an empty slice simply does not execute.
+void SynthCore::rehydrateLayer(uint8_t layer)
+{
+    using namespace Params;
+    for (size_t i = 0; i < kParamCount; ++i) {
+        if (!isPatchScope(kParams[i].scope)) continue;   // perf/global: not per-layer
+        applyParam(i, _store.getByIndex(i, layer), layer);
+    }
 }
 
 // -----------------------------------------------------------------------------

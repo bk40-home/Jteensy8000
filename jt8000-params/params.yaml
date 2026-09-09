@@ -1326,9 +1326,15 @@ params:
     label: "DLY TIME"
     type: continuous
     scope: patch_shared
-    range: {min: 0, max: 1, curve: lin}
-    unit: "norm"
-    default: 0.5
+    # S3/C2: log sweep 10 ms .. 10 s, mirroring FxChain::kMinDelayMs /
+    # kMaxDelayMs (a static_assert in SynthCore.cpp fails the build if these
+    # drift apart).  Replaces a bare 0..1 "norm" whose scale was duplicated as
+    # a hardcoded 1500.0f in SynthCore::applyParam.  The default is held at
+    # 750 ms — exactly what norm 0.5 meant under the old linear map — so the
+    # default patch and the render baseline are unchanged.
+    range: {min: 10, max: 10000, curve: log}
+    unit: "ms"
+    default: 750
     smooth_ms: 5
     ui: {section: 9, group: 2}
   - id: 0x0489            # v1: CC::FX_JPFX_DELAY_MIX (was CC 108)

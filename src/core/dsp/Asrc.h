@@ -28,12 +28,6 @@
 #include <cstddef>
 #include <cstdint>
 
-// Level metering either side of the conversion.  On by default while the
-// path is being brought up; set to 0 to remove it entirely.
-#ifndef JT_ASRC_PEAK
-#define JT_ASRC_PEAK 1
-#endif
-
 namespace JT {
 
 // Ring capacity in sample frames.  The engine delivers 128 frames every
@@ -89,15 +83,6 @@ public:
     // Frames currently resident.  Read from either side.
     size_t fill(void) const;
 
-#if JT_ASRC_PEAK
-    // Peak magnitude seen since the last read, and cleared by reading.
-    // peakIn is the engine side as a float 0..1; peakOut is the resampled
-    // 24-bit side.  Together they say whether silence arriving at the device
-    // was silence on the way in, or was lost crossing the resampler.
-    float    peakIn(void);
-    uint32_t peakOut(void);
-#endif
-
     uint32_t underruns(void) const { return underrunCount.load(std::memory_order_relaxed); }
     uint32_t overruns(void)  const { return overrunCount.load(std::memory_order_relaxed); }
     void resetCounters(void);
@@ -115,12 +100,6 @@ private:
     // Consumer only: fractional position between readIndex and the next frame.
     uint32_t phase = 0u;
 
-#if JT_ASRC_PEAK
-    // Diagnostic level meters.  A compare per sample and nothing else, but
-    // gated so they can be compiled out once the path is trusted.
-    std::atomic<uint32_t> peakInBits{0u};    // float bit pattern, magnitude only
-    std::atomic<uint32_t> peakOutMag{0u};
-#endif
 };
 
 // -----------------------------------------------------------------------------

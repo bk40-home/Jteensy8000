@@ -86,28 +86,11 @@ size_t Asrc::push(const float* left, const float* right, size_t frames)
     const size_t space = static_cast<size_t>((r - w - 1u) & kRingMask);
     const size_t take  = (frames > space) ? space : frames;
 
-#if JT_ASRC_PEAK
-    float peak = 0.0f;
-#endif
     for (size_t i = 0u; i < take; ++i) {
         ringL[w] = left[i];
         ringR[w] = right[i];
-#if JT_ASRC_PEAK
-        const float a = (left[i] < 0.0f) ? -left[i] : left[i];
-        if (a > peak) { peak = a; }
-#endif
         w = (w + 1u) & kRingMask;
     }
-#if JT_ASRC_PEAK
-    // Bit pattern rather than a float atomic: non-negative floats compare in
-    // the same order as their bit patterns, so max works unchanged and no
-    // floating-point atomic is needed.
-    uint32_t bits;
-    memcpy(&bits, &peak, sizeof(bits));
-    if (bits > peakInBits.load(std::memory_order_relaxed)) {
-        peakInBits.store(bits, std::memory_order_relaxed);
-    }
-#endif
     writeIndex.store(w, std::memory_order_release);
 
     if (take < frames) {
@@ -156,12 +139,6 @@ void Asrc::pull(int32_t* interleaved, size_t frames, uint8_t channels)
 
         // Mono sinks get the left channel; anything wider than stereo repeats
         // the pair, which is the least surprising behaviour for a monitor.
-#if JT_ASRC_PEAK
-        const uint32_t mag = static_cast<uint32_t>((sl < 0) ? -sl : sl);
-        if (mag > peakOutMag.load(std::memory_order_relaxed)) {
-            peakOutMag.store(mag, std::memory_order_relaxed);
-        }
-#endif
 
         for (uint8_t ch = 0u; ch < channels; ++ch) {
             interleaved[at++] = ((ch & 1u) == 0u) ? sl : sr;
@@ -177,21 +154,6 @@ void Asrc::pull(int32_t* interleaved, size_t frames, uint8_t channels)
 
     readIndex.store(r, std::memory_order_release);
 }
-
-#if JT_ASRC_PEAK
-float Asrc::peakIn(void)
-{
-    const uint32_t bits = peakInBits.exchange(0u, std::memory_order_relaxed);
-    float value;
-    memcpy(&value, &bits, sizeof(value));
-    return value;
-}
-
-uint32_t Asrc::peakOut(void)
-{
-    return peakOutMag.exchange(0u, std::memory_order_relaxed);
-}
-#endif
 
 // -----------------------------------------------------------------------------
 

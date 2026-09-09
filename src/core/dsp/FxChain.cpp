@@ -242,13 +242,19 @@ void FxChain::setDelayFeedback(float fb)
 
 void FxChain::setDelayTime(float ms)
 {
-    // Disable override (revert to preset times) at 0 (v1 :560-564).
-    if (ms <= 0.0f) {
-        _delayTimeOverrideL = -1.0f;
-        _delayTimeOverrideR = -1.0f;
-        return;
-    }
+    // E2: the v1 "ms <= 0 reverts to the preset time" sentinel is gone — see
+    // the setDelayTime comment in FxChain.h.  A non-positive value can now only
+    // arrive from a caller bug, so clamp into the legal range rather than
+    // reinstating a hidden mode: prepareDelay would clamp it to kMinDelaySamp
+    // regardless, and clamping here keeps debugDelayMs() honest about what the
+    // engine is actually running.
+    ms = clampf(ms, kMinDelayMs, kMaxDelayMs);
+
     // Preserve the active preset's L/R ratio so panning presets stay stereo.
+    // NOTE: a preset whose ratio exceeds 1 can push the R tap past kMaxDelayMs
+    // near the top of the sweep; prepareDelay clamps it to kDelayLen - 2, so
+    // the buffer is safe and the only consequence is that the stereo spread
+    // closes up at the very top of the knob.
     float ratio = 1.0f;
     if (_delayType >= 0 && _delayType < (int)kNumDelayPresets) {
         const DelayParams& p = kDelayPresets[_delayType];

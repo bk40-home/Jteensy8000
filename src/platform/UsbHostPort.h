@@ -52,70 +52,6 @@
 #define JT_USBHOST_AUDIO_BUILD 0
 #endif
 
-// Bisect switches for the two things this port does that the standalone
-// bring-up demo never exercised.  Both default on.
-//
-//   JT_USBHOST_TX=0       ParamBroadcast's outbound CCs are dropped instead
-//                         of queued, so no bulk OUT transfer is ever
-//                         submitted on the host device.
-//   JT_USBHOST_FORWARD=0  Inbound messages are not re-sent on the USB device
-//                         port, so nothing calls usbMIDI from the host
-//                         dispatch path.
-//
-// Inbound MIDI still reaches the synth with either set to 0; only the extra
-// traffic disappears.
-#ifndef JT_USBHOST_TX
-#define JT_USBHOST_TX 1
-#endif
-#ifndef JT_USBHOST_FORWARD
-#define JT_USBHOST_FORWARD 1
-#endif
-
-//   JT_USBHOST_DISPATCH=0  Messages are read, decoded and counted, but no
-//                          handler is called at all: nothing reaches the
-//                          synth, the clock or the device port.  With this
-//                          set to 0 the firmware uses the host stack exactly
-//                          as the standalone bring-up demo did.  If it still
-//                          faults, the fault is not in this port's glue but
-//                          in the host library coexisting with the engine.
-#ifndef JT_USBHOST_DISPATCH
-#define JT_USBHOST_DISPATCH 1
-#endif
-
-// Finer splits within dispatch, for isolating which handler faults.  Each
-// defaults on; set any to 0 to decode and count that message type but deliver
-// it nowhere.  They are independent, so a single build can rule out several.
-//
-//   JT_USBHOST_NOTES=0     no noteOn/noteOff reaches the synth
-//   JT_USBHOST_CC=0        no control change reaches the NRPN transport
-//   JT_USBHOST_BEND=0      no pitch bend reaches the synth
-//   JT_USBHOST_REALTIME=0  no clock byte reaches ExternalClock
-#ifndef JT_USBHOST_NOTES
-#define JT_USBHOST_NOTES 1
-#endif
-#ifndef JT_USBHOST_CC
-#define JT_USBHOST_CC 1
-#endif
-#ifndef JT_USBHOST_BEND
-#define JT_USBHOST_BEND 1
-#endif
-#ifndef JT_USBHOST_REALTIME
-#define JT_USBHOST_REALTIME 1
-#endif
-
-// Dispatch tracing.  With this on, every message prints its bytes and the
-// handler about to receive it, then prints again once that handler returns,
-// flushing both so nothing is lost to buffering when the board resets.
-//
-// The last line before a reboot therefore names the message and the handler
-// that did not return — which is one build instead of one per handler.
-//
-// It prints per message and calls Serial.flush(), so it is far too slow to
-// leave on: bring-up only.
-#ifndef JT_USBHOST_TRACE
-#define JT_USBHOST_TRACE 0
-#endif
-
 namespace JT {
 
 // Handler signatures, matching the shapes main.cpp already binds to the
@@ -190,13 +126,8 @@ public:
     // device is attached.
     void printStatus(void) const;
 
-    // Prints which build switches are active.  Called once at boot so that
-    // every log identifies the binary that produced it: a flag that was not
-    // actually passed to the compiler looks identical, in the output, to a
-    // feature that ran and did nothing.
-    void printBuildConfig(void) const;
 };
 
 extern UsbHostPort gUsbHostPort;
 
-} // namespace JT
+} // namespace JT

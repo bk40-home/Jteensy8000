@@ -506,6 +506,12 @@ private:
     // (called from applyParam): it silences voices.
     void repartitionVoices();
 
+    // Re-fan one layer's patch-scoped parameters onto its current voice slice.
+    // Runs after repartitionVoices() moves the A/B boundary, so a voice that
+    // changed owners is rebuilt with its new layer's patch instead of keeping
+    // the previous layer's sound (fault 3 / D-11). Control plane only.
+    void rehydrateLayer(uint8_t layer);
+
 
     // Cached so repartitionVoices() only does the work when the cut actually
     // moves — perf.* params re-apply on every patch load and mode change, and

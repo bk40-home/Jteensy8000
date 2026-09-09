@@ -64,19 +64,32 @@ public:
     // (AudioEffectJPFX.cpp allocateDelayBuffers): delay sized for 1500 ms max,
     // mod for 50 ms max, each + a 2-sample interpolation guard.
     // -------------------------------------------------------------------------
-    static constexpr float    kMaxDelayMs   = 1500.0f;      // v1 JPFX_MAX_DELAY_MS
+    // kMaxDelayMs was v1's JPFX_MAX_DELAY_MS (1500) until the PSRAM arena
+    // landed.  The old ceiling was a MEMORY limit, not a musical one: at 534 KB
+    // the four buffers were most of what the pre-arena EXTMEM budget could
+    // spare.  With the arena carving from one region, 10 s of stereo delay
+    // costs 3.38 MB of an 8 MB chip and buys the long ambient/looping repeats
+    // the JP-8000 never had.
+    //
+    // kMinDelayMs is NEW and is the bottom of the user-facing Log sweep in
+    // params.yaml (fx.delay_time).  It is NOT a DSP clamp — kMinDelaySamp
+    // still guards the read pointer — it exists so the table has a min > 0,
+    // which Curves::toEngineering requires for a Log curve.
+    static constexpr float    kMinDelayMs   = 10.0f;
+    static constexpr float    kMaxDelayMs   = 10000.0f;
     static constexpr float    kMaxModMs     = 50.0f;        // v1 JPFX_MAX_MOD_MS
     static constexpr float    kMinDelaySamp = 1.0f;         // v1 JPFX_MIN_DELAY_SAMP
     static constexpr uint8_t  kNumModPresets   = 11;        // v1 JPFX_NUM_MOD_VARIATIONS
     static constexpr uint8_t  kNumDelayPresets = 5;         // v1 JPFX_NUM_DELAY_VARIATIONS
 
     // ceilf is not constexpr; these are the exact integer results at 44.1 kHz:
-    //   ceil(1500e-3 * 44100) + 2 = 66150 + 2 = 66152
-    //   ceil(  50e-3 * 44100) + 2 =  2205 + 2 =  2207
-    static constexpr uint32_t kDelayLen = 66152;
+    //   ceil(10000e-3 * 44100) + 2 = 441000 + 2 = 441002
+    //   ceil(   50e-3 * 44100) + 2 =   2205 + 2 =   2207
+    static constexpr uint32_t kDelayLen = 441002;
     static constexpr uint32_t kModLen   = 2207;
 
-    // Caller pool: two delay + two mod buffers (stereo).  ~136718 floats ≈ 534 KB.
+    // Caller pool: two delay + two mod buffers (stereo).  886418 floats ≈ 3.38 MB.
+    // Carved from the PsramArena on Teensy, a heap vector on the host.
     static constexpr uint32_t kPoolFloats = 2u * kDelayLen + 2u * kModLen;
 
     FxChain() = default;
@@ -110,7 +123,16 @@ public:
     void setDelayEffect(int v1Type);
     void setDelayMix(float mix);        // 0..1 (no phase-invert on this path, D-6)
     void setDelayFeedback(float fb);    // 0..0.99, <0 = use preset feedback
-    void setDelayTime(float ms);        // ms override, 0 = use preset (preserves L/R ratio)
+    // Delay time in MILLISECONDS, always an explicit override (preserves the
+    // active preset's L/R ratio so panning presets stay stereo).
+    //
+    // The old "0 = revert to the preset's time" sentinel was REMOVED when
+    // fx.delay_time became a Log-curve parameter: a Log curve cannot emit 0
+    // (Curves.cpp requires min > 0), so the sentinel had become unreachable
+    // from the knob and would have silently mapped the bottom of the sweep to
+    // kMinDelayMs anyway.  Presets still supply the L/R ratio and the feedback
+    // default — only their delay TIME is now always overridden.
+    void setDelayTime(float ms);
 
     // ---- Sequencer aux-lane mod inputs (Stage D) -------------------------
     // Block-rate modulation from the step sequencer's aux lane.  Both are
