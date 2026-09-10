@@ -192,7 +192,7 @@ void SynthCore::drainExternalClock()
         const uint32_t milli = _extBpmMilli.load(std::memory_order_acquire);
         if (milli != 0) {
             const float bpm = (float)milli * 0.001f;
-            if (bpm != _clock.bpm()) { _clock.setBpm(bpm); refreshSyncedLfos(); }
+            if (bpm != _clock.bpm()) { _clock.setBpm(bpm); refreshSyncedRates(); }
         }
     }
 
@@ -844,16 +844,16 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         // synced rates right here, once.  CLOCK_CLOCK_SOURCE is stored for
         // forward-compat with the external-clock pass but is INERT this
         // pass (Decision #2) — internal BPM keeps driving regardless of the
-        // selection; refreshSyncedLfos() here is a harmless no-op while
+        // selection; refreshSyncedRates() here is a harmless no-op while
         // Internal (source doesn't feed freqForMode) and keeps behaviour
         // correct once External lands.
         case ID::CLOCK_TEMPO:
             _clock.setBpm(eng);
-            refreshSyncedLfos();
+            refreshSyncedRates();
             break;
         case ID::CLOCK_CLOCK_SOURCE:
             _clock.setSource(opt);   // kExtMidi accepted but inert (Decision #2)
-            refreshSyncedLfos();
+            refreshSyncedRates();
             break;
 
         // ------------- performance / layering ------------------------------
@@ -941,6 +941,10 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             recomputeReverbBypass();
             break;
         case ID::REVERB_SHIMMER: _reverb.setShimmer(norm); break;
+        case ID::REVERB_ALGORITHM:
+            // Only one algorithm runs; the rack owns the crossfade so the
+            // switch does not chop a decaying tail (option S2).
+            _reverb.setAlgorithm(opt); break;
         case ID::REVERB_FREEZE:  _reverb.setFreeze(norm >= 0.5f); break;
         case ID::REVERB_LOWPASS: _reverb.setLowpass(norm); break;
         case ID::REVERB_HIPASS:  _reverb.setHipass(norm);  break;
@@ -974,22 +978,43 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::FX_DELAY_EFFECT:                            // Q3: opt-1 = v1 DelayEffectType
             _fx.setDelayEffect(opt - 1); recomputeFxEngaged(); break;
         case ID::FX_DELAY_TIME:
+            // T2: this knob is now the FREE-RATE FALLBACK only — it is applied
+            // through applyDelayTime(), which ignores it whenever a division is
+            // selected.  Storing it unconditionally (rather than skipping the
+            // write while synced) is what lets the knob keep its value across a
+            // sync-on/sync-off round trip, the same contract lfo*.free_hz has.
+            //
             // C2: the scale used to be a hardcoded `norm * 1500.0f` here, a
             // silent duplicate of FxChain::kMaxDelayMs that no compiler could
             // keep in step.  The range now lives in params.yaml as a Log curve
             // (10 ms .. 10 s) and `eng` is already the converted value — see
             // the static_assert below, which fails the build if the two ever
             // disagree again.
-            _fx.setDelayTime(eng); break;
+            _fxDelayFreeMs = eng; applyDelayTime(); break;
         case ID::FX_DELAY_MIX:
             _fx.setDelayMix(norm); break;                    // D-6: 0..1, no phase invert
         case ID::FX_DELAY_FEEDBACK:                          // D-5
             _fx.setDelayFeedback(norm <= 0.0f ? -1.0f : norm * 0.99f); break;
         case ID::FX_DELAY_SYNC:
-            // D-2: tempo-sync deferred (Phase 3 deferral list).  No-op — the
-            // dirty flag clears, nothing accumulates.  Wiring it intersects the
-            // internal BPM clock (already ported) and is a bounded follow-up.
-            break;
+            // Ledger D-13 (T2), which also settles the delay half of D-6.
+            // NOTE the old comment here cited "D-2 (Phase 3 deferral list)";
+            // that is a DIFFERENT list from DEFERRALS_LEDGER.md, where D-2 is
+            // the arp playhead consumer.  See ledger D-19 on the collision.
+            //
+            // Option index into the shared timing_mode set == TempoClock::Mode;
+            // 0 (Free) falls back to the fx.delay_time knob.
+            _fxDelaySyncMode = opt; applyDelayTime(); break;
+        // ---- D4 tape engine.  All inert while the engine is Digital. --------
+        case ID::FX_DELAY_ENGINE:
+            _fx.setDelayEngine(opt); break;
+        case ID::FX_DELAY_TONE:
+            _fx.setDelayTone(eng); break;                    // Hz, log curve
+        case ID::FX_DELAY_SAT:
+            _fx.setDelaySat(norm); break;
+        case ID::FX_DELAY_WOW:
+            _fx.setDelayWow(norm); break;
+        case ID::FX_DELAY_FLUTTER:
+            _fx.setDelayFlutter(norm); break;
         case ID::FX_DRY_MIX:
             _fx.setDryMix(norm); break;
         case ID::FX_JPFX_MIX:
@@ -1109,8 +1134,30 @@ void SynthCore::applyLfoRate(LfoState& lfo)
     lfo.osc.setRateHz(synced > 0.0f ? synced : lfo.freeHz);
 }
 
-void SynthCore::refreshSyncedLfos()
+void SynthCore::applyDelayTime()
 {
+    // Deliberately the same shape as applyLfoRate above: freqForMode() returns
+    // <=0 for kFree ("not synced") and the clock-derived Hz otherwise, so the
+    // Free fallback is a single ternary rather than a mode branch.
+    const float synced = _clock.freqForMode(_fxDelaySyncMode);
+
+    // Hz -> ms is one reciprocal.  A division longer than the delay buffer is
+    // possible at slow tempi (4 Bars is 24 s at 40 BPM against a 10 s line);
+    // FxChain::setDelayTime clamps it to kMaxDelayMs, so the delay stays
+    // musical-ish rather than silent, but it is NOT the selected division any
+    // more.  That is a buffer limit, not a bug — raising it means raising
+    // kDelayLen and the PsramArena budget together.
+    const float ms = (synced > 0.0f) ? (1000.0f / synced) : _fxDelayFreeMs;
+    _fx.setDelayTime(ms);
+}
+
+void SynthCore::refreshSyncedRates()
+{
+    // T2: the delay first, so a BPM edit cannot leave it on the previous
+    // tempo's time.  A Free delay harmlessly re-asserts _fxDelayFreeMs, the
+    // same no-op the Free LFOs below rely on — no branch needed here either.
+    applyDelayTime();
+
     // All four, unconditionally: a Free LFO harmlessly re-asserts freeHz (a
     // no-op — same value it already has), so no branch on syncMode is needed
     // here.  Only reached on a clock edit (BPM/source), which is rare compared

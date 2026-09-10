@@ -73,6 +73,14 @@ void FxChain::begin(float* pool)
 
     memset(_pool, 0, kPoolFloats * sizeof(float));
     _delayWriteIdx = 0;
+
+    // D4 tape state.  Reset with the buffers: a stale LP value or drift phase
+    // surviving a begin() would put a thump or a pitch jump on the first repeat.
+    _fbLpStateL = 0.0f;
+    _fbLpStateR = 0.0f;
+    _wowPhase   = 0.0f;
+    _flutPhase  = 0.25f;
+    _tapeActive = false;
     _modWriteIdx   = 0;
 
     // Tone crossover LP coeffs — fixed, depend only on sample rate (v1 ctor
@@ -265,6 +273,29 @@ void FxChain::setDelayTime(float ms)
 }
 
 // ===========================================================================
+// D4 tape-engine setters.  Control plane only — every one of these just stores
+// and lets prepareDelay derive the per-sample cache at block rate.
+// ===========================================================================
+void FxChain::setDelayEngine(int engine)
+{
+    const int e = (engine == 1) ? 1 : 0;
+    if (e == _delayEngine) return;
+    _delayEngine = e;
+    // Reset the loop state on a switch.  The LP holds a DC-ish value and the
+    // drift phases hold a position; carrying either across an engine change
+    // would put a thump or a pitch jump on the first repeat.
+    _fbLpStateL = 0.0f;
+    _fbLpStateR = 0.0f;
+    _wowPhase   = 0.0f;
+    _flutPhase  = 0.25f;
+}
+
+void FxChain::setDelayTone(float hz)     { _delayToneHz   = clampf(hz, 500.0f, 12000.0f); }
+void FxChain::setDelaySat(float norm)    { _delaySatNorm  = clampf(norm, 0.0f, 1.0f); }
+void FxChain::setDelayWow(float norm)    { _delayWowNorm  = clampf(norm, 0.0f, 1.0f); }
+void FxChain::setDelayFlutter(float norm){ _delayFlutNorm = clampf(norm, 0.0f, 1.0f); }
+
+// ===========================================================================
 // Output blend setters (spec §1.4 / Q5)
 // ===========================================================================
 void FxChain::setDryMix(float m)  { _dryMix  = clampf(m, 0.0f, 1.0f); }
@@ -301,10 +332,98 @@ void FxChain::prepareDelay()
 
     _delaySampLCached = dSampL;
     _delaySampRCached = dSampR;
+
+    // --- mute-lap clamp (regression fix, 10 s buffer) ------------------------
+    // setDelayEffect arms _delayMuteCounter with kDelayLen — "at most one full
+    // buffer lap".  That was 1.50 s when kDelayLen was 66152 and became 10.00 s
+    // when the buffer grew to 441002, which is audible as the delay dropping
+    // out for several seconds after a preset change.
+    //
+    // A full lap was always more than required.  begin() zeroes the pool, so
+    // the mute is not guarding against uninitialised PSRAM; it is stopping the
+    // PREVIOUS preset's audio, still resident in the buffer, from being read
+    // back and fed round the loop at the new preset's time.  The read head only
+    // ever reaches dSamp samples behind the write head, so flushing dSamp
+    // samples is sufficient — everything deeper is unreachable.
+    //
+    // Clamping HERE rather than at the set site covers every case in one place:
+    // preset changes, patch loads and knob moves all pass through prepareDelay,
+    // and the clamp re-evaluates whenever the time does.  Block rate, two
+    // compares — free.  At the 1500 ms preset the mute is now 1.5 s, exactly
+    // what it was before the buffer grew.
+    if (_delayMuteCounter > 0) {
+        const float    deepest = (dSampL > dSampR) ? dSampL : dSampR;
+        const uint32_t needed  = (uint32_t)deepest + 2u;   // +2: interpolation pair
+        if (_delayMuteCounter > needed) _delayMuteCounter = needed;
+    }
+
     _delayFbCached    = (_delayFeedbackOverride >= 0.0f) ? _delayFeedbackOverride
                                                          : p.feedback;
     _delayWetCached   = wet;
     _delayDryCached   = 1.0f - wet;
+
+    prepareTape(dSampL, dSampR);
+}
+
+// ---------------------------------------------------------------------------
+// prepareTape — D4 block-rate cache for the tape engine.
+//
+// EVERYTHING expensive lives here: the expf for the one-pole coefficient, the
+// divide for the gain compensation, the delay-proportional drift amplitudes.
+// processDelay then reads plain floats and does no transcendental work at all
+// (rule 6: do not calculate per-sample what block rate can answer).
+//
+// _tapeActive is the ONE branch the Digital path pays.  It is false unless the
+// engine is Tape AND at least one tape control is doing something, so a Tape
+// patch with everything at zero also costs nothing.
+// ---------------------------------------------------------------------------
+void FxChain::prepareTape(float dSampL, float dSampR)
+{
+    if (_delayEngine != 1) { _tapeActive = false; return; }
+
+    // 12 kHz at 44.1 kHz is above the audible top of the repeats, so treat the
+    // knob's maximum as "filter off" rather than burning an expf on a no-op.
+    const bool toneOn = (_delayToneHz < 11999.0f);
+    const bool satOn  = (_delaySatNorm  > 0.0f);
+    const bool wowOn  = (_delayWowNorm  > 0.0f);
+    const bool flutOn = (_delayFlutNorm > 0.0f);
+
+    _tapeActive = toneOn || satOn || wowOn || flutOn;
+    if (!_tapeActive) return;
+
+    // One-pole LP: g = 1 - exp(-2*pi*fc/fs).  g == 1 is a mathematically exact
+    // bypass (state jumps straight to the input), which is why "off" is
+    // represented as g = 1 rather than as another branch in the inner loop.
+    _fbLpG = toneOn
+           ? (1.0f - expf(-2.0f * kPi * _delayToneHz * (1.0f / kSampleRate)))
+           : 1.0f;
+
+    // Drive 1..4.  comp = 1/drive restores unity for small signals, since the
+    // soft clip is approximately linear there.
+    _satDrive = 1.0f + _delaySatNorm * 3.0f;
+    _satComp  = 1.0f / _satDrive;
+
+    // Drift amplitude in SAMPLES, proportional to the delay time but capped in
+    // absolute ms — see kWowMaxMs in the header for why both limits exist.
+    // The deeper of the two taps sets the amplitude so L and R drift together;
+    // independent amplitudes would widen the image as the drift moved, which
+    // reads as a phaser rather than as a transport.
+    const float msToSamp   = 0.001f * kSampleRate;
+    const float deepestSamp = (dSampL > dSampR) ? dSampL : dSampR;
+
+    const float wowCapSamp  = kWowMaxMs     * msToSamp;
+    const float flutCapSamp = kFlutterMaxMs * msToSamp;
+
+    float wowAmp  = deepestSamp * kWowDepth     * _delayWowNorm;
+    float flutAmp = deepestSamp * kFlutterDepth * _delayFlutNorm;
+    if (wowAmp  > wowCapSamp)  wowAmp  = wowCapSamp;
+    if (flutAmp > flutCapSamp) flutAmp = flutCapSamp;
+
+    _wowSampAmp  = wowOn  ? wowAmp  : 0.0f;
+    _flutSampAmp = flutOn ? flutAmp : 0.0f;
+
+    _wowInc  = kWowHz     * (1.0f / kSampleRate);
+    _flutInc = kFlutterHz * (1.0f / kSampleRate);
 }
 
 // ===========================================================================
@@ -422,8 +541,33 @@ inline void FxChain::processDelay(float inL, float inR, float& outL, float& outR
     const float feedback = _delayFbCached;
     const float wetLevel = _delayWetCached;
     const float dryLevel = _delayDryCached;
-    const float dSampL   = _delaySampLCached;
-    const float dSampR   = _delaySampRCached;
+    float dSampL   = _delaySampLCached;
+    float dSampR   = _delaySampRCached;
+
+    // ---- D4: transport drift (wow + flutter) --------------------------------
+    // Digital pays ONE predictable branch here and nothing else.  The read head
+    // moves, the write head does not — that is what makes this a pitch effect
+    // rather than a delay-time change, and why the drift is applied to the tap
+    // distance rather than to _delayWriteIdx.
+    if (_tapeActive) {
+        // Phase accumulators wrap in 0..1 for fastSin01.  Two rates that are
+        // not harmonically related, so the sum never repeats audibly.
+        _wowPhase  += _wowInc;   if (_wowPhase  >= 1.0f) _wowPhase  -= 1.0f;
+        _flutPhase += _flutInc;  if (_flutPhase >= 1.0f) _flutPhase -= 1.0f;
+
+        const float drift = FastMath::fastSin01(_wowPhase)  * _wowSampAmp
+                          + FastMath::fastSin01(_flutPhase) * _flutSampAmp;
+
+        dSampL += drift;
+        dSampR += drift;
+
+        // The drift can push a short tap below the minimum or a near-maximum
+        // tap past the end of the buffer; both would be an out-of-bounds read,
+        // so clamp exactly as prepareDelay does for the un-drifted value.
+        const float maxSamp = (float)(kDelayLen - 2);
+        dSampL = clampf(dSampL, kMinDelaySamp, maxSamp);
+        dSampR = clampf(dSampR, kMinDelaySamp, maxSamp);
+    }
 
     float readIdxL = (float)_delayWriteIdx - dSampL;
     if (readIdxL < 0.0f) readIdxL += (float)kDelayLen;
@@ -458,8 +602,23 @@ inline void FxChain::processDelay(float inL, float inR, float& outL, float& outR
         return;
     }
 
-    _delayBufL[_delayWriteIdx] = inL + delayL * feedback;
-    _delayBufR[_delayWriteIdx] = inR + delayR * feedback;
+    // ---- D4: feedback-loop conditioning -------------------------------------
+    // Order is the physical one: playback head -> electronics -> record head.
+    // The LP is INSIDE the loop, so repeat N has been filtered N times and the
+    // tail darkens progressively.  The soft clip sits after it and doubles as
+    // the runaway limiter a real tape loop has — at feedback near 1 the repeats
+    // compress instead of clipping into digital nastiness.
+    float fbL = delayL;
+    float fbR = delayR;
+    if (_tapeActive) {
+        _fbLpStateL += _fbLpG * (fbL - _fbLpStateL);
+        _fbLpStateR += _fbLpG * (fbR - _fbLpStateR);
+        fbL = tapeSoftClip(_fbLpStateL, _satDrive, _satComp);
+        fbR = tapeSoftClip(_fbLpStateR, _satDrive, _satComp);
+    }
+
+    _delayBufL[_delayWriteIdx] = inL + fbL * feedback;
+    _delayBufR[_delayWriteIdx] = inR + fbR * feedback;
     _delayWriteIdx = (_delayWriteIdx + 1) % kDelayLen;
 
     // No phase inversion on the 0..1 CC path (D-6).

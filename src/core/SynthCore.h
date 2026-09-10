@@ -39,7 +39,7 @@
 #include "core/dsp/Lfo.h"
 #include "core/dsp/SlewedValue.h"
 #include "core/dsp/TempoClock.h"
-#include "core/dsp/PlateReverb.h"
+#include "core/dsp/ReverbRack.h"
 #include "core/dsp/FxChain.h"
 #include "core/dsp/StepSequencer.h"
 #include "core/dsp/Arpeggiator.h"
@@ -109,8 +109,8 @@ public:
 
     // Global-reverb delay memory the OWNER must provide (Phase 5).  ~39707
     // floats ≈ 155 KB — declare it EXTMEM (PSRAM) on Teensy, heap on host.
-    // A null pool leaves the reverb inert.  See PlateReverb.h.
-    static constexpr size_t kReverbPoolFloats = PlateReverb::kPoolFloats;
+    // A null pool leaves every reverb algorithm inert.  See ReverbRack.h.
+    static constexpr size_t kReverbPoolFloats = ReverbRack::kTotalPoolFloats;
 
     // Per-patch FX-chain delay memory the OWNER must provide (Phase 6).  ~136718
     // floats ≈ 534 KB — declare it EXTMEM (PSRAM) on Teensy, heap on host.  A
@@ -328,7 +328,16 @@ private:
     // called from applyParam on an actual dirty param — no per-block clock
     // work (rule 6 / spec decision #5).
     void applyLfoRate(LfoState& lfo);
-    void refreshSyncedLfos();   // both LFOs of BOTH layers
+
+    // T2: the delay is the fourth consumer of the shared timing_mode set, and
+    // resolves through the identical free-knob-or-division ternary.
+    void applyDelayTime();
+
+    // Re-runs every tempo-derived rate whenever the CLOCK changes (BPM or
+    // source).  Named "Rates" rather than "Lfos" since T2: it now covers the
+    // delay too, and a BPM change that moved the LFOs but silently left the
+    // delay on its old time would be a genuinely confusing bug to chase.
+    void refreshSyncedRates();  // both LFOs of BOTH layers, plus the FX delay
 
     // --- note event ring (control -> audio, single producer / consumer) ---
     // 32 events is > two blocks of the densest realistic MIDI input; on
@@ -552,7 +561,9 @@ private:
     // pre-master (spec §3).  Defaults are all-zero (user sign-off Q1): mix 0 =>
     // effectively bypassed => the tank never runs on the default patch, so the
     // output stays byte-identical to the pre-Phase-5 engine.
-    PlateReverb _reverb;
+    // Was a bare PlateReverb.  The rack holds every algorithm, runs exactly
+    // one, and owns the crossfade on a switch — see ReverbRack.h.
+    ReverbRack  _reverb;
     float _reverbMix           = 0.0f;    // REVERB_MIX (master wet), 0..1
     bool  _reverbManualBypass  = false;   // REVERB_BYPASS toggle
     bool  _reverbBypassed      = true;    // manual || mix<=kReverbMixThreshold
@@ -573,6 +584,13 @@ private:
     // param changes (never per-block — rule 6).
     FxChain _fx;
     bool    _fxEngaged = false;
+
+    // T2 delay-sync state.  Shared (fx is patch_shared scope), so plain members
+    // rather than per-Layer.  Held HERE and not inside FxChain because resolving
+    // a division needs the TempoClock, and FxChain is deliberately clock-free —
+    // it takes a time in milliseconds and knows nothing about tempo.
+    int   _fxDelaySyncMode = 0;        // TempoClock::Mode; 0 == kFree
+    float _fxDelayFreeMs   = 750.0f;   // fx.delay_time default, used while Free
     void recomputeFxEngaged()
     {
         _fxEngaged = _fx.driveActive() || _fx.modActive() || _fx.delayActive();

@@ -16,7 +16,8 @@ namespace JT {
 // -----------------------------------------------------------------------------
 
 // Pitch shifter: exact 12-TET ratios, index = semitones + 12 (-12..+24).
-const float PlateReverb::PitchShifter::kSemitoneRatios[37] JT_FLASH_DATA = {
+namespace PitchTables {
+const float kSemitoneRatios[37] JT_FLASH_DATA = {
     0.500000f, 0.529732f, 0.561231f, 0.594604f, 0.629961f, 0.667420f, 0.707107f, 0.749154f,
     0.793701f, 0.840896f, 0.890899f, 0.943874f, 1.000000f, 1.059463f, 1.122462f, 1.189207f,
     1.259921f, 1.334840f, 1.414214f, 1.498307f, 1.587401f, 1.681793f, 1.781797f, 1.887749f,
@@ -25,7 +26,7 @@ const float PlateReverb::PitchShifter::kSemitoneRatios[37] JT_FLASH_DATA = {
 };
 
 // Pitch shifter: 257-entry raised-cosine crossfade window; [256]=1.0 over-read.
-const float PlateReverb::PitchShifter::kFadeTable[257] JT_FLASH_DATA = {
+const float kFadeTable[257] JT_FLASH_DATA = {
     0.000000f, 0.003075f, 0.006187f, 0.009336f, 0.012522f, 0.015745f, 0.019004f, 0.022300f,
     0.025633f, 0.029002f, 0.032407f, 0.035848f, 0.039324f, 0.042837f, 0.046384f, 0.049967f,
     0.053585f, 0.057238f, 0.060925f, 0.064647f, 0.068403f, 0.072193f, 0.076016f, 0.079873f,
@@ -60,6 +61,7 @@ const float PlateReverb::PitchShifter::kFadeTable[257] JT_FLASH_DATA = {
     0.997732f, 0.998208f, 0.998628f, 0.998992f, 0.999300f, 0.999552f, 0.999748f, 1.000000f,
     1.000000f   // [256] — safe over-read guard entry
 };
+} // namespace PitchTables
 
 // -----------------------------------------------------------------------------
 // Tuning constants (verbatim from v1).
@@ -80,7 +82,8 @@ static constexpr float    kWetScale = 0.3f;
 // -----------------------------------------------------------------------------
 // begin / assignBuffers — carve the caller pool, apply v1 GlobalFX ctor state.
 // -----------------------------------------------------------------------------
-void PlateReverb::begin(float* pool)
+template <bool kShimmer>
+void PlateTank<kShimmer>::begin(float* pool)
 {
     _pool = pool;
     memset(_diffuserBuf, 0, sizeof(_diffuserBuf));
@@ -105,11 +108,12 @@ void PlateReverb::begin(float* pool)
         _masterHPF[i].clear(); _masterHPF[i].coeff = 0.0f;
     }
 
-    // Pitch shifters: unity + mix off => zero CPU until enabled.
-    _pitchL.setPitch(1.0f);     _pitchL.setMix(0.0f);
-    _pitchR.setPitch(1.0f);     _pitchR.setMix(0.0f);
-    _pitchShimL.setPitch(2.0f); _pitchShimL.setMix(0.0f);   // default +12 st
-    _pitchShimR.setPitch(2.0f); _pitchShimR.setMix(0.0f);
+    // Shimmer shifters: octave up, mix off => zero CPU until enabled.  The
+    // Plate variant has none and this whole block compiles away.
+    if constexpr (kShimmer) {
+        _pitchShim[0].setPitch(2.0f); _pitchShim[0].setMix(0.0f);   // +12 st
+        _pitchShim[1].setPitch(2.0f); _pitchShim[1].setMix(0.0f);
+    }
 
     // v1 GlobalFX ctor one-shots (GlobalFX.cpp:31-56): diffusion 0.65, no
     // reverb pitch, shimmer octave up (but mix 0), no freeze bleed.  size/damp
@@ -123,7 +127,8 @@ void PlateReverb::begin(float* pool)
     updateModRate();
 }
 
-void PlateReverb::assignBuffers()
+template <bool kShimmer>
+void PlateTank<kShimmer>::assignBuffers()
 {
     // Input diffusers -> DTCM member buffer (contiguous).
     const uint32_t idiffLens[4] = { kIdiffLen0, kIdiffLen1, kIdiffLen2, kIdiffLen3 };
@@ -142,10 +147,11 @@ void PlateReverb::assignBuffers()
     _tankAPF[1].dl.buf = p;  _tankAPF[1].dl.len = kTankApfLen1; _tankAPF[1].dl.writeIdx = 0; p += kTankApfLen1;
     _tankDelay[0].buf = p;   _tankDelay[0].len = kTankDlyLen0;  _tankDelay[0].writeIdx = 0;  p += kTankDlyLen0;
     _tankDelay[1].buf = p;   _tankDelay[1].len = kTankDlyLen1;  _tankDelay[1].writeIdx = 0;  p += kTankDlyLen1;
-    _pitchL.assign(p);      p += PitchShifter::BUF_SIZE;
-    _pitchR.assign(p);      p += PitchShifter::BUF_SIZE;
-    _pitchShimL.assign(p);  p += PitchShifter::BUF_SIZE;
-    _pitchShimR.assign(p);  p += PitchShifter::BUF_SIZE;
+
+    if constexpr (kShimmer) {
+        _pitchShim[0].assign(p); p += PitchShifter::BUF_SIZE;
+        _pitchShim[1].assign(p); p += PitchShifter::BUF_SIZE;
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -217,7 +223,8 @@ static constexpr float kShimmerMaxMix = 0.20f;
 //     _decay = powf(10.0f, -1.5f * kTankRoundTripSec / t60);
 //     if (_decay > 0.98f) _decay = 0.98f;                  // leave inf to freeze()
 // Left alone for now: this curve is the validated v1 character (rule 11).
-void PlateReverb::setSize(float n)
+template <bool kShimmer>
+void PlateTank<kShimmer>::setSize(float n)
 {
     n = clamp01(n);
     // decay = 0.1 + 0.8995 * (0.5n + 0.5n^2).  0.1 (n=0) .. 1.0 (n=1, inf hold).
@@ -229,7 +236,8 @@ void PlateReverb::setSize(float n)
 // from 18 kHz down to 800 Hz, ~4.5 octaves spread evenly across the control.
 // Because the LP is inside the feedback loop, its effect is cumulative: the
 // per-pass corner is what is set here, the audible tail brightness falls faster.
-void PlateReverb::setHiDamp(float n)
+template <bool kShimmer>
+void PlateTank<kShimmer>::setHiDamp(float n)
 {
     n = clamp01(n);
     _hiDampCoeff = (n > 0.001f)
@@ -243,7 +251,8 @@ void PlateReverb::setHiDamp(float n)
 // (inaudible) up to 600 Hz (thin, ambient).  NOTE the coefficient span this
 // produces is ~0.918..0.997 — i.e. the extreme top of the coefficient range.
 // v1 swept 0.1..0.9, which is the wrong end and the wrong direction entirely.
-void PlateReverb::setLoDamp(float n)
+template <bool kShimmer>
+void PlateTank<kShimmer>::setLoDamp(float n)
 {
     n = clamp01(n);
     _loDampCoeff = (n > 0.001f)
@@ -254,7 +263,8 @@ void PlateReverb::setLoDamp(float n)
 }
 
 // Post-tank master LP (wet only).  20 kHz (transparent) -> 500 Hz.
-void PlateReverb::setLowpass(float n)
+template <bool kShimmer>
+void PlateTank<kShimmer>::setLowpass(float n)
 {
     n = clamp01(n);
     _masterLpCoeff = (n > 0.001f)
@@ -265,7 +275,8 @@ void PlateReverb::setLowpass(float n)
 }
 
 // Post-tank master HP (wet only).  20 Hz (transparent) -> 1 kHz.
-void PlateReverb::setHipass(float n)
+template <bool kShimmer>
+void PlateTank<kShimmer>::setHipass(float n)
 {
     n = clamp01(n);
     _masterHpCoeff = (n > 0.001f)
@@ -275,7 +286,8 @@ void PlateReverb::setHipass(float n)
     _masterHPF[1].coeff = _masterHpCoeff;
 }
 
-void PlateReverb::setShimmer(float n)
+template <bool kShimmer>
+void PlateTank<kShimmer>::setShimmer(float n)
 {
     if (_frozen) return;                      // freeze() owns the mix while frozen
     n = clamp01(n);
@@ -290,11 +302,17 @@ void PlateReverb::setShimmer(float n)
     const float m = kShimmerMaxMix * n * n;
 
     _shimmerMix = m;
-    _pitchShimL.setMix(m);
-    _pitchShimR.setMix(m);
+    // Plate variant: stored but inert.  Deliberately NOT an early return at the
+    // top of the function — _shimmerMix is saved/restored by freeze() on both
+    // variants, so it must stay in step regardless of which one is running.
+    if constexpr (kShimmer) {
+        _pitchShim[0].setMix(m);
+        _pitchShim[1].setMix(m);
+    }
 }
 
-void PlateReverb::setFreeze(bool on)
+template <bool kShimmer>
+void PlateTank<kShimmer>::setFreeze(bool on)
 {
     if (_frozen == on) return;
     _frozen = on;
@@ -310,15 +328,14 @@ void PlateReverb::setFreeze(bool on)
         _hiDampCoeff = 0.0f;  _loDampCoeff = 0.0f;
         _tankLPF[0].coeff = 0.0f; _tankLPF[1].coeff = 0.0f;
         _tankHPF[0].coeff = 0.0f; _tankHPF[1].coeff = 0.0f;
-        _pitchShimL.setMix(0.0f); _pitchShimR.setMix(0.0f);  // no runaway shimmer
+        if constexpr (kShimmer) { _pitchShim[0].setMix(0.0f); _pitchShim[1].setMix(0.0f); }  // no runaway shimmer
     } else {
         _decay       = _savedDecay;
         _hiDampCoeff = _savedHiDampCoeff;
         _loDampCoeff = _savedLoDampCoeff;
         _tankLPF[0].coeff = _hiDampCoeff; _tankLPF[1].coeff = _hiDampCoeff;
         _tankHPF[0].coeff = _loDampCoeff; _tankHPF[1].coeff = _loDampCoeff;
-        _pitchShimL.setMix(_savedShimmerMix);
-        _pitchShimR.setMix(_savedShimmerMix);
+        if constexpr (kShimmer) { _pitchShim[0].setMix(_savedShimmerMix); _pitchShim[1].setMix(_savedShimmerMix); }
     }
 }
 
@@ -326,7 +343,9 @@ void PlateReverb::setFreeze(bool on)
 // processBlock — v1 update() per-sample chain, float-native, dry/wet blended
 // with `mix` (spec §1.4 + Decision #5).  Caller ensures we're not bypassed.
 // -----------------------------------------------------------------------------
-void PlateReverb::processBlock(float* left, float* right, size_t n, float mix)
+template <bool kShimmer>
+void PlateTank<kShimmer>::processBlock(float* left, float* right, size_t n,
+                                      float mixStart, float mixEnd)
 {
     if (!_pool) return;                       // inert if no memory attached
 
@@ -338,6 +357,13 @@ void PlateReverb::processBlock(float* left, float* right, size_t n, float mix)
     const bool  doMasterHP = (_masterHpCoeff > 0.001f);
     const float modDepthSmp = _modDepth;
     const uint32_t predelaySmp = _predelaySamples;
+
+    // S2 crossfade support.  At steady state mixEnd == mixStart, so mixInc is
+    // EXACTLY 0.0f and `mix` never changes value — the arithmetic below is then
+    // bit-identical to the scalar-mix version this replaced, which is what
+    // preserves the render baseline through the refactor.
+    float       mix    = mixStart;
+    const float mixInc = (n > 0) ? ((mixEnd - mixStart) / (float)n) : 0.0f;
 
     for (size_t i = 0; i < n; ++i) {
         const float inL = left[i];
@@ -357,9 +383,11 @@ void PlateReverb::processBlock(float* left, float* right, size_t n, float mix)
         float diffused = predelayed;
         for (uint8_t d = 0; d < 4; ++d) diffused = _inputDiffuser[d].process(diffused);
 
-        // Reverb-tail pitch shift (zero cost when mix 0 — default).
-        const float diffusedL = _pitchL.process(diffused);
-        const float diffusedR = _pitchR.process(diffused);
+        // The reverb-tail pitch shifters that used to sit here were
+        // unreachable (no setter, no parameter) and always ran at mix 0, so
+        // they returned `diffused` untouched.  Removing them is bit-exact.
+        const float diffusedL = diffused;
+        const float diffusedR = diffused;
 
         const float lfo = triangleLFO();
 
@@ -370,7 +398,8 @@ void PlateReverb::processBlock(float* left, float* right, size_t n, float mix)
         const float crossFB1 = _tank0fb * decay;
 
         // Tank half 0.
-        float tank0 = _pitchShimR.process(crossFB0 + diffusedL);
+        float tank0 = crossFB0 + diffusedL;
+        if constexpr (kShimmer) tank0 = _pitchShim[1].process(tank0);
         tank0 = _tankAPF[0].processModulated(tank0, lfo * modDepthSmp);
         _tankDelay[0].write(tank0);
         _tank0fb = _tankHPF[0].process(
@@ -378,7 +407,8 @@ void PlateReverb::processBlock(float* left, float* right, size_t n, float mix)
                    _tankDelay[0].read(_tankDelay[0].len - 1)));
 
         // Tank half 1 (inverted LFO for stereo decorrelation).
-        float tank1 = _pitchShimL.process(crossFB1 + diffusedR);
+        float tank1 = crossFB1 + diffusedR;
+        if constexpr (kShimmer) tank1 = _pitchShim[0].process(tank1);
         tank1 = _tankAPF[1].processModulated(tank1, -lfo * modDepthSmp);
         _tankDelay[1].write(tank1);
         _tank1fb = _tankHPF[1].process(
@@ -411,7 +441,38 @@ void PlateReverb::processBlock(float* left, float* right, size_t n, float mix)
 
         left[i]  = outL;
         right[i] = outR;
+        mix += mixInc;
     }
 }
+
+// ---------------------------------------------------------------------------
+// clearTail — drop the tail WITHOUT re-carving the pool.
+//
+// ReverbRack calls this on an algorithm it has just faded out, so switching
+// back later does not resurrect a tail from minutes ago.  Deliberately does not
+// memset the pool: that is ~90 KB of PSRAM (roughly 2 ms) and would overrun a
+// block.  Zeroing the feedback carriers and every filter state is enough — the
+// stale samples still in the delay lines decay out of the loop within one lap
+// because nothing recirculates them.
+// ---------------------------------------------------------------------------
+template <bool kShimmer>
+void PlateTank<kShimmer>::clearTail()
+{
+    _tank0fb = 0.0f;
+    _tank1fb = 0.0f;
+    for (uint8_t i = 0; i < 2; ++i) {
+        _tankLPF[i].clear();
+        _tankHPF[i].clear();
+        _masterLPF[i].clear();
+        _masterHPF[i].clear();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Explicit instantiation.  Both variants are compiled HERE, which is what lets
+// the tank loop stay out of the header while still being a template.
+// ---------------------------------------------------------------------------
+template class PlateTank<false>;   // PlateReverb
+template class PlateTank<true>;    // ShimmerReverb
 
 } // namespace JT

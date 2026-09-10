@@ -56,9 +56,27 @@ option_sets:
   # LFO1-pitch and the pitch envelope to both oscs, OSC2 alone, or into the
   # cross-mod depth.  LFO2-pitch is NOT routed (manual p.112/118): it always
   # hits both oscs.
+  # D4: delay ENGINE, not a preset.  Digital is the pre-D4 signal path exactly;
+  # Tape adds a damped, saturated feedback loop and a drifting read head.  The
+  # five delay PRESETS (fx.delay_effect) are orthogonal — they still choose the
+  # L/R ratio and feedback default under either engine.
+  delay_engine: ["Digital", "Tape"]
+  # Reverb algorithms.  ORDER IS LOAD-BEARING and matches ReverbRack::Algo —
+  # a select stores its OPTION INDEX, so append new algorithms, never insert.
+  # (Same rule that governs timing_mode; see ledger D-13.)
+  reverb_algo: ["Plate", "Shimmer", "Room", "Hall"]
   pitch_mod_dest: ["OSC1+2", "OSC2", "X-MOD"]
   l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
-  timing_mode: ["Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T"]
+  # T2: dotted family APPENDED at indices 12..14, never inserted.  The stored
+  # value of every select is its OPTION INDEX, and this set is shared by
+  # lfo1.rate, lfo2.rate, seq.timing_mode, arp.rate and fx.delay_sync — an
+  # insert would silently re-point every saved patch and performance (arp's
+  # default 7 = "1/16" would become "1/32").  Appending keeps 0..11 frozen.
+  # The list is already grouped by FAMILY rather than sorted by duration —
+  # the triplets sit after 1/32 despite 1/4T being longer than 1/8 — so the
+  # dotted family following the triplets matches the existing convention.
+  # ORDER IS LOAD-BEARING: it must match TempoClock::Mode and kMult[] exactly.
+  timing_mode: ["Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T", "1/4D", "1/8D", "1/16D"]
   poly_mode: ["Poly", "Mono", "Unison"]
   # Canonical FX names — these come from the firmware FX design, not from v1 CC
   # buckets. The numeric placeholders they replace were a seed artefact.
@@ -1326,6 +1344,11 @@ params:
     label: "DLY TIME"
     type: continuous
     scope: patch_shared
+    # T2: this is now the FREE-RATE FALLBACK, used only while fx.delay_sync ==
+    # Free — the same idiom as lfo*.free_hz and arp.free_hz.  visible_when
+    # hides it on the panels while a division is selected, so the knob never
+    # shows a time the engine is not using.
+    #
     # S3/C2: log sweep 10 ms .. 10 s, mirroring FxChain::kMinDelayMs /
     # kMaxDelayMs (a static_assert in SynthCore.cpp fails the build if these
     # drift apart).  Replaces a bare 0..1 "norm" whose scale was duplicated as
@@ -1336,6 +1359,7 @@ params:
     unit: "ms"
     default: 750
     smooth_ms: 5
+    visible_when: {param: fx.delay_sync, is: "Free"}
     ui: {section: 9, group: 2}
   - id: 0x0489            # v1: CC::FX_JPFX_DELAY_MIX (was CC 108)
     key: fx.delay_mix
@@ -1392,6 +1416,84 @@ params:
     default: 1
     smooth_ms: 5
     ui: {section: 9, group: 3}
+
+  # ---- D4: tape-delay engine -------------------------------------------------
+  # Everything below is INERT while fx.delay_engine == Digital.  FxChain caches
+  # one bool at block rate and the per-sample tape work sits behind it, so the
+  # Digital path costs a single predictable branch and is bit-for-bit what it
+  # was before D4 (the render baseline proves this, not just the intent).
+  - id: 0x048E
+    key: fx.delay_engine
+    name: "Delay Engine"
+    label: "DLY ENG"
+    type: select
+    scope: patch_shared
+    options: delay_engine
+    default: 0            # Digital — default patch unchanged
+    smooth_ms: 0
+    ui: {section: 9, group: 2}
+  - id: 0x048F
+    key: fx.delay_tone
+    name: "Delay Tone"
+    label: "DLY TONE"
+    type: continuous
+    scope: patch_shared
+    # One-pole LP INSIDE the feedback loop, so each repeat is darker than the
+    # last — the single most recognisable tape-delay behaviour.  A shelf outside
+    # the loop would darken the wet signal once and never progress.
+    # 12 kHz is effectively open at 44.1 kHz, which is why it is the default.
+    range: {min: 500, max: 12000, curve: log}
+    unit: "Hz"
+    default: 12000
+    smooth_ms: 20
+    visible_when: {param: fx.delay_engine, is: "Tape"}
+    ui: {section: 9, group: 2}
+  - id: 0x0490
+    key: fx.delay_sat
+    name: "Delay Saturation"
+    label: "DLY SAT"
+    type: continuous
+    scope: patch_shared
+    # Drive into a cubic soft-clip in the feedback path, gain-compensated so the
+    # control changes TIMBRE and not level.  Also acts as the runaway limiter a
+    # real tape loop has: repeats compress instead of clipping at high feedback.
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 20
+    visible_when: {param: fx.delay_engine, is: "Tape"}
+    ui: {section: 9, group: 2}
+  - id: 0x0491
+    key: fx.delay_wow
+    name: "Delay Wow"
+    label: "DLY WOW"
+    type: continuous
+    scope: patch_shared
+    # Slow capstan drift (~0.7 Hz).  Depth is a FRACTION of the delay time, as
+    # on real tape where wow is a speed error — but clamped in absolute ms
+    # (see FxChain::kWowMaxMs), or a 10 s delay would swing by a third of a
+    # second and sound seasick rather than vintage.
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 20
+    visible_when: {param: fx.delay_engine, is: "Tape"}
+    ui: {section: 9, group: 2}
+  - id: 0x0492
+    key: fx.delay_flutter
+    name: "Delay Flutter"
+    label: "DLY FLUT"
+    type: continuous
+    scope: patch_shared
+    # Fast scrape flutter (~7.3 Hz), deliberately not an integer multiple of the
+    # wow rate so the two never lock into a repeating pattern.  Shallower than
+    # wow by design — kFlutterMaxMs is a fraction of kWowMaxMs.
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 20
+    visible_when: {param: fx.delay_engine, is: "Tape"}
+    ui: {section: 9, group: 2}
 
   # ---- [10] Velocity ----
   - id: 0x0500            # v1: CC::VELOCITY_AMP_SENS (was CC 10)
@@ -2297,6 +2399,9 @@ params:
     unit: "norm"
     default: 0
     smooth_ms: 5
+    # Split out of the plate: the octave-up shifters now live only in the
+    # Shimmer algorithm, so this control is meaningless on any other one.
+    visible_when: {param: reverb.algorithm, is: "Shimmer"}
     ui: {section: 15, group: 1}
   - id: 0x0786            # v1: CC::FX_REVERB_FREEZE (was CC 96)
     key: reverb.freeze
@@ -2331,6 +2436,19 @@ params:
     ui: {section: 15, group: 1}
 
   # ---- [16] Master (NEW in v2 — covered by brief §5.1 sign-off) ----
+  - id: 0x0789
+    key: reverb.algorithm
+    name: "Reverb Algorithm"
+    label: "REV ALGO"
+    type: select
+    scope: global
+    options: reverb_algo
+    # Plate is the default so the render baseline and every existing patch keep
+    # the reverb they were written against.  Only ONE algorithm is processed at
+    # a time; the rest are memory, not cycles.
+    default: 0
+    smooth_ms: 0
+    ui: {section: 15, group: 1}
   - id: 0x0800            # section 16, index 0
     key: master.volume
     name: "Master Volume"
@@ -2358,7 +2476,7 @@ params:
   #   * A 16-step pattern layer: per step on/off + accent(0..127) + ratchet(1..4).
   #     Ratchet subdivides the GATE portion of the step, so gate-length still
   #     shapes staccato within each ratchet sub-hit.
-  #   * Rate uses the shared 12-entry timing_mode set.  arp.free_hz is the
+  #   * Rate uses the shared 15-entry timing_mode set.  arp.free_hz is the
   #     fallback rate while rate==Free (mode 0), mirroring the LFO freeHz idiom.
   #   * arp.latch holds the pattern running after keys are released.
   #   * Start (MIDI 0xFA) resets phase to step 0; BPM follows the clock.

@@ -125,10 +125,14 @@ DMAMEM static float            gCombPool[JT::SynthCore::kCombPoolFloats];
 // plus a bump allocator fixes all three — see core/PsramArena.h.
 //
 // SIZE (6.00 MB of the 8 MB minimum chip).  Current tenants:
-//     reverb tank      39707 floats  =  0.15 MB   (PlateReverb::kPoolFloats)
+//     reverb rack      55028 floats  =  0.21 MB   (ReverbRack::kTotalPoolFloats
+//                                                   = plate 23418 + shimmer 31610;
+//                                                   every algorithm keeps its own
+//                                                   pool so a switch is a pointer
+//                                                   change, not a PSRAM memset)
 //     FX delay + mod  886418 floats  =  3.38 MB   (FxChain::kPoolFloats, 10 s)
 //     ------------------------------------------
-//     carved           926136 floats =  3.53 MB   (after 32-byte alignment)
+//     carved          941456 floats  =  3.59 MB   (after 32-byte alignment; 60 %)
 // The remaining ~2.5 MB is deliberate headroom for the next tenants (tape
 // delay, multi-tap) so adding one does not mean re-sizing this array.  The
 // 2 MB left outside the arena on an 8 MB board is reserve — raise

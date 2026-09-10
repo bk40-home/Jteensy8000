@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 243 parameters.**
+**Schema version 1 — 249 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -127,7 +127,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0380` | 0 | LFO1 Wave | `lfo1.waveform` | select | 0–5 (index) | 0 (SIN) | 0 ms | — | patch |
 | `0x0381` | 1 | LFO1 Rate | `lfo1.freq` | continuous | 0.03–39 Hz (log) | 0.03 Hz | 0 ms | 76 | patch |
 | `0x0382` | 2 | LFO1 Depth | `lfo1.depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0383` | 3 | LFO1 Sync | `lfo1.sync` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch |
+| `0x0383` | 3 | LFO1 Sync | `lfo1.sync` | select | 0–14 (index) | 0 (Free) | 0 ms | — | patch |
 | `0x0384` | 4 | LFO1 Pitch | `lfo1.pitch_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 77 | patch |
 | `0x0385` | 5 | LFO1 Filter | `lfo1.filter_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0386` | 6 | LFO1 PWM | `lfo1.pwm_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
@@ -142,7 +142,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0400` | 0 | LFO2 Wave | `lfo2.waveform` | select | 0–5 (index) | 0 (SIN) | 0 ms | — | patch |
 | `0x0401` | 1 | LFO2 Rate | `lfo2.freq` | continuous | 0.03–39 Hz (log) | 0.03 Hz | 0 ms | — | patch |
 | `0x0402` | 2 | LFO2 Depth | `lfo2.depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
-| `0x0403` | 3 | LFO2 Sync | `lfo2.sync` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch |
+| `0x0403` | 3 | LFO2 Sync | `lfo2.sync` | select | 0–14 (index) | 0 (Free) | 0 ms | — | patch |
 | `0x0404` | 4 | LFO2 Pitch | `lfo2.pitch_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0405` | 5 | LFO2 Filter | `lfo2.filter_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0406` | 6 | LFO2 PWM | `lfo2.pwm_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
@@ -165,9 +165,14 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0488` | 8 | Delay Time | `fx.delay_time` | continuous | 10–10000 ms (log) | 750 ms | 5 ms | — | patch_shared |
 | `0x0489` | 9 | Delay Mix | `fx.delay_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 94 | patch_shared |
 | `0x048A` | 10 | Delay FB | `fx.delay_feedback` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
-| `0x048B` | 11 | Delay Sync | `fx.delay_sync` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch_shared |
+| `0x048B` | 11 | Delay Sync | `fx.delay_sync` | select | 0–14 (index) | 0 (Free) | 0 ms | — | patch_shared |
 | `0x048C` | 12 | Dry Mix | `fx.dry_mix` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch_shared |
 | `0x048D` | 13 | JPFX Mix | `fx.jpfx_mix` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch_shared |
+| `0x048E` | 14 | Delay Engine | `fx.delay_engine` | select | 0–1 (index) | 0 (Digital) | 0 ms | — | patch_shared |
+| `0x048F` | 15 | Delay Tone | `fx.delay_tone` | continuous | 500–12000 Hz (log) | 12000 Hz | 20 ms | — | patch_shared |
+| `0x0490` | 16 | Delay Saturation | `fx.delay_sat` | continuous | 0–1 norm (lin) | 0 norm | 20 ms | — | patch_shared |
+| `0x0491` | 17 | Delay Wow | `fx.delay_wow` | continuous | 0–1 norm (lin) | 0 norm | 20 ms | — | patch_shared |
+| `0x0492` | 18 | Delay Flutter | `fx.delay_flutter` | continuous | 0–1 norm (lin) | 0 norm | 20 ms | — | patch_shared |
 
 ## [10] Velocity  *(NRPN MSB 10)*
 
@@ -208,7 +213,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0686` | 6 | Seq Depth | `seq.depth` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
 | `0x0687` | 7 | Seq Retrig | `seq.retrigger` | toggle | off / on | off | 0 ms | — | patch_shared |
 | `0x0688` | 8 | Seq Rate | `seq.rate` | continuous | 0–1 norm (lin) | 0.5 norm | 5 ms | — | patch_shared |
-| `0x0689` | 9 | Seq Sync | `seq.timing_mode` | select | 0–11 (index) | 0 (Free) | 0 ms | — | patch_shared |
+| `0x0689` | 9 | Seq Sync | `seq.timing_mode` | select | 0–14 (index) | 0 (Free) | 0 ms | — | patch_shared |
 | `0x068A` | 10 | Step Select | `seq.step_select` | int | 1–16  (lin) | 1 | 0 ms | — | patch_shared |
 | `0x068B` | 11 | Step Value | `seq.step_value` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch_shared |
 | `0x068C` | 12 | Seq Aux Dest | `seq.aux_destination` | select | 0–5 (index) | 0 (None) | 0 ms | — | patch_shared |
@@ -275,6 +280,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0786` | 6 | Rev Freeze | `reverb.freeze` | toggle | off / on | off | 0 ms | — | global |
 | `0x0787` | 7 | Rev Lo Pass | `reverb.lowpass` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | global |
 | `0x0788` | 8 | Rev Hi Pass | `reverb.hipass` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | global |
+| `0x0789` | 9 | Reverb Algorithm | `reverb.algorithm` | select | 0–3 (index) | 0 (Plate) | 0 ms | — | global |
 
 ## [16] Master  *(NRPN MSB 16)*
 
@@ -290,7 +296,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0881` | 1 | Arp Mode | `arp.mode` | select | 0–6 (index) | 0 (Up) | 0 ms | — | patch |
 | `0x0882` | 2 | Arp Octaves | `arp.octaves` | select | 0–3 (index) | 0 (1) | 0 ms | — | patch |
 | `0x0883` | 3 | Arp Latch | `arp.latch` | toggle | off / on | off | 0 ms | — | patch |
-| `0x0884` | 4 | Arp Rate | `arp.rate` | select | 0–11 (index) | 7 (1/16) | 0 ms | — | patch |
+| `0x0884` | 4 | Arp Rate | `arp.rate` | select | 0–14 (index) | 7 (1/16) | 0 ms | — | patch |
 | `0x0885` | 5 | Arp Free Rate | `arp.free_hz` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
 | `0x0886` | 6 | Arp Gate | `arp.gate_length` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
 | `0x0887` | 7 | Arp Swing | `arp.swing` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
@@ -358,9 +364,11 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **saturation**: `OFF`, `SOFT`, `WARM`
 - **xpander_mode**: `LP4`, `LP3`, `LP2`, `LP1`, `HP3`, `HP2`, `HP1`, `BP4`, `BP2`, `N2`, `PH3`, `HP2+LP1`, `HP3+LP1`, `N2+LP1`, `PH3+LP1`
 - **l_f_o_wave**: `SIN`, `TRI`, `SAW`, `SQR`, `S&H`, `NOISE`
+- **delay_engine**: `Digital`, `Tape`
+- **reverb_algo**: `Plate`, `Shimmer`, `Room`, `Hall`
 - **pitch_mod_dest**: `OSC1+2`, `OSC2`, `X-MOD`
 - **l_f_o_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
-- **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`
+- **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`, `1/4D`, `1/8D`, `1/16D`
 - **poly_mode**: `Poly`, `Mono`, `Unison`
 - **f_x_mod_effect**: `OFF`, `Chorus 1`, `Chorus 2`, `Chorus 3`, `Flanger 1`, `Flanger 2`, `Flanger 3`, `Phaser 1`, `Phaser 2`, `Phaser 3`, `Phaser 4`, `Super Chorus`
 - **f_x_delay_effect**: `OFF`, `Mono Short`, `Mono Long`, `Pan L>R`, `Pan R>L`, `Pan Stereo`

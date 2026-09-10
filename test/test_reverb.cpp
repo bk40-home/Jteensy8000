@@ -19,9 +19,13 @@
 
 #include <cmath>
 #include <vector>
+#include <string>
 
 #include "core/SynthCore.h"
 #include "core/dsp/PlateReverb.h"
+#include "core/dsp/ReverbRack.h"
+#include "core/dsp/RoomReverb.h"
+#include "core/dsp/HallReverb.h"
 #include "core/dsp/Curves.h"
 #include "gen/ParamTable.h"
 
@@ -292,4 +296,397 @@ TEST_CASE("reverb: full-scale input at max size/mix stays finite")
             REQUIRE(std::isfinite(R[k]));
         }
     }
+}
+
+// =============================================================================
+// ReverbRack — switchable algorithms (R2 / A1 / P1 / S2)
+// =============================================================================
+namespace {
+
+// Drive a chain with a short burst then silence, capturing the whole run.
+void rackFeed(ReverbRack& r, float* oL, float* oR, size_t n, size_t burst, float mix)
+{
+    for (size_t i = 0; i < n; i += 128) {
+        float bL[128], bR[128];
+        for (size_t k = 0; k < 128; ++k) {
+            const float v = (i + k < burst) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
+            bL[k] = v; bR[k] = v;
+        }
+        r.processBlock(bL, bR, 128, mix);
+        for (size_t k = 0; k < 128 && i + k < n; ++k) { oL[i+k] = bL[k]; oR[i+k] = bR[k]; }
+    }
+}
+
+} // namespace
+
+TEST_CASE("rack: the Plate path is bit-identical to a bare PlateReverb")
+{
+    // THE claim of this refactor. processBlock gained a mix RAMP so the rack can
+    // crossfade; at steady state mixEnd == mixStart, the per-sample increment is
+    // exactly 0.0f, and the arithmetic must be unchanged. Exact comparison on
+    // purpose — Approx would hide precisely the drift this is checking for.
+    std::vector<float> rackPool((size_t)ReverbRack::kTotalPoolFloats, 0.0f);
+    std::vector<float> barePool((size_t)PlateReverb::kPoolFloats,     0.0f);
+
+    ReverbRack  rack;   rack.begin(rackPool.data());
+    PlateReverb bare;   bare.begin(barePool.data());
+
+    for (int i = 0; i < 2; ++i) {
+        const float sz = 0.6f, hd = 0.4f, ld = 0.2f;
+        if (i == 0) { rack.setSize(sz); rack.setHiDamp(hd); rack.setLoDamp(ld); }
+        else        { bare.setSize(sz); bare.setHiDamp(hd); bare.setLoDamp(ld); }
+    }
+
+    const size_t N = 8192;
+    std::vector<float> aL(N), aR(N), bL(N), bR(N);
+    rackFeed(rack, aL.data(), aR.data(), N, 1024, 0.5f);
+    for (size_t i = 0; i < N; i += 128) {
+        float t0[128], t1[128];
+        for (size_t k = 0; k < 128; ++k) {
+            const float v = (i + k < 1024) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
+            t0[k] = v; t1[k] = v;
+        }
+        bare.processBlock(t0, t1, 128, 0.5f, 0.5f);
+        for (size_t k = 0; k < 128 && i + k < N; ++k) { bL[i+k] = t0[k]; bR[i+k] = t1[k]; }
+    }
+
+    bool identical = true;
+    for (size_t i = 0; i < N; ++i)
+        if (aL[i] != bL[i] || aR[i] != bR[i]) { identical = false; break; }
+    CHECK(identical);
+}
+
+TEST_CASE("rack: pool slices are contiguous, non-overlapping and exactly sized")
+{
+    // A slicing bug here would have one algorithm writing into another's tank,
+    // which is audible only as intermittent noise on the OTHER algorithm — the
+    // kind of fault that takes a week to find on hardware.
+    // Stated per-algorithm so adding a fourth breaks this line loudly rather
+    // than silently under-allocating the region every algorithm slices from.
+    CHECK(ReverbRack::kTotalPoolFloats
+          == PlateReverb::kPoolFloats
+           + ShimmerReverb::kPoolFloats
+           + RoomReverb::kPoolFloats
+           + HallReverb::kPoolFloats);
+    CHECK(ReverbRack::kNumAlgos == 4);
+
+    std::vector<float> pool((size_t)ReverbRack::kTotalPoolFloats, 0.0f);
+    ReverbRack r; r.begin(pool.data());
+    CHECK(r.ready());
+    CHECK(r.failedCount() == 0u);
+    CHECK(r.algorithm() == ReverbRack::kPlate);
+    CHECK(std::string(r.activeName()) == "plate");
+}
+
+TEST_CASE("rack: a null pool leaves every algorithm inert instead of crashing")
+{
+    ReverbRack r; r.begin(nullptr);
+    CHECK_FALSE(r.ready());
+    CHECK(r.failedCount() == ReverbRack::kNumAlgos);
+
+    // Must be safely callable — this is the no-PSRAM boot path.
+    float L[128] = {0.0f}, R[128] = {0.0f};
+    for (int i = 0; i < 128; ++i) { L[i] = 0.3f; R[i] = 0.3f; }
+    r.processBlock(L, R, 128, 0.5f);
+    for (int i = 0; i < 128; ++i) CHECK(L[i] == 0.3f);   // untouched, not zeroed
+}
+
+TEST_CASE("rack: switching crossfades rather than cutting the tail")
+{
+    std::vector<float> pool((size_t)ReverbRack::kTotalPoolFloats, 0.0f);
+    ReverbRack r; r.begin(pool.data());
+    r.setSize(0.8f);
+
+    // Build a tail, then switch mid-decay.
+    const size_t N = 4096;
+    std::vector<float> oL(N), oR(N);
+    rackFeed(r, oL.data(), oR.data(), N, 1024, 0.9f);
+
+    r.setAlgorithm(ReverbRack::kShimmer);
+    CHECK(r.fading());
+    CHECK(r.algorithm() == ReverbRack::kPlate);     // not swapped yet
+
+    // Fade out (kFadeBlocks) then fade in (kFadeBlocks): the swap lands at the
+    // midpoint, and the algorithm must not change before the wet reaches zero.
+    float bL[128] = {0.0f}, bR[128] = {0.0f};
+    for (int b = 0; b < ReverbRack::kFadeBlocks; ++b) r.processBlock(bL, bR, 128, 0.9f);
+    CHECK(r.algorithm() == ReverbRack::kShimmer);   // swapped at the midpoint
+    CHECK(r.fading());                              // still ramping back up
+
+    for (int b = 0; b < ReverbRack::kFadeBlocks; ++b) r.processBlock(bL, bR, 128, 0.9f);
+    CHECK_FALSE(r.fading());                        // steady state again
+    CHECK(std::string(r.activeName()) == "shimmer");
+}
+
+TEST_CASE("rack: re-selecting the active algorithm does not restart the fade")
+{
+    // An editor doing a full resync re-sends every parameter. If that muted the
+    // reverb for ~23 ms each time it would be a mystifying intermittent fault.
+    std::vector<float> pool((size_t)ReverbRack::kTotalPoolFloats, 0.0f);
+    ReverbRack r; r.begin(pool.data());
+
+    r.setAlgorithm(ReverbRack::kPlate);
+    CHECK_FALSE(r.fading());
+
+    // An out-of-range index is IGNORED, not clamped: clamping would silently
+    // land on a neighbouring algorithm and hide the stale editor causing it.
+    r.setAlgorithm(-1);
+    r.setAlgorithm(ReverbRack::kNumAlgos);
+    CHECK_FALSE(r.fading());
+    CHECK(r.algorithm() == ReverbRack::kPlate);
+}
+
+TEST_CASE("rack: parameters reach every algorithm, not just the active one")
+{
+    // If settings only went to the active algorithm, a switch would land on
+    // boot defaults and the new reverb would sound nothing like the patch.
+    std::vector<float> a((size_t)ReverbRack::kTotalPoolFloats, 0.0f);
+    std::vector<float> b((size_t)ReverbRack::kTotalPoolFloats, 0.0f);
+
+    ReverbRack pre;  pre.begin(a.data());
+    ReverbRack post; post.begin(b.data());
+
+    // `pre` is configured, THEN switched. `post` is switched, THEN configured.
+    // Both must end up sounding the same, which is only true if the setters
+    // fan out to inactive instances.
+    pre.setSize(0.75f); pre.setHiDamp(0.3f); pre.setShimmer(0.6f);
+    pre.setAlgorithm(ReverbRack::kShimmer);
+    post.setAlgorithm(ReverbRack::kShimmer);
+    post.setSize(0.75f); post.setHiDamp(0.3f); post.setShimmer(0.6f);
+
+    float dL[128] = {0.0f}, dR[128] = {0.0f};
+    for (int i = 0; i < 2 * ReverbRack::kFadeBlocks; ++i) {
+        pre.processBlock(dL, dR, 128, 0.5f);
+        post.processBlock(dL, dR, 128, 0.5f);
+    }
+
+    const size_t N = 4096;
+    std::vector<float> pL(N), pR(N), qL(N), qR(N);
+    rackFeed(pre,  pL.data(), pR.data(), N, 512, 0.5f);
+    rackFeed(post, qL.data(), qR.data(), N, 512, 0.5f);
+
+    bool same = true;
+    for (size_t i = 0; i < N; ++i) if (pL[i] != qL[i]) { same = false; break; }
+    CHECK(same);
+}
+
+
+// =============================================================================
+// RoomReverb
+// =============================================================================
+
+TEST_CASE("room: pool is a fraction of the plate's and slices correctly")
+{
+    // The whole point of this algorithm is being cheaper. If it ever stops
+    // being smaller than the plate, the reason to have it has gone.
+    CHECK(RoomReverb::kPoolFloats < PlateReverb::kPoolFloats / 4u);
+    CHECK(RoomReverb::kPoolFloats == RoomReverb::kErLen + RoomReverb::kTailLen);
+
+    std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
+    RoomReverb r; r.begin(pool.data());
+    CHECK(std::string(r.name()) == "room");
+}
+
+TEST_CASE("room: a null pool leaves it inert and passes audio through")
+{
+    RoomReverb r; r.begin(nullptr);
+    float L[128], R[128];
+    for (int i = 0; i < 128; ++i) { L[i] = 0.25f; R[i] = -0.25f; }
+    r.processBlock(L, R, 128, 0.9f, 0.9f);
+    for (int i = 0; i < 128; ++i) { CHECK(L[i] == 0.25f); CHECK(R[i] == -0.25f); }
+}
+
+TEST_CASE("room: produces a decaying stereo tail that stays bounded")
+{
+    std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
+    RoomReverb r; r.begin(pool.data());
+    r.setSize(0.8f);
+
+    // Burst then silence. Measure an early window against a late one.
+    const size_t N = 16384;
+    std::vector<float> oL(N), oR(N);
+    for (size_t i = 0; i < N; i += 128) {
+        float bL[128], bR[128];
+        for (size_t k = 0; k < 128; ++k) {
+            const float v = (i + k < 512) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
+            bL[k] = v; bR[k] = v;
+        }
+        r.processBlock(bL, bR, 128, 1.0f, 1.0f);
+        for (size_t k = 0; k < 128 && i + k < N; ++k) { oL[i+k] = bL[k]; oR[i+k] = bR[k]; }
+    }
+
+    auto rms = [](const float* v, size_t a, size_t b) {
+        double acc = 0.0;
+        for (size_t i = a; i < b; ++i) acc += (double)v[i] * (double)v[i];
+        return (float)std::sqrt(acc / (double)(b - a));
+    };
+
+    const float early = rms(oL.data(), 1024,  3072);
+    const float late  = rms(oL.data(), 12288, 16384);
+    CHECK(early > 1e-5f);          // there IS a tail
+    CHECK(late  < early);          // and it decays rather than sustaining
+
+    // The two channels must differ, or the six taps have collapsed to the
+    // centre and it is a mono delay wearing a reverb's name.
+    bool stereo = false;
+    for (size_t i = 1024; i < 4096; ++i) if (oL[i] != oR[i]) { stereo = true; break; }
+    CHECK(stereo);
+
+    for (size_t i = 0; i < N; ++i) { CHECK(std::fabs(oL[i]) < 2.0f); CHECK(std::fabs(oR[i]) < 2.0f); }
+}
+
+TEST_CASE("room: size lengthens the tail; freeze holds it")
+{
+    auto tailEnergy = [](float size, bool freeze) {
+        std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
+        RoomReverb r; r.begin(pool.data());
+        r.setSize(size);
+        const size_t N = 16384;
+        double acc = 0.0;
+        for (size_t i = 0; i < N; i += 128) {
+            float bL[128], bR[128];
+            for (size_t k = 0; k < 128; ++k) {
+                const float v = (i + k < 512) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
+                bL[k] = v; bR[k] = v;
+            }
+            if (freeze && i == 1024) r.setFreeze(true);
+            r.processBlock(bL, bR, 128, 1.0f, 1.0f);
+            if (i >= 12288) for (size_t k = 0; k < 128; ++k) acc += (double)bL[k] * (double)bL[k];
+        }
+        return acc;
+    };
+
+    CHECK(tailEnergy(0.9f, false) > tailEnergy(0.2f, false));
+    // Freeze drives the loop to unity gain, so the late window must hold more
+    // energy than the same size decaying normally.
+    CHECK(tailEnergy(0.5f, true) > tailEnergy(0.5f, false));
+}
+
+TEST_CASE("room: shimmer is a documented no-op, not a partial effect")
+{
+    // setShimmer must change NOTHING here. A partially-wired control that
+    // altered the sound slightly would be far worse than one that is inert.
+    auto run = [](float shim) {
+        std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
+        RoomReverb r; r.begin(pool.data());
+        r.setSize(0.6f);
+        r.setShimmer(shim);
+        std::vector<float> out(4096);
+        for (size_t i = 0; i < 4096; i += 128) {
+            float bL[128], bR[128];
+            for (size_t k = 0; k < 128; ++k) {
+                const float v = (i + k < 512) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
+                bL[k] = v; bR[k] = v;
+            }
+            r.processBlock(bL, bR, 128, 1.0f, 1.0f);
+            for (size_t k = 0; k < 128; ++k) out[i+k] = bL[k];
+        }
+        return out;
+    };
+    const auto a = run(0.0f);
+    const auto b = run(1.0f);
+    bool identical = true;
+    for (size_t i = 0; i < a.size(); ++i) if (a[i] != b[i]) { identical = false; break; }
+    CHECK(identical);
+}
+
+
+// =============================================================================
+// HallReverb — FDN 4x4
+// =============================================================================
+
+TEST_CASE("hall: line lengths are mutually prime")
+{
+    // Any common factor between two lines puts their echoes on a shared grid
+    // and the whole network rings at that period. This is the property the
+    // lengths were chosen for, so it is asserted rather than trusted.
+    auto gcd = [](uint32_t a, uint32_t b) {
+        while (b) { const uint32_t t = a % b; a = b; b = t; }
+        return a;
+    };
+    for (uint8_t i = 0; i < HallReverb::kLines; ++i)
+        for (uint8_t j = i + 1; j < HallReverb::kLines; ++j)
+            CHECK(gcd(HallReverb::kLineLen[i], HallReverb::kLineLen[j]) == 1u);
+
+    uint32_t sum = 0;
+    for (uint8_t i = 0; i < HallReverb::kLines; ++i) sum += HallReverb::kLineLen[i];
+    CHECK(HallReverb::kPoolFloats == sum);
+}
+
+TEST_CASE("hall: the Householder matrix is lossless")
+{
+    // out_i = d_i - (2/N)*sum(d) is orthogonal, so it must preserve the sum of
+    // squares exactly. This is what lets `size` alone set the decay: if the
+    // matrix leaked, the control would interact with the line count.
+    const float d[4] = { 0.37f, -0.81f, 0.15f, 0.62f };
+    const float s = (d[0] + d[1] + d[2] + d[3]) * (2.0f / 4.0f);
+
+    double before = 0.0, after = 0.0;
+    for (int i = 0; i < 4; ++i) {
+        before += (double)d[i] * (double)d[i];
+        const double o = (double)d[i] - (double)s;
+        after  += o * o;
+    }
+    CHECK(after == doctest::Approx(before).epsilon(1e-6));
+}
+
+TEST_CASE("hall: decays at low size, sustains far longer at high size")
+{
+    auto tailEnergy = [](float size, bool freeze) {
+        std::vector<float> pool((size_t)HallReverb::kPoolFloats, 0.0f);
+        HallReverb h; h.begin(pool.data());
+        h.setSize(size);
+        const size_t N = 32768;
+        double acc = 0.0;
+        for (size_t i = 0; i < N; i += 128) {
+            float bL[128], bR[128];
+            for (size_t k = 0; k < 128; ++k) {
+                const float v = (i + k < 512) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
+                bL[k] = v; bR[k] = v;
+            }
+            if (freeze && i == 2048) h.setFreeze(true);
+            h.processBlock(bL, bR, 128, 1.0f, 1.0f);
+            if (i >= 24576) for (size_t k = 0; k < 128; ++k) acc += (double)bL[k] * (double)bL[k];
+        }
+        return acc;
+    };
+
+    CHECK(tailEnergy(0.95f, false) > tailEnergy(0.1f, false));
+    // The matrix is lossless, so freeze really holds rather than decaying slowly.
+    CHECK(tailEnergy(0.5f, true) > tailEnergy(0.5f, false));
+}
+
+TEST_CASE("hall: output is stereo and stays bounded at maximum decay")
+{
+    std::vector<float> pool((size_t)HallReverb::kPoolFloats, 0.0f);
+    HallReverb h; h.begin(pool.data());
+    h.setSize(1.0f);                 // longest decay the control allows
+
+    const size_t N = 32768;
+    std::vector<float> oL(N), oR(N);
+    for (size_t i = 0; i < N; i += 128) {
+        float bL[128], bR[128];
+        for (size_t k = 0; k < 128; ++k) {
+            const float v = (i + k < 4096) ? ((k & 1u) ? 0.5f : -0.5f) : 0.0f;
+            bL[k] = v; bR[k] = v;
+        }
+        h.processBlock(bL, bR, 128, 1.0f, 1.0f);
+        for (size_t k = 0; k < 128 && i + k < N; ++k) { oL[i+k] = bL[k]; oR[i+k] = bR[k]; }
+    }
+
+    bool stereo = false;
+    for (size_t i = 2048; i < 8192; ++i) if (oL[i] != oR[i]) { stereo = true; break; }
+    CHECK(stereo);
+
+    // Feedback caps at 0.93 so a long tail must not run away.
+    for (size_t i = 0; i < N; ++i) { CHECK(std::fabs(oL[i]) < 2.0f); CHECK(std::fabs(oR[i]) < 2.0f); }
+}
+
+TEST_CASE("hall: a null pool leaves it inert and passes audio through")
+{
+    HallReverb h; h.begin(nullptr);
+    float L[128], R[128];
+    for (int i = 0; i < 128; ++i) { L[i] = 0.25f; R[i] = -0.25f; }
+    h.processBlock(L, R, 128, 0.9f, 0.9f);
+    for (int i = 0; i < 128; ++i) { CHECK(L[i] == 0.25f); CHECK(R[i] == -0.25f); }
 }

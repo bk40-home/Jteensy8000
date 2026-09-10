@@ -54,6 +54,7 @@
 #include <math.h>     // tanhf, fabsf, powf, ceilf
 
 #include "core/AudioConfig.h"
+#include "core/dsp/FastMath.h"   // fastSin01 — D4 wow/flutter, per-sample
 
 namespace JT {
 
@@ -87,6 +88,26 @@ public:
     //   ceil(   50e-3 * 44100) + 2 =   2205 + 2 =   2207
     static constexpr uint32_t kDelayLen = 441002;
     static constexpr uint32_t kModLen   = 2207;
+
+    // ---- D4 tape engine ----------------------------------------------------
+    // Rates are fixed, not exposed: wow and flutter are characteristics of the
+    // transport, and two more knobs for them would be knobs nobody moves.  The
+    // two rates are deliberately NOT harmonically related, so the combined
+    // drift never settles into an audible repeating cycle.
+    static constexpr float kWowHz        = 0.7f;
+    static constexpr float kFlutterHz    = 7.3f;
+
+    // Depth at full knob, as a FRACTION of the delay time — wow on real tape is
+    // a capstan speed error, so it scales with the time.  0.35 % at 500 ms is
+    // ±1.75 ms, about right for a well-maintained machine.
+    static constexpr float kWowDepth     = 0.0035f;
+    static constexpr float kFlutterDepth = 0.0006f;
+
+    // ...but clamped in ABSOLUTE ms, because a pure fraction stops being
+    // musical once the delay is seconds long: 0.35 % of 10 s is 35 ms of pitch
+    // swing, which is seasickness rather than character.
+    static constexpr float kWowMaxMs     = 6.0f;
+    static constexpr float kFlutterMaxMs = 1.2f;
 
     // Caller pool: two delay + two mod buffers (stereo).  886418 floats ≈ 3.38 MB.
     // Carved from the PsramArena on Teensy, a heap vector on the host.
@@ -133,6 +154,16 @@ public:
     // kMinDelayMs anyway.  Presets still supply the L/R ratio and the feedback
     // default — only their delay TIME is now always overridden.
     void setDelayTime(float ms);
+
+    // ---- D4 tape-engine setters ---------------------------------------------
+    // All four are inert while the engine is Digital; they are still STORED so
+    // that flipping to Tape and back does not lose the settings (the same
+    // contract visible_when has on the panels — hidden, not reset).
+    void setDelayEngine(int engine);    // 0 = Digital (default), 1 = Tape
+    void setDelayTone(float hz);        // feedback-loop one-pole LP cutoff
+    void setDelaySat(float norm);       // 0..1 drive into the feedback soft-clip
+    void setDelayWow(float norm);       // 0..1 slow capstan drift depth
+    void setDelayFlutter(float norm);   // 0..1 fast scrape flutter depth
 
     // ---- Sequencer aux-lane mod inputs (Stage D) -------------------------
     // Block-rate modulation from the step sequencer's aux lane.  Both are
@@ -183,11 +214,38 @@ public:
     float debugDelayMs()  const { return _delayTimeOverrideL; }
     float debugModFb()    const { return _modFeedbackOverride; }
     float debugDelayFb()  const { return _delayFeedbackOverride; }
+    // Samples of wet-mute still owed after a preset change.  Exposed so the
+    // mute-clamp regression (10 s buffer -> 10 s dropout) has a test that
+    // fails loudly rather than only being audible on the bench.
+    uint32_t debugDelayMuteCounter() const { return _delayMuteCounter; }
+    // D4: the single gate the per-sample tape work sits behind.  Exposed so a
+    // test can prove the Digital path never enters it, and that a Tape patch
+    // with every control at zero does not either.
+    bool  debugTapeActive() const { return _tapeActive; }
+    float debugFbLpG()      const { return _fbLpG;      }
 #endif
 
 private:
     // ===================== inner-loop DSP helpers ============================
     // (header-inline on purpose — see the banner.)
+
+    // ---- D4: feedback-path soft clip ----
+    // Deliberately NOT applySaturation() below: that one belongs to the JPFX
+    // drive STAGE and carries its own mode, gain staging and DC blocker.  The
+    // tape loop wants something cheaper and gentler that runs on every repeat.
+    //
+    // Cubic soft clip, x - x^3/3, saturating to +/-2/3 outside |x| <= 1.  No
+    // transcendentals, no table, three multiplies.  Gain-compensated by
+    // _satComp so the knob changes timbre and not level — otherwise every
+    // adjustment would read as "louder = better".
+    static inline float tapeSoftClip(float x, float drive, float comp)
+    {
+        const float y = x * drive;
+        const float c = (y >  1.0f) ?  0.6666667f
+                      : (y < -1.0f) ? -0.6666667f
+                                    : y * (1.0f - y * y * (1.0f / 3.0f));
+        return c * comp;
+    }
 
     // ---- Saturation (v1 AudioEffectJPFX.cpp:437-457) ----
     // Early-exits when OFF.  Soft = tanh; Hard = asymmetric clip through a
@@ -235,6 +293,10 @@ private:
 
     // ---- Delay (v1 AudioEffectJPFX.cpp:766-897) ----
     inline void processDelay(float inL, float inR, float& outL, float& outR);
+
+    // D4: block-rate cache for the tape engine.  Called from prepareDelay with
+    // the resolved tap distances, because the drift amplitude scales with them.
+    void prepareTape(float dSampL, float dSampR);
 
     // Block-rate recompute helpers (only run when the matching dirty flag set).
     void computeSat();
@@ -309,6 +371,31 @@ private:
     float _delayTimeOverrideL    = -1.0f;
     float _delayTimeOverrideR    = -1.0f;
     uint32_t _delayMuteCounter   = 0;    // click-free preset transition
+
+    // ---- D4 tape engine ------------------------------------------------------
+    // CONTROL-PLANE values (written by the setters, read at block rate).
+    int   _delayEngine    = 0;           // 0 Digital, 1 Tape
+    float _delayToneHz    = 12000.0f;
+    float _delaySatNorm   = 0.0f;
+    float _delayWowNorm   = 0.0f;
+    float _delayFlutNorm  = 0.0f;
+
+    // BLOCK-RATE CACHE (prepareDelay).  The per-sample loop reads only these,
+    // so no transcendental or divide ever runs inside processDelay.
+    bool  _tapeActive     = false;       // engine == Tape AND something to do
+    float _fbLpG          = 1.0f;        // one-pole coefficient, 1 == bypass
+    float _satDrive       = 1.0f;        // 1..4
+    float _satComp        = 1.0f;        // 1/_satDrive, restores unity level
+    float _wowSampAmp     = 0.0f;        // drift amplitude in SAMPLES
+    float _flutSampAmp    = 0.0f;
+    float _wowInc         = 0.0f;        // phase increment per sample (0..1)
+    float _flutInc        = 0.0f;
+
+    // PER-SAMPLE STATE.
+    float _fbLpStateL     = 0.0f;
+    float _fbLpStateR     = 0.0f;
+    float _wowPhase       = 0.0f;        // 0..1
+    float _flutPhase      = 0.25f;       // offset so both do not start at zero
 
     // Delay block-constant cache (written by prepareDelay, read per-sample).
     float _delaySampLCached = 0.0f;
