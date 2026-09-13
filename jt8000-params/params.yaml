@@ -64,7 +64,7 @@ option_sets:
   # Reverb algorithms.  ORDER IS LOAD-BEARING and matches ReverbRack::Algo —
   # a select stores its OPTION INDEX, so append new algorithms, never insert.
   # (Same rule that governs timing_mode; see ledger D-13.)
-  reverb_algo: ["Plate", "Shimmer", "Room", "Hall"]
+  reverb_algo: ["Plate", "Shimmer", "Hall"]
   pitch_mod_dest: ["OSC1+2", "OSC2", "X-MOD"]
   l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
   # T2: dotted family APPENDED at indices 12..14, never inserted.  The stored
@@ -126,7 +126,11 @@ sections:
   - {index: 6, name: "Pitch Envelope", groups: ["Main"]}
   - {index: 7, name: "LFO 1", groups: ["Core", "Per-Destination", "Routing"]}
   - {index: 8, name: "LFO 2", groups: ["Core", "Per-Destination", "Routing"]}
-  - {index: 9, name: "Effects", groups: ["EQ & Drive", "Modulation", "Delay", "Output"]}
+  # P-a: FX split into five groups so each fits a knob row on the ESP32.  The
+  # 10-param "Delay" group was the one overflowing; it is now Delay (the core
+  # controls) + Tape Echo (the D4 engine).  Groups are UI-only and never stored
+  # in a patch, so unlike option indices they can be renumbered freely.
+  - {index: 9, name: "Effects", groups: ["EQ & Drive", "Modulation", "Delay", "Tape Echo", "Output"]}
   - {index: 10, name: "Velocity", groups: ["Sensitivity"]}
   - {index: 11, name: "Performance", groups: ["Glide", "Voice", "Bend & Level"]}
   - {index: 12, name: "BPM Clock", groups: ["Clock"]}
@@ -1404,7 +1408,7 @@ params:
     unit: "norm"
     default: 1
     smooth_ms: 5
-    ui: {section: 9, group: 3}
+    ui: {section: 9, group: 4}
   - id: 0x048D            # v1: CC::FX_JPFX_MIX (was CC 76)
     key: fx.jpfx_mix
     name: "JPFX Mix"
@@ -1415,7 +1419,7 @@ params:
     unit: "norm"
     default: 1
     smooth_ms: 5
-    ui: {section: 9, group: 3}
+    ui: {section: 9, group: 4}
 
   # ---- D4: tape-delay engine -------------------------------------------------
   # Everything below is INERT while fx.delay_engine == Digital.  FxChain caches
@@ -1431,7 +1435,7 @@ params:
     options: delay_engine
     default: 0            # Digital — default patch unchanged
     smooth_ms: 0
-    ui: {section: 9, group: 2}
+    ui: {section: 9, group: 3}
   - id: 0x048F
     key: fx.delay_tone
     name: "Delay Tone"
@@ -1447,7 +1451,7 @@ params:
     default: 12000
     smooth_ms: 20
     visible_when: {param: fx.delay_engine, is: "Tape"}
-    ui: {section: 9, group: 2}
+    ui: {section: 9, group: 3}
   - id: 0x0490
     key: fx.delay_sat
     name: "Delay Saturation"
@@ -1462,7 +1466,7 @@ params:
     default: 0
     smooth_ms: 20
     visible_when: {param: fx.delay_engine, is: "Tape"}
-    ui: {section: 9, group: 2}
+    ui: {section: 9, group: 3}
   - id: 0x0491
     key: fx.delay_wow
     name: "Delay Wow"
@@ -1478,7 +1482,7 @@ params:
     default: 0
     smooth_ms: 20
     visible_when: {param: fx.delay_engine, is: "Tape"}
-    ui: {section: 9, group: 2}
+    ui: {section: 9, group: 3}
   - id: 0x0492
     key: fx.delay_flutter
     name: "Delay Flutter"
@@ -1493,9 +1497,26 @@ params:
     default: 0
     smooth_ms: 20
     visible_when: {param: fx.delay_engine, is: "Tape"}
-    ui: {section: 9, group: 2}
+    ui: {section: 9, group: 3}
 
   # ---- [10] Velocity ----
+  - id: 0x0493
+    key: fx.delay_wow_rate
+    name: "Delay Wow Rate"
+    label: "DLY WOWR"
+    type: continuous
+    scope: patch_shared
+    # Capstan rate.  Exposed because it changes the CHARACTER far more than the
+    # depth does: below ~0.5 Hz it is a seasick drift, around 1 Hz it is a
+    # classic echo wobble, above ~2 Hz it starts to sound like chorus.  Depth is
+    # specified in cents (see FxChain::kWowMaxCents), so changing this does NOT
+    # change how much wobble you hear — only how fast it moves.
+    range: {min: 0.2, max: 3.0, curve: log}
+    unit: "Hz"
+    default: 0.7
+    smooth_ms: 20
+    visible_when: {param: fx.delay_engine, is: "Tape"}
+    ui: {section: 9, group: 3}
   - id: 0x0500            # v1: CC::VELOCITY_AMP_SENS (was CC 10)
     key: velocity.amp_sens
     name: "Vel Amp"

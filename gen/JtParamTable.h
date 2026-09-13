@@ -199,7 +199,6 @@ static constexpr Option kOpt_poly_mode[] = {
 static constexpr Option kOpt_reverb_algo[] = {
     { "Plate" },
     { "Shimmer" },
-    { "Room" },
     { "Hall" },
 };
 static constexpr Option kOpt_seq_aux_dest[] = {
@@ -287,9 +286,9 @@ static constexpr Option kOpt_xpander_mode[] = {
 };
 
 // ---------------------------------------------------------------------------
-// Parameters (249)
+// Parameters (250)
 // ---------------------------------------------------------------------------
-static constexpr int kNumParams = 249;
+static constexpr int kNumParams = 250;
 
 static constexpr Param kParams[kNumParams] = {
     { 0x0000, "osc1.wave",               "osc1.wave",               "Osc1 Wave",             "WAVE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      17.0f,     0.0f,      0.0f,      "",      false,  kOpt_osc_wave,         18,  0 },
@@ -401,6 +400,7 @@ static constexpr Param kParams[kNumParams] = {
     { 0x0490, "fx.delay_sat",            "fx.delay_sat",            "Delay Saturation",      "DLY SAT",   Widget::Knob,  Type::Continuous,  Scope::PatchShared,  Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0,  9 },
     { 0x0491, "fx.delay_wow",            "fx.delay_wow",            "Delay Wow",             "DLY WOW",   Widget::Knob,  Type::Continuous,  Scope::PatchShared,  Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0,  9 },
     { 0x0492, "fx.delay_flutter",        "fx.delay_flutter",        "Delay Flutter",         "DLY FLUT",  Widget::Knob,  Type::Continuous,  Scope::PatchShared,  Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0,  9 },
+    { 0x0493, "fx.delay_wow_rate",       "fx.delay_wow_rate",       "Delay Wow Rate",        "DLY WOWR",  Widget::Knob,  Type::Continuous,  Scope::PatchShared,  Curve::Log, 0.2f,      3.0f,      0.0f,      0.7f,      "Hz",    false,  nullptr,                0,  9 },
     { 0x0500, "velocity.amp_sens",       "velocity.amp_sens",       "Vel Amp",               "AMP",       Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0, 10 },
     { 0x0501, "velocity.filter_sens",    "velocity.filter_sens",    "Vel Filter",            "FILTER",    Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0, 10 },
     { 0x0502, "velocity.env_sens",       "velocity.env_sens",       "Vel Env",               "ENV",       Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0, 10 },
@@ -478,7 +478,7 @@ static constexpr Param kParams[kNumParams] = {
     { 0x0786, "reverb.freeze",           "reverb.freeze",           "Rev Freeze",            "FREEZE",    Widget::Toggle, Type::Toggle,      Scope::Global,       Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  nullptr,                0, 15 },
     { 0x0787, "reverb.lowpass",          "reverb.lowpass",          "Rev Lo Pass",           "LO PASS",   Widget::Knob,  Type::Continuous,  Scope::Global,       Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0, 15 },
     { 0x0788, "reverb.hipass",           "reverb.hipass",           "Rev Hi Pass",           "HI PASS",   Widget::Knob,  Type::Continuous,  Scope::Global,       Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0, 15 },
-    { 0x0789, "reverb.algorithm",        "reverb.algorithm",        "Reverb Algorithm",      "REV ALGO",  Widget::Combo, Type::Select,      Scope::Global,       Curve::Lin, 0.0f,      3.0f,      0.0f,      0.0f,      "",      false,  kOpt_reverb_algo,       4, 15 },
+    { 0x0789, "reverb.algorithm",        "reverb.algorithm",        "Reverb Algorithm",      "REV ALGO",  Widget::Combo, Type::Select,      Scope::Global,       Curve::Lin, 0.0f,      2.0f,      0.0f,      0.0f,      "",      false,  kOpt_reverb_algo,       3, 15 },
     { 0x0800, "master.volume",           "master.volume",           "Master Volume",         "VOLUME",    Widget::Knob,  Type::Continuous,  Scope::Global,       Curve::Lin, 0.0f,      1.0f,      0.0f,      0.8f,      "norm",  false,  nullptr,                0, 16 },
     { 0x0880, "arp.enable",              "arp.enable",              "Arp Enable",            "ON",        Widget::Toggle, Type::Toggle,      Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  nullptr,                0, 17 },
     { 0x0881, "arp.mode",                "arp.mode",                "Arp Mode",              "MODE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      6.0f,      0.0f,      0.0f,      "",      false,  kOpt_arp_mode,          7, 17 },

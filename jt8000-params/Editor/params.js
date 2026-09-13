@@ -106,10 +106,16 @@ window.PARAMS = {
   "filter.va_type",
   "fx.bass_gain",
   "fx.delay_effect",
+  "fx.delay_engine",
   "fx.delay_feedback",
+  "fx.delay_flutter",
   "fx.delay_mix",
+  "fx.delay_sat",
   "fx.delay_sync",
   "fx.delay_time",
+  "fx.delay_tone",
+  "fx.delay_wow",
+  "fx.delay_wow_rate",
   "fx.drive",
   "fx.dry_mix",
   "fx.jpfx_mix",
@@ -184,6 +190,7 @@ window.PARAMS = {
   "perf.mode",
   "perf.split_note",
   "perf.voice_split",
+  "reverb.algorithm",
   "reverb.bypass",
   "reverb.damp",
   "reverb.freeze",
@@ -356,6 +363,12 @@ window.PARAMS = {
   "fx.delay_sync": "Delay Sync",
   "fx.dry_mix": "Dry Mix",
   "fx.jpfx_mix": "JPFX Mix",
+  "fx.delay_engine": "Delay Engine",
+  "fx.delay_tone": "Delay Tone",
+  "fx.delay_sat": "Delay Saturation",
+  "fx.delay_wow": "Delay Wow",
+  "fx.delay_flutter": "Delay Flutter",
+  "fx.delay_wow_rate": "Delay Wow Rate",
   "velocity.amp_sens": "Vel Amp",
   "velocity.filter_sens": "Vel Filter",
   "velocity.env_sens": "Vel Env",
@@ -433,6 +446,7 @@ window.PARAMS = {
   "reverb.freeze": "Rev Freeze",
   "reverb.lowpass": "Rev Lo Pass",
   "reverb.hipass": "Rev Hi Pass",
+  "reverb.algorithm": "Reverb Algorithm",
   "master.volume": "Master Volume",
   "arp.enable": "Arp Enable",
   "arp.mode": "Arp Mode",
@@ -515,6 +529,10 @@ window.PARAMS = {
   "clock_source": [
    "Internal",
    "Ext MIDI"
+  ],
+  "delay_engine": [
+   "Digital",
+   "Tape"
   ],
   "drive": [
    "OFF",
@@ -635,6 +653,11 @@ window.PARAMS = {
    "Mono",
    "Unison"
   ],
+  "reverb_algo": [
+   "Plate",
+   "Shimmer",
+   "Hall"
+  ],
   "seq_aux_dest": [
    "None",
    "Filter",
@@ -668,7 +691,10 @@ window.PARAMS = {
    "1/32",
    "1/4T",
    "1/8T",
-   "1/16T"
+   "1/16T",
+   "1/4D",
+   "1/8D",
+   "1/16D"
   ],
   "v_a_filter": [
    "SVF LP2",

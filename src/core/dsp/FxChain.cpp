@@ -73,12 +73,15 @@ void FxChain::begin(float* pool)
 
     memset(_pool, 0, kPoolFloats * sizeof(float));
     _delayWriteIdx = 0;
+    _dSampLCur     = -1.0f;   // X2: unprimed — prepareDelay snaps on first block
+    _dSampRCur     = -1.0f;
 
     // D4 tape state.  Reset with the buffers: a stale LP value or drift phase
     // surviving a begin() would put a thump or a pitch jump on the first repeat.
     _fbLpStateL = 0.0f;
     _fbLpStateR = 0.0f;
-    _wowPhase   = 0.0f;
+    _wowPhase1  = 0.0f;
+    _wowPhase2  = 0.41f;
     _flutPhase  = 0.25f;
     _tapeActive = false;
     _modWriteIdx   = 0;
@@ -286,13 +289,15 @@ void FxChain::setDelayEngine(int engine)
     // would put a thump or a pitch jump on the first repeat.
     _fbLpStateL = 0.0f;
     _fbLpStateR = 0.0f;
-    _wowPhase   = 0.0f;
+    _wowPhase1  = 0.0f;
+    _wowPhase2  = 0.41f;
     _flutPhase  = 0.25f;
 }
 
 void FxChain::setDelayTone(float hz)     { _delayToneHz   = clampf(hz, 500.0f, 12000.0f); }
 void FxChain::setDelaySat(float norm)    { _delaySatNorm  = clampf(norm, 0.0f, 1.0f); }
 void FxChain::setDelayWow(float norm)    { _delayWowNorm  = clampf(norm, 0.0f, 1.0f); }
+void FxChain::setDelayWowRate(float hz)  { _delayWowHz    = clampf(hz, kWowHzMin, kWowHzMax); }
 void FxChain::setDelayFlutter(float norm){ _delayFlutNorm = clampf(norm, 0.0f, 1.0f); }
 
 // ===========================================================================
@@ -362,6 +367,16 @@ void FxChain::prepareDelay()
     _delayWetCached   = wet;
     _delayDryCached   = 1.0f - wet;
 
+    // X2: one-pole coefficient for the tap-distance slew.  Block rate — the
+    // per-sample loop must not run an expf.
+    _timeSlewCoeff = 1.0f - expf(-1.0f / (kTimeSlewMs * 0.001f * kSampleRate));
+
+    // First block after begin(), or after a preset change reset the cursors:
+    // snap rather than ramping up from nothing, which would sweep the delay in
+    // from zero on the very first note.
+    if (_dSampLCur < 0.0f) _dSampLCur = dSampL;
+    if (_dSampRCur < 0.0f) _dSampRCur = dSampR;
+
     prepareTape(dSampL, dSampR);
 }
 
@@ -403,27 +418,48 @@ void FxChain::prepareTape(float dSampL, float dSampR)
     _satDrive = 1.0f + _delaySatNorm * 3.0f;
     _satComp  = 1.0f / _satDrive;
 
-    // Drift amplitude in SAMPLES, proportional to the delay time but capped in
-    // absolute ms — see kWowMaxMs in the header for why both limits exist.
-    // The deeper of the two taps sets the amplitude so L and R drift together;
-    // independent amplitudes would widen the image as the drift moved, which
-    // reads as a phaser rather than as a transport.
-    const float msToSamp   = 0.001f * kSampleRate;
-    const float deepestSamp = (dSampL > dSampR) ? dSampL : dSampR;
+    // W3: derive the delay amplitude from the WANTED PITCH DEVIATION.
+    //     dev = 2^(cents/1200) - 1      (fractional pitch change)
+    //     A   = dev / (2*pi*f)          (seconds of delay modulation)
+    // so the audible wobble is the same at any delay time and any rate, which
+    // the previous ms-based depth emphatically was not.
+    const float invSr   = 1.0f / kSampleRate;
+    const float twoPi   = 2.0f * kPi;
+    const float wowHz   = _delayWowHz;
 
-    const float wowCapSamp  = kWowMaxMs     * msToSamp;
-    const float flutCapSamp = kFlutterMaxMs * msToSamp;
+    auto centsToSamples = [&](float cents, float rateHz) -> float {
+        if (cents <= 0.0f || rateHz <= 0.0f) return 0.0f;
+        const float dev = exp2f(cents * (1.0f / 1200.0f)) - 1.0f;
+        return (dev / (twoPi * rateHz)) * kSampleRate;   // seconds -> samples
+    };
 
-    float wowAmp  = deepestSamp * kWowDepth     * _delayWowNorm;
-    float flutAmp = deepestSamp * kFlutterDepth * _delayFlutNorm;
-    if (wowAmp  > wowCapSamp)  wowAmp  = wowCapSamp;
-    if (flutAmp > flutCapSamp) flutAmp = flutCapSamp;
+    // Two wow components at incommensurate rates, so the drift never settles
+    // into an audible repeating cycle the way a single sine does.
+    const float wowCents  = kWowMaxCents     * _delayWowNorm;
+    const float flutCents = kFlutterMaxCents * _delayFlutNorm;
 
-    _wowSampAmp  = wowOn  ? wowAmp  : 0.0f;
+    float wowAmp1 = centsToSamples(wowCents * kWowMix1, wowHz);
+    float wowAmp2 = centsToSamples(wowCents * kWowMix2, wowHz * kWowRate2Ratio);
+    float flutAmp = centsToSamples(flutCents, kFlutterHz);
+
+    // Safety clamp: total excursion must stay well inside the delay itself, or
+    // a slow deep wow on a short slapback modulates through zero and folds the
+    // read pointer.  The SHALLOWER tap governs — it is the one that runs out.
+    const float shallowest = (dSampL < dSampR) ? dSampL : dSampR;
+    const float budget     = shallowest * kDriftMaxFrac;
+    const float wanted     = wowAmp1 + wowAmp2 + flutAmp;
+    if (wanted > budget && wanted > 0.0f) {
+        const float scale = budget / wanted;
+        wowAmp1 *= scale; wowAmp2 *= scale; flutAmp *= scale;
+    }
+
+    _wowSampAmp1 = wowOn  ? wowAmp1 : 0.0f;
+    _wowSampAmp2 = wowOn  ? wowAmp2 : 0.0f;
     _flutSampAmp = flutOn ? flutAmp : 0.0f;
 
-    _wowInc  = kWowHz     * (1.0f / kSampleRate);
-    _flutInc = kFlutterHz * (1.0f / kSampleRate);
+    _wowInc1 = wowHz                    * invSr;
+    _wowInc2 = wowHz * kWowRate2Ratio   * invSr;
+    _flutInc = kFlutterHz               * invSr;
 }
 
 // ===========================================================================
@@ -541,8 +577,17 @@ inline void FxChain::processDelay(float inL, float inR, float& outL, float& outR
     const float feedback = _delayFbCached;
     const float wetLevel = _delayWetCached;
     const float dryLevel = _delayDryCached;
-    float dSampL   = _delaySampLCached;
-    float dSampR   = _delaySampRCached;
+    // ---- X2: slew the tap distance toward the target ------------------------
+    // One-pole per sample, then an exact snap inside kSlewSnap so a settled
+    // delay is bit-identical to the pre-slew engine.  Two multiply-adds and two
+    // compares; the snap is what keeps the Digital path's render baseline.
+    const float tgtL = _delaySampLCached;
+    const float tgtR = _delaySampRCached;
+    _dSampLCur = slewTap(_dSampLCur, tgtL, _timeSlewCoeff);
+    _dSampRCur = slewTap(_dSampRCur, tgtR, _timeSlewCoeff);
+
+    float dSampL   = _dSampLCur;
+    float dSampR   = _dSampRCur;
 
     // ---- D4: transport drift (wow + flutter) --------------------------------
     // Digital pays ONE predictable branch here and nothing else.  The read head
@@ -550,16 +595,26 @@ inline void FxChain::processDelay(float inL, float inR, float& outL, float& outR
     // rather than a delay-time change, and why the drift is applied to the tap
     // distance rather than to _delayWriteIdx.
     if (_tapeActive) {
-        // Phase accumulators wrap in 0..1 for fastSin01.  Two rates that are
-        // not harmonically related, so the sum never repeats audibly.
-        _wowPhase  += _wowInc;   if (_wowPhase  >= 1.0f) _wowPhase  -= 1.0f;
+        // Phase accumulators wrap in 0..1 for fastSin01.
+        _wowPhase1 += _wowInc1;  if (_wowPhase1 >= 1.0f) _wowPhase1 -= 1.0f;
+        _wowPhase2 += _wowInc2;  if (_wowPhase2 >= 1.0f) _wowPhase2 -= 1.0f;
         _flutPhase += _flutInc;  if (_flutPhase >= 1.0f) _flutPhase -= 1.0f;
 
-        const float drift = FastMath::fastSin01(_wowPhase)  * _wowSampAmp
-                          + FastMath::fastSin01(_flutPhase) * _flutSampAmp;
+        // W3: the two taps read the SAME drift at different phases, so the
+        // wobble travels across the image.  One shared drift (the first
+        // version) moved both sides in lockstep and read as flat.
+        auto wrap = [](float p) { return (p >= 1.0f) ? p - 1.0f : p; };
+        const float pR = kDriftPhaseR;
 
-        dSampL += drift;
-        dSampR += drift;
+        const float driftL = FastMath::fastSin01(_wowPhase1)      * _wowSampAmp1
+                           + FastMath::fastSin01(_wowPhase2)      * _wowSampAmp2
+                           + FastMath::fastSin01(_flutPhase)      * _flutSampAmp;
+        const float driftR = FastMath::fastSin01(wrap(_wowPhase1 + pR)) * _wowSampAmp1
+                           + FastMath::fastSin01(wrap(_wowPhase2 + pR)) * _wowSampAmp2
+                           + FastMath::fastSin01(wrap(_flutPhase + pR)) * _flutSampAmp;
+
+        dSampL += driftL;
+        dSampR += driftR;
 
         // The drift can push a short tap below the minimum or a near-maximum
         // tap past the end of the buffer; both would be an out-of-bounds read,

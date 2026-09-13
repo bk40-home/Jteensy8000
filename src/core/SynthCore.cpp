@@ -1013,6 +1013,8 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             _fx.setDelaySat(norm); break;
         case ID::FX_DELAY_WOW:
             _fx.setDelayWow(norm); break;
+        case ID::FX_DELAY_WOW_RATE:
+            _fx.setDelayWowRate(eng); break;                 // Hz, log curve
         case ID::FX_DELAY_FLUTTER:
             _fx.setDelayFlutter(norm); break;
         case ID::FX_DRY_MIX:

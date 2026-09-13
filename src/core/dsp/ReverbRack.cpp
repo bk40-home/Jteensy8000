@@ -13,7 +13,6 @@ IReverb* ReverbRack::instance(int algo)
     switch (algo) {
         case kPlate:   return &_plate;
         case kShimmer: return &_shimmer;
-        case kRoom:    return &_room;
         case kHall:    return &_hall;
         default:       return nullptr;
     }
@@ -24,7 +23,6 @@ const char* ReverbRack::activeName() const
     switch (_active) {
         case kPlate:   return _plate.name();
         case kShimmer: return _shimmer.name();
-        case kRoom:    return _room.name();
         case kHall:    return _hall.name();
         default:       return "none";
     }
@@ -79,13 +77,13 @@ void ReverbRack::setAlgorithm(int algo)
 // Control plane only — a few float stores per parameter change, and the cost
 // is proportional to the number of ALGORITHMS, not to block rate.
 // ---------------------------------------------------------------------------
-void ReverbRack::setSize(float n)    { _plate.setSize(n);    _shimmer.setSize(n);     _room.setSize(n);  _hall.setSize(n); }
-void ReverbRack::setHiDamp(float n)  { _plate.setHiDamp(n);  _shimmer.setHiDamp(n);   _room.setHiDamp(n);  _hall.setHiDamp(n); }
-void ReverbRack::setLoDamp(float n)  { _plate.setLoDamp(n);  _shimmer.setLoDamp(n);   _room.setLoDamp(n);  _hall.setLoDamp(n); }
-void ReverbRack::setLowpass(float n) { _plate.setLowpass(n); _shimmer.setLowpass(n);  _room.setLowpass(n);  _hall.setLowpass(n); }
-void ReverbRack::setHipass(float n)  { _plate.setHipass(n);  _shimmer.setHipass(n);   _room.setHipass(n);  _hall.setHipass(n); }
-void ReverbRack::setShimmer(float n) { _plate.setShimmer(n); _shimmer.setShimmer(n);  _room.setShimmer(n);  _hall.setShimmer(n); }
-void ReverbRack::setFreeze(bool on)  { _plate.setFreeze(on); _shimmer.setFreeze(on); _room.setFreeze(on);  _hall.setFreeze(on); }
+void ReverbRack::setSize(float n)    { _plate.setSize(n);    _shimmer.setSize(n);  _hall.setSize(n); }
+void ReverbRack::setHiDamp(float n)  { _plate.setHiDamp(n);  _shimmer.setHiDamp(n);  _hall.setHiDamp(n); }
+void ReverbRack::setLoDamp(float n)  { _plate.setLoDamp(n);  _shimmer.setLoDamp(n);  _hall.setLoDamp(n); }
+void ReverbRack::setLowpass(float n) { _plate.setLowpass(n); _shimmer.setLowpass(n);  _hall.setLowpass(n); }
+void ReverbRack::setHipass(float n)  { _plate.setHipass(n);  _shimmer.setHipass(n);  _hall.setHipass(n); }
+void ReverbRack::setShimmer(float n) { _plate.setShimmer(n); _shimmer.setShimmer(n);  _hall.setShimmer(n); }
+void ReverbRack::setFreeze(bool on)  { _plate.setFreeze(on); _shimmer.setFreeze(on);  _hall.setFreeze(on); }
 
 // ---------------------------------------------------------------------------
 // processBlock — run exactly one algorithm, ramping the mix through a switch.

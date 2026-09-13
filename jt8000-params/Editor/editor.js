@@ -74,6 +74,11 @@ var LAYERMAP = { REVERB: "Reverb", SEQ: "Step Sequencer", ARP: "Arpeggiator", SE
 
 /* Header/background layer (edits the skin, exported as an RML/RCSS patch). */
 var HEADER = window.LAYOUT.header || { h: 260, m: 40 };
+/* The per-view .band decorator's real geometry (from jt8000.rcss): the BOTTOM
+   strip, not the header. This is where band_main/reverb/step/... actually paint,
+   behind the bottom-row blocks. Keeping it here means the editor preview lines
+   up with the plugin, and the exported .rcss uses the same rect. */
+var BAND_GEO = { x: 0, y: 1840, w: 3840, h: 438 };
 var HDR = {
   band: { MAIN: "band_main", REVERB: "band_reverb", SEQ: "band_step", ARP: "band_arpeggiator", SETUP: "band_setup" },
   bg: "bg_base",
@@ -276,10 +281,19 @@ function addHandles(node) {
 
 function drawHeader() {
   var M = HEADER.m, H = HEADER.h, CW = DOC.canvas.w;
-  var img = window.SKIN && window.SKIN[HDR.band[view] || HDR.band.MAIN];
-  var band = document.createElement("div"); band.className = "hdr-band" + (sel.indexOf("BAND") >= 0 ? " sel" : "");
-  band.style.cssText = pos(M, M, CW - 2 * M, H) + (img ? "background:url(" + img + ") center/100% 100% no-repeat;" : "background:#22262e;");
-  band.onclick = function (e) { e.stopPropagation(); sel = ["BAND"]; render(); };
+  /* The per-view BAND is NOT the header - it is the bottom strip at top:1840dp,
+     height:438dp, full width (behind EQ&DRIVE / REVERB / SETUP etc.). Render it
+     there so the editor matches the plugin. Clicking it opens Backgrounds. */
+  var bImg = window.SKIN && window.SKIN[HDR.band[view] || HDR.band.MAIN];
+  var bandDiv = document.createElement("div"); bandDiv.className = "hdr-band" + (sel.indexOf("BAND") >= 0 ? " sel" : "");
+  bandDiv.style.cssText = pos(BAND_GEO.x, BAND_GEO.y, BAND_GEO.w, BAND_GEO.h) + (bImg ? "background:url(" + bImg + ") center/100% 100% no-repeat;" : "background:rgba(40,44,52,.35);") + "z-index:0;";
+  bandDiv.onclick = function (e) { e.stopPropagation(); sel = ["BAND"]; render(); };
+  panel.appendChild(bandDiv);
+
+  /* The header strip (top) is a separate visual - the LCD/text overlays live
+     here. It carries no swappable image; the base background shows through. */
+  var band = document.createElement("div"); band.className = "hdr-strip";
+  band.style.cssText = pos(M, M, CW - 2 * M, H) + "background:transparent;";
   panel.appendChild(band);
   HDR.texts.forEach(function (t, i) {
     var d = document.createElement("div"); d.className = "hdr-text" + (sel.indexOf("TXT" + i) >= 0 ? " sel" : "");
@@ -476,6 +490,10 @@ function inspGrid() {
   rb.appendChild(mbtn(gridOn ? "Hide grid" : "Show grid", function () { gridOn = !gridOn; render(); }));
   rb.appendChild(mbtn(snap === "off" ? "Snap on" : "Snap off", function () { snap = snap === "off" ? "grid" : "off"; render(); }));
   insp.appendChild(rb);
+  /* Always-available way into the Backgrounds panel - the band element itself
+     sits behind the blocks and can't be clicked, so this button is how you
+     reach base/band image assignment and (later) colours. */
+  insp.appendChild(mbtn("Backgrounds & images…", function () { sel = ["BAND"]; render(); }));
   insp.appendChild(mbtn("+ Add block", function () { pushHistory(); DOC.blocks.push({ name: uniq("Block"), x: 80, y: 400, w: 500, h: 300, layer: false, items: [] }); sel = [DOC.blocks[DOC.blocks.length - 1]]; render(); }));
 }
 function inspBlock(b) {
@@ -601,10 +619,17 @@ function inspMulti() {
 }
 function inspHeader(tag) {
   if (tag === "BAND") {
-    ihead("header", "Band (" + view + ")");
-    imgPick("Band for " + view, HDR.band[view], ["band_main", "band_reverb", "band_step", "band_arpeggiator", "band_setup"], function (n) { pushHistory(); HDR.band[view] = n; render(); });
-    imgPick("Base background", HDR.bg, ["bg_base"], function (n) { pushHistory(); HDR.bg = n; render(); });
-    insp.appendChild(hint("Edits the skin; use Export → header patch."));
+    ihead("header", "Backgrounds");
+    insp.appendChild(hint("Base = one image behind the whole panel. Band = the bottom strip (top 1840dp), a different image per view. Load your PNGs first, then assign each."));
+    insp.appendChild(mbtn("Load images (PNG)…", function () { imgInput.value = ""; imgInput.click(); }));
+    imgPick("Base background (whole panel)", HDR.bg, knownImages(), function (n) { pushHistory(); HDR.bg = n; render(); });
+    /* Show the band image for EVERY view at once, so you can see and set each
+       page's bottom-strip art without switching views. The current view is
+       marked; picking sets that view's band. */
+    insp.appendChild(hint("Bottom-strip band image per view:"));
+    VIEWS.forEach(function (v) {
+      imgPick("Band — " + v + (v === view ? "  (current)" : ""), HDR.band[v], knownImages(), function (n) { pushHistory(); HDR.band[v] = n; render(); });
+    });
   } else {
     var i = +tag.slice(3), t = HDR.texts[i];
     ihead("header text", t.id);
@@ -720,10 +745,27 @@ function exportLayout() { dl("layout.json", JSON.stringify(DOC, null, 1), "appli
    keys); unknown keys fall back to key-with-underscores and are listed in a
    trailing comment so nothing binds silently wrong. */
 var VIEWCLASS = "v-main v-shift v-reverb v-seq v-arp v-setup";
+var MAINONLY = "v-main v-shift";
 /* A layer block only shows on its own page; main blocks show on all. Without
    this, Setup/Seq/Arp/Reverb all render at once and overlap. */
 var BLOCK_VC = { "Reverb": "v-reverb", "Step Sequencer": "v-seq", "Arpeggiator": "v-arp", "Setup": "v-setup" };
-function blockViewClass(b) { return BLOCK_VC[b.name] || VIEWCLASS; }
+/* The top of the layer region: where the layer blocks (Reverb/Seq/Arp/Setup)
+   sit. A MAIN block that overlaps this region must hide on layer pages (so the
+   layer block can take the space), so it exports as v-main v-shift only - not
+   all-views. Main blocks above the region stay all-views (visible everywhere). */
+function layerRegionTop() {
+  var top = Infinity;
+  DOC.blocks.forEach(function (b) { if (b.layer) top = Math.min(top, b.y); });
+  return top === Infinity ? Infinity : top;
+}
+function blockViewClass(b) {
+  if (BLOCK_VC[b.name]) return BLOCK_VC[b.name];       // a layer block: its view only
+  if (b.layer) return MAINONLY;                        // any layer-flagged block
+  /* Main block overlapping the layer strip -> main-only so it hides on layers. */
+  var lrt = layerRegionTop();
+  if (isFinite(lrt) && (b.y + (b.h || 0)) > lrt + 20) return MAINONLY;
+  return VIEWCLASS;
+}
 
 /* Constant header block, copied VERBATIM from the factory jt8000.rml. These are
    the real functional buttons: transparent hit-areas the plugin's C++ wires by
@@ -732,7 +774,18 @@ function blockViewClass(b) { return BLOCK_VC[b.name] || VIEWCLASS; }
    painted by the background art underneath - these divs are just the click
    targets and state, so they must be emitted exactly or the tabs do nothing. */
 var HEADER_HITAREAS = [
-  '\t<!-- Header: transparent hit areas over the painted buttons -->',
+  '\t<!-- Header: painted button captions (btncap) + transparent hit areas -->',
+  '\t<div class="btncap" style="left:1580dp; top:86dp; width:254dp; text-align:center;">SEND ALL</div>',
+  '\t<div class="btncap" style="left:1846dp; top:86dp; width:254dp; text-align:center;">LOAD SYX</div>',
+  '\t<div class="btncap" style="left:2112dp; top:86dp; width:254dp; text-align:center;">SAVE</div>',
+  '\t<div class="btncap" style="left:2378dp; top:86dp; width:254dp; text-align:center;">LOAD</div>',
+  '\t<div class="btncap" style="left:2644dp; top:86dp; width:254dp; text-align:center;">INIT</div>',
+  '\t<div class="btncap btn-main" style="left:1580dp; top:174dp; width:254dp; text-align:center;">MAIN</div>',
+  '\t<div class="btncap btn-reverb" style="left:1846dp; top:174dp; width:254dp; text-align:center;">REVERB</div>',
+  '\t<div class="btncap btn-seq" style="left:2112dp; top:174dp; width:254dp; text-align:center;">SEQ</div>',
+  '\t<div class="btncap btn-arp" style="left:2378dp; top:174dp; width:254dp; text-align:center;">ARP</div>',
+  '\t<div class="btncap btn-setup" style="left:2644dp; top:174dp; width:254dp; text-align:center;">SETUP</div>',
+  '\t<div class="btncap shiftcap" style="left:2928dp; top:134dp; width:300dp; text-align:center;">SHIFT</div>',
   '\t<div class="actionbtn" data-action="sendall" style="left:1580dp; top:66dp; width:254dp; height:74dp;"/>',
   '\t<div class="actionbtn" data-action="loadsyx" style="left:1846dp; top:66dp; width:254dp; height:74dp;"/>',
   '\t<div class="actionbtn" data-action="save" style="left:2112dp; top:66dp; width:254dp; height:74dp;"/>',
@@ -926,13 +979,164 @@ function importParamsFile(file) {
 /* Transient status message in the footer. */
 function flash(msg) { var el = document.getElementById("out"); if (el) { el.textContent = msg; } }
 
+/* Load one or more PNGs into window.SKIN (name -> data URL), keyed by filename
+   without extension. This is what makes the editor preview match the plugin:
+   the same band_main.png / bg_base.png the skin references get drawn here. */
+window.SKIN = window.SKIN || {};
+function importImageFiles(files) {
+  var list = Array.prototype.slice.call(files);
+  var loaded = 0, total = list.length;
+  list.forEach(function (f) {
+    var rd = new FileReader();
+    rd.onload = function () {
+      var name = f.name.replace(/\.[^.]+$/, "");   // strip extension
+      window.SKIN[name] = rd.result;               // data URL
+      if (++loaded === total) { render(); flash("Loaded " + total + " image(s): " + Object.keys(window.SKIN).join(", ")); }
+    };
+    rd.readAsDataURL(f);
+  });
+}
+/* All image names the editor knows about: whatever's loaded, plus the standard
+   ones, so the picker always offers the expected slots even before loading. */
+function knownImages() {
+  var std = ["bg_base", "band_main", "band_reverb", "band_step", "band_arpeggiator", "band_setup"];
+  var have = Object.keys(window.SKIN || {});
+  var all = std.slice();
+  have.forEach(function (n) { if (all.indexOf(n) < 0) all.push(n); });
+  return all;
+}
+
+/* Import a jt8000.rml and reconstruct an editable layout. Inverse of exportRml:
+   sectitles become blocks, controls become items (control box = cell on import),
+   legends supply labels, grouplabels and stepgrids round-trip. Lets you open ANY
+   exported skin and edit it, closing the design loop. */
+function importRmlFile(file) {
+  var rd = new FileReader();
+  rd.onload = function () {
+    try { buildLayoutFromRml(rd.result); }
+    catch (e) { alert("Could not parse that RML: " + e.message); }
+  };
+  rd.readAsText(file);
+}
+
+function attrOf(tag, name) { var m = tag.match(new RegExp(name + '="([^"]*)"')); return m ? m[1] : null; }
+function styleNum(tag, prop) { var s = attrOf(tag, "style") || tag; var m = s.match(new RegExp(prop + ':\\s*([0-9.]+)dp')); return m ? parseFloat(m[1]) : null; }
+
+/* Which editor view a class string belongs to. A layer control carries exactly
+   one of v-reverb/v-seq/v-arp/v-setup; everything else (v-main...) is MAIN.
+   This is what lets the importer put layer controls on their own page instead
+   of dumping them all onto MAIN. */
+function viewOfClass(cls) {
+  cls = cls || "";
+  if (/\bv-reverb\b/.test(cls) && !/\bv-main\b/.test(cls)) return "REVERB";
+  if (/\bv-seq\b/.test(cls)    && !/\bv-main\b/.test(cls)) return "SEQ";
+  if (/\bv-arp\b/.test(cls)    && !/\bv-main\b/.test(cls)) return "ARP";
+  if (/\bv-setup\b/.test(cls)  && !/\bv-main\b/.test(cls)) return "SETUP";
+  return "MAIN";
+}
+var VIEW_LAYER_NAME = { REVERB: "Reverb", SEQ: "Step Sequencer", ARP: "Arpeggiator", SETUP: "Setup" };
+
+function buildLayoutFromRml(rml) {
+  /* Collect sectitles (block names + top-left) and legends (labels by position). */
+  var sectitles = [], legends = [], controls = [], grouplabels = [];
+  var reDiv = /<div class="([^"]*)"[^>]*>([\s\S]*?)<\/div>/g, m;
+  while ((m = reDiv.exec(rml))) {
+    var cls = m[1], text = m[2].trim(), whole = m[0];
+    var x = styleNum(whole, "left"), y = styleNum(whole, "top"), w = styleNum(whole, "width");
+    if (/\bsectitle\b/.test(cls)) sectitles.push({ name: text, x: x, y: y, w: w, vc: viewOfClass(cls) });
+    else if (/\bgrouplabel\b/.test(cls)) grouplabels.push({ t: text, x: x, y: y, w: w, vc: viewOfClass(cls) });
+    else if (/\blegend\b/.test(cls)) legends.push({ t: text, x: x, y: y, w: w, shiftalt: /\bshiftalt\b/.test(cls) });
+  }
+  /* Collect controls (self-closing OR open/close). */
+  var reCtl = /<(knob|combo|toggle|fader|stepgrid)\b([^>]*?)(?:\/>|>[\s\S]*?<\/\1>)/g;
+  while ((m = reCtl.exec(rml))) {
+    var kind = m[1], attrs = m[2], w2 = m[0];
+    controls.push({
+      k: kind, key: attrOf(attrs, "key") || "", x: styleNum(w2, "left"), y: styleNum(w2, "top"),
+      w: styleNum(w2, "width"), h: styleNum(w2, "height"),
+      vc: viewOfClass(attrOf(attrs, "class") || ""),
+      opts: (attrOf(attrs, "options") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean),
+      stepprefix: attrOf(attrs, "stepprefix"), lanes: attrOf(attrs, "lanes"), steps: attrOf(attrs, "steps")
+    });
+  }
+  if (!sectitles.length && !controls.length) throw new Error("no sectitles or controls found");
+
+  /* Build blocks, keeping each control on its own VIEW. Main-view controls are
+     grouped by nearest main sectitle; each layer view collapses into its single
+     layer block (Reverb/Seq/Arp/Setup) - matching the editor's one-block-per-
+     layer model, so layer controls no longer pile onto MAIN. */
+  sectitles.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+  var mainTitles = sectitles.filter(function (s) { return s.vc === "MAIN"; });
+  var blocks = mainTitles.map(function (s) {
+    return { name: s.name, x: Math.round(s.x - 5), y: Math.round(s.y - 5), w: Math.round(s.w || 400), h: 400, layer: false, items: [], _sx: s.x, _sy: s.y };
+  });
+  /* One layer block per non-main view, created on demand. */
+  var layerBlocks = {};
+  function layerBlockFor(view) {
+    if (layerBlocks[view]) return layerBlocks[view];
+    var title = sectitles.filter(function (s) { return s.vc === view; })[0];
+    var b = { name: VIEW_LAYER_NAME[view], x: title ? Math.round(title.x - 5) : 40, y: title ? Math.round(title.y - 5) : 1900,
+              w: title ? Math.round(title.w || 3760) : 3760, h: 400, layer: true, items: [], _sx: title ? title.x : 40, _sy: title ? title.y : 1900 };
+    layerBlocks[view] = b; blocks.push(b); return b;
+  }
+
+  function nearestMainBlock(cx, cy) {
+    var best = null, bestD = 1e9;
+    blocks.forEach(function (b) {
+      if (b.layer) return;
+      if (b._sy > cy + 40) return;
+      var d = (cy - b._sy) + Math.abs(cx - b._sx) * 0.25;
+      if (d >= 0 && d < bestD) { bestD = d; best = b; }
+    });
+    return best || blocks[0] || layerBlockFor("MAIN");
+  }
+  function nearestLegend(cx, cy, ch, shiftalt) {
+    var best = null, bestD = 1e9;
+    legends.forEach(function (l) {
+      if (!!l.shiftalt !== !!shiftalt) return;
+      var dxL = Math.abs(l.x - cx);
+      var above = Math.abs(l.y - (cy - 30));
+      var below = Math.abs(l.y - (cy + (ch || 0) + 4));
+      var d = dxL + Math.min(above, below) * 0.8;
+      if (d < bestD) { bestD = d; best = l; }
+    });
+    return (best && bestD < 200) ? best : null;
+  }
+
+  controls.forEach(function (c) {
+    /* View decides the block: layer controls go to their layer block, main
+       controls to the nearest main sectitle. */
+    var b = (c.vc === "MAIN") ? nearestMainBlock(c.x, c.y) : layerBlockFor(c.vc);
+    var prim = nearestLegend(c.x, c.y, c.h, false);
+    var it = { k: c.k, t: prim ? prim.t : "", key: c.key, x: Math.round(c.x), y: Math.round(c.y),
+               w: Math.round(c.w || 144), h: Math.round(c.h || 144),
+               cw: Math.round(c.w || 144), ch: Math.round(c.h || 144), lw: 60 };
+    if (c.k === "combo" && c.opts.length) it.opts = c.opts;
+    if (c.k === "stepgrid") { if (c.stepprefix) it.stepprefix = c.stepprefix; if (c.lanes) it.lanes = c.lanes; if (c.steps) it.steps = c.steps; it.t = ""; }
+    var alt = nearestLegend(c.x, c.y, c.h, true);
+    if (alt) it.sh = { k: c.k, t: alt.t, key: c.key, lw: 60 };
+    b.items.push(it);
+  });
+  grouplabels.forEach(function (gl) {
+    var b = (gl.vc === "MAIN") ? nearestMainBlock(gl.x, gl.y) : layerBlockFor(gl.vc);
+    b.items.push({ k: "grouplabel", t: gl.t, x: Math.round(gl.x), y: Math.round(gl.y), w: Math.round(gl.w || 460) });
+  });
+
+  blocks.forEach(function (b) { delete b._sx; delete b._sy; });
+  pushHistory();
+  DOC = { canvas: { w: 3840, h: 2400, margin: 40 }, grid: DOC.grid, header: HDR, blocks: blocks };
+  sel = []; inside = null; render();
+  flash("Imported RML: " + blocks.length + " blocks, " + controls.length + " controls, " + grouplabels.length + " group labels.");
+}
+
 function exportHeader() {
   var rml = "<!-- header text overlays -->\n";
   HDR.texts.forEach(function (t) { rml += '<div class="' + t.id + '" id="' + t.id + '" style="left:' + t.x + 'dp; top:' + t.y + 'dp; width:' + t.w + 'dp; text-align:' + t.align + ';">' + (t.t || "") + "</div>\n"; });
-  var rcss = "/* header bands + background */\n";
-  var m = { MAIN: "main", REVERB: "reverb", SEQ: "seq", ARP: "arp", SETUP: "setup" };
-  Object.keys(HDR.band).forEach(function (v) { rcss += "body." + m[v] + " .band { decorator: image(" + HDR.band[v] + ".png); }\n"; });
+  var rcss = "/* backgrounds: base (whole panel) + per-view band (bottom strip) */\n";
   rcss += "body { decorator: image(" + HDR.bg + ".png); }\n";
+  rcss += ".band { position: absolute; left:" + BAND_GEO.x + "dp; top:" + BAND_GEO.y + "dp; width:" + BAND_GEO.w + "dp; height:" + BAND_GEO.h + "dp; }\n";
+  var m = { MAIN: "main", REVERB: "reverb", SEQ: "seq", ARP: "arp", SETUP: "setup" };
+  Object.keys(HDR.band).forEach(function (v) { if (m[v]) rcss += "body." + m[v] + " .band { decorator: image(" + HDR.band[v] + ".png); }\n"; });
   dl("header_patch.txt", rml + "\n" + rcss, "text/plain");
 }
 function buildDatalist() { var dl2 = document.getElementById("paramKeys"); if (!dl2) return; dl2.innerHTML = ""; CAT.keys.forEach(function (k) { var o = document.createElement("option"); o.value = k; if (CAT.labels[k]) o.label = CAT.labels[k]; dl2.appendChild(o); }); }
@@ -951,10 +1155,15 @@ document.getElementById("expHeader").onclick = exportHeader;
 /* Import: buttons trigger hidden file inputs; inputs reset value so the same
    file can be chosen twice in a row. */
 var impLayoutInput = document.getElementById("impLayoutFile");
+var impRmlInput = document.getElementById("impRmlFile");
+var imgInput = document.getElementById("impImgFile");
+imgInput.onchange = function () { if (imgInput.files.length) importImageFiles(imgInput.files); };
 var impParamsInput = document.getElementById("impParamsFile");
 document.getElementById("impLayout").onclick = function () { impLayoutInput.value = ""; impLayoutInput.click(); };
+document.getElementById("impRml").onclick = function () { impRmlInput.value = ""; impRmlInput.click(); };
 document.getElementById("impParams").onclick = function () { impParamsInput.value = ""; impParamsInput.click(); };
 impLayoutInput.onchange = function () { if (impLayoutInput.files[0]) importLayoutFile(impLayoutInput.files[0]); };
+impRmlInput.onchange = function () { if (impRmlInput.files[0]) importRmlFile(impRmlInput.files[0]); };
 impParamsInput.onchange = function () { if (impParamsInput.files[0]) importParamsFile(impParamsInput.files[0]); };
 document.getElementById("reset").onclick = function () { if (!confirm("Discard all changes?")) return; pushHistory(); DOC = normalize(JSON.parse(ORIG)); sel = []; inside = null; render(); };
 

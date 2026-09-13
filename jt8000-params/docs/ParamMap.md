@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 249 parameters.**
+**Schema version 1 — 250 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -173,6 +173,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0490` | 16 | Delay Saturation | `fx.delay_sat` | continuous | 0–1 norm (lin) | 0 norm | 20 ms | — | patch_shared |
 | `0x0491` | 17 | Delay Wow | `fx.delay_wow` | continuous | 0–1 norm (lin) | 0 norm | 20 ms | — | patch_shared |
 | `0x0492` | 18 | Delay Flutter | `fx.delay_flutter` | continuous | 0–1 norm (lin) | 0 norm | 20 ms | — | patch_shared |
+| `0x0493` | 19 | Delay Wow Rate | `fx.delay_wow_rate` | continuous | 0.2–3 Hz (log) | 0.7 Hz | 20 ms | — | patch_shared |
 
 ## [10] Velocity  *(NRPN MSB 10)*
 
@@ -280,7 +281,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0786` | 6 | Rev Freeze | `reverb.freeze` | toggle | off / on | off | 0 ms | — | global |
 | `0x0787` | 7 | Rev Lo Pass | `reverb.lowpass` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | global |
 | `0x0788` | 8 | Rev Hi Pass | `reverb.hipass` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | global |
-| `0x0789` | 9 | Reverb Algorithm | `reverb.algorithm` | select | 0–3 (index) | 0 (Plate) | 0 ms | — | global |
+| `0x0789` | 9 | Reverb Algorithm | `reverb.algorithm` | select | 0–2 (index) | 0 (Plate) | 0 ms | — | global |
 
 ## [16] Master  *(NRPN MSB 16)*
 
@@ -365,7 +366,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **xpander_mode**: `LP4`, `LP3`, `LP2`, `LP1`, `HP3`, `HP2`, `HP1`, `BP4`, `BP2`, `N2`, `PH3`, `HP2+LP1`, `HP3+LP1`, `N2+LP1`, `PH3+LP1`
 - **l_f_o_wave**: `SIN`, `TRI`, `SAW`, `SQR`, `S&H`, `NOISE`
 - **delay_engine**: `Digital`, `Tape`
-- **reverb_algo**: `Plate`, `Shimmer`, `Room`, `Hall`
+- **reverb_algo**: `Plate`, `Shimmer`, `Hall`
 - **pitch_mod_dest**: `OSC1+2`, `OSC2`, `X-MOD`
 - **l_f_o_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
 - **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`, `1/4D`, `1/8D`, `1/16D`

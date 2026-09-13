@@ -9,6 +9,12 @@
 # does not build cleanly here does not ship to the Teensy.
 #   -Wdouble-promotion  catches accidental double math (M7 FPU is fp32;
 #                       doubles are software-emulated and ~10x slower).
+#   -pedantic-errors    rejects GCC extensions that MSVC will not accept.  The
+#                       JUCE editor compiles these same core/ headers under
+#                       MSVC, so an extension that g++ waves through becomes a
+#                       hard error in a DIFFERENT repository, days later.  A
+#                       zero-sized array in PlateReverb taught us this: silent
+#                       under -Wall -Wextra -Werror, C2229 under MSVC.
 #
 # Targets:
 #   make test    build and run all unit tests (default)
@@ -17,7 +23,7 @@
 
 CXX      ?= g++
 CXXFLAGS := -std=c++17 -O2 -g \
-            -Wall -Wextra -Wdouble-promotion -Werror \
+            -Wall -Wextra -Wdouble-promotion -pedantic-errors -Werror \
             -Isrc -Itest \
             -DJT_TESTING
 
@@ -36,9 +42,13 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/OscCore.cpp \
         src/core/dsp/SupersawOsc.cpp \
         src/core/dsp/PlateReverb.cpp \
+        src/core/dsp/RoomReverb.cpp \
+        src/core/dsp/HallReverb.cpp \
+        src/core/dsp/ReverbRack.cpp \
         src/core/dsp/FxChain.cpp \
         src/core/dsp/StepSequencer.cpp \
         src/core/dsp/Arpeggiator.cpp \
+        src/core/PsramArena.cpp \
         src/core/ParameterStore.cpp \
         src/core/PerfRouter.cpp \
         src/core/Patch.cpp \
@@ -79,6 +89,7 @@ SRCS := $(CORE) \
         test/test_lfo.cpp \
         test/test_bpmclock.cpp \
         test/test_performance.cpp \
+        test/test_psram_arena.cpp \
         test/test_reverb.cpp \
         test/test_fxchain.cpp \
         test/test_sequencer.cpp \
@@ -95,7 +106,7 @@ RENDER_BIN  := $(BUILD)/render_wav
 # firmware link failure taught us this.  See OBXaCore.h's linkage rule.
 attrcheck:
 	@set -e; for f in $$(find src/core -name "*.cpp"); do \
-	  g++ -std=c++17 -O2 -Wall -Wextra -Wdouble-promotion \
+	  g++ -std=c++17 -O2 -Wall -Wextra -Wdouble-promotion -pedantic-errors \
 	    -D__IMXRT1062__ -Isrc -S -o /dev/null $$f; \
 	done
 	@# PLACEMENT gate: prove the flash attributes actually LAND.  Compiles
@@ -146,4 +157,4 @@ $(RENDER_BIN): $(RENDER_OBJS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 clean:
-	rm -rf $(BUILD)
+	rm -rf $(BUILD) 

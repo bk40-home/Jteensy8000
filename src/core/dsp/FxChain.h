@@ -94,20 +94,99 @@ public:
     // transport, and two more knobs for them would be knobs nobody moves.  The
     // two rates are deliberately NOT harmonically related, so the combined
     // drift never settles into an audible repeating cycle.
-    static constexpr float kWowHz        = 0.7f;
+    // ---- X2: delay-time slew -------------------------------------------------
+    // The read pointer used to jump to its new distance the instant the block
+    // boundary arrived.  A time change therefore stepped the buffer index by
+    // thousands of samples between two consecutive output samples — a hard
+    // discontinuity, i.e. a click, which with feedback engaged was then written
+    // back into the line and recirculated on every repeat.
+    //
+    // Slewing the tap distance fixes it, and is also what a real transport
+    // does: the motor ramps, so turning the time knob PITCH-BENDS the repeats.
+    // That is the sound you want from a tape echo, so this is a feature on the
+    // Tape engine and a click-fix on the Digital one.
+    //
+    // ~150 ms one-pole.  Applied to BOTH engines (signed off as option X2):
+    // the Digital path is unchanged whenever the time is NOT moving, because
+    // of kSlewSnap below.
+    static constexpr float kTimeSlewMs   = 150.0f;
+
+    // ...but a one-pole ALONE is not enough.  Its first step is proportional to
+    // the distance, so a 900 -> 300 ms jump (26460 samples) starts out moving
+    // the read pointer 4 samples per sample — a 400 % rate, which is a violent
+    // pitch dive rather than a tape glide.  And its tail is asymptotic, so it
+    // would take ~2.5 s to land exactly.
+    //
+    // Clamping the per-sample STEP fixes both ends: small changes still take
+    // the smooth one-pole path, large ones become a constant-rate glide that
+    // arrives in bounded time.  0.2 samples per sample is about 315 cents of
+    // bend while moving — a strong but musical tape swoop — and crosses that
+    // 26460-sample jump in roughly 3 s.
+    //
+    // THE TRADE IS REAL AND UNAVOIDABLE: a large time change cannot be both
+    // fast and smooth, because the pointer has to physically travel the
+    // distance.  Tape glides (slowly — a Space Echo does too); digital delays
+    // crossfade instead.  This is the glide.  If the Digital engine ever wants
+    // instant retiming, it needs a crossfade between two taps, not a faster
+    // ramp — see the ledger.
+    static constexpr float kTimeSlewMaxStep = 0.2f;   // samples per sample
+
+    // A one-pole never exactly arrives, and on float32 it does not even get
+    // close: at a tap distance of 13233 samples one ULP is ~0.001, so once the
+    // remaining error drops to ~3 samples the one-pole's step (error * coeff)
+    // falls below half an ULP and ROUNDS AWAY ENTIRELY.  The slew then stalls
+    // permanently 3 samples off target — which would silently break every
+    // downstream bit-identity claim and the render baseline for the rest of the
+    // session.  The stall point scales with the tap distance, so it is worse on
+    // long delays (~100 samples off at the 10 s end).
+    //
+    // A minimum step guarantees convergence from any distance at any magnitude,
+    // and the "step would reach or pass the target" test below then lands on it
+    // EXACTLY.  0.01 samples per sample closes the final few samples in a few
+    // milliseconds, far too slow to be audible as anything.
+    static constexpr float kSlewMinStep  = 0.01f;    // samples per sample
+
+    // ---- W3: drift specified in CENTS, not milliseconds -----------------------
+    // The first version set the modulation depth as a fraction of the delay
+    // time and capped it in ms.  That was the wrong unit.  Pitch deviation from
+    // a modulated delay is A * 2*pi*f, so a fixed ms depth produced WILDLY
+    // different amounts of audible wobble depending on the delay time and the
+    // rate: 5 cents at 200 ms but 40 cents at 1500 ms, from one knob position.
+    // Measured against a Space Echo (30-60 cents peak) the short-delay end was
+    // 3-5x too subtle, which is exactly what it sounded like.
+    //
+    // Now the knob means what you HEAR: peak pitch deviation in cents.  The
+    // required delay amplitude is derived from it and the current rate
+    //     A = dev / (2*pi*f),   dev = 2^(cents/1200) - 1
+    // so the wobble stays the same whatever the delay time or rate.
+    static constexpr float kWowMaxCents     = 60.0f;
+    static constexpr float kFlutterMaxCents = 25.0f;
+
+    // Wow rate is now a PARAMETER (fx.delay_wow_rate); this is its default and
+    // the range the setter clamps to.  Flutter stays fixed — it is scrape, a
+    // property of the transport, and a second rate knob nobody moves.
+    static constexpr float kWowHzDefault = 0.7f;
+    static constexpr float kWowHzMin     = 0.2f;
+    static constexpr float kWowHzMax     = 3.0f;
     static constexpr float kFlutterHz    = 7.3f;
 
-    // Depth at full knob, as a FRACTION of the delay time — wow on real tape is
-    // a capstan speed error, so it scales with the time.  0.35 % at 500 ms is
-    // ±1.75 ms, about right for a well-maintained machine.
-    static constexpr float kWowDepth     = 0.0035f;
-    static constexpr float kFlutterDepth = 0.0006f;
+    // Real wow is not a sine.  A second component at an irrational-ish multiple
+    // of the rate keeps the drift from ever repeating audibly; 0.73 was chosen
+    // because it shares no small factor with 1.
+    static constexpr float kWowRate2Ratio = 0.73f;
+    static constexpr float kWowMix1       = 0.65f;   // primary component
+    static constexpr float kWowMix2       = 0.35f;   // secondary
 
-    // ...but clamped in ABSOLUTE ms, because a pure fraction stops being
-    // musical once the delay is seconds long: 0.35 % of 10 s is 35 ms of pitch
-    // swing, which is seasickness rather than character.
-    static constexpr float kWowMaxMs     = 6.0f;
-    static constexpr float kFlutterMaxMs = 1.2f;
+    // The right channel's drift runs a fraction of a cycle behind the left, so
+    // the wobble MOVES across the image instead of pumping both sides together.
+    // The first version applied one identical drift to both taps, which is why
+    // it read as flat.
+    static constexpr float kDriftPhaseR   = 0.27f;
+
+    // Safety clamp: the drift may never exceed this fraction of the delay
+    // itself, or a slow deep wow on a 50 ms slapback would modulate straight
+    // through zero and fold the read pointer.
+    static constexpr float kDriftMaxFrac  = 0.25f;
 
     // Caller pool: two delay + two mod buffers (stereo).  886418 floats ≈ 3.38 MB.
     // Carved from the PsramArena on Teensy, a heap vector on the host.
@@ -162,8 +241,9 @@ public:
     void setDelayEngine(int engine);    // 0 = Digital (default), 1 = Tape
     void setDelayTone(float hz);        // feedback-loop one-pole LP cutoff
     void setDelaySat(float norm);       // 0..1 drive into the feedback soft-clip
-    void setDelayWow(float norm);       // 0..1 slow capstan drift depth
-    void setDelayFlutter(float norm);   // 0..1 fast scrape flutter depth
+    void setDelayWow(float norm);       // 0..1 -> 0..kWowMaxCents of drift
+    void setDelayWowRate(float hz);     // capstan rate, kWowHzMin..kWowHzMax
+    void setDelayFlutter(float norm);   // 0..1 -> 0..kFlutterMaxCents
 
     // ---- Sequencer aux-lane mod inputs (Stage D) -------------------------
     // Block-rate modulation from the step sequencer's aux lane.  Both are
@@ -222,12 +302,44 @@ public:
     // test can prove the Digital path never enters it, and that a Tape patch
     // with every control at zero does not either.
     bool  debugTapeActive() const { return _tapeActive; }
+    // W3: total wow drift amplitude in SAMPLES after the cents conversion and
+    // the kDriftMaxFrac clamp.  The cents-based depth is only meaningful if
+    // this is delay-time independent and scales as 1/rate, which is what the
+    // W3 tests assert.
+    float debugWowAmpSamples() const { return _wowSampAmp1 + _wowSampAmp2; }
+    // X2: the tap distance actually in use, and the target it is slewing to.
+    // Equality of these two is what makes a settled delay bit-identical.
+    float debugTapSamples()    const { return _dSampLCur; }
+    float debugTapTarget()     const { return _delaySampLCached; }
     float debugFbLpG()      const { return _fbLpG;      }
 #endif
 
 private:
     // ===================== inner-loop DSP helpers ============================
     // (header-inline on purpose — see the banner.)
+
+    // ---- X2: one slew step for a delay tap ----
+    // One-pole toward the target, rate-clamped at both ends: kTimeSlewMaxStep
+    // stops a large jump from becoming a violent swoop, kSlewMinStep stops the
+    // float32 stall described at its definition.  Landing is EXACT — once a
+    // step would reach or pass the target, assign the target itself, which is
+    // what keeps a settled delay bit-identical to the pre-slew engine.
+    static inline float slewTap(float cur, float target, float coeff)
+    {
+        const float delta = target - cur;
+        if (delta == 0.0f) return target;
+
+        float step = delta * coeff;
+        if (step >  kTimeSlewMaxStep) step =  kTimeSlewMaxStep;
+        if (step < -kTimeSlewMaxStep) step = -kTimeSlewMaxStep;
+        if (step >= 0.0f) { if (step <  kSlewMinStep) step =  kSlewMinStep; }
+        else              { if (step > -kSlewMinStep) step = -kSlewMinStep; }
+
+        // Would this step reach or overshoot?  Then we have arrived.
+        if ((step >= 0.0f && step >= delta) || (step < 0.0f && step <= delta))
+            return target;
+        return cur + step;
+    }
 
     // ---- D4: feedback-path soft clip ----
     // Deliberately NOT applySaturation() below: that one belongs to the JPFX
@@ -378,6 +490,7 @@ private:
     float _delayToneHz    = 12000.0f;
     float _delaySatNorm   = 0.0f;
     float _delayWowNorm   = 0.0f;
+    float _delayWowHz     = kWowHzDefault;
     float _delayFlutNorm  = 0.0f;
 
     // BLOCK-RATE CACHE (prepareDelay).  The per-sample loop reads only these,
@@ -386,16 +499,25 @@ private:
     float _fbLpG          = 1.0f;        // one-pole coefficient, 1 == bypass
     float _satDrive       = 1.0f;        // 1..4
     float _satComp        = 1.0f;        // 1/_satDrive, restores unity level
-    float _wowSampAmp     = 0.0f;        // drift amplitude in SAMPLES
+    // X2: the tap distance the read pointer is ACTUALLY using, slewed toward
+    // _delaySampLCached / _delaySampRCached.  Drift is added on top of these.
+    float _dSampLCur      = -1.0f;       // -1 == "not primed yet", snap on first use
+    float _dSampRCur      = -1.0f;
+    float _timeSlewCoeff  = 0.0f;        // block-rate cache
+
+    float _wowSampAmp1    = 0.0f;        // drift amplitude in SAMPLES
+    float _wowSampAmp2    = 0.0f;
     float _flutSampAmp    = 0.0f;
-    float _wowInc         = 0.0f;        // phase increment per sample (0..1)
+    float _wowInc1        = 0.0f;        // phase increment per sample (0..1)
+    float _wowInc2        = 0.0f;
     float _flutInc        = 0.0f;
 
     // PER-SAMPLE STATE.
     float _fbLpStateL     = 0.0f;
     float _fbLpStateR     = 0.0f;
-    float _wowPhase       = 0.0f;        // 0..1
-    float _flutPhase      = 0.25f;       // offset so both do not start at zero
+    float _wowPhase1      = 0.0f;        // 0..1
+    float _wowPhase2      = 0.41f;       // offset so the two do not start together
+    float _flutPhase      = 0.25f;
 
     // Delay block-constant cache (written by prepareDelay, read per-sample).
     float _delaySampLCached = 0.0f;

@@ -46,7 +46,6 @@
 
 #include "core/dsp/IReverb.h"
 #include "core/dsp/PlateReverb.h"
-#include "core/dsp/RoomReverb.h"
 #include "core/dsp/HallReverb.h"
 
 namespace JT {
@@ -62,7 +61,11 @@ public:
     enum Algo : int {
         kPlate = 0,
         kShimmer,
-        kRoom,          // appended, never inserted — see the note above
+        // R-b: kRoom was here at index 2 and has been REMOVED, not reserved.
+        // Hall therefore moved 3 -> 2.  Signed off on the basis that no patch
+        // had been saved on either yet; if one had, it would now select the
+        // wrong algorithm silently.  Removing an option is the one edit this
+        // append-only rule does not protect against.
         kHall,
         kNumAlgos
     };
@@ -77,12 +80,11 @@ public:
     // ~90 KB PSRAM memset inside the audio path (option R2).
     //   plate    23418 floats =  91.5 KB
     //   shimmer  31610 floats = 123.5 KB
-    //   room      4558 floats =  17.8 KB
     //   hall     14542 floats =  56.8 KB
-    //   total    74128 floats = 289.6 KB  (one bare plate was 39707 / 155.1 KB)
+    //   total    69570 floats = 271.8 KB  (one bare plate was 39707 / 155.1 KB)
     static constexpr uint32_t kTotalPoolFloats =
         PlateReverb::kPoolFloats + ShimmerReverb::kPoolFloats
-        + RoomReverb::kPoolFloats + HallReverb::kPoolFloats;
+        + HallReverb::kPoolFloats;
 
     ReverbRack() = default;
 
@@ -124,7 +126,6 @@ private:
 
     PlateReverb   _plate;
     ShimmerReverb _shimmer;
-    RoomReverb    _room;
     HallReverb    _hall;
 
     int     _active  = kPlate;

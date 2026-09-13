@@ -160,9 +160,21 @@ private:
     OnePole_LP   _tankLPF[2];
     OnePole_HP   _tankHPF[2];
 
-    // Shimmer shifters exist only on the Shimmer variant; the Plate variant
-    // declares a zero-length array so no storage and no code is emitted.
-    PitchShifter _pitchShim[kShimmer ? 2 : 0];
+    // Shimmer shifters, on the Shimmer variant only.
+    //
+    // The Plate variant keeps ONE unused element rather than declaring a
+    // zero-length array.  Zero-sized arrays are a GCC extension: g++ accepts
+    // them silently, MSVC rejects them outright (C2229), and the JUCE editor
+    // builds this same header under MSVC.  One spare element costs ~28 bytes
+    // of control state, its `buf` stays nullptr (never assigned — the carve in
+    // begin() is behind `if constexpr (kShimmer)`), and process() is never
+    // reached on it, so it is inert as well as cheap.
+    //
+    // A std::conditional_t holder would cost 1 byte instead of 28, at the
+    // price of a second type and `_shim.s[0]` at every use site.  Not worth it
+    // for 27 bytes.
+    static constexpr uint8_t kShimCount = kShimmer ? 2 : 1;
+    PitchShifter _pitchShim[kShimCount];
 
     OnePole_LP   _masterLPF[2];
     OnePole_HP   _masterHPF[2];

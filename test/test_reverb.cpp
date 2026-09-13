@@ -24,7 +24,6 @@
 #include "core/SynthCore.h"
 #include "core/dsp/PlateReverb.h"
 #include "core/dsp/ReverbRack.h"
-#include "core/dsp/RoomReverb.h"
 #include "core/dsp/HallReverb.h"
 #include "core/dsp/Curves.h"
 #include "gen/ParamTable.h"
@@ -366,9 +365,8 @@ TEST_CASE("rack: pool slices are contiguous, non-overlapping and exactly sized")
     CHECK(ReverbRack::kTotalPoolFloats
           == PlateReverb::kPoolFloats
            + ShimmerReverb::kPoolFloats
-           + RoomReverb::kPoolFloats
            + HallReverb::kPoolFloats);
-    CHECK(ReverbRack::kNumAlgos == 4);
+    CHECK(ReverbRack::kNumAlgos == 3);
 
     std::vector<float> pool((size_t)ReverbRack::kTotalPoolFloats, 0.0f);
     ReverbRack r; r.begin(pool.data());
@@ -468,126 +466,6 @@ TEST_CASE("rack: parameters reach every algorithm, not just the active one")
     bool same = true;
     for (size_t i = 0; i < N; ++i) if (pL[i] != qL[i]) { same = false; break; }
     CHECK(same);
-}
-
-
-// =============================================================================
-// RoomReverb
-// =============================================================================
-
-TEST_CASE("room: pool is a fraction of the plate's and slices correctly")
-{
-    // The whole point of this algorithm is being cheaper. If it ever stops
-    // being smaller than the plate, the reason to have it has gone.
-    CHECK(RoomReverb::kPoolFloats < PlateReverb::kPoolFloats / 4u);
-    CHECK(RoomReverb::kPoolFloats == RoomReverb::kErLen + RoomReverb::kTailLen);
-
-    std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
-    RoomReverb r; r.begin(pool.data());
-    CHECK(std::string(r.name()) == "room");
-}
-
-TEST_CASE("room: a null pool leaves it inert and passes audio through")
-{
-    RoomReverb r; r.begin(nullptr);
-    float L[128], R[128];
-    for (int i = 0; i < 128; ++i) { L[i] = 0.25f; R[i] = -0.25f; }
-    r.processBlock(L, R, 128, 0.9f, 0.9f);
-    for (int i = 0; i < 128; ++i) { CHECK(L[i] == 0.25f); CHECK(R[i] == -0.25f); }
-}
-
-TEST_CASE("room: produces a decaying stereo tail that stays bounded")
-{
-    std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
-    RoomReverb r; r.begin(pool.data());
-    r.setSize(0.8f);
-
-    // Burst then silence. Measure an early window against a late one.
-    const size_t N = 16384;
-    std::vector<float> oL(N), oR(N);
-    for (size_t i = 0; i < N; i += 128) {
-        float bL[128], bR[128];
-        for (size_t k = 0; k < 128; ++k) {
-            const float v = (i + k < 512) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
-            bL[k] = v; bR[k] = v;
-        }
-        r.processBlock(bL, bR, 128, 1.0f, 1.0f);
-        for (size_t k = 0; k < 128 && i + k < N; ++k) { oL[i+k] = bL[k]; oR[i+k] = bR[k]; }
-    }
-
-    auto rms = [](const float* v, size_t a, size_t b) {
-        double acc = 0.0;
-        for (size_t i = a; i < b; ++i) acc += (double)v[i] * (double)v[i];
-        return (float)std::sqrt(acc / (double)(b - a));
-    };
-
-    const float early = rms(oL.data(), 1024,  3072);
-    const float late  = rms(oL.data(), 12288, 16384);
-    CHECK(early > 1e-5f);          // there IS a tail
-    CHECK(late  < early);          // and it decays rather than sustaining
-
-    // The two channels must differ, or the six taps have collapsed to the
-    // centre and it is a mono delay wearing a reverb's name.
-    bool stereo = false;
-    for (size_t i = 1024; i < 4096; ++i) if (oL[i] != oR[i]) { stereo = true; break; }
-    CHECK(stereo);
-
-    for (size_t i = 0; i < N; ++i) { CHECK(std::fabs(oL[i]) < 2.0f); CHECK(std::fabs(oR[i]) < 2.0f); }
-}
-
-TEST_CASE("room: size lengthens the tail; freeze holds it")
-{
-    auto tailEnergy = [](float size, bool freeze) {
-        std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
-        RoomReverb r; r.begin(pool.data());
-        r.setSize(size);
-        const size_t N = 16384;
-        double acc = 0.0;
-        for (size_t i = 0; i < N; i += 128) {
-            float bL[128], bR[128];
-            for (size_t k = 0; k < 128; ++k) {
-                const float v = (i + k < 512) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
-                bL[k] = v; bR[k] = v;
-            }
-            if (freeze && i == 1024) r.setFreeze(true);
-            r.processBlock(bL, bR, 128, 1.0f, 1.0f);
-            if (i >= 12288) for (size_t k = 0; k < 128; ++k) acc += (double)bL[k] * (double)bL[k];
-        }
-        return acc;
-    };
-
-    CHECK(tailEnergy(0.9f, false) > tailEnergy(0.2f, false));
-    // Freeze drives the loop to unity gain, so the late window must hold more
-    // energy than the same size decaying normally.
-    CHECK(tailEnergy(0.5f, true) > tailEnergy(0.5f, false));
-}
-
-TEST_CASE("room: shimmer is a documented no-op, not a partial effect")
-{
-    // setShimmer must change NOTHING here. A partially-wired control that
-    // altered the sound slightly would be far worse than one that is inert.
-    auto run = [](float shim) {
-        std::vector<float> pool((size_t)RoomReverb::kPoolFloats, 0.0f);
-        RoomReverb r; r.begin(pool.data());
-        r.setSize(0.6f);
-        r.setShimmer(shim);
-        std::vector<float> out(4096);
-        for (size_t i = 0; i < 4096; i += 128) {
-            float bL[128], bR[128];
-            for (size_t k = 0; k < 128; ++k) {
-                const float v = (i + k < 512) ? ((k & 1u) ? 0.4f : -0.4f) : 0.0f;
-                bL[k] = v; bR[k] = v;
-            }
-            r.processBlock(bL, bR, 128, 1.0f, 1.0f);
-            for (size_t k = 0; k < 128; ++k) out[i+k] = bL[k];
-        }
-        return out;
-    };
-    const auto a = run(0.0f);
-    const auto b = run(1.0f);
-    bool identical = true;
-    for (size_t i = 0; i < a.size(); ++i) if (a[i] != b[i]) { identical = false; break; }
-    CHECK(identical);
 }
 
 

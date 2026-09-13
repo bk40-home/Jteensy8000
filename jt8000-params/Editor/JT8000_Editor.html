@@ -177,7 +177,7 @@ body.dragging,body.dragging *{cursor:inherit !important}
   <div class="cluster"><span class="clabel">View</span><button id="view">View: MAIN</button><button id="shiftToggle">Shift: OFF</button><button id="up" class="ghost">Leave block</button></div>
   <div class="cluster" id="preview"><span class="clabel">Preview</span></div>
   <span class="spacer"></span>
-  <div class="cluster"><span class="clabel">Import</span><button id="impLayout" class="ghost">Load layout</button><button id="impParams" class="ghost">Load params</button></div>
+  <div class="cluster"><span class="clabel">Import</span><button id="impLayout" class="ghost">Load layout</button><button id="impRml" class="ghost">Load RML</button><button id="impParams" class="ghost">Load params</button></div>
   <div class="cluster"><span class="clabel">Export</span><button id="expLayout" class="ghost">layout.json</button><button id="expRml" class="ghost">jt8000.rml</button><button id="expHeader" class="ghost">header patch</button></div>
   <button id="reset" class="ghost">Reset</button>
   <span id="info"></span>
@@ -203,6 +203,8 @@ body.dragging,body.dragging *{cursor:inherit !important}
 
 <datalist id="paramKeys"></datalist>
 <input type="file" id="impLayoutFile" accept=".json,application/json" style="display:none">
+<input type="file" id="impRmlFile" accept=".rml,.xml,text/xml" style="display:none">
+<input type="file" id="impImgFile" accept="image/png,image/*" multiple style="display:none">
 <input type="file" id="impParamsFile" accept=".json,.js,application/json,text/javascript" style="display:none">
 
 <script src="layout.js"></script>
