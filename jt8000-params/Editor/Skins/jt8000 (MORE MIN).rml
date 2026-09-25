@@ -1,0 +1,399 @@
+<rml>
+<head>
+	<title>JT-8000</title>
+	<link type="text/rcss" href="jt8000.rcss"/>
+</head>
+<body class="main">
+
+	<div class="band"/>
+
+	<div class="lcd1" id="lcd1" style="left:544dp; top:102dp; width:740dp; text-align:left;">INIT PATCH</div>
+	<div class="lcd2" id="lcd2" style="left:544dp; top:184dp; width:932dp; text-align:left;"></div>
+	<!-- Header: painted button captions (btncap) + transparent hit areas -->
+	<div class="btncap" style="left:1580dp; top:86dp; width:254dp; text-align:center;">SEND ALL</div>
+	<div class="btncap" style="left:1846dp; top:86dp; width:254dp; text-align:center;">LOAD SYX</div>
+	<div class="btncap" style="left:2112dp; top:86dp; width:254dp; text-align:center;">SAVE</div>
+	<div class="btncap" style="left:2378dp; top:86dp; width:254dp; text-align:center;">LOAD</div>
+	<div class="btncap" style="left:2644dp; top:86dp; width:254dp; text-align:center;">INIT</div>
+	<div class="btncap btn-main" style="left:1580dp; top:174dp; width:254dp; text-align:center;">MAIN</div>
+	<div class="btncap btn-reverb" style="left:1846dp; top:174dp; width:254dp; text-align:center;">FX</div>
+	<div class="btncap btn-seq" style="left:2112dp; top:174dp; width:254dp; text-align:center;">SEQ</div>
+	<div class="btncap btn-arp" style="left:2378dp; top:174dp; width:254dp; text-align:center;">ARP</div>
+	<div class="btncap btn-setup" style="left:2644dp; top:174dp; width:254dp; text-align:center;">SETUP</div>
+	<div class="btncap shiftcap" style="left:2928dp; top:134dp; width:300dp; text-align:center;">SHIFT</div>
+	<div class="actionbtn" data-action="sendall" style="left:1580dp; top:66dp; width:254dp; height:74dp;"/>
+	<div class="actionbtn" data-action="loadsyx" style="left:1846dp; top:66dp; width:254dp; height:74dp;"/>
+	<div class="actionbtn" data-action="save" style="left:2112dp; top:66dp; width:254dp; height:74dp;"/>
+	<div class="actionbtn" data-action="load" style="left:2378dp; top:66dp; width:254dp; height:74dp;"/>
+	<div class="actionbtn" data-action="init" style="left:2644dp; top:66dp; width:254dp; height:74dp;"/>
+	<div class="layerlit v-main" style="left:1580dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerbtn" data-layer="main" style="left:1580dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerlit v-reverb" style="left:1846dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerbtn" data-layer="reverb" style="left:1846dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerlit v-seq" style="left:2112dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerbtn" data-layer="seq" style="left:2112dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerlit v-arp" style="left:2378dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerbtn" data-layer="arp" style="left:2378dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerlit v-setup" style="left:2644dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="layerbtn" data-layer="setup" style="left:2644dp; top:154dp; width:254dp; height:74dp;"/>
+	<div class="voice" id="voice0" style="left:1224dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="voice" id="voice1" style="left:1258dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="voice" id="voice2" style="left:1292dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="voice" id="voice3" style="left:1326dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="voice" id="voice4" style="left:1360dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="voice" id="voice5" style="left:1394dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="voice" id="voice6" style="left:1428dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="voice" id="voice7" style="left:1462dp; top:106dp; width:22dp; height:22dp;"/>
+	<div class="shiftbtn" style="left:2928dp; top:66dp; width:300dp; height:162dp;"/>
+
+	<div class="secbox v-main v-shift" style="left:40dp; top:322dp; width:680dp; height:782dp;"/>
+	<div class="secbox v-main v-shift" style="left:763dp; top:322dp; width:722dp; height:782dp;"/>
+	<div class="secbox v-main v-shift" style="left:1528dp; top:322dp; width:255dp; height:782dp;"/>
+	<div class="secbox v-main v-shift" style="left:1825dp; top:322dp; width:893dp; height:782dp;"/>
+	<div class="secbox v-main v-shift" style="left:40dp; top:1150dp; width:680dp; height:506dp;"/>
+	<div class="secbox v-main v-shift" style="left:2760dp; top:322dp; width:595dp; height:460dp;"/>
+	<div class="secbox v-main v-shift" style="left:763dp; top:1150dp; width:552dp; height:506dp;"/>
+	<div class="secbox v-main v-shift" style="left:1358dp; top:1150dp; width:1020dp; height:506dp;"/>
+	<div class="secbox v-main v-shift" style="left:2420dp; top:1150dp; width:935dp; height:506dp;"/>
+	<div class="secbox v-main v-shift v-reverb" style="left:380dp; top:1748dp; width:595dp; height:322dp;"/>
+	<div class="secbox v-main v-shift" style="left:1018dp; top:1748dp; width:850dp; height:322dp;"/>
+	<div class="secbox v-main v-shift" style="left:1868dp; top:1748dp; width:977dp; height:322dp;"/>
+	<div class="secbox v-reverb" style="left:40dp; top:1764dp; width:3760dp; height:312dp;"/>
+	<div class="secbox v-main v-shift" style="left:2760dp; top:828dp; width:595dp; height:276dp;"/>
+	<div class="secbox v-setup" style="left:40dp; top:1764dp; width:3760dp; height:312dp;"/>
+	<div class="secbox v-seq" style="left:40dp; top:1764dp; width:3760dp; height:339dp;"/>
+	<div class="secbox v-arp" style="left:40dp; top:1764dp; width:3760dp; height:348dp;"/>
+
+	<!-- Oscillator 1 -->
+	<div class="sectitle v-main v-shift" style="left:56dp; top:330dp; width:648dp; text-align:left;">OSCILLATOR 1</div>
+	<div class="legend v-main v-shift" style="left:83dp; top:414dp; width:255dp; text-align:left;">WAVE</div>
+	<combo class="combo v-main v-shift" param="osc1.wave" key="osc1.wave" default="0.0" options="SIN, SAW, SQR, TRI, ARB, PLS, rSAW, S&amp;amp;H, vTRI, BLS, rBLS, BLSQ, BLP, SSAW, vSAW, BLvSAW, vTRI2, BLvTRI" index="0" style="left:83dp; top:444dp; width:255dp; height:62dp;"/>
+	<div class="legend v-main v-shift" style="left:380dp; top:414dp; width:213dp; text-align:left;">OCTAVE</div>
+	<combo class="combo v-main v-shift" param="osc1.pitch_offset" key="osc1.pitch_offset" default="0.5" options="-24, -12, 0, +12, +24" index="0" style="left:380dp; top:444dp; width:213dp; height:62dp;"/>
+	<div class="legend v-main" style="left:83dp; top:552dp; width:144dp; text-align:center;">DETUNE</div>
+	<div class="legend shiftalt v-shift" style="left:83dp; top:552dp; width:144dp; text-align:center;">FINE</div>
+	<knob class="knob v-main v-shift" param="osc1.detune" key="osc1.detune" default="0.5" style="left:83dp; top:582dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:295dp; top:736dp; width:144dp; text-align:center;">SS DETUNE</div>
+	<knob class="knob v-main v-shift" param="osc1.supersaw_detune" key="osc1.supersaw_detune" default="0.0" style="left:295dp; top:766dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:508dp; top:736dp; width:144dp; text-align:center;">SS MIX</div>
+	<knob class="knob v-main v-shift" param="osc1.supersaw_mix" key="osc1.supersaw_mix" default="0.5" style="left:508dp; top:766dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:295dp; top:552dp; width:144dp; text-align:center;">FB AMOUNT</div>
+	<div class="legend shiftalt v-shift" style="left:295dp; top:552dp; width:144dp; text-align:center;">ARB BANK</div>
+	<knob class="knob v-main v-shift" param="osc1.feedback_amount" key="osc1.feedback_amount" default="0.0" style="left:295dp; top:582dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:508dp; top:552dp; width:144dp; text-align:center;">FB MIX</div>
+	<div class="legend shiftalt v-shift" style="left:508dp; top:552dp; width:144dp; text-align:center;">ARB INDEX</div>
+	<knob class="knob v-main v-shift" param="osc1.feedback_mix" key="osc1.feedback_mix" default="0.0" style="left:508dp; top:582dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:83dp; top:736dp; width:144dp; text-align:center;">RING MIX</div>
+	<knob class="knob v-main v-shift" param="osc1.ring_mix" key="osc1.ring_mix" default="0.0" style="left:83dp; top:766dp; width:144dp; height:144dp;"/>
+
+	<!-- Oscillator 2 -->
+	<div class="sectitle v-main v-shift" style="left:779dp; top:330dp; width:690dp; text-align:left;">OSCILLATOR 2</div>
+	<div class="legend v-main v-shift" style="left:805dp; top:460dp; width:161dp; text-align:left;">WAVE</div>
+	<combo class="combo v-main v-shift" param="osc2.wave" key="osc2.wave" default="0.0" options="SIN, SAW, SQR, TRI, ARB, PLS, rSAW, S&amp;amp;H, vTRI, BLS, rBLS, BLSQ, BLP, SSAW, vSAW, BLvSAW, vTRI2, BLvTRI" index="0" style="left:805dp; top:490dp; width:161dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:805dp; top:552dp; width:139dp; text-align:left;">OCTAVE</div>
+	<combo class="combo v-main v-shift" param="osc2.pitch_offset" key="osc2.pitch_offset" default="0.5" options="-24, -12, 0, +12, +24" index="0" style="left:805dp; top:582dp; width:139dp; height:41dp;"/>
+	<div class="legend v-main" style="left:1018dp; top:460dp; width:144dp; text-align:center;">DETUNE</div>
+	<div class="legend shiftalt v-shift" style="left:1018dp; top:460dp; width:144dp; text-align:center;">FINE</div>
+	<knob class="knob v-main v-shift" param="osc2.detune" key="osc2.detune" default="0.5" style="left:1018dp; top:490dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:805dp; top:874dp; width:144dp; text-align:center;">SS DETUNE</div>
+	<knob class="knob v-main v-shift" param="osc2.supersaw_detune" key="osc2.supersaw_detune" default="0.0" style="left:805dp; top:904dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1018dp; top:874dp; width:144dp; text-align:center;">SS MIX</div>
+	<knob class="knob v-main v-shift" param="osc2.supersaw_mix" key="osc2.supersaw_mix" default="0.5" style="left:1018dp; top:904dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:805dp; top:690dp; width:144dp; text-align:center;">FB AMOUNT</div>
+	<div class="legend shiftalt v-shift" style="left:805dp; top:690dp; width:144dp; text-align:center;">ARB BANK</div>
+	<knob class="knob v-main v-shift" param="osc2.feedback_amount" key="osc2.feedback_amount" default="0.0" style="left:805dp; top:720dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:1018dp; top:690dp; width:144dp; text-align:center;">FB MIX</div>
+	<div class="legend shiftalt v-shift" style="left:1018dp; top:690dp; width:144dp; text-align:center;">ARB INDEX</div>
+	<knob class="knob v-main v-shift" param="osc2.feedback_mix" key="osc2.feedback_mix" default="0.0" style="left:1018dp; top:720dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1230dp; top:690dp; width:144dp; text-align:center;">RING MIX</div>
+	<knob class="knob v-main v-shift" param="osc2.ring_mix" key="osc2.ring_mix" default="0.0" style="left:1230dp; top:720dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1230dp; top:460dp; width:100dp; text-align:left;">OSC SYNC</div>
+	<toggle class="toggle v-main v-shift" param="mix.osc_sync" key="mix.osc_sync" default="0.0" style="left:1230dp; top:490dp; width:100dp; height:72dp;"/>
+
+	<!-- Mixer -->
+	<div class="sectitle v-main v-shift" style="left:1544dp; top:330dp; width:223dp; text-align:left;">MIXER</div>
+	<div class="legend v-main v-shift" style="left:1570dp; top:460dp; width:144dp; text-align:center;">BALANCE</div>
+	<knob class="knob v-main v-shift" param="mix.balance" key="mix.balance" default="0.5" style="left:1570dp; top:490dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:1570dp; top:690dp; width:144dp; text-align:center;">SUB</div>
+	<div class="legend shiftalt v-shift" style="left:1570dp; top:690dp; width:144dp; text-align:center;">SUB</div>
+	<knob class="knob v-main v-shift" param="mix.sub" key="mix.sub" default="0.0" style="left:1570dp; top:720dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1570dp; top:874dp; width:144dp; text-align:center;">Cross Mod</div>
+	<knob class="knob v-main v-shift" param="mix.cross_mod" key="mix.cross_mod" default="0.0" style="left:1570dp; top:904dp; width:144dp; height:144dp;"/>
+
+	<!-- Filter -->
+	<div class="sectitle v-main v-shift" style="left:1841dp; top:330dp; width:861dp; text-align:left;">FILTER</div>
+	<div class="legend v-main v-shift" style="left:1868dp; top:414dp; width:288dp; text-align:center;">CUTOFF</div>
+	<knob class="knob v-main v-shift" param="filter.cutoff" key="filter.cutoff" default="1.0" style="left:1868dp; top:459dp; width:288dp; height:288dp;"/>
+	<div class="legend v-main v-shift" style="left:2208dp; top:414dp; width:144dp; text-align:center;">RESO</div>
+	<knob class="knob v-main v-shift" param="filter.resonance" key="filter.resonance" default="0.0" style="left:2208dp; top:444dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1910dp; top:874dp; width:144dp; text-align:center;">ENV AMT</div>
+	<knob class="knob v-main v-shift" param="filter.env_amount" key="filter.env_amount" default="0.5" style="left:1910dp; top:904dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2080dp; top:874dp; width:144dp; text-align:center;">KEY TRK</div>
+	<knob class="knob v-main v-shift" param="filter.key_track" key="filter.key_track" default="0.5" style="left:2080dp; top:904dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2250dp; top:874dp; width:144dp; text-align:center;">OCT CTRL</div>
+	<knob class="knob v-main v-shift" param="filter.octave_control" key="filter.octave_control" default="0.4" style="left:2250dp; top:904dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2208dp; top:598dp; width:144dp; text-align:center;">MULTI</div>
+	<knob class="knob v-main v-shift" param="filter.obxa_multimode" key="filter.obxa_multimode" default="0.0" style="left:2208dp; top:628dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2420dp; top:460dp; width:157dp; text-align:left;">OBX/VAF</div>
+	<combo class="combo v-main v-shift" param="filter.engine" key="filter.engine" default="0.0" options="OBXa, VA" index="0" style="left:2420dp; top:490dp; width:157dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:2420dp; top:552dp; width:215dp; text-align:left;">MODE</div>
+	<combo class="combo v-main v-shift" param="filter.mode" key="filter.mode" default="0.0" options="4-Pole, 2-Pole, 2P BP, 2P Push, Xpander, Xpander M" index="0" style="left:2420dp; top:582dp; width:215dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:2420dp; top:736dp; width:237dp; text-align:left;">VA TYPE</div>
+	<combo class="combo v-main v-shift" param="filter.va_type" key="filter.va_type" default="0.0" options="SVF LP2, SVF HP2, SVF BP2, SVF NOTCH, SVF AP, Moog LP4, Moog LP2, Moog BP2, Diode LP4, Korg35 LP, Korg35 HP, TPT1 LP, TPT1 HP, MoogDV LP4, MoogDV LP2, MoogDV HP4, MoogDV BP" index="0" style="left:2420dp; top:766dp; width:237dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:2420dp; top:644dp; width:191dp; text-align:left;">XPANDER</div>
+	<combo class="combo v-main v-shift" param="filter.obxa_xpander_mode" key="filter.obxa_xpander_mode" default="0.0" options="LP4, LP3, LP2, LP1, HP3, HP2, HP1, BP4, BP2, N2, PH3, HP2+LP1, HP3+LP1, N2+LP1, PH3+LP1" index="0" style="left:2420dp; top:674dp; width:191dp; height:41dp;"/>
+
+	<!-- Amp Envelope -->
+	<div class="sectitle v-main v-shift" style="left:56dp; top:1158dp; width:648dp; text-align:left;">AMP ENVELOPE</div>
+	<div class="legend v-main" style="left:83dp; top:1288dp; width:62dp; text-align:center;">ATT</div>
+	<div class="legend shiftalt v-shift" style="left:83dp; top:1288dp; width:62dp; text-align:center;">A CRV</div>
+	<fader class="fader v-main v-shift" param="env_amp.attack" key="env_amp.attack" default="0.0" style="left:101dp; top:1318dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+	<div class="legend v-main" style="left:210dp; top:1288dp; width:63dp; text-align:center;">DEC</div>
+	<div class="legend shiftalt v-shift" style="left:210dp; top:1288dp; width:63dp; text-align:center;">D CRV</div>
+	<fader class="fader v-main v-shift" param="env_amp.decay" key="env_amp.decay" default="0.0094" style="left:229dp; top:1318dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+	<div class="legend v-main v-shift" style="left:338dp; top:1288dp; width:62dp; text-align:center;">SUS</div>
+	<fader class="fader v-main v-shift" param="env_amp.sustain" key="env_amp.sustain" default="1.0" style="left:356dp; top:1318dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+	<div class="legend v-main" style="left:465dp; top:1288dp; width:62dp; text-align:center;">REL</div>
+	<div class="legend shiftalt v-shift" style="left:465dp; top:1288dp; width:62dp; text-align:center;">R CRV</div>
+	<fader class="fader v-main v-shift" param="env_amp.release" key="env_amp.release" default="0.0003" style="left:483dp; top:1318dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+
+	<!-- Filter Envelope -->
+	<div class="sectitle v-main v-shift" style="left:2776dp; top:330dp; width:563dp; text-align:left;">FILTER ENVELOPE</div>
+	<div class="legend v-main" style="left:2803dp; top:460dp; width:62dp; text-align:center;">ATT</div>
+	<div class="legend shiftalt v-shift" style="left:2803dp; top:460dp; width:62dp; text-align:center;">A CRV</div>
+	<fader class="fader v-main v-shift" param="env_filter.attack" key="env_filter.attack" default="0.0" style="left:2821dp; top:490dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+	<div class="legend v-main" style="left:2930dp; top:460dp; width:63dp; text-align:center;">DEC</div>
+	<div class="legend shiftalt v-shift" style="left:2930dp; top:460dp; width:63dp; text-align:center;">D CRV</div>
+	<fader class="fader v-main v-shift" param="env_filter.decay" key="env_filter.decay" default="0.0094" style="left:2949dp; top:490dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+	<div class="legend v-main v-shift" style="left:3058dp; top:460dp; width:62dp; text-align:center;">SUS</div>
+	<fader class="fader v-main v-shift" param="env_filter.sustain" key="env_filter.sustain" default="0.0" style="left:3076dp; top:490dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+	<div class="legend v-main" style="left:3185dp; top:460dp; width:62dp; text-align:center;">REL</div>
+	<div class="legend shiftalt v-shift" style="left:3185dp; top:460dp; width:62dp; text-align:center;">R CRV</div>
+	<fader class="fader v-main v-shift" param="env_filter.release" key="env_filter.release" default="0.0003" style="left:3203dp; top:490dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+
+	<!-- Pitch Envelope -->
+	<div class="sectitle v-main v-shift" style="left:779dp; top:1158dp; width:520dp; text-align:left;">PITCH ENVELOPE</div>
+	<div class="legend v-main v-shift" style="left:805dp; top:1288dp; width:144dp; text-align:center;">DEPTH</div>
+	<knob class="knob v-main v-shift" param="env_pitch.depth" key="env_pitch.depth" default="0.5" style="left:805dp; top:1318dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:975dp; top:1288dp; width:62dp; text-align:center;">ATT</div>
+	<div class="legend shiftalt v-shift" style="left:975dp; top:1288dp; width:62dp; text-align:center;">A CRV</div>
+	<fader class="fader v-main v-shift" param="env_pitch.attack" key="env_pitch.attack" default="0.0" style="left:993dp; top:1318dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+	<div class="legend v-main" style="left:1103dp; top:1288dp; width:63dp; text-align:center;">DEC</div>
+	<div class="legend shiftalt v-shift" style="left:1103dp; top:1288dp; width:63dp; text-align:center;">D CRV</div>
+	<fader class="fader v-main v-shift" param="env_pitch.decay" key="env_pitch.decay" default="0.0094" style="left:1122dp; top:1318dp; width:26dp; height:256dp;">
+		<div class="thumb"/>
+	</fader>
+
+	<!-- LFO 1 -->
+	<div class="sectitle v-main v-shift" style="left:1374dp; top:1158dp; width:988dp; text-align:left;">LFO 1</div>
+	<div class="legend v-main" style="left:1400dp; top:1242dp; width:144dp; text-align:center;">FREQ</div>
+	<div class="legend shiftalt v-shift" style="left:1400dp; top:1242dp; width:144dp; text-align:center;">DELAY</div>
+	<knob class="knob v-main v-shift" param="lfo1.freq" key="lfo1.freq" default="0.0" style="left:1400dp; top:1272dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:1613dp; top:1288dp; width:165dp; text-align:left;">WAVEFORM</div>
+	<div class="legend shiftalt v-shift" style="left:1613dp; top:1288dp; width:165dp; text-align:left;">MOD DEST</div>
+	<combo class="combo v-main v-shift" param="lfo1.waveform" key="lfo1.waveform" default="0.0" options="SIN, TRI, SAW, SQR, S&amp;amp;H, NOISE" index="0" style="left:1613dp; top:1318dp; width:165dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:1868dp; top:1288dp; width:164dp; text-align:left;">SYNC</div>
+	<combo class="combo v-main v-shift" param="lfo1.sync" key="lfo1.sync" default="0.0" options="Free, 4 Bars, 2 Bars, 1 Bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T" index="0" style="left:1868dp; top:1318dp; width:164dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:1400dp; top:1426dp; width:144dp; text-align:center;">PITCH</div>
+	<knob class="knob v-main v-shift" param="lfo1.pitch_depth" key="lfo1.pitch_depth" default="0.0" style="left:1400dp; top:1456dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1570dp; top:1426dp; width:144dp; text-align:center;">FILTER</div>
+	<knob class="knob v-main v-shift" param="lfo1.filter_depth" key="lfo1.filter_depth" default="0.0" style="left:1570dp; top:1456dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1740dp; top:1426dp; width:144dp; text-align:center;">PWM</div>
+	<knob class="knob v-main v-shift" param="lfo1.pwm_depth" key="lfo1.pwm_depth" default="0.0" style="left:1740dp; top:1456dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1910dp; top:1426dp; width:144dp; text-align:center;">AMP</div>
+	<knob class="knob v-main v-shift" param="lfo1.amp_depth" key="lfo1.amp_depth" default="0.0" style="left:1910dp; top:1456dp; width:144dp; height:144dp;"/>
+
+	<!-- LFO 2 -->
+	<div class="sectitle v-main v-shift" style="left:2436dp; top:1158dp; width:903dp; text-align:left;">LFO 2</div>
+	<div class="legend v-main" style="left:2463dp; top:1242dp; width:144dp; text-align:center;">FREQ</div>
+	<div class="legend shiftalt v-shift" style="left:2463dp; top:1242dp; width:144dp; text-align:center;">DEPTH</div>
+	<knob class="knob v-main v-shift" param="lfo2.freq" key="lfo2.freq" default="0.0" style="left:2463dp; top:1272dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:2675dp; top:1288dp; width:165dp; text-align:left;">WAVEFORM</div>
+	<div class="legend shiftalt v-shift" style="left:2675dp; top:1288dp; width:165dp; text-align:left;">DESTINATION</div>
+	<combo class="combo v-main v-shift" param="lfo2.waveform" key="lfo2.waveform" default="0.0" options="SIN, TRI, SAW, SQR, S&amp;amp;H, NOISE" index="0" style="left:2675dp; top:1318dp; width:165dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:2930dp; top:1288dp; width:164dp; text-align:left;">SYNC</div>
+	<combo class="combo v-main v-shift" param="lfo2.sync" key="lfo2.sync" default="0.0" options="Free, 4 Bars, 2 Bars, 1 Bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T" index="0" style="left:2930dp; top:1318dp; width:164dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:2463dp; top:1426dp; width:144dp; text-align:center;">PITCH</div>
+	<knob class="knob v-main v-shift" param="lfo2.pitch_depth" key="lfo2.pitch_depth" default="0.0" style="left:2463dp; top:1456dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2633dp; top:1426dp; width:144dp; text-align:center;">FILTER</div>
+	<knob class="knob v-main v-shift" param="lfo2.filter_depth" key="lfo2.filter_depth" default="0.0" style="left:2633dp; top:1456dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2803dp; top:1426dp; width:144dp; text-align:center;">PWM</div>
+	<knob class="knob v-main v-shift" param="lfo2.pwm_depth" key="lfo2.pwm_depth" default="0.0" style="left:2803dp; top:1456dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2973dp; top:1426dp; width:144dp; text-align:center;">AMP</div>
+	<knob class="knob v-main v-shift" param="lfo2.amp_depth" key="lfo2.amp_depth" default="0.0" style="left:2973dp; top:1456dp; width:144dp; height:144dp;"/>
+
+	<!-- EQ &amp; Drive -->
+	<div class="sectitle v-main v-shift v-reverb" style="left:396dp; top:1756dp; width:563dp; text-align:left;">EQ &amp; DRIVE</div>
+	<div class="legend v-main v-shift v-reverb" style="left:423dp; top:1840dp; width:144dp; text-align:center;">BASS</div>
+	<knob class="knob v-main v-shift v-reverb" param="fx.bass_gain" key="fx.bass_gain" default="0.5" style="left:423dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift v-reverb" style="left:593dp; top:1840dp; width:144dp; text-align:center;">TREBLE</div>
+	<knob class="knob v-main v-shift v-reverb" param="fx.treble_gain" key="fx.treble_gain" default="0.5" style="left:593dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift v-reverb" style="left:763dp; top:1840dp; width:152dp; text-align:left;">DRIVE</div>
+	<combo class="combo v-main v-shift v-reverb" param="fx.drive" key="fx.drive" default="0.0" options="OFF, Soft, Hard" index="0" style="left:763dp; top:1870dp; width:152dp; height:41dp;"/>
+
+	<!-- Mod FX -->
+	<div class="sectitle v-main v-shift" style="left:1034dp; top:1756dp; width:818dp; text-align:left;">MOD FX</div>
+	<div class="legend v-main v-shift" style="left:1060dp; top:1840dp; width:144dp; text-align:center;">MIX</div>
+	<knob class="knob v-main v-shift" param="fx.mod_mix" key="fx.mod_mix" default="0.0" style="left:1060dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1230dp; top:1840dp; width:144dp; text-align:center;">RATE</div>
+	<knob class="knob v-main v-shift" param="fx.mod_rate" key="fx.mod_rate" default="0.5" style="left:1230dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1400dp; top:1840dp; width:144dp; text-align:center;">FEEDBACK</div>
+	<knob class="knob v-main v-shift" param="fx.mod_feedback" key="fx.mod_feedback" default="0.0" style="left:1400dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:1570dp; top:1840dp; width:237dp; text-align:left;">TYPE</div>
+	<combo class="combo v-main v-shift" param="fx.mod_effect" key="fx.mod_effect" default="0.0" options="OFF, Chorus 1, Chorus 2, Chorus 3, Flanger 1, Flanger 2, Flanger 3, Phaser 1, Phaser 2, Phaser 3, Phaser 4, Super Chorus" index="0" style="left:1570dp; top:1870dp; width:237dp; height:41dp;"/>
+
+	<!-- Delay -->
+	<div class="sectitle v-main v-shift" style="left:1884dp; top:1756dp; width:945dp; text-align:left;">DELAY</div>
+	<div class="legend v-main" style="left:1910dp; top:1840dp; width:144dp; text-align:center;">TIME</div>
+	<div class="legend shiftalt v-shift" style="left:1910dp; top:1840dp; width:144dp; text-align:center;">FLUT</div>
+	<knob class="knob v-main v-shift" param="fx.delay_time" key="fx.delay_time" default="0.5" style="left:1910dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:2080dp; top:1840dp; width:144dp; text-align:center;">MIX</div>
+	<div class="legend shiftalt v-shift" style="left:2080dp; top:1840dp; width:144dp; text-align:center;">SAT</div>
+	<knob class="knob v-main v-shift" param="fx.delay_mix" key="fx.delay_mix" default="0.0" style="left:2080dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:2250dp; top:1840dp; width:144dp; text-align:center;">FEEDBACK</div>
+	<div class="legend shiftalt v-shift" style="left:2250dp; top:1840dp; width:144dp; text-align:center;">FEEDBACK</div>
+	<knob class="knob v-main v-shift" param="fx.delay_feedback" key="fx.delay_feedback" default="0.0" style="left:2250dp; top:1870dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main" style="left:2463dp; top:1840dp; width:223dp; text-align:left;">TYPE</div>
+	<div class="legend shiftalt v-shift" style="left:2463dp; top:1840dp; width:223dp; text-align:left;">ENG.</div>
+	<combo class="combo v-main v-shift" param="fx.delay_effect" key="fx.delay_effect" default="0.0" options="OFF, Mono Short, Mono Long, Pan L&gt;R, Pan R&gt;L, Pan Stereo" index="0" style="left:2463dp; top:1870dp; width:223dp; height:41dp;"/>
+	<div class="legend v-main v-shift" style="left:2463dp; top:1932dp; width:164dp; text-align:left;">SYNC</div>
+	<combo class="combo v-main v-shift" param="fx.delay_sync" key="fx.delay_sync" default="0.0" options="Free, 4 Bars, 2 Bars, 1 Bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T" index="0" style="left:2463dp; top:1962dp; width:164dp; height:41dp;"/>
+
+	<!-- Reverb -->
+	<div class="sectitle v-reverb" style="left:56dp; top:1772dp; width:3728dp; text-align:left;">REVERB</div>
+	<div class="legend v-reverb" style="left:66dp; top:1876dp; width:144dp; text-align:center;">SIZE</div>
+	<knob class="knob v-reverb" param="reverb.size" key="reverb.size" default="0.0" style="left:66dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-reverb" style="left:236dp; top:1876dp; width:144dp; text-align:center;">DAMP</div>
+	<knob class="knob v-reverb" param="reverb.damp" key="reverb.damp" default="0.0" style="left:236dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-reverb" style="left:406dp; top:1876dp; width:144dp; text-align:center;">LODAMP</div>
+	<knob class="knob v-reverb" param="reverb.lodamp" key="reverb.lodamp" default="0.0" style="left:406dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-reverb" style="left:576dp; top:1876dp; width:144dp; text-align:center;">MIX</div>
+	<knob class="knob v-reverb" param="reverb.mix" key="reverb.mix" default="0.0" style="left:576dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-reverb" style="left:746dp; top:1876dp; width:96dp; text-align:left;">BYPASS</div>
+	<toggle class="toggle v-reverb" param="reverb.bypass" key="reverb.bypass" default="0.0" style="left:746dp; top:1906dp; width:96dp; height:72dp;"/>
+	<div class="legend v-reverb" style="left:876dp; top:1876dp; width:144dp; text-align:center;">SHIMMER</div>
+	<knob class="knob v-reverb" param="reverb.shimmer" key="reverb.shimmer" default="0.0" style="left:876dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-reverb" style="left:1046dp; top:1876dp; width:144dp; text-align:center;">LOWPASS</div>
+	<knob class="knob v-reverb" param="reverb.lowpass" key="reverb.lowpass" default="0.0" style="left:1046dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-reverb" style="left:1216dp; top:1876dp; width:144dp; text-align:center;">HIPASS</div>
+	<knob class="knob v-reverb" param="reverb.hipass" key="reverb.hipass" default="0.0" style="left:1216dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-reverb" style="left:1386dp; top:1876dp; width:96dp; text-align:left;">FREEZE</div>
+	<toggle class="toggle v-reverb" param="reverb.freeze" key="reverb.freeze" default="0.0" style="left:1386dp; top:1906dp; width:96dp; height:72dp;"/>
+
+	<!-- Output Mix -->
+	<div class="sectitle v-main v-shift" style="left:2776dp; top:836dp; width:563dp; text-align:left;">OUTPUT MIX</div>
+	<div class="legend v-main" style="left:2803dp; top:920dp; width:144dp; text-align:center;">JPFX MIX</div>
+	<div class="legend shiftalt v-shift" style="left:2803dp; top:920dp; width:144dp; text-align:center;">DRY MIX</div>
+	<knob class="knob v-main v-shift" param="fx.jpfx_mix" key="fx.jpfx_mix" default="1.0" style="left:2803dp; top:950dp; width:144dp; height:144dp;"/>
+	<div class="legend v-main v-shift" style="left:2973dp; top:920dp; width:144dp; text-align:center;">VOLUME</div>
+	<knob class="knob v-main v-shift" param="master.volume" key="master.volume" default="0.8" style="left:2973dp; top:950dp; width:144dp; height:144dp;"/>
+
+	<!-- Setup -->
+	<div class="sectitle v-setup" style="left:56dp; top:1772dp; width:3728dp; text-align:left;">SETUP</div>
+	<div class="legend v-setup" style="left:66dp; top:1876dp; width:162dp; text-align:left;">MODE</div>
+	<combo class="combo v-setup" param="perf.mode" key="perf.mode" default="0.0" options="Single, Layer, Split" index="0" style="left:66dp; top:1906dp; width:162dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:254dp; top:1876dp; width:151dp; text-align:left;">EDIT TARGET</div>
+	<combo class="combo v-setup" param="perf.edit_target" key="perf.edit_target" default="0.0" options="A, B, Both" index="0" style="left:254dp; top:1906dp; width:151dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:431dp; top:1876dp; width:175dp; text-align:left;">MIDI CHANNEL A</div>
+	<combo class="combo v-setup" param="perf.midi_channel_a" key="perf.midi_channel_a" default="0.0" options="Ch 1, Ch 2, Ch 3, Ch 4, Ch 5, Ch 6, Ch 7, Ch 8, Ch 9, Ch 10, Ch 11, Ch 12, Ch 13, Ch 14, Ch 15, Ch 16" index="0" style="left:431dp; top:1906dp; width:175dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:632dp; top:1876dp; width:174dp; text-align:left;">MIDI CHANNEL B</div>
+	<combo class="combo v-setup" param="perf.midi_channel_b" key="perf.midi_channel_b" default="0.0667" options="Ch 1, Ch 2, Ch 3, Ch 4, Ch 5, Ch 6, Ch 7, Ch 8, Ch 9, Ch 10, Ch 11, Ch 12, Ch 13, Ch 14, Ch 15, Ch 16" index="0" style="left:632dp; top:1906dp; width:174dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:840dp; top:1876dp; width:144dp; text-align:center;">SPLIT NOTE</div>
+	<knob class="knob v-setup" param="perf.split_note" key="perf.split_note" default="0.4724" style="left:840dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:1010dp; top:1876dp; width:139dp; text-align:left;">VOICE SPLIT</div>
+	<combo class="combo v-setup" param="perf.voice_split" key="perf.voice_split" default="0.5" options="1+7, 2+6, 3+5, 4+4, 5+3, 6+2, 7+1" index="0" style="left:1010dp; top:1906dp; width:139dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:1175dp; top:1876dp; width:131dp; text-align:left;">BALANCE</div>
+	<combo class="combo v-setup" param="perf.balance" key="perf.balance" default="0.5" options="A, AB, B" index="0" style="left:1175dp; top:1906dp; width:131dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:1340dp; top:1876dp; width:144dp; text-align:center;">TIME</div>
+	<knob class="knob v-setup" param="glide.time" key="glide.time" default="0.0" style="left:1340dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:1510dp; top:1876dp; width:96dp; text-align:left;">ENABLE</div>
+	<toggle class="toggle v-setup" param="glide.enable" key="glide.enable" default="0.0" style="left:1510dp; top:1906dp; width:96dp; height:72dp;"/>
+	<div class="legend v-setup" style="left:1640dp; top:1876dp; width:144dp; text-align:center;">UNI DET</div>
+	<knob class="knob v-setup" param="voice.unison_detune" key="voice.unison_detune" default="0.0" style="left:1640dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:1810dp; top:1876dp; width:173dp; text-align:left;">POLY MODE</div>
+	<combo class="combo v-setup" param="voice.poly_mode" key="voice.poly_mode" default="0.0" options="Poly, Mono, Unison" index="0" style="left:1810dp; top:1906dp; width:173dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:2017dp; top:1876dp; width:144dp; text-align:center;">BEND RANGE</div>
+	<knob class="knob v-setup" param="voice.bend_range" key="voice.bend_range" default="0.0833" style="left:2017dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:2187dp; top:1876dp; width:144dp; text-align:center;">AMP LEVEL</div>
+	<knob class="knob v-setup" param="voice.amp_level" key="voice.amp_level" default="1.0" style="left:2187dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:2365dp; top:1876dp; width:144dp; text-align:center;">TEMPO</div>
+	<knob class="knob v-setup" param="clock.tempo" key="clock.tempo" default="0.5" style="left:2365dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:2535dp; top:1876dp; width:189dp; text-align:left;">CLOCK SOURCE</div>
+	<combo class="combo v-setup" param="clock.clock_source" key="clock.clock_source" default="0.0" options="Internal, Ext MIDI" index="0" style="left:2535dp; top:1906dp; width:189dp; height:41dp;"/>
+	<div class="legend v-setup" style="left:2758dp; top:1876dp; width:144dp; text-align:center;">AMP SENS</div>
+	<knob class="knob v-setup" param="velocity.amp_sens" key="velocity.amp_sens" default="0.0" style="left:2758dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:2928dp; top:1876dp; width:144dp; text-align:center;">FILTER SENS</div>
+	<knob class="knob v-setup" param="velocity.filter_sens" key="velocity.filter_sens" default="0.0" style="left:2928dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-setup" style="left:3098dp; top:1876dp; width:144dp; text-align:center;">ENV SENS</div>
+	<knob class="knob v-setup" param="velocity.env_sens" key="velocity.env_sens" default="0.0" style="left:3098dp; top:1906dp; width:144dp; height:144dp;"/>
+
+	<!-- Step Sequencer -->
+	<div class="sectitle v-seq" style="left:56dp; top:1772dp; width:3728dp; text-align:left;">STEP SEQUENCER</div>
+	<div class="legend v-seq" style="left:66dp; top:1876dp; width:144dp; text-align:center;">STEPS</div>
+	<knob class="knob v-seq" param="seq.steps" key="seq.steps" default="0.5333" style="left:66dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-seq" style="left:236dp; top:1876dp; width:144dp; text-align:center;">GATE LENGTH</div>
+	<knob class="knob v-seq" param="seq.gate_length" key="seq.gate_length" default="0.5" style="left:236dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-seq" style="left:406dp; top:1876dp; width:144dp; text-align:center;">SLIDE</div>
+	<knob class="knob v-seq" param="seq.slide" key="seq.slide" default="0.0" style="left:406dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-seq" style="left:576dp; top:1876dp; width:96dp; text-align:left;">ENABLE</div>
+	<toggle class="toggle v-seq" param="seq.enable" key="seq.enable" default="0.0" style="left:576dp; top:1906dp; width:96dp; height:72dp;"/>
+	<div class="legend v-seq" style="left:706dp; top:1876dp; width:144dp; text-align:center;">DEPTH</div>
+	<knob class="knob v-seq" param="seq.depth" key="seq.depth" default="0.5" style="left:706dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-seq" style="left:876dp; top:1876dp; width:117dp; text-align:left;">RETRIGGER</div>
+	<toggle class="toggle v-seq" param="seq.retrigger" key="seq.retrigger" default="0.0" style="left:876dp; top:1906dp; width:117dp; height:72dp;"/>
+	<div class="legend v-seq" style="left:1019dp; top:1876dp; width:187dp; text-align:left;">DIRECTION</div>
+	<combo class="combo v-seq" param="seq.direction" key="seq.direction" default="0.0" options="Fwd, Rev, Bounce, Random" index="0" style="left:1019dp; top:1906dp; width:187dp; height:41dp;"/>
+	<div class="legend v-seq" style="left:1232dp; top:1876dp; width:159dp; text-align:left;">DESTINATION</div>
+	<combo class="combo v-seq" param="seq.destination" key="seq.destination" default="0.0" options="None, Pitch, Filter, PWM, Amp" index="0" style="left:1232dp; top:1906dp; width:159dp; height:41dp;"/>
+	<div class="legend v-seq" style="left:1425dp; top:1876dp; width:144dp; text-align:center;">RATE</div>
+	<knob class="knob v-seq" param="seq.rate" key="seq.rate" default="0.5" style="left:1425dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-seq" style="left:1595dp; top:1876dp; width:164dp; text-align:left;">TIMING MODE</div>
+	<combo class="combo v-seq" param="seq.timing_mode" key="seq.timing_mode" default="0.0" options="Free, 4 Bars, 2 Bars, 1 Bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T" index="0" style="left:1595dp; top:1906dp; width:164dp; height:41dp;"/>
+	<div class="legend v-seq" style="left:1793dp; top:1876dp; width:144dp; text-align:center;">AUX DEPTH</div>
+	<knob class="knob v-seq" param="seq.aux_depth" key="seq.aux_depth" default="0.5" style="left:1793dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-seq" style="left:1963dp; top:1876dp; width:209dp; text-align:left;">AUX DESTINATION</div>
+	<combo class="combo v-seq" param="seq.aux_destination" key="seq.aux_destination" default="0.0" options="None, Filter, Pan, DelaySend, Drive" index="0" style="left:1963dp; top:1906dp; width:209dp; height:41dp;"/>
+	<stepgrid class="stepgrid v-seq" param="" key="step_sequencer.pattern" lanes="2" steps="16" stepprefix="seq.step_,seq.aux_step_" style="left:2206dp; top:1906dp; width:1440dp; height:171dp;"/>
+
+	<!-- Arpeggiator -->
+	<div class="sectitle v-arp" style="left:56dp; top:1772dp; width:3728dp; text-align:left;">ARPEGGIATOR</div>
+	<div class="legend v-arp" style="left:66dp; top:1876dp; width:96dp; text-align:left;">ENABLE</div>
+	<toggle class="toggle v-arp" param="arp.enable" key="arp.enable" default="0.0" style="left:66dp; top:1906dp; width:96dp; height:72dp;"/>
+	<div class="legend v-arp" style="left:188dp; top:1876dp; width:96dp; text-align:left;">LATCH</div>
+	<toggle class="toggle v-arp" param="arp.latch" key="arp.latch" default="0.0" style="left:188dp; top:1906dp; width:96dp; height:72dp;"/>
+	<div class="legend v-arp" style="left:310dp; top:1876dp; width:198dp; text-align:left;">MODE</div>
+	<combo class="combo v-arp" param="arp.mode" key="arp.mode" default="0.0" options="Up, Down, UpDn Inc, UpDn Exc, AsPlayed, Random, Chord" index="0" style="left:310dp; top:1906dp; width:198dp; height:41dp;"/>
+	<div class="legend v-arp" style="left:534dp; top:1876dp; width:129dp; text-align:left;">OCTAVES</div>
+	<combo class="combo v-arp" param="arp.octaves" key="arp.octaves" default="0.0" options="1, 2, 3, 4" index="0" style="left:534dp; top:1906dp; width:129dp; height:41dp;"/>
+	<div class="legend v-arp" style="left:697dp; top:1876dp; width:144dp; text-align:center;">FREE HZ</div>
+	<knob class="knob v-arp" param="arp.free_hz" key="arp.free_hz" default="0.5" style="left:697dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-arp" style="left:867dp; top:1876dp; width:144dp; text-align:center;">GATE LENGTH</div>
+	<knob class="knob v-arp" param="arp.gate_length" key="arp.gate_length" default="0.5" style="left:867dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-arp" style="left:1037dp; top:1876dp; width:144dp; text-align:center;">SWING</div>
+	<knob class="knob v-arp" param="arp.swing" key="arp.swing" default="0.5" style="left:1037dp; top:1906dp; width:144dp; height:144dp;"/>
+	<div class="legend v-arp" style="left:1207dp; top:1876dp; width:164dp; text-align:left;">RATE</div>
+	<combo class="combo v-arp" param="arp.rate" key="arp.rate" default="0.6364" options="Free, 4 Bars, 2 Bars, 1 Bar, 1/2, 1/4, 1/8, 1/16, 1/32, 1/4T, 1/8T, 1/16T" index="0" style="left:1207dp; top:1906dp; width:164dp; height:41dp;"/>
+	<div class="legend v-arp" style="left:1397dp; top:1876dp; width:144dp; text-align:center;">STEP COUNT</div>
+	<knob class="knob v-arp" param="arp.step_count" key="arp.step_count" default="1.0" style="left:1397dp; top:1906dp; width:144dp; height:144dp;"/>
+	<stepgrid class="stepgrid v-arp" param="" key="arpeggiator.pattern" lanes="1" steps="16" stepprefix="arp.step_accent_" style="left:1575dp; top:1906dp; width:1980dp; height:180dp;"/>
+
+</body>
+</rml>

@@ -65,32 +65,36 @@ namespace JT {
 
 class RoomReverb : public IReverb {
 public:
-    // ---- buffer sizing (samples @ 44.1 kHz) --------------------------------
-    // Mutually prime lengths so reflections never line up into a pitched comb.
+    // ---- buffer sizing -----------------------------------------------------
+    // Mutually prime lengths (authored @ 44.1 kHz) so reflections never line up
+    // into a pitched comb.  Rate-derived (AudioConfig.h samplesAtRate) to keep
+    // the room geometry — hence its size and colour — constant across rates;
+    // each reduces to the value shown at 44.1 kHz.  Rescaled lengths lose exact
+    // primeness — see the port audit's decorrelation caveat.
 
     // Early-reflection line, ~62 ms.  The six taps below all read from it.
-    static constexpr uint32_t kErLen = 2757;
+    static constexpr uint32_t kErLen = samplesAtRate(2757);
 
     // Late-tail loop, ~41 ms.  Short on purpose: this is a ROOM.  A longer
     // loop just turns it into a worse plate.
-    static constexpr uint32_t kTailLen = 1801;
+    static constexpr uint32_t kTailLen = samplesAtRate(1801);
 
     // Diffusion allpasses — DTCM members, not pool.
-    static constexpr uint32_t kApLen0 = 149;   // tail loop
-    static constexpr uint32_t kApLen1 = 211;   // tail loop
-    static constexpr uint32_t kApLen2 = 173;   // output decorrelation, L
-    static constexpr uint32_t kApLen3 = 239;   // output decorrelation, R
-    static constexpr uint32_t kApTotal = kApLen0 + kApLen1 + kApLen2 + kApLen3;  // 772
+    static constexpr uint32_t kApLen0 = samplesAtRate(149);   // tail loop
+    static constexpr uint32_t kApLen1 = samplesAtRate(211);   // tail loop
+    static constexpr uint32_t kApLen2 = samplesAtRate(173);   // output decorrelation, L
+    static constexpr uint32_t kApLen3 = samplesAtRate(239);   // output decorrelation, R
+    static constexpr uint32_t kApTotal = kApLen0 + kApLen1 + kApLen2 + kApLen3;  // 772 @44.1k
 
-    // 4558 floats = 17.8 KB, against the plate's 23418 / 91.5 KB.
+    // ~4558 floats = 17.8 KB @44.1k, against the plate's 23418 / 91.5 KB.
     static constexpr uint32_t kPoolFloats = kErLen + kTailLen;
 
     // Six early reflections, three per channel, in samples.  Values are prime
     // and interleaved L/R so the two ears never receive a reflection at the
     // same instant — that simultaneity is what makes a cheap ER cluster
     // collapse to the centre and sound like a delay rather than a space.
-    static constexpr uint32_t kTapL[3] = {  277,  1123,  2111 };
-    static constexpr uint32_t kTapR[3] = {  409,  1471,  2591 };
+    static constexpr uint32_t kTapL[3] = { samplesAtRate(277),  samplesAtRate(1123), samplesAtRate(2111) };
+    static constexpr uint32_t kTapR[3] = { samplesAtRate(409),  samplesAtRate(1471), samplesAtRate(2591) };
 
     RoomReverb() = default;
 

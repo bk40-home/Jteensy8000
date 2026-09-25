@@ -333,17 +333,16 @@ void SynthCore::drainNoteEvents()
                 L.alloc.allSoundOff();
                 break;
             case kEvModWheel:
-                // Fixed destination until the mod matrix exists: the wheel
-                // adds vibrato via LFO1's pitch lane.  Full wheel is a
-                // deliberately modest kModWheelPitchDepth of the knob's full
-                // range — a wheel that reaches +-7 semitones would be
-                // unplayable, and the knob is still there for extremes.
+                // JP-8000 authentic: the mod wheel is LFO2's master depth VCA.
+                // Panel sets LFO2 rate + destination depths; the wheel scales
+                // their combined output 0..1.  Wheel at rest -> LFO2 silent.
                 //
-                // Wheel at rest writes 0.0f, so the default patch's pitch
-                // depth and engaged() state are exactly what they were
-                // before the wheel existed.
-                L.lfo1.depthPitchMod =
-                    Curves::normFrom7bit(e.a) * kModWheelPitchDepth;
+                // Only wheelDepth is written here; whether it is actually
+                // applied is gated by lfo2.wheelToLfo2 (LFO2_MOD_WHEEL param),
+                // so a disarmed patch ignores the wheel entirely.  LFO1 is no
+                // longer driven by the wheel (previous behaviour removed by
+                // design — see LFO2_MOD_WHEEL).
+                L.lfo2.wheelDepth = Curves::normFrom7bit(e.a);
                 break;
             case kEvBend: {
                 // Recombine the 14-bit value (raw form: 0..16383, centre 8192)
@@ -837,6 +836,11 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::LFO2_FILTER_DEPTH: L.lfo2.depthFilter = eng; break;
         case ID::LFO2_PWM_DEPTH:    L.lfo2.depthPwm    = eng; break;
         case ID::LFO2_AMP_DEPTH:    L.lfo2.depthAmp    = eng; break;
+        case ID::LFO2_MOD_WHEEL:
+            // Toggle: arm/disarm the mod-wheel -> LFO2 master-depth routing.
+            // eng is 0/1 (toggles compare >= 0.5f project-wide).
+            L.lfo2.wheelToLfo2 = (eng >= 0.5f);
+            break;
 
         // ------------- internal BPM clock (Phase 3 subsystem 2) ------------
         // CLOCK_TEMPO only changes the internal BPM on an actual knob edit
@@ -1454,11 +1458,18 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         //
         // pitchDepthTotal() == depthPitch when the mod wheel is at rest, so the
         // default patch is arithmetically unchanged (see LfoState).
+        // LFO2 master gain (mod-wheel VCA).  Computed ONCE and folded into u2 so
+        // every LFO2 destination is scaled identically for one extra multiply.
+        // 1.0f (transparent) unless the wheel switch is armed — see LfoState.
+        // Applied here, BEFORE the sequencer adds into the common lanes below,
+        // so the wheel scales LFO2 only and never the sequencer.
+        const float u2g = u2 * lz.lfo2.outputGain();
+
         float pitchSemisLfo1   = u1 * lz.lfo1.pitchDepthTotal() * kLfoPitchMaxSemis;
-        float pitchSemisCommon = u2 * lz.lfo2.depthPitch * kLfoPitchMaxSemis;
-        float filterCutInput   = u1 * lz.lfo1.depthFilter + u2 * lz.lfo2.depthFilter;
+        float pitchSemisCommon = u2g * lz.lfo2.depthPitch * kLfoPitchMaxSemis;
+        float filterCutInput   = u1 * lz.lfo1.depthFilter + u2g * lz.lfo2.depthFilter;
         float pwmLfo1          = u1 * lz.lfo1.depthPwm;
-        float pwmCommon        = u2 * lz.lfo2.depthPwm;
+        float pwmCommon        = u2g * lz.lfo2.depthPwm;
 
         // The shared sequencer feeds BOTH layers' lanes — one pattern
         // modulating the whole instrument is what "global sequencer" means.
@@ -1486,7 +1497,7 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         // At the default patch this is exactly 1.0 + 0 + 0, so the gain stays
         // unity, the mixing stage stays inert, and the render is unchanged.
         float ampMul = lz.ampFixedLevel + u1 * lz.lfo1.depthAmp
-                                        + u2 * lz.lfo2.depthAmp;
+                                        + u2g * lz.lfo2.depthAmp;
         if (_seq.destination() == SeqDest::Amp) ampMul += seqVal;
         gainTarget[li] *= ampMul;
 

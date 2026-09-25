@@ -38,13 +38,16 @@
 
 #include <stddef.h>
 
+#include "core/AudioConfig.h"   // msToSamples — rate-derived line length
+
 namespace JT {
 
 class FeedbackComb {
 public:
-    // 5.0 ms at 44.1 kHz, rounded to the nearest whole sample.  PUBLIC so
-    // the storage owner can size the pool (see attachStorage).
-    static constexpr size_t kDelaySamples = 221;
+    // 5.0 ms recursion — a fixed MUSICAL time (first comb mode ~200 Hz), so it
+    // is rate-derived to hold that pitch: 221 samples @ 44.1 kHz, 240 @ 48 kHz.
+    // PUBLIC so the storage owner can size the pool (see attachStorage).
+    static constexpr size_t kDelaySamples = msToSamples(5.0f);
 
     // --- control plane (block boundaries) ---
     void setAmount(float amount01);   // loop gain, clamped 0..0.99 (v1)

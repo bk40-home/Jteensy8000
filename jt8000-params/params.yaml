@@ -78,6 +78,7 @@ option_sets:
   # ORDER IS LOAD-BEARING: it must match TempoClock::Mode and kMult[] exactly.
   timing_mode: ["Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T", "1/4D", "1/8D", "1/16D"]
   poly_mode: ["Poly", "Mono", "Unison"]
+  glide_mode: ["Cascade", "Parallel", "Positional"]
   # Canonical FX names — these come from the firmware FX design, not from v1 CC
   # buckets. The numeric placeholders they replace were a seed artefact.
   f_x_mod_effect: ["OFF", "Chorus 1", "Chorus 2", "Chorus 3", "Flanger 1", "Flanger 2",
@@ -1252,6 +1253,15 @@ params:
     default: 0
     smooth_ms: 5
     ui: {section: 8, group: 2}
+  - id: 0x040A            # NEW: mod-wheel routing switch for LFO2 (JP-8000 authentic)
+    key: lfo2.mod_wheel
+    name: "LFO2 ModWhl"
+    label: "MOD WHL"
+    type: toggle
+    scope: patch
+    default: true         # ON = JP-8000 behaviour: wheel scales LFO2 depth
+    smooth_ms: 0          # a switch never smooths
+    ui: {section: 8, group: 2}
 
   # ---- [9] Effects ----
   - id: 0x0480            # v1: CC::FX_BASS_GAIN (was CC 99)
@@ -1627,7 +1637,16 @@ params:
     default: 1
     smooth_ms: 5
     ui: {section: 11, group: 2}
-
+  - id: 0x0586            # v2: NEW — poly-glide seeding model (no v1 counterpart)
+    key: glide.mode
+    name: "Glide Mode"
+    label: "GLIDE"
+    type: select
+    scope: patch
+    options: glide_mode
+    default: 0            # Cascade — existing behaviour, default patch unchanged
+    smooth_ms: 0
+    ui: {section: 11, group: 2}
   # ---- [12] BPM Clock ----
   - id: 0x0600            # v1: CC::BPM_CLOCK_SOURCE (was CC 118)
     key: clock.clock_source

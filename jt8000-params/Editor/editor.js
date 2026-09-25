@@ -30,6 +30,7 @@ function normalize(doc) {
       delete b.groups;
     }
   });
+  migrateViews(doc);
   return doc;
 }
 var ORIG  = JSON.stringify(window.LAYOUT);
@@ -69,7 +70,22 @@ var sel = [];                  // array of selected items (blocks, groups, or co
 var inside = null;             // block entered for item-level editing
 var lastDown = { el: null, t: 0 };
 
-var VIEWS = ["MAIN", "REVERB", "SEQ", "ARP", "SETUP"];
+var VIEWS = ["MAIN", "FX", "SEQ", "ARP", "SETUP"];
+/* Editor page -> runtime view class. FX is the reverb runtime view, relabelled
+   (so the plugin needs no new view id - only the button caption changes). */
+var VIEW_KEYS = ["MAIN", "FX", "SEQ", "ARP", "SETUP"];
+var VIEWCLS = { MAIN: "v-main v-shift", FX: "v-reverb", SEQ: "v-seq", ARP: "v-arp", SETUP: "v-setup" };
+var OLD_NAME_VIEW = { "Reverb": "FX", "Step Sequencer": "SEQ", "Arpeggiator": "ARP", "Setup": "SETUP" };
+function migrateViews(doc) {
+  /* Self-contained (runs from normalize() before module vars assign). */
+  var nameView = { "Reverb": "FX", "Step Sequencer": "SEQ", "Arpeggiator": "ARP", "Setup": "SETUP" };
+  (doc.blocks || []).forEach(function (b) {
+    if (!Array.isArray(b.views) || !b.views.length)
+      b.views = b.layer ? [nameView[b.name] || "FX"] : ["MAIN"];
+    b.layer = b.views.indexOf("MAIN") < 0;   // legacy flag: drives dashed styling
+  });
+  return doc;
+}
 var LAYERMAP = { REVERB: "Reverb", SEQ: "Step Sequencer", ARP: "Arpeggiator", SETUP: "Setup" };
 
 /* Header/background layer (edits the skin, exported as an RML/RCSS patch). */
@@ -81,7 +97,7 @@ var HEADER = window.LAYOUT.header || { h: 260, m: 40 };
 var BAND_GEO = { x: 0, y: 1840, w: 3840, h: 438 };
 var HDR = {
   band: { MAIN: "band_main", REVERB: "band_reverb", SEQ: "band_step", ARP: "band_arpeggiator", SETUP: "band_setup" },
-  bg: "bg_base",
+  bg: "bg_min",
   texts: [
     { id: "lcd1", t: "INIT PATCH", x: 544, y: 102, w: 740, size: 56, color: "#ffa83a", align: "left" },
     { id: "lcd2", t: "", x: 544, y: 184, w: 932, size: 30, color: "#be6c1e", align: "left" }
@@ -168,9 +184,7 @@ function ownerOf(item) {
 function allItems(b) { return b.items.map(function (it) { return { it: it }; }); }
 
 function visible(b) {
-  if (view === "MAIN") return !b.layer;
-  if (b.layer) return LAYERMAP[view] === b.name;
-  return false;   // in a layer view, hide main blocks for a clean surface
+  return (b.views || ["MAIN"]).indexOf(view) >= 0;   // page = every block assigned to it
 }
 
 /* =========================================================================
@@ -286,7 +300,7 @@ function drawHeader() {
      there so the editor matches the plugin. Clicking it opens Backgrounds. */
   var bImg = window.SKIN && window.SKIN[HDR.band[view] || HDR.band.MAIN];
   var bandDiv = document.createElement("div"); bandDiv.className = "hdr-band" + (sel.indexOf("BAND") >= 0 ? " sel" : "");
-  bandDiv.style.cssText = pos(BAND_GEO.x, BAND_GEO.y, BAND_GEO.w, BAND_GEO.h) + (bImg ? "background:url(" + bImg + ") center/100% 100% no-repeat;" : "background:rgba(40,44,52,.35);") + "z-index:0;";
+  bandDiv.style.cssText = pos(BAND_GEO.x, BAND_GEO.y, BAND_GEO.w, BAND_GEO.h) + "background:transparent;z-index:0;";  /* new look: no baked band strip */
   bandDiv.onclick = function (e) { e.stopPropagation(); sel = ["BAND"]; render(); };
   panel.appendChild(bandDiv);
 
@@ -500,7 +514,7 @@ function inspBlock(b) {
   ihead("block", b.name);
   var g = ig();
   tfield(g, b, "name", "Name", true); gnum(g, "X", b.x, function (v) { b.x = v; }); gnum(g, "Y", b.y, function (v) { b.y = v; }); gnum(g, "W", b.w, function (v) { b.w = v; }); gnum(g, "H", b.h, function (v) { b.h = v; });
-  cfield("Layer block", !!b.layer, function (on) { pushHistory(); b.layer = on; render(); });
+  viewsField(b);   // "Appears on" page picker (replaces the old Layer-block flag)
   insp.appendChild(mbtn("+ Add control", function () { pushHistory(); b.items.push({ k: "knob", t: "NEW", key: "", x: b.x + 24, y: b.y + 60, w: 160, h: 194, lw: 60 }); inside = b; sel = [b.items[b.items.length - 1]]; render(); }));
   insp.appendChild(mbtn("+ Add group label", function () { pushHistory(); b.items.push({ k: "grouplabel", t: "GROUP", x: b.x + 24, y: b.y + 24, w: 460, h: 40 }); inside = b; sel = [b.items[b.items.length - 1]]; render(); }));
   insp.appendChild(mbtn("Delete block", function () { if (confirm("Delete block " + b.name + "?")) { pushHistory(); DOC.blocks.splice(DOC.blocks.indexOf(b), 1); sel = []; render(); } }, "danger"));
@@ -665,7 +679,27 @@ function gnum(p, l, val, apply) { var w = document.createElement("label"); w.cla
 function kfield(p, o, n, l) { var w = document.createElement("label"); w.className = "ifield full"; w.appendChild(sp("", l + (CAT.keys.length ? "  (search)" : ""))); var inp = document.createElement("input"); inp.type = "text"; inp.dataset.f = n; inp.setAttribute("list", "paramKeys"); inp.value = o[n] !== undefined ? o[n] : ""; inp.oninput = function () { pushCoalesced(); o[n] = inp.value; if (CAT.labels[inp.value] && (!o.t || o.t === "NEW")) o.t = CAT.labels[inp.value]; render(); kf(n); }; w.appendChild(inp); p.appendChild(w); }
 function selfield(p, o, n, l, opts) { var w = document.createElement("label"); w.className = "ifield"; w.appendChild(sp("", l)); var s = document.createElement("select"); opts.forEach(function (op) { var e = document.createElement("option"); e.value = e.textContent = op; s.appendChild(e); }); s.value = o[n] !== undefined ? o[n] : opts[0]; s.onchange = function () { pushHistory(); o[n] = s.value; render(); }; w.appendChild(s); p.appendChild(w); }
 function cfield(l, checked, fn) { var w = document.createElement("label"); w.className = "ifield full check"; var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = checked; cb.onchange = function () { fn(cb.checked); }; w.appendChild(cb); w.appendChild(sp("", l)); insp.appendChild(w); }
-function optsField(o) { var w = document.createElement("label"); w.className = "ifield full"; w.appendChild(sp("", "Options (comma-sep)")); var ta = document.createElement("textarea"); ta.className = "opts-ta"; ta.dataset.f = "opts"; ta.rows = 2; ta.value = o.opts ? o.opts.join(", ") : ""; ta.oninput = function () { pushCoalesced(); o.opts = ta.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean); grow(ta); render(); kf("opts"); }; w.appendChild(ta); var so = optionsForKey(o.key); if (so && so.length) w.appendChild(mbtn("Fill from " + optionSetForKey(o.key) + " (" + so.length + ")", function () { pushHistory(); o.opts = so.slice(); render(); })); insp.appendChild(w); setTimeout(function () { grow(ta); }, 0); }
+
+function viewsField(b) {
+  var w = document.createElement("div"); w.className = "ifield full"; w.appendChild(sp("", "Appears on"));
+  var row = document.createElement("div"); row.style.cssText = "display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;";
+  VIEW_KEYS.forEach(function (v) {
+    var on = (b.views || []).indexOf(v) >= 0;
+    var btn = document.createElement("button"); btn.type = "button"; btn.className = "mini-btn" + (on ? " on" : ""); btn.textContent = v;
+    btn.onclick = function () {
+      pushHistory(); var arr = (b.views || []).slice(); var i = arr.indexOf(v); var added = (i < 0);
+      if (i >= 0) arr.splice(i, 1); else arr.push(v);
+      if (!arr.length) arr = ["MAIN"];
+      b.views = arr; b.layer = arr.indexOf("MAIN") < 0;
+      /* Jump the editor to the page just enabled so the change is visible
+         immediately (the picker is multi-select: a block can be on several). */
+      if (added) { view = v; var vb = document.getElementById("view"); if (vb) vb.textContent = "View: " + view; }
+      sel = [b]; inside = null; render();
+    };
+    row.appendChild(btn);
+  });
+  w.appendChild(row); insp.appendChild(w);
+}function optsField(o) { var w = document.createElement("label"); w.className = "ifield full"; w.appendChild(sp("", "Options (comma-sep)")); var ta = document.createElement("textarea"); ta.className = "opts-ta"; ta.dataset.f = "opts"; ta.rows = 2; ta.value = o.opts ? o.opts.join(", ") : ""; ta.oninput = function () { pushCoalesced(); o.opts = ta.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean); grow(ta); render(); kf("opts"); }; w.appendChild(ta); var so = optionsForKey(o.key); if (so && so.length) w.appendChild(mbtn("Fill from " + optionSetForKey(o.key) + " (" + so.length + ")", function () { pushHistory(); o.opts = so.slice(); render(); })); insp.appendChild(w); setTimeout(function () { grow(ta); }, 0); }
 function grow(ta) { ta.style.height = "auto"; ta.style.height = Math.max(ta.scrollHeight, 30) + "px"; }
 function kf(n) { var el = insp.querySelector('[data-f="' + n + '"]'); if (el) { var p = el.selectionStart; el.focus(); try { el.setSelectionRange(p, p); } catch (e) {} } }
 function kfg(l) { var el = insp.querySelector('[data-gf="' + CSS.escape(l) + '"]'); if (el) el.focus(); }
@@ -759,12 +793,10 @@ function layerRegionTop() {
   return top === Infinity ? Infinity : top;
 }
 function blockViewClass(b) {
-  if (BLOCK_VC[b.name]) return BLOCK_VC[b.name];       // a layer block: its view only
-  if (b.layer) return MAINONLY;                        // any layer-flagged block
-  /* Main block overlapping the layer strip -> main-only so it hides on layers. */
-  var lrt = layerRegionTop();
-  if (isFinite(lrt) && (b.y + (b.h || 0)) > lrt + 20) return MAINONLY;
-  return VIEWCLASS;
+  /* Driven purely by the block's per-page assignment (b.views), so a page
+     replaces the whole area. MAIN also carries v-shift (its sub-view). */
+  var vs = (b.views && b.views.length) ? b.views : ["MAIN"];
+  return vs.map(function (v) { return VIEWCLS[v] || "v-main"; }).join(" ");
 }
 
 /* Constant header block, copied VERBATIM from the factory jt8000.rml. These are
@@ -781,7 +813,7 @@ var HEADER_HITAREAS = [
   '\t<div class="btncap" style="left:2378dp; top:86dp; width:254dp; text-align:center;">LOAD</div>',
   '\t<div class="btncap" style="left:2644dp; top:86dp; width:254dp; text-align:center;">INIT</div>',
   '\t<div class="btncap btn-main" style="left:1580dp; top:174dp; width:254dp; text-align:center;">MAIN</div>',
-  '\t<div class="btncap btn-reverb" style="left:1846dp; top:174dp; width:254dp; text-align:center;">REVERB</div>',
+  '\t<div class="btncap btn-reverb" style="left:1846dp; top:174dp; width:254dp; text-align:center;">FX</div>',
   '\t<div class="btncap btn-seq" style="left:2112dp; top:174dp; width:254dp; text-align:center;">SEQ</div>',
   '\t<div class="btncap btn-arp" style="left:2378dp; top:174dp; width:254dp; text-align:center;">ARP</div>',
   '\t<div class="btncap btn-setup" style="left:2644dp; top:174dp; width:254dp; text-align:center;">SETUP</div>',
@@ -840,6 +872,13 @@ function exportRml() {
      without them the view tabs and action buttons do nothing on a custom skin. */
   HEADER_HITAREAS.forEach(function (l) { lines.push(l); });
   lines.push('');
+  /* Section outline boxes: one rounded coloured border per block, using
+     the block's geometry + view class. Matches the plugin's .secbox
+     contract; emitted before the controls so they sit behind them. */
+  DOC.blocks.forEach(function (b) {
+    lines.push('\t<div class="secbox ' + blockViewClass(b) + '" style="left:' + Math.round(b.x) + 'dp; top:' + Math.round(b.y) + 'dp; width:' + Math.round(b.w) + 'dp; height:' + Math.round(b.h) + 'dp;"/>');
+  });
+  lines.push('');
   /* controls + legends, block by block */
   DOC.blocks.forEach(function (b) {
     lines.push('\t<!-- ' + esc(b.name) + ' -->');
@@ -847,7 +886,7 @@ function exportRml() {
     /* Section title uses the block's own view class so layer-block titles only
        show in their view (otherwise Setup/Seq/Arp/Reverb titles pile up). */
     var blockVC = blockViewClass(b);
-    lines.push('\t<div class="sectitle ' + blockVC + '" style="left:' + Math.round(b.x) + 'dp; top:' + Math.round(b.y + 5) + 'dp; width:' + Math.round(b.w) + 'dp; text-align:center;">' + esc(b.name.toUpperCase()) + '</div>');
+    lines.push('\t<div class="sectitle ' + blockVC + '" style="left:' + Math.round(b.x + 16) + 'dp; top:' + Math.round(b.y + 8) + 'dp; width:' + Math.round(b.w - 32) + 'dp; text-align:left;">' + esc(b.name.toUpperCase()) + '</div>');
     b.items.forEach(function (it) {
       if (isDisplay(it)) return;   // displays are not interactive controls
       if ((it.k || "") === "grouplabel") {
@@ -862,7 +901,10 @@ function exportRml() {
       var kind = (map && map.kind) ? map.kind : (it.k || "knob");
       /* View class: the factory's per-control value for known keys (so layer
          controls stay on their own page); the block's class for new controls. */
-      var vc = (map && map.vc) ? map.vc : blockVC;
+      /* View class follows the BLOCK's page assignment, not the factory
+         per-key vc - otherwise known controls would leak onto every page
+         and full-page swap would break. */
+      var vc = blockVC;
       /* Placement comes from the SHARED controlBox so the export matches the
          editor preview exactly. cb gives absolute control + label rects. */
       var cb = controlBox(it);
@@ -1028,13 +1070,13 @@ function styleNum(tag, prop) { var s = attrOf(tag, "style") || tag; var m = s.ma
    of dumping them all onto MAIN. */
 function viewOfClass(cls) {
   cls = cls || "";
-  if (/\bv-reverb\b/.test(cls) && !/\bv-main\b/.test(cls)) return "REVERB";
+  if (/\bv-reverb\b/.test(cls) && !/\bv-main\b/.test(cls)) return "FX";
   if (/\bv-seq\b/.test(cls)    && !/\bv-main\b/.test(cls)) return "SEQ";
   if (/\bv-arp\b/.test(cls)    && !/\bv-main\b/.test(cls)) return "ARP";
   if (/\bv-setup\b/.test(cls)  && !/\bv-main\b/.test(cls)) return "SETUP";
   return "MAIN";
 }
-var VIEW_LAYER_NAME = { REVERB: "Reverb", SEQ: "Step Sequencer", ARP: "Arpeggiator", SETUP: "Setup" };
+var VIEW_LAYER_NAME = { FX: "FX", SEQ: "Step Sequencer", ARP: "Arpeggiator", SETUP: "Setup" };
 
 function buildLayoutFromRml(rml) {
   /* Collect sectitles (block names + top-left) and legends (labels by position). */
@@ -1068,15 +1110,15 @@ function buildLayoutFromRml(rml) {
   sectitles.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
   var mainTitles = sectitles.filter(function (s) { return s.vc === "MAIN"; });
   var blocks = mainTitles.map(function (s) {
-    return { name: s.name, x: Math.round(s.x - 5), y: Math.round(s.y - 5), w: Math.round(s.w || 400), h: 400, layer: false, items: [], _sx: s.x, _sy: s.y };
+    return { name: s.name, x: Math.round(s.x - 5), y: Math.round(s.y - 5), w: Math.round(s.w || 400), h: 400, layer: false, views: ["MAIN"], items: [], _sx: s.x, _sy: s.y };
   });
   /* One layer block per non-main view, created on demand. */
   var layerBlocks = {};
   function layerBlockFor(view) {
     if (layerBlocks[view]) return layerBlocks[view];
     var title = sectitles.filter(function (s) { return s.vc === view; })[0];
-    var b = { name: VIEW_LAYER_NAME[view], x: title ? Math.round(title.x - 5) : 40, y: title ? Math.round(title.y - 5) : 1900,
-              w: title ? Math.round(title.w || 3760) : 3760, h: 400, layer: true, items: [], _sx: title ? title.x : 40, _sy: title ? title.y : 1900 };
+    var b = { name: VIEW_LAYER_NAME[view] || view, x: title ? Math.round(title.x - 5) : 40, y: title ? Math.round(title.y - 5) : 1900,
+              w: title ? Math.round(title.w || 3760) : 3760, h: 400, layer: true, views: [view], items: [], _sx: title ? title.x : 40, _sy: title ? title.y : 1900 };
     layerBlocks[view] = b; blocks.push(b); return b;
   }
 
@@ -1125,8 +1167,406 @@ function buildLayoutFromRml(rml) {
   blocks.forEach(function (b) { delete b._sx; delete b._sy; });
   pushHistory();
   DOC = { canvas: { w: 3840, h: 2400, margin: 40 }, grid: DOC.grid, header: HDR, blocks: blocks };
+  migrateViews(DOC);
   sel = []; inside = null; render();
   flash("Imported RML: " + blocks.length + " blocks, " + controls.length + " controls, " + grouplabels.length + " group labels.");
+}
+
+/* --- Self-contained skin export (rcss + bg_min.png) --------------------- */
+var SKIN_RCSS = `/* =========================================================
+ * jt8000.rcss - generated by gen_skin.py. Do not hand edit.
+ *
+ * Feature budget: absolute position, solid fill, image
+ * decorator. Nothing else - every property here has to exist
+ * in our own RenderInterface.
+ * ========================================================= */
+
+/* No @font-face: RmlUi has no such at-rule - faces are registered
+ * from C++. JtRmlFont resolves any family through juce::Font, so
+ * naming one here is enough and nothing needs loading. */
+body
+{
+	width: 3840dp;
+	height: 2400dp;
+	font-family: JT Sans;
+	font-size: 26dp;
+	color: #FFA83A;
+}
+
+body { decorator: image(bg_min.png); }   /* header only; knob area flat */
+
+.band
+{
+	position: absolute;
+	left: 0dp;
+	top: 1840dp;
+	width: 3840dp;
+	height: 438dp;
+}
+
+/* Lettering, live rather than baked: one cached texture each,
+ * crisp at any size, and the shift swap becomes a class change
+ * instead of a second set of images. Sizes match what the offline
+ * packer measured, so nothing moves. */
+.sectitle, .grouplabel, .legend
+{
+	position: absolute;
+	display: none;
+}
+
+.sectitle   { font-size: 44dp; font-weight: bold; color: #f4f6faff; }
+.grouplabel { font-size: 23dp; font-weight: bold; color: #969eacff; }
+/* Sublabels dropped for a cleaner panel: the view classes were stripped from
+ * the grouplabel divs in the RML, so this base rule keeps them hidden. */
+.legend     { font-size: 29dp; color: #e0e6f2ff; }
+.shiftalt   { color: #e86054ff; }
+
+/* Section outlines: coloured rounded borders + a faint raised fill, replacing
+ * the panel wells/rules that used to be baked into the backgrounds. Each box
+ * carries the view classes of the controls it wraps, so the shared top sections
+ * (osc/filter/env/LFO) keep their borders in every view while the bottom strip
+ * swaps per view (fx in main, REVERB/SEQ/ARP/SETUP elsewhere). Colour, weight
+ * and radius are one line each. */
+.secbox
+{
+	position: absolute;
+	display: none;
+	background-color: #12161eff;
+	border: 2dp #9a6b30ff;
+	border-radius: 16dp;
+}
+
+/* Header lettering. The LCD lines are set from C++ - patch name and
+ * the value under the pointer - so they must be elements. */
+/* Above the lit fill, and above the band, which are both drawn
+ * later in the document. */
+.lcd1, .lcd2, .hdrcap, .btncap
+{
+	position: absolute;
+	z-index: 5;
+}
+.lcd1     { font-size: 56dp; font-weight: bold; color: #ffa83aff; }
+.lcd2     { font-size: 30dp; color: #be6c1eff; }
+.hdrcap   { font-size: 22dp; color: #8c94a2ff; }
+.btncap   { font-size: 26dp; font-weight: bold; color: #969eacff; }
+
+/* The lit button follows the view, so the caption highlight is a
+ * class rule rather than another image. */
+body.main  .btn-main   { color: #ffd08cff; }
+body.shift .btn-main   { color: #ffd08cff; }
+body.reverb .btn-reverb { color: #ffd08cff; }
+body.seq   .btn-seq    { color: #ffd08cff; }
+body.arp   .btn-arp    { color: #ffd08cff; }
+body.setup .btn-setup  { color: #ffd08cff; }
+body.shift .shiftcap   { color: #ffd8d4ff; }
+.shiftcap { color: #7e5450ff; }
+
+/* Header hit areas. Transparent: the artwork is already painted into
+ * the background, so these only need to be clickable. */
+.layerbtn, .shiftbtn, .actionbtn
+{
+	position: absolute;
+	display: block;
+	/* ABOVE the captions. RmlUi has no pointer-events, so a caption
+	   drawn over a hit area absorbs the press - which left only the
+	   thin strip above the text clickable. */
+	z-index: 20;
+}
+
+/* Lit layer button. An element rather than paint, because one
+ * background serves every view. */
+.layerlit
+{
+	position: absolute;
+	display: none;
+	background-color: #602c0cff;
+	border: 1dp #e28c32ff;
+	/* Behind the captions: it is an opaque fill emitted after them,
+	   so without this it paints the button text out. */
+	z-index: 1;
+}
+
+/* Voice activity: hollow well painted in the background, filled
+ * here when the voice is sounding. */
+.voice
+{
+	position: absolute;
+	display: none;
+	background-color: #ff8c28ff;
+	border-radius: 11dp;
+}
+.voice.on { display: block; }
+
+/* A control appears only in the views it belongs to. */
+knob, fader, combo, toggle, stepgrid
+{
+	position: absolute;
+	display: none;
+}
+body.main .v-main { display: block; }
+body.shift .v-shift { display: block; }
+body.reverb .v-reverb { display: block; }
+body.seq .v-seq { display: block; }
+body.arp .v-arp { display: block; }
+body.setup .v-setup { display: block; }
+
+/* Knob frames: 128 sprites, 16 x 8 at 210px. The knob element
+ * concatenates spriteprefix with a three digit index. */
+@spritesheet knob_silver
+{
+	src: knob_silver.png;
+	knob_silver_000: 0px 0px 210px 210px;
+	knob_silver_001: 210px 0px 210px 210px;
+	knob_silver_002: 420px 0px 210px 210px;
+	knob_silver_003: 630px 0px 210px 210px;
+	knob_silver_004: 840px 0px 210px 210px;
+	knob_silver_005: 1050px 0px 210px 210px;
+	knob_silver_006: 1260px 0px 210px 210px;
+	knob_silver_007: 1470px 0px 210px 210px;
+	knob_silver_008: 1680px 0px 210px 210px;
+	knob_silver_009: 1890px 0px 210px 210px;
+	knob_silver_010: 2100px 0px 210px 210px;
+	knob_silver_011: 2310px 0px 210px 210px;
+	knob_silver_012: 2520px 0px 210px 210px;
+	knob_silver_013: 2730px 0px 210px 210px;
+	knob_silver_014: 2940px 0px 210px 210px;
+	knob_silver_015: 3150px 0px 210px 210px;
+	knob_silver_016: 0px 210px 210px 210px;
+	knob_silver_017: 210px 210px 210px 210px;
+	knob_silver_018: 420px 210px 210px 210px;
+	knob_silver_019: 630px 210px 210px 210px;
+	knob_silver_020: 840px 210px 210px 210px;
+	knob_silver_021: 1050px 210px 210px 210px;
+	knob_silver_022: 1260px 210px 210px 210px;
+	knob_silver_023: 1470px 210px 210px 210px;
+	knob_silver_024: 1680px 210px 210px 210px;
+	knob_silver_025: 1890px 210px 210px 210px;
+	knob_silver_026: 2100px 210px 210px 210px;
+	knob_silver_027: 2310px 210px 210px 210px;
+	knob_silver_028: 2520px 210px 210px 210px;
+	knob_silver_029: 2730px 210px 210px 210px;
+	knob_silver_030: 2940px 210px 210px 210px;
+	knob_silver_031: 3150px 210px 210px 210px;
+	knob_silver_032: 0px 420px 210px 210px;
+	knob_silver_033: 210px 420px 210px 210px;
+	knob_silver_034: 420px 420px 210px 210px;
+	knob_silver_035: 630px 420px 210px 210px;
+	knob_silver_036: 840px 420px 210px 210px;
+	knob_silver_037: 1050px 420px 210px 210px;
+	knob_silver_038: 1260px 420px 210px 210px;
+	knob_silver_039: 1470px 420px 210px 210px;
+	knob_silver_040: 1680px 420px 210px 210px;
+	knob_silver_041: 1890px 420px 210px 210px;
+	knob_silver_042: 2100px 420px 210px 210px;
+	knob_silver_043: 2310px 420px 210px 210px;
+	knob_silver_044: 2520px 420px 210px 210px;
+	knob_silver_045: 2730px 420px 210px 210px;
+	knob_silver_046: 2940px 420px 210px 210px;
+	knob_silver_047: 3150px 420px 210px 210px;
+	knob_silver_048: 0px 630px 210px 210px;
+	knob_silver_049: 210px 630px 210px 210px;
+	knob_silver_050: 420px 630px 210px 210px;
+	knob_silver_051: 630px 630px 210px 210px;
+	knob_silver_052: 840px 630px 210px 210px;
+	knob_silver_053: 1050px 630px 210px 210px;
+	knob_silver_054: 1260px 630px 210px 210px;
+	knob_silver_055: 1470px 630px 210px 210px;
+	knob_silver_056: 1680px 630px 210px 210px;
+	knob_silver_057: 1890px 630px 210px 210px;
+	knob_silver_058: 2100px 630px 210px 210px;
+	knob_silver_059: 2310px 630px 210px 210px;
+	knob_silver_060: 2520px 630px 210px 210px;
+	knob_silver_061: 2730px 630px 210px 210px;
+	knob_silver_062: 2940px 630px 210px 210px;
+	knob_silver_063: 3150px 630px 210px 210px;
+	knob_silver_064: 0px 840px 210px 210px;
+	knob_silver_065: 210px 840px 210px 210px;
+	knob_silver_066: 420px 840px 210px 210px;
+	knob_silver_067: 630px 840px 210px 210px;
+	knob_silver_068: 840px 840px 210px 210px;
+	knob_silver_069: 1050px 840px 210px 210px;
+	knob_silver_070: 1260px 840px 210px 210px;
+	knob_silver_071: 1470px 840px 210px 210px;
+	knob_silver_072: 1680px 840px 210px 210px;
+	knob_silver_073: 1890px 840px 210px 210px;
+	knob_silver_074: 2100px 840px 210px 210px;
+	knob_silver_075: 2310px 840px 210px 210px;
+	knob_silver_076: 2520px 840px 210px 210px;
+	knob_silver_077: 2730px 840px 210px 210px;
+	knob_silver_078: 2940px 840px 210px 210px;
+	knob_silver_079: 3150px 840px 210px 210px;
+	knob_silver_080: 0px 1050px 210px 210px;
+	knob_silver_081: 210px 1050px 210px 210px;
+	knob_silver_082: 420px 1050px 210px 210px;
+	knob_silver_083: 630px 1050px 210px 210px;
+	knob_silver_084: 840px 1050px 210px 210px;
+	knob_silver_085: 1050px 1050px 210px 210px;
+	knob_silver_086: 1260px 1050px 210px 210px;
+	knob_silver_087: 1470px 1050px 210px 210px;
+	knob_silver_088: 1680px 1050px 210px 210px;
+	knob_silver_089: 1890px 1050px 210px 210px;
+	knob_silver_090: 2100px 1050px 210px 210px;
+	knob_silver_091: 2310px 1050px 210px 210px;
+	knob_silver_092: 2520px 1050px 210px 210px;
+	knob_silver_093: 2730px 1050px 210px 210px;
+	knob_silver_094: 2940px 1050px 210px 210px;
+	knob_silver_095: 3150px 1050px 210px 210px;
+	knob_silver_096: 0px 1260px 210px 210px;
+	knob_silver_097: 210px 1260px 210px 210px;
+	knob_silver_098: 420px 1260px 210px 210px;
+	knob_silver_099: 630px 1260px 210px 210px;
+	knob_silver_100: 840px 1260px 210px 210px;
+	knob_silver_101: 1050px 1260px 210px 210px;
+	knob_silver_102: 1260px 1260px 210px 210px;
+	knob_silver_103: 1470px 1260px 210px 210px;
+	knob_silver_104: 1680px 1260px 210px 210px;
+	knob_silver_105: 1890px 1260px 210px 210px;
+	knob_silver_106: 2100px 1260px 210px 210px;
+	knob_silver_107: 2310px 1260px 210px 210px;
+	knob_silver_108: 2520px 1260px 210px 210px;
+	knob_silver_109: 2730px 1260px 210px 210px;
+	knob_silver_110: 2940px 1260px 210px 210px;
+	knob_silver_111: 3150px 1260px 210px 210px;
+	knob_silver_112: 0px 1470px 210px 210px;
+	knob_silver_113: 210px 1470px 210px 210px;
+	knob_silver_114: 420px 1470px 210px 210px;
+	knob_silver_115: 630px 1470px 210px 210px;
+	knob_silver_116: 840px 1470px 210px 210px;
+	knob_silver_117: 1050px 1470px 210px 210px;
+	knob_silver_118: 1260px 1470px 210px 210px;
+	knob_silver_119: 1470px 1470px 210px 210px;
+	knob_silver_120: 1680px 1470px 210px 210px;
+	knob_silver_121: 1890px 1470px 210px 210px;
+	knob_silver_122: 2100px 1470px 210px 210px;
+	knob_silver_123: 2310px 1470px 210px 210px;
+	knob_silver_124: 2520px 1470px 210px 210px;
+	knob_silver_125: 2730px 1470px 210px 210px;
+	knob_silver_126: 2940px 1470px 210px 210px;
+	knob_silver_127: 3150px 1470px 210px 210px;
+}
+
+@spritesheet combo_sheet
+{
+	src: combo_off.png;
+	combo_outer: 0px 0px 300px 90px;
+	combo_inner: 24px 4px 216px 82px;   /* 24 left cap, 60 arrow well */
+}
+
+@spritesheet fader_sheet
+{
+	src: fader_track.png;
+	fader_outer: 0px 0px 26px 300px;
+	fader_inner: 3px 20px 20px 260px;   /* 20px caps top and bottom */
+}
+
+@spritesheet thumb_sheet
+{
+	src: slider_default.png;
+	fader_thumb: 22px 25px 122px 92px;  /* content within its canvas */
+}
+
+.knob
+{
+	frames: 128;
+	spriteprefix: knob_silver_;
+	drag: drag;          /* REQUIRED - no drag events without it */
+}
+
+.combo
+{
+	decorator: ninepatch(combo_outer, combo_inner);
+	color: #FFA83A;
+	font-size: 26dp;
+	/* line-height centres the value vertically; RmlUi has no
+	   vertical-align for inline text in a fixed-height box. */
+	line-height: 40dp;
+	/* border-box, or padding is ADDED to the width and each combo
+	   renders 70dp wider than the layout allowed - which is why
+	   neighbours on the same row overlapped. */
+	box-sizing: border-box;
+	padding-left: 14dp;
+	padding-right: 56dp;      /* clear of the arrow well */
+	text-align: left;
+	overflow: hidden;
+}
+
+/* The popup list. Built by JtRmlCombo as a child of the DOCUMENT, so
+ * it is not clipped by the combo; it only needs styling here.
+ * Without these rules the items have no box and no line breaks, so
+ * every option runs together into one unreadable string. */
+.combo-list
+{
+	background-color: #14100aff;
+	border: 2dp #c8781eff;
+	z-index: 1000;   /* above the band, the lit fills and all lettering */
+	padding: 4dp 0dp;
+}
+
+.combo-item
+{
+	display: block;
+	width: 100%;
+	color: #e8c896ff;
+	font-size: 26dp;
+	line-height: 46dp;   /* must equal the row height set in JtRmlCombo */
+	box-sizing: border-box;
+	padding-left: 14dp;
+}
+
+.combo-item:hover    { background-color: #4a2c0eff; color: #ffd9a0ff; }
+.combo-item.selected { background-color: #6a3c10ff; color: #ffffffff; }
+
+.toggle         { decorator: image(toggle_off.png); }
+.toggle:checked { decorator: image(toggle_on.png); }
+
+/* The grid draws bars only, so its frame has to come from here -
+ * otherwise an empty pattern is invisible. */
+.stepgrid
+{
+	drag: drag;
+	background-color: #0a0c0fff;
+	border: 2dp #3a424fff;
+}
+
+/* drag: drag is REQUIRED on every draggable control, not just the
+ * knob - RmlUi only synthesises Drag events for elements that opt
+ * in, so without it a fader receives mousedown and never moves. */
+.fader
+{
+	decorator: ninepatch(fader_outer, fader_inner);
+	drag: drag;
+}
+
+/* The thumb is a real child element: JtRmlFader positions it by
+ * setting \`top\`, so it must exist in the document and be absolutely
+ * positioned within the track. */
+.fader .thumb
+{
+	position: absolute;
+	left: -20dp;
+	width: 66dp;
+	height: 34dp;
+	decorator: image(fader_thumb);
+}
+
+`;
+function exportBgMin() {
+  var src = window.SKIN && window.SKIN['bg_base'];
+  if (!src) { flash('Load bg_base.png first so bg_min.png can be generated.'); return; }
+  var img = new Image();
+  img.onload = function () {
+    var c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    var g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    g.fillStyle = '#0b0e14'; g.fillRect(0, 298, img.width, img.height - 298);  /* keep header, flatten body */
+    c.toBlob(function (bl) { var a = document.createElement('a'); a.href = URL.createObjectURL(bl); a.download = 'bg_min.png'; a.click(); }, 'image/png');
+  };
+  img.src = src;
+}
+function exportSkin() {
+  dl('jt8000.rcss', SKIN_RCSS, 'text/plain');
+  exportRml();
+  exportBgMin();
+  flash('Exported jt8000.rml + jt8000.rcss (+ bg_min.png if bg_base was loaded). Drop these in a folder and Load Skin.');
 }
 
 function exportHeader() {
@@ -1152,6 +1592,7 @@ document.getElementById("redo").onclick = redo;
 document.getElementById("expLayout").onclick = exportLayout;
 document.getElementById("expRml").onclick = exportRml;
 document.getElementById("expHeader").onclick = exportHeader;
+var _expSkinBtn = document.getElementById("expSkin"); if (_expSkinBtn) _expSkinBtn.onclick = exportSkin;
 /* Import: buttons trigger hidden file inputs; inputs reset value so the same
    file can be chosen twice in a row. */
 var impLayoutInput = document.getElementById("impLayoutFile");

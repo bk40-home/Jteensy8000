@@ -36,7 +36,7 @@
 	<div class="btncap" style="left:2378dp; top:86dp; width:254dp; text-align:center;">LOAD</div>
 	<div class="btncap" style="left:2644dp; top:86dp; width:254dp; text-align:center;">INIT</div>
 	<div class="btncap btn-main" style="left:1580dp; top:174dp; width:254dp; text-align:center;">MAIN</div>
-	<div class="btncap btn-reverb" style="left:1846dp; top:174dp; width:254dp; text-align:center;">REVERB</div>
+	<div class="btncap btn-reverb" style="left:1846dp; top:174dp; width:254dp; text-align:center;">FX</div>
 	<div class="btncap btn-seq" style="left:2112dp; top:174dp; width:254dp; text-align:center;">SEQ</div>
 	<div class="btncap btn-arp" style="left:2378dp; top:174dp; width:254dp; text-align:center;">ARP</div>
 	<div class="btncap btn-setup" style="left:2644dp; top:174dp; width:254dp; text-align:center;">SETUP</div>

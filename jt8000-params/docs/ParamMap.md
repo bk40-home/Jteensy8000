@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 250 parameters.**
+**Schema version 1 — 252 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -149,6 +149,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0407` | 7 | LFO2 Amp | `lfo2.amp_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0408` | 8 | LFO2 Dest | `lfo2.destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch |
 | `0x0409` | 9 | LFO2 Delay | `lfo2.delay` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
+| `0x040A` | 10 | LFO2 ModWhl | `lfo2.mod_wheel` | toggle | off / on | on | 0 ms | — | patch |
 
 ## [9] Effects  *(NRPN MSB 9)*
 
@@ -193,6 +194,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0583` | 3 | Unison Det | `voice.unison_detune` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 18 | patch |
 | `0x0584` | 4 | Bend Range | `voice.bend_range` | continuous | 0–24 st (lin) | 2 st | 0 ms | — | patch |
 | `0x0585` | 5 | Amp Level | `voice.amp_level` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch |
+| `0x0586` | 6 | Glide Mode | `glide.mode` | select | 0–2 (index) | 0 (Cascade) | 0 ms | — | patch |
 
 ## [12] BPM Clock  *(NRPN MSB 12)*
 
@@ -371,6 +373,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **l_f_o_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
 - **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`, `1/4D`, `1/8D`, `1/16D`
 - **poly_mode**: `Poly`, `Mono`, `Unison`
+- **glide_mode**: `Cascade`, `Parallel`, `Positional`
 - **f_x_mod_effect**: `OFF`, `Chorus 1`, `Chorus 2`, `Chorus 3`, `Flanger 1`, `Flanger 2`, `Flanger 3`, `Phaser 1`, `Phaser 2`, `Phaser 3`, `Phaser 4`, `Super Chorus`
 - **f_x_delay_effect**: `OFF`, `Mono Short`, `Mono Long`, `Pan L>R`, `Pan R>L`, `Pan Stereo`
 - **drive**: `OFF`, `Soft`, `Hard`

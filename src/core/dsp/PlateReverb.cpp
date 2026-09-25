@@ -73,8 +73,11 @@ static constexpr float    IDIFF_GAIN_3 = 0.625f;
 static constexpr float    TANK_APF_GAIN = 0.60f;
 
 // Output tap positions (samples behind write head) — decorrelated stereo.
-static constexpr uint32_t TAP_L0 =  266, TAP_L1 = 2974, TAP_L2 = 1913;
-static constexpr uint32_t TAP_R0 =  353, TAP_R1 = 3627, TAP_R2 = 1228;
+// Authored @ 44.1 kHz; rate-derived (AudioConfig.h) so the taps keep their
+// position within the rescaled tank delay lines and the stereo image holds.
+// Each reduces to the v1 integer at 44.1 kHz.
+static constexpr uint32_t TAP_L0 = samplesAtRate(266),  TAP_L1 = samplesAtRate(2974), TAP_L2 = samplesAtRate(1913);
+static constexpr uint32_t TAP_R0 = samplesAtRate(353),  TAP_R1 = samplesAtRate(3627), TAP_R2 = samplesAtRate(1228);
 
 // 3-tap sum can exceed 1.0; empirical normalisation to stay below full-scale.
 static constexpr float    kWetScale = 0.3f;

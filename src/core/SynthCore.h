@@ -70,6 +70,19 @@ struct LfoState {
     // until the user first raised the knob.
     float depthPitchMod = 0.0f;
 
+    // ---- Mod-wheel -> LFO2 master depth (JP-8000 authentic) -----------------
+    // On the JP-8000 the mod wheel is LFO2's master depth VCA: the panel sets
+    // LFO2 rate + the four destination depths, but nothing is heard until the
+    // wheel is raised.  wheelDepth is that 0..1 wheel amount; wheelToLfo2 is the
+    // per-patch switch (param LFO2_MOD_WHEEL) that arms it.
+    //
+    // MULTIPLICATIVE (unlike LFO1's additive depthPitchMod above): it scales all
+    // four of THIS LFO's destination outputs together, so it is only meaningful
+    // on lfo2.  Engine-only, never serialised — the wheel is a live control.
+    // Rest value 1.0f so a disarmed LFO (wheelToLfo2 == false) is a no-op multiply.
+    float wheelDepth   = 1.0f;   // 0..1 live wheel amount (only used when armed)
+    bool  wheelToLfo2  = false;  // set from LFO2_MOD_WHEEL param
+
     // Tempo-sync state (Phase 3 subsystem 2, PHASE3_BPMCLOCK_SPEC.md §3
     // decision #6): freeHz is the last LFO*_FREQ knob value, kept alive
     // even while synced so switching back to Free restores it exactly
@@ -89,13 +102,30 @@ struct LfoState {
         return (d > 1.0f) ? 1.0f : d;
     }
 
+    // Master output gain for THIS LFO's four destinations.  1.0f (transparent)
+    // unless the mod-wheel switch is armed, in which case it is the live wheel
+    // amount — one branch, one value, applied by the caller as a single extra
+    // multiply per destination.
+    float outputGain() const
+    {
+        return wheelToLfo2 ? wheelDepth : 1.0f;
+    }
+
     bool engaged() const
     {
         // depthPitchMod is included, or raising the wheel on the default
         // patch would leave the oscillator un-ticked and do nothing.
+        //
+        // wheelToLfo2 keeps the LFO ticking even while wheelDepth == 0 so that,
+        // when armed, LFO2 free-runs and is phase-correct the moment the wheel
+        // is pushed — the JP-8000's LFO2 never stops.  Costs one tickBlock()
+        // multiply per block while armed; the destination sums are still zero
+        // at wheel-rest, so nothing is heard until the wheel moves.
         return depthPitch > 0.0f || depthPitchMod > 0.0f ||
                depthFilter > 0.0f ||
-               depthPwm > 0.0f  || depthAmp > 0.0f;
+               depthPwm > 0.0f  || depthAmp > 0.0f ||
+               (wheelToLfo2 && (depthPitch > 0.0f || depthFilter > 0.0f ||
+                                depthPwm  > 0.0f || depthAmp   > 0.0f));
     }
 };
 

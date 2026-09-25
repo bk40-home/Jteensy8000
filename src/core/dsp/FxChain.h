@@ -83,11 +83,12 @@ public:
     static constexpr uint8_t  kNumModPresets   = 11;        // v1 JPFX_NUM_MOD_VARIATIONS
     static constexpr uint8_t  kNumDelayPresets = 5;         // v1 JPFX_NUM_DELAY_VARIATIONS
 
-    // ceilf is not constexpr; these are the exact integer results at 44.1 kHz:
-    //   ceil(10000e-3 * 44100) + 2 = 441000 + 2 = 441002
-    //   ceil(   50e-3 * 44100) + 2 =   2205 + 2 =   2207
-    static constexpr uint32_t kDelayLen = 441002;
-    static constexpr uint32_t kModLen   = 2207;
+    // Rate-derived (AudioConfig.h msToSamples): the duration is fixed, the
+    // sample count follows kSampleRate.  +2 is the interpolation guard.
+    // Unchanged at 44.1 kHz (441000+2=441002, 2205+2=2207); at 48 kHz these
+    // become 480002 / 2402 so 10 s / 50 ms of buffer are still available.
+    static constexpr uint32_t kDelayLen = msToSamples(kMaxDelayMs) + 2u;
+    static constexpr uint32_t kModLen   = msToSamples(kMaxModMs)   + 2u;
 
     // ---- D4 tape engine ----------------------------------------------------
     // Rates are fixed, not exposed: wow and flutter are characteristics of the

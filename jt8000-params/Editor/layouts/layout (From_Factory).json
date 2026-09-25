@@ -1,0 +1,2522 @@
+{
+ "canvas": {
+  "w": 3840,
+  "h": 2400,
+  "margin": 40
+ },
+ "grid": {
+  "colw": 170,
+  "row": 46,
+  "sub": 4
+ },
+ "header": {
+  "band": {
+   "MAIN": "band_main",
+   "REVERB": "band_reverb",
+   "SEQ": "band_step",
+   "ARP": "band_arpeggiator",
+   "SETUP": "band_setup"
+  },
+  "bg": "bg_min",
+  "texts": [
+   {
+    "id": "lcd1",
+    "t": "INIT PATCH",
+    "x": 544,
+    "y": 102,
+    "w": 740,
+    "size": 56,
+    "color": "#ffa83a",
+    "align": "left"
+   },
+   {
+    "id": "lcd2",
+    "t": "",
+    "x": 544,
+    "y": 184,
+    "w": 932,
+    "size": 30,
+    "color": "#be6c1e",
+    "align": "left"
+   }
+  ]
+ },
+ "blocks": [
+  {
+   "name": "OSCILLATOR 1",
+   "x": 43,
+   "y": 297,
+   "w": 1230,
+   "h": 945,
+   "layer": false,
+   "items": [
+    {
+     "k": "combo",
+     "t": "WAVE",
+     "key": "osc1.wave",
+     "x": 83,
+     "y": 460,
+     "w": 156,
+     "h": 100,
+     "cw": 156,
+     "ch": 100,
+     "lw": 60,
+     "opts": [
+      "SIN",
+      "SAW",
+      "SQR",
+      "TRI",
+      "ARB",
+      "PLS",
+      "rSAW",
+      "S&amp;H",
+      "vTRI",
+      "BLS",
+      "rBLS",
+      "BLSQ",
+      "BLP",
+      "SSAW",
+      "vSAW",
+      "BLvSAW",
+      "vTRI2",
+      "BLvTRI"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "OCTAVE",
+     "key": "osc1.pitch_offset",
+     "x": 253,
+     "y": 460,
+     "w": 117,
+     "h": 100,
+     "cw": 117,
+     "ch": 100,
+     "lw": 60,
+     "opts": [
+      "-24",
+      "-12",
+      "0",
+      "+12",
+      "+24"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "FINE",
+     "key": "osc1.fine_tune",
+     "x": 385,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DETUNE",
+     "key": "osc1.detune",
+     "x": 542,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FB AMOUNT",
+     "key": "osc1.feedback_amount",
+     "x": 72,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FB MIX",
+     "key": "osc1.feedback_mix",
+     "x": 228,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FREQ DC",
+     "key": "osc1.freq_dc",
+     "x": 424,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "grouplabel",
+     "t": "FEEDBACK",
+     "x": 72,
+     "y": 638,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "DC &amp; RING",
+     "x": 424,
+     "y": 638,
+     "w": 460
+    }
+   ]
+  },
+  {
+   "name": "OSCILLATOR 2",
+   "x": 1296,
+   "y": 297,
+   "w": 1209,
+   "h": 945,
+   "layer": false,
+   "items": [
+    {
+     "k": "knob",
+     "t": "PWM DEPTH",
+     "key": "osc1.pwm_lfo1_depth",
+     "x": 698,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "SS DETUNE",
+     "key": "osc1.supersaw_detune",
+     "x": 855,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "SS MIX",
+     "key": "osc1.supersaw_mix",
+     "x": 1012,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "WAVE",
+     "key": "osc2.wave",
+     "x": 1325,
+     "y": 450,
+     "w": 156,
+     "h": 45,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "SIN",
+      "SAW",
+      "SQR",
+      "TRI",
+      "ARB",
+      "PLS",
+      "rSAW",
+      "S&amp;H",
+      "vTRI",
+      "BLS",
+      "rBLS",
+      "BLSQ",
+      "BLP",
+      "SSAW",
+      "vSAW",
+      "BLvSAW",
+      "vTRI2",
+      "BLvTRI"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "OCTAVE",
+     "key": "osc2.pitch_offset",
+     "x": 1481,
+     "y": 450,
+     "w": 117,
+     "h": 45,
+     "cw": 117,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "-24",
+      "-12",
+      "0",
+      "+12",
+      "+24"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "FINE",
+     "key": "osc2.fine_tune",
+     "x": 1638,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DETUNE",
+     "key": "osc2.detune",
+     "x": 1795,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "grouplabel",
+     "t": "ARBITRARY",
+     "x": 1051,
+     "y": 638,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "FEEDBACK",
+     "x": 1325,
+     "y": 638,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "DC &amp; RING",
+     "x": 1677,
+     "y": 638,
+     "w": 460
+    }
+   ]
+  },
+  {
+   "name": "MIXER",
+   "x": 2550,
+   "y": 297,
+   "w": 1237,
+   "h": 400,
+   "layer": false,
+   "items": [
+    {
+     "k": "knob",
+     "t": "PWM DEPTH",
+     "key": "osc2.pwm_lfo1_depth",
+     "x": 1951,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "SS DETUNE",
+     "key": "osc2.supersaw_detune",
+     "x": 2108,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "SS MIX",
+     "key": "osc2.supersaw_mix",
+     "x": 2265,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "BALANCE",
+     "key": "mix.balance",
+     "x": 2579,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "OSC1",
+     "key": "mix.osc1",
+     "x": 2735,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "OSC2",
+     "key": "mix.osc2",
+     "x": 2892,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "SUB",
+     "key": "mix.sub",
+     "x": 3049,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "NOISE",
+     "key": "mix.noise",
+     "x": 3205,
+     "y": 450,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "grouplabel",
+     "t": "ARBITRARY",
+     "x": 2265,
+     "y": 638,
+     "w": 460
+    }
+   ]
+  },
+  {
+   "name": "FILTER",
+   "x": 2550,
+   "y": 711,
+   "w": 1230,
+   "h": 531,
+   "layer": false,
+   "items": [
+    {
+     "k": "knob",
+     "t": "SHAPE DC",
+     "key": "osc1.shape_dc",
+     "x": 581,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "RING MIX",
+     "key": "osc1.ring_mix",
+     "x": 737,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "X-MOD",
+     "key": "mix.cross_mod",
+     "x": 894,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "ARB BANK",
+     "key": "osc1.arb_bank",
+     "x": 1051,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "ARB INDEX",
+     "key": "osc1.arb_index",
+     "x": 1051,
+     "y": 938,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "MOD DEST",
+     "key": "mix.pitch_mod_dest",
+     "x": 763,
+     "y": 966,
+     "w": 212,
+     "h": 138,
+     "cw": 200,
+     "ch": 67,
+     "lw": 60,
+     "opts": [
+      "OSC1+2",
+      "OSC2",
+      "X-MOD"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "FB AMOUNT",
+     "key": "osc2.feedback_amount",
+     "x": 1325,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FB MIX",
+     "key": "osc2.feedback_mix",
+     "x": 1481,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FREQ DC",
+     "key": "osc2.freq_dc",
+     "x": 1677,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "SHAPE DC",
+     "key": "osc2.shape_dc",
+     "x": 1834,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "RING MIX",
+     "key": "osc2.ring_mix",
+     "x": 1990,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "toggle",
+     "t": "OSC SYNC",
+     "key": "mix.osc_sync",
+     "x": 2147,
+     "y": 720,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "ARB BANK",
+     "key": "osc2.arb_bank",
+     "x": 2265,
+     "y": 720,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "ARB INDEX",
+     "key": "osc2.arb_index",
+     "x": 2265,
+     "y": 938,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "CUTOFF",
+     "key": "filter.cutoff",
+     "x": 2579,
+     "y": 864,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "RESO",
+     "key": "filter.resonance",
+     "x": 2735,
+     "y": 864,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "ENV AMT",
+     "key": "filter.env_amount",
+     "x": 2892,
+     "y": 864,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "KEY TRK",
+     "key": "filter.key_track",
+     "x": 3049,
+     "y": 864,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "OCT CTRL",
+     "key": "filter.octave_control",
+     "x": 3205,
+     "y": 864,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "MULTI",
+     "key": "filter.obxa_multimode",
+     "x": 3362,
+     "y": 864,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "RES MOD",
+     "key": "filter.obxa_res_mod_depth",
+     "x": 3519,
+     "y": 864,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "ENGINE",
+     "key": "filter.engine",
+     "x": 2590,
+     "y": 1058,
+     "w": 170,
+     "h": 92,
+     "cw": 169,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "OBXa",
+      "VA"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "MODE",
+     "key": "filter.mode",
+     "x": 2803,
+     "y": 1058,
+     "w": 213,
+     "h": 92,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "4-Pole",
+      "2-Pole",
+      "2P BP",
+      "2P Push",
+      "Xpander",
+      "Xpander M"
+     ],
+     "sh": {
+      "k": "combo",
+      "t": "DEPTH",
+      "key": "filter.mode",
+      "lw": 60
+     }
+    },
+    {
+     "k": "combo",
+     "t": "VA TYPE",
+     "key": "filter.va_type",
+     "x": 3058,
+     "y": 1058,
+     "w": 255,
+     "h": 92,
+     "cw": 235,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "SVF LP2",
+      "SVF HP2",
+      "SVF BP2",
+      "SVF NOTCH",
+      "SVF AP",
+      "Moog LP4",
+      "Moog LP2",
+      "Moog BP2",
+      "Diode LP4",
+      "Korg35 LP",
+      "Korg35 HP",
+      "TPT1 LP",
+      "TPT1 HP",
+      "MoogDV LP4",
+      "MoogDV LP2",
+      "MoogDV HP4",
+      "MoogDV BP"
+     ],
+     "sh": {
+      "k": "combo",
+      "t": "DESTINATION",
+      "key": "filter.va_type",
+      "lw": 60
+     }
+    },
+    {
+     "k": "combo",
+     "t": "XPANDER",
+     "key": "filter.obxa_xpander_mode",
+     "x": 3355,
+     "y": 1058,
+     "w": 255,
+     "h": 92,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "LP4",
+      "LP3",
+      "LP2",
+      "LP1",
+      "HP3",
+      "HP2",
+      "HP1",
+      "BP4",
+      "BP2",
+      "N2",
+      "PH3",
+      "HP2+LP1",
+      "HP3+LP1",
+      "N2+LP1",
+      "PH3+LP1"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "AMP ENVELOPE",
+   "x": 43,
+   "y": 1263,
+   "w": 465,
+   "h": 531,
+   "layer": false,
+   "items": [
+    {
+     "k": "fader",
+     "t": "ATT",
+     "key": "env_amp.attack",
+     "x": 94,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "A CRV",
+      "key": "env_amp.attack",
+      "lw": 60
+     }
+    },
+    {
+     "k": "fader",
+     "t": "DEC",
+     "key": "env_amp.decay",
+     "x": 172,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "D CRV",
+      "key": "env_amp.decay",
+      "lw": 60
+     }
+    },
+    {
+     "k": "fader",
+     "t": "SUS",
+     "key": "env_amp.sustain",
+     "x": 250,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "R CRV",
+      "key": "env_amp.sustain",
+      "lw": 60
+     }
+    }
+   ]
+  },
+  {
+   "name": "FILTER ENVELOPE",
+   "x": 513,
+   "y": 1263,
+   "w": 462,
+   "h": 531,
+   "layer": false,
+   "items": [
+    {
+     "k": "fader",
+     "t": "REL",
+     "key": "env_amp.release",
+     "x": 329,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "R CRV",
+      "key": "env_amp.release",
+      "lw": 60
+     }
+    },
+    {
+     "k": "fader",
+     "t": "ATT",
+     "key": "env_filter.attack",
+     "x": 564,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "A CRV",
+      "key": "env_filter.attack",
+      "lw": 60
+     }
+    },
+    {
+     "k": "fader",
+     "t": "DEC",
+     "key": "env_filter.decay",
+     "x": 642,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "D CRV",
+      "key": "env_filter.decay",
+      "lw": 60
+     }
+    },
+    {
+     "k": "fader",
+     "t": "SUS",
+     "key": "env_filter.sustain",
+     "x": 720,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "R CRV",
+      "key": "env_filter.sustain",
+      "lw": 60
+     }
+    }
+   ]
+  },
+  {
+   "name": "PITCH ENVELOPE",
+   "x": 983,
+   "y": 1263,
+   "w": 630,
+   "h": 531,
+   "layer": false,
+   "items": [
+    {
+     "k": "fader",
+     "t": "REL",
+     "key": "env_filter.release",
+     "x": 799,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "R CRV",
+      "key": "env_filter.release",
+      "lw": 60
+     }
+    },
+    {
+     "k": "knob",
+     "t": "DEPTH",
+     "key": "env_pitch.depth",
+     "x": 1012,
+     "y": 1416,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "fader",
+     "t": "ATT",
+     "key": "env_pitch.attack",
+     "x": 1190,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "A CRV",
+      "key": "env_pitch.attack",
+      "lw": 60
+     }
+    },
+    {
+     "k": "fader",
+     "t": "DEC",
+     "key": "env_pitch.decay",
+     "x": 1269,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "D CRV",
+      "key": "env_pitch.decay",
+      "lw": 60
+     }
+    }
+   ]
+  },
+  {
+   "name": "LFO 1",
+   "x": 1610,
+   "y": 1263,
+   "w": 1065,
+   "h": 531,
+   "layer": false,
+   "items": [
+    {
+     "k": "fader",
+     "t": "SUS",
+     "key": "env_pitch.sustain",
+     "x": 1347,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "R CRV",
+      "key": "env_pitch.sustain",
+      "lw": 60
+     }
+    },
+    {
+     "k": "fader",
+     "t": "REL",
+     "key": "env_pitch.release",
+     "x": 1425,
+     "y": 1382,
+     "w": 26,
+     "h": 284,
+     "cw": 26,
+     "ch": 284,
+     "lw": 60,
+     "sh": {
+      "k": "fader",
+      "t": "R CRV",
+      "key": "env_pitch.release",
+      "lw": 60
+     }
+    },
+    {
+     "k": "knob",
+     "t": "FREQ",
+     "key": "lfo1.freq",
+     "x": 1613,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60,
+     "sh": {
+      "k": "knob",
+      "t": "DEPTH",
+      "key": "lfo1.freq",
+      "lw": 60
+     }
+    },
+    {
+     "k": "combo",
+     "t": "WAVEFORM",
+     "key": "lfo1.waveform",
+     "x": 1783,
+     "y": 1380,
+     "w": 212,
+     "h": 92,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "SIN",
+      "TRI",
+      "SAW",
+      "SQR",
+      "S&amp;H",
+      "NOISE"
+     ],
+     "sh": {
+      "k": "combo",
+      "t": "DESTINATION",
+      "key": "lfo1.waveform",
+      "lw": 60
+     }
+    },
+    {
+     "k": "combo",
+     "t": "SYNC",
+     "key": "lfo1.sync",
+     "x": 1655,
+     "y": 1564,
+     "w": 170,
+     "h": 92,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Free",
+      "4 Bars",
+      "2 Bars",
+      "1 Bar",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32",
+      "1/4T",
+      "1/8T",
+      "1/16T"
+     ],
+     "sh": {
+      "k": "combo",
+      "t": "DESTINATION",
+      "key": "lfo1.sync",
+      "lw": 60
+     }
+    },
+    {
+     "k": "knob",
+     "t": "PITCH",
+     "key": "lfo1.pitch_depth",
+     "x": 2038,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "AMP",
+     "key": "lfo1.amp_depth",
+     "x": 2038,
+     "y": 1564,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    }
+   ]
+  },
+  {
+   "name": "LFO 2",
+   "x": 2706,
+   "y": 1263,
+   "w": 1074,
+   "h": 531,
+   "layer": false,
+   "items": [
+    {
+     "k": "knob",
+     "t": "FILTER",
+     "key": "lfo1.filter_depth",
+     "x": 2208,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "PWM",
+     "key": "lfo1.pwm_depth",
+     "x": 2378,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DELAY",
+     "key": "lfo1.delay",
+     "x": 2208,
+     "y": 1564,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FREQ",
+     "key": "lfo2.freq",
+     "x": 2718,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60,
+     "sh": {
+      "k": "knob",
+      "t": "DEPTH",
+      "key": "lfo2.freq",
+      "lw": 60
+     }
+    },
+    {
+     "k": "combo",
+     "t": "WAVEFORM",
+     "key": "lfo2.waveform",
+     "x": 2888,
+     "y": 1380,
+     "w": 167,
+     "h": 102,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "SIN",
+      "TRI",
+      "SAW",
+      "SQR",
+      "S&amp;H",
+      "NOISE"
+     ],
+     "sh": {
+      "k": "combo",
+      "t": "DESTINATION",
+      "key": "lfo2.waveform",
+      "lw": 60
+     }
+    },
+    {
+     "k": "combo",
+     "t": "SYNC",
+     "key": "lfo2.sync",
+     "x": 2760,
+     "y": 1564,
+     "w": 137,
+     "h": 102,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Free",
+      "4 Bars",
+      "2 Bars",
+      "1 Bar",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32",
+      "1/4T",
+      "1/8T",
+      "1/16T"
+     ],
+     "sh": {
+      "k": "combo",
+      "t": "DESTINATION",
+      "key": "lfo2.sync",
+      "lw": 60
+     }
+    },
+    {
+     "k": "knob",
+     "t": "PITCH",
+     "key": "lfo2.pitch_depth",
+     "x": 3100,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FILTER",
+     "key": "lfo2.filter_depth",
+     "x": 3270,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "PWM",
+     "key": "lfo2.pwm_depth",
+     "x": 3440,
+     "y": 1380,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "AMP",
+     "key": "lfo2.amp_depth",
+     "x": 3100,
+     "y": 1564,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DELAY",
+     "key": "lfo2.delay",
+     "x": 3270,
+     "y": 1564,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    }
+   ]
+  },
+  {
+   "name": "EQ &amp; DRIVE",
+   "x": 43,
+   "y": 1861,
+   "w": 767,
+   "h": 400,
+   "layer": false,
+   "items": [
+    {
+     "k": "knob",
+     "t": "BASS",
+     "key": "fx.bass_gain",
+     "x": 72,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "TREBLE",
+     "key": "fx.treble_gain",
+     "x": 228,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "DRIVE",
+     "key": "fx.drive",
+     "x": 385,
+     "y": 2014,
+     "w": 293,
+     "h": 102,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "OFF",
+      "Soft",
+      "Hard"
+     ]
+    },
+    {
+     "k": "grouplabel",
+     "t": "EQ &amp; DRIVE",
+     "x": 72,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "TANK",
+     "x": 72,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "CONTROL",
+     "x": 72,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "CONTROL",
+     "x": 72,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "LAYER MODE",
+     "x": 72,
+     "y": 1932,
+     "w": 460
+    }
+   ]
+  },
+  {
+   "name": "MOD FX",
+   "x": 826,
+   "y": 1861,
+   "w": 924,
+   "h": 400,
+   "layer": false,
+   "items": [
+    {
+     "k": "knob",
+     "t": "MIX",
+     "key": "fx.mod_mix",
+     "x": 855,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "RATE",
+     "key": "fx.mod_rate",
+     "x": 1011,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FEEDBACK",
+     "key": "fx.mod_feedback",
+     "x": 1168,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "grouplabel",
+     "t": "MODULATION",
+     "x": 855,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "EXTENDED",
+     "x": 855,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "ROUTING",
+     "x": 698,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "TIMING",
+     "x": 659,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "GLIDE",
+     "x": 1207,
+     "y": 1932,
+     "w": 460
+    }
+   ]
+  },
+  {
+   "name": "DELAY",
+   "x": 1766,
+   "y": 1861,
+   "w": 1081,
+   "h": 400,
+   "layer": false,
+   "items": [
+    {
+     "k": "combo",
+     "t": "TYPE",
+     "key": "fx.mod_effect",
+     "x": 1325,
+     "y": 2014,
+     "w": 330,
+     "h": 102,
+     "cw": 235,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "OFF",
+      "Chorus 1",
+      "Chorus 2",
+      "Chorus 3",
+      "Flanger 1",
+      "Flanger 2",
+      "Flanger 3",
+      "Phaser 1",
+      "Phaser 2",
+      "Phaser 3",
+      "Phaser 4",
+      "Super Chorus"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "TIME",
+     "key": "fx.delay_time",
+     "x": 1795,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "MIX",
+     "key": "fx.delay_mix",
+     "x": 1951,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FEEDBACK",
+     "key": "fx.delay_feedback",
+     "x": 2108,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "grouplabel",
+     "t": "DELAY",
+     "x": 1795,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "TIMING",
+     "x": 1325,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "AUX LANE",
+     "x": 1677,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "STEPS",
+     "x": 2030,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "STEPS",
+     "x": 1442,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "VOICE",
+     "x": 1521,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "CLOCK",
+     "x": 2187,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "combo",
+     "t": "Delay Engine",
+     "key": "fx.delay_engine",
+     "x": 2548,
+     "y": 2024,
+     "w": 255,
+     "h": 102,
+     "lw": 60,
+     "ch": 45
+    }
+   ]
+  },
+  {
+   "name": "OUTPUT MIX",
+   "x": 2863,
+   "y": 1861,
+   "w": 924,
+   "h": 400,
+   "layer": false,
+   "items": [
+    {
+     "k": "combo",
+     "t": "SYNC",
+     "key": "fx.delay_sync",
+     "x": 2335,
+     "y": 2024,
+     "w": 175,
+     "h": 102,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Free",
+      "4 Bars",
+      "2 Bars",
+      "1 Bar",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32",
+      "1/4T",
+      "1/8T",
+      "1/16T"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "DRY MIX",
+     "key": "fx.dry_mix",
+     "x": 2892,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "JPFX MIX",
+     "key": "fx.jpfx_mix",
+     "x": 3048,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "VOLUME",
+     "key": "master.volume",
+     "x": 3205,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "grouplabel",
+     "t": "OUTPUT",
+     "x": 2892,
+     "y": 1932,
+     "w": 460
+    },
+    {
+     "k": "grouplabel",
+     "t": "SENSITIVITY",
+     "x": 2578,
+     "y": 1932,
+     "w": 460
+    }
+   ]
+  },
+  {
+   "name": "Reverb",
+   "x": 43,
+   "y": 1861,
+   "w": 3744,
+   "h": 400,
+   "layer": true,
+   "items": [
+    {
+     "k": "knob",
+     "t": "BASS",
+     "key": "reverb.size",
+     "x": 72,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "TREBLE",
+     "key": "reverb.damp",
+     "x": 228,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DRIVE",
+     "key": "reverb.lodamp",
+     "x": 385,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "MIX",
+     "key": "reverb.mix",
+     "x": 542,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "toggle",
+     "t": "BYPASS",
+     "key": "reverb.bypass",
+     "x": 698,
+     "y": 2014,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "MIX",
+     "key": "reverb.shimmer",
+     "x": 855,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "LOWPASS",
+     "key": "reverb.lowpass",
+     "x": 1012,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FEEDBACK",
+     "key": "reverb.hipass",
+     "x": 1168,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "toggle",
+     "t": "TYPE",
+     "key": "reverb.freeze",
+     "x": 1325,
+     "y": 2014,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    }
+   ]
+  },
+  {
+   "name": "Step Sequencer",
+   "x": 43,
+   "y": 1861,
+   "w": 3744,
+   "h": 400,
+   "layer": true,
+   "items": [
+    {
+     "k": "knob",
+     "t": "BASS",
+     "key": "seq.steps",
+     "x": 72,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "TREBLE",
+     "key": "seq.gate_length",
+     "x": 228,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DRIVE",
+     "key": "seq.slide",
+     "x": 385,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "toggle",
+     "t": "MIX",
+     "key": "seq.enable",
+     "x": 542,
+     "y": 2014,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "BYPASS",
+     "key": "seq.depth",
+     "x": 698,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "toggle",
+     "t": "MIX",
+     "key": "seq.retrigger",
+     "x": 855,
+     "y": 2014,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "DIRECTION",
+     "key": "seq.direction",
+     "x": 972,
+     "y": 2014,
+     "w": 195,
+     "h": 45,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Fwd",
+      "Rev",
+      "Bounce",
+      "Random"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "FEEDBACK",
+     "key": "seq.destination",
+     "x": 1168,
+     "y": 2014,
+     "w": 156,
+     "h": 45,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "None",
+      "Pitch",
+      "Filter",
+      "PWM",
+      "Amp"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "TYPE",
+     "key": "seq.rate",
+     "x": 1325,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "TIMING MODE",
+     "key": "seq.timing_mode",
+     "x": 1482,
+     "y": 2014,
+     "w": 156,
+     "h": 45,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Free",
+      "4 Bars",
+      "2 Bars",
+      "1 Bar",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32",
+      "1/4T",
+      "1/8T",
+      "1/16T"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "AUX DEPTH",
+     "key": "seq.aux_depth",
+     "x": 1677,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "AUX DESTINATION",
+     "key": "seq.aux_destination",
+     "x": 1834,
+     "y": 2014,
+     "w": 195,
+     "h": 45,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "None",
+      "Filter",
+      "Pan",
+      "DelaySend",
+      "Drive"
+     ]
+    },
+    {
+     "k": "stepgrid",
+     "t": "",
+     "key": "step_sequencer.pattern",
+     "x": 2030,
+     "y": 2014,
+     "w": 1605,
+     "h": 190,
+     "cw": 1605,
+     "ch": 190,
+     "lw": 60,
+     "lanes": "2",
+     "steps": "16"
+    }
+   ]
+  },
+  {
+   "name": "Arpeggiator",
+   "x": 43,
+   "y": 1861,
+   "w": 3744,
+   "h": 400,
+   "layer": true,
+   "items": [
+    {
+     "k": "toggle",
+     "t": "BASS",
+     "key": "arp.enable",
+     "x": 72,
+     "y": 2014,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    },
+    {
+     "k": "toggle",
+     "t": "LATCH",
+     "key": "arp.latch",
+     "x": 189,
+     "y": 2014,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "MODE",
+     "key": "arp.mode",
+     "x": 307,
+     "y": 2014,
+     "w": 195,
+     "h": 45,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Up",
+      "Down",
+      "UpDn Inc",
+      "UpDn Exc",
+      "AsPlayed",
+      "Random",
+      "Chord"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "OCTAVES",
+     "key": "arp.octaves",
+     "x": 502,
+     "y": 2014,
+     "w": 117,
+     "h": 45,
+     "cw": 117,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "1",
+      "2",
+      "3",
+      "4"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "FREE HZ",
+     "key": "arp.free_hz",
+     "x": 659,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "GATE LENGTH",
+     "key": "arp.gate_length",
+     "x": 816,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DIRECTION",
+     "key": "arp.swing",
+     "x": 972,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "RATE",
+     "key": "arp.rate",
+     "x": 1129,
+     "y": 2014,
+     "w": 156,
+     "h": 45,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Free",
+      "4 Bars",
+      "2 Bars",
+      "1 Bar",
+      "1/2",
+      "1/4",
+      "1/8",
+      "1/16",
+      "1/32",
+      "1/4T",
+      "1/8T",
+      "1/16T"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "STEP COUNT",
+     "key": "arp.step_count",
+     "x": 1286,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "stepgrid",
+     "t": "",
+     "key": "arpeggiator.pattern",
+     "x": 1442,
+     "y": 2014,
+     "w": 2193,
+     "h": 200,
+     "cw": 2193,
+     "ch": 200,
+     "lw": 60,
+     "lanes": "1",
+     "steps": "16"
+    }
+   ]
+  },
+  {
+   "name": "Setup",
+   "x": 43,
+   "y": 1861,
+   "w": 3744,
+   "h": 400,
+   "layer": true,
+   "items": [
+    {
+     "k": "combo",
+     "t": "BASS",
+     "key": "perf.mode",
+     "x": 72,
+     "y": 2014,
+     "w": 156,
+     "h": 45,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Single",
+      "Layer",
+      "Split"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "TREBLE",
+     "key": "perf.edit_target",
+     "x": 228,
+     "y": 2014,
+     "w": 156,
+     "h": 45,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "A",
+      "B",
+      "Both"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "DRIVE",
+     "key": "perf.midi_channel_a",
+     "x": 385,
+     "y": 2014,
+     "w": 195,
+     "h": 45,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Ch 1",
+      "Ch 2",
+      "Ch 3",
+      "Ch 4",
+      "Ch 5",
+      "Ch 6",
+      "Ch 7",
+      "Ch 8",
+      "Ch 9",
+      "Ch 10",
+      "Ch 11",
+      "Ch 12",
+      "Ch 13",
+      "Ch 14",
+      "Ch 15",
+      "Ch 16"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "MIDI CHANNEL B",
+     "key": "perf.midi_channel_b",
+     "x": 581,
+     "y": 2014,
+     "w": 195,
+     "h": 45,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Ch 1",
+      "Ch 2",
+      "Ch 3",
+      "Ch 4",
+      "Ch 5",
+      "Ch 6",
+      "Ch 7",
+      "Ch 8",
+      "Ch 9",
+      "Ch 10",
+      "Ch 11",
+      "Ch 12",
+      "Ch 13",
+      "Ch 14",
+      "Ch 15",
+      "Ch 16"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "GATE LENGTH",
+     "key": "perf.split_note",
+     "x": 816,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "DIRECTION",
+     "key": "perf.voice_split",
+     "x": 972,
+     "y": 2014,
+     "w": 117,
+     "h": 45,
+     "cw": 117,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "1+7",
+      "2+6",
+      "3+5",
+      "4+4",
+      "5+3",
+      "6+2",
+      "7+1"
+     ]
+    },
+    {
+     "k": "combo",
+     "t": "BALANCE",
+     "key": "perf.balance",
+     "x": 1090,
+     "y": 2014,
+     "w": 117,
+     "h": 45,
+     "cw": 117,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "A",
+      "AB",
+      "B"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "TIME",
+     "key": "glide.time",
+     "x": 1207,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "toggle",
+     "t": "ENABLE",
+     "key": "glide.enable",
+     "x": 1364,
+     "y": 2014,
+     "w": 107,
+     "h": 80,
+     "cw": 107,
+     "ch": 80,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "UNI DET",
+     "key": "voice.unison_detune",
+     "x": 1521,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "AUX DEPTH",
+     "key": "voice.poly_mode",
+     "x": 1677,
+     "y": 2014,
+     "w": 156,
+     "h": 45,
+     "cw": 156,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Poly",
+      "Mono",
+      "Unison"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "AUX DESTINATION",
+     "key": "voice.bend_range",
+     "x": 1834,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "AMP LEVEL",
+     "key": "voice.amp_level",
+     "x": 1991,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "TEMPO",
+     "key": "clock.tempo",
+     "x": 2187,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "combo",
+     "t": "CLOCK SOURCE",
+     "key": "clock.clock_source",
+     "x": 2343,
+     "y": 2014,
+     "w": 195,
+     "h": 45,
+     "cw": 195,
+     "ch": 45,
+     "lw": 60,
+     "opts": [
+      "Internal",
+      "Ext MIDI"
+     ]
+    },
+    {
+     "k": "knob",
+     "t": "AMP SENS",
+     "key": "velocity.amp_sens",
+     "x": 2578,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "FILTER SENS",
+     "key": "velocity.filter_sens",
+     "x": 2735,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    },
+    {
+     "k": "knob",
+     "t": "DRY MIX",
+     "key": "velocity.env_sens",
+     "x": 2892,
+     "y": 2014,
+     "w": 160,
+     "h": 160,
+     "cw": 160,
+     "ch": 160,
+     "lw": 60
+    }
+   ]
+  }
+ ]
+}

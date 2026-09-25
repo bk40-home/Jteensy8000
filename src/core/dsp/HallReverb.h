@@ -77,18 +77,30 @@ class HallReverb : public IReverb {
 public:
     static constexpr uint8_t kLines = 4;
 
-    // Mutually prime line lengths, 54 .. 114 ms.  Primality matters more here
-    // than in the plate: any common factor between two lines puts their echoes
-    // on a shared grid and the network rings at that period.
-    static constexpr uint32_t kLineLen[kLines] = { 2381, 3137, 4013, 5011 };
+    // Mutually prime line lengths, 54 .. 114 ms (authored @ 44.1 kHz), now
+    // rate-derived AND prime-snapped (AudioConfig.h primeAtRate) so the hall's
+    // dimensions hold across rates while the lines stay pairwise coprime.
+    // Primality matters more here than in the plate: any common factor between
+    // two lines puts their echoes on a shared grid and the network rings at
+    // that period — asserted by the "line lengths are mutually prime" test.
+    // At 44.1 kHz these pass through as the original {2381,3137,4013,5011}.
+    static constexpr uint32_t kLineLen[kLines] = {
+        primeAtRate(2381), primeAtRate(3137),
+        primeAtRate(4013), primeAtRate(5011)
+    };
 
     // Input diffusion allpasses — DTCM members, not pool.  Four lines alone
     // have thin echo density in the first few milliseconds; these fill it in.
-    static constexpr uint32_t kApLen[4] = { 131, 199, 293, 367 };
-    static constexpr uint32_t kApTotal  = 131 + 199 + 293 + 367;   // 990
+    static constexpr uint32_t kApLen[4] = {
+        samplesAtRate(131), samplesAtRate(199),
+        samplesAtRate(293), samplesAtRate(367)
+    };
+    static constexpr uint32_t kApTotal  = kApLen[0] + kApLen[1]
+                                        + kApLen[2] + kApLen[3];   // 990 @44.1k
 
-    // 14542 floats = 56.8 KB, against the plate's 23418 / 91.5 KB.
-    static constexpr uint32_t kPoolFloats = 2381 + 3137 + 4013 + 5011;
+    // ~14542 floats = 56.8 KB @44.1k, against the plate's 23418 / 91.5 KB.
+    static constexpr uint32_t kPoolFloats = kLineLen[0] + kLineLen[1]
+                                          + kLineLen[2] + kLineLen[3];
 
     HallReverb() = default;
 

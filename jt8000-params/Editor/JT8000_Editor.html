@@ -38,11 +38,11 @@ button:disabled{opacity:.32;cursor:default;pointer-events:none}
 #wrap{flex:1;overflow:auto;position:relative;background:radial-gradient(1200px 500px at 30% -10%,#14181e,transparent),var(--s-0)}
 #panel{position:relative;border-radius:2px;box-shadow:0 4px 14px rgba(0,0,0,.45);margin:10px}
 
-.blk{position:absolute;border:1px solid transparent;border-radius:var(--r);cursor:pointer;transition:border-color .12s,box-shadow .12s}
+.blk{position:absolute;border:2px solid rgba(154,107,48,.85);background:rgba(18,22,30,.45);border-radius:14px;cursor:pointer;transition:border-color .12s,box-shadow .12s}
 .blk:hover{border-color:var(--line-hi)}
 .blk.sel{border-color:var(--accent-line);box-shadow:0 0 0 1px var(--accent-line),0 0 0 4px var(--accent-dim)}
 .blk.layer{border-style:dashed;border-color:var(--layer)}
-.blk-title{position:absolute;left:0;right:0;top:2px;text-align:center;font-weight:700;letter-spacing:.05em;color:var(--t-hi);pointer-events:none}
+.blk-title{position:absolute;left:12px;top:6px;text-align:left;font-weight:700;letter-spacing:.05em;color:var(--t-hi);pointer-events:none}
 .grp{position:absolute;font-weight:700;color:#78c4f0;letter-spacing:.06em;white-space:nowrap;pointer-events:none}
 
 .item{position:absolute;cursor:move;border:1px solid transparent;border-radius:3px}
@@ -178,7 +178,7 @@ body.dragging,body.dragging *{cursor:inherit !important}
   <div class="cluster" id="preview"><span class="clabel">Preview</span></div>
   <span class="spacer"></span>
   <div class="cluster"><span class="clabel">Import</span><button id="impLayout" class="ghost">Load layout</button><button id="impRml" class="ghost">Load RML</button><button id="impParams" class="ghost">Load params</button></div>
-  <div class="cluster"><span class="clabel">Export</span><button id="expLayout" class="ghost">layout.json</button><button id="expRml" class="ghost">jt8000.rml</button><button id="expHeader" class="ghost">header patch</button></div>
+  <div class="cluster"><span class="clabel">Export</span><button id="expLayout" class="ghost">layout.json</button><button id="expRml" class="ghost">jt8000.rml</button><button id="expHeader" class="ghost">header patch</button><button id="expSkin" class="ghost">skin (rml+rcss+bg)</button></div>
   <button id="reset" class="ghost">Reset</button>
   <span id="info"></span>
 </div>

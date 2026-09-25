@@ -125,6 +125,7 @@ window.PARAMS = {
   "fx.mod_rate",
   "fx.treble_gain",
   "glide.enable",
+  "glide.mode",
   "glide.time",
   "lfo1.amp_depth",
   "lfo1.delay",
@@ -142,6 +143,7 @@ window.PARAMS = {
   "lfo2.destination",
   "lfo2.filter_depth",
   "lfo2.freq",
+  "lfo2.mod_wheel",
   "lfo2.pitch_depth",
   "lfo2.pwm_depth",
   "lfo2.sync",
@@ -349,6 +351,7 @@ window.PARAMS = {
   "lfo2.amp_depth": "LFO2 Amp",
   "lfo2.destination": "LFO2 Dest",
   "lfo2.delay": "LFO2 Delay",
+  "lfo2.mod_wheel": "LFO2 ModWhl",
   "fx.bass_gain": "Bass",
   "fx.treble_gain": "Treble",
   "fx.drive": "Drive",
@@ -378,6 +381,7 @@ window.PARAMS = {
   "voice.unison_detune": "Unison Det",
   "voice.bend_range": "Bend Range",
   "voice.amp_level": "Amp Level",
+  "glide.mode": "Glide Mode",
   "clock.clock_source": "Clock Src",
   "clock.tempo": "BPM",
   "seq.enable": "Seq Enable",
@@ -577,6 +581,11 @@ window.PARAMS = {
    "2P Push",
    "Xpander",
    "Xpander M"
+  ],
+  "glide_mode": [
+   "Cascade",
+   "Parallel",
+   "Positional"
   ],
   "l_f_o_dest": [
    "None",

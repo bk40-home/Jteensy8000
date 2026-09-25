@@ -20,7 +20,9 @@ using namespace JT;
 using namespace JT::Params;
 
 namespace {
-constexpr size_t kD = 221;             // must mirror FeedbackComb's delay
+// Mirrors FeedbackComb's delay directly so the impulse-grid checks track the
+// rate-derived line length (221 @ 44.1 kHz, 240 @ 48 kHz) instead of a literal.
+constexpr size_t kD = JT::FeedbackComb::kDelaySamples;
 }
 
 TEST_CASE("impulse response: taps land at exact delay multiples, decay by g")

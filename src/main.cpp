@@ -111,7 +111,12 @@ static constexpr uint16_t kHostCableMask = 0x0002u;
 // Audio objects — constructed once, wired once, never re-patched (F32 cables
 // have no destructor; dynamic graphs crash — v1 lesson, now a hard rule).
 // -----------------------------------------------------------------------------
-static AudioSettings_F32       audioSettings(44100.0f, 128);
+// Rate + block come from AudioConfig.h so the F32 graph and the engine can
+// never disagree.  Changing JT::kSampleRate there retunes both.  NB: the I2S
+// hardware honours this via AudioOutputI2S_F32's SAI dividers — verify the
+// actual output pitch on the bench, since the stock library's compile-time
+// AUDIO_SAMPLE_RATE_EXACT is independent of this setting (see port audit).
+static AudioSettings_F32       audioSettings(JT::kSampleRate, (int)JT::kBlockSize);
 static JT::ParameterStore      gStore;
 // Feedback-comb delay lines (14.1 KB): OCRAM via DMAMEM — sequential
 // once-per-sample access is the ideal cached-RAM2 pattern, and DTCM is
@@ -872,7 +877,11 @@ void loop()
     if (now - lastStatus >= 1000) {
         lastStatus = now;
         // CPU% of the audio budget: cycles / (cycles available per block).
-        const float budget = (float)F_CPU * (128.0f / 44100.0f);
+        // Derived from the engine's own rate/block so the figure stays honest
+        // when kSampleRate changes (a shorter block-period at 48 kHz means
+        // fewer cycles available, so the same DSP reads as a higher %).
+        const float budget = (float)F_CPU
+                           * ((float)JT::kBlockSize / JT::kSampleRate);
         const float pctMax = 100.0f * (float)gSynth.perfMaxCycles / budget;
         Serial.print("[S3.5] voices=");
         Serial.print((int)gSynth.core().activeVoices());
