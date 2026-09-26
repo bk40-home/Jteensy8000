@@ -7,6 +7,7 @@
 
 #include <atomic>
 
+#include "core/AudioConfig.h"   // JT::kSampleRate — ASRC ratio seed
 #include "core/dsp/Asrc.h"
 #if JT_USBHOST_AUDIO_BUILD
 #include "platform/usbhost/UsbAudioOut.h"
@@ -173,11 +174,18 @@ void UsbHostPort::poll(int maxMessages)
     if (!g_asrcReady.load(std::memory_order_relaxed) && g_audio.isStreaming()) {
         const uint32_t deviceRate = g_audio.deviceSampleRate();
         if (deviceRate != 0u) {
-            // Nominal ratio: input frames consumed per output frame.  The
-            // engine's true rate is the I2S-derived AUDIO_SAMPLE_RATE_EXACT,
-            // not the nominal 44100 in AudioConfig.h — using the exact figure
-            // starts the servo close to its answer instead of 400 ppm out.
-            const float ratio = AUDIO_SAMPLE_RATE_EXACT /
+            // Nominal ratio: input frames consumed per output frame.  Seed it
+            // from the ENGINE's rate, JT::kSampleRate — push() runs on the
+            // audio update, so the input stream is engine-rate frames, and the
+            // I2S clock is derived from this same figure via AudioSettings_F32
+            // in main.cpp.  (Was AUDIO_SAMPLE_RATE_EXACT ≈ 44117: correct only
+            // while the engine ran at 44.1 kHz.  After the 48 kHz port that
+            // seed was ~8 % off — far beyond the servo's ppm trim authority and
+            // the ring's ~21 ms depth — so the ring over/under-ran continuously
+            // and the USB-host output garbled.)  The residual PLL/crystal offset
+            // between nominal kSampleRate and the true SAI rate is ppm-scale,
+            // which is exactly what AsrcServo exists to trim out.
+            const float ratio = JT::kSampleRate /
                                 static_cast<float>(deviceRate);
             const uint32_t ratioQ16 =
                 static_cast<uint32_t>((ratio * 65536.0f) + 0.5f);
@@ -274,4 +282,4 @@ void UsbHostPort::printStatus(void) const
 #endif
 }
 
-} // namespace JT
+} // namespace JT

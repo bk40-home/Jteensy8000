@@ -1,10 +1,13 @@
 // =============================================================================
 // Asrc.h — asynchronous sample rate conversion for the USB host audio path
 // =============================================================================
-// The engine runs at 44.1 kHz (AudioConfig.h) and the USB host audio device
-// runs at whatever its own crystal says, so the two ends of this path never
-// agree and never will.  This converts between them continuously, at a ratio
-// that may be adjusted while running.
+// The engine runs at JT::kSampleRate (AudioConfig.h — 48 kHz since the Daisy
+// port) and the USB host audio device runs at whatever its own crystal says,
+// so the two ends of this path never agree and never will.  This converts
+// between them continuously, at a ratio that may be adjusted while running.
+// The ratio is SEEDED from kSampleRate by the caller (UsbHostPort) — see the
+// note there; a stale seed rate garbles this path even though the resampler
+// itself is correct.
 //
 // SPLIT OF RESPONSIBILITY — read before changing the ratio logic:
 //   * how many samples leave per USB frame is decided by the packet pacer
