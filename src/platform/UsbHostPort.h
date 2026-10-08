@@ -101,10 +101,13 @@ public:
     void setHandleRealTimeSystem(UsbHostRealtimeFn fn);
     void setHandleForward(UsbHostForwardFn fn);
 
-    // Accepted cables, bit per cable.  Instruments that mirror one keypress
-    // onto several cables need this narrowed or every note sounds twice; the
-    // Studiologic NC2x is one.  Defaults to accepting everything.
+    // Accepted cables, bit per cable, for any device without a vendor rule.
+    // Defaults to accepting everything.
     void setCableMask(uint16_t mask);
+
+    // Per-instrument override of the mask above, matched on USB vendor ID.
+    // See UsbHostMidi::setCableMaskForVendor.  Call before begin().
+    void setCableMaskForVendor(uint16_t vendorId, uint16_t mask);
 
     // Outbound CC for ParamBroadcast.  Queued, never blocking, and a no-op
     // when nothing is attached — the same contract the old sink relied on.

@@ -15,6 +15,12 @@
 //     on a synced oscillator simply renders it unsynced.
 //   * Cross-mod: OSC2 output exponentially FMs OSC1 at depth × 10 octaves
 //     full scale — v1 routed the same signal into the ±10-octave FM mixer.
+//     PLUS (JT_XMOD_RESET, below) OSC1's phase restarts on every OSC2 wrap,
+//     which v1 did not do.  Measured against a JE-8086 (JP-8000 DSP
+//     emulation), 2026-09-30: the reference stays ~99 % harmonic of OSC2's
+//     period through a full PWM sweep; free-running exp-FM measured ~1 %
+//     (inharmonic "clang").  Only the reset model reproduced the reference
+//     (formant on h15, fitted depth ≈ 3.9 oct at the knob used).
 //   * Ring: v1's two AudioEffectMultiply units both computed osc1 × osc2
 //     (verified: identical input cables).  v2 computes the product ONCE and
 //     applies gain (ring1 + ring2) — mathematically identical output.
@@ -50,6 +56,23 @@
 #include "core/dsp/OscCore.h"
 #include "core/dsp/SupersawOsc.h"
 #include "core/dsp/FeedbackComb.h"
+
+// -----------------------------------------------------------------------------
+// X-MOD phase lock (compile-time option, DEFAULT ON).
+//   1 = JP-8000 behaviour: while X-MOD depth > 0 (and SYNC is off), OSC1
+//       resets its phase at each OSC2 wrap, so the cross-modulated tone is
+//       periodic at OSC2's pitch — harmonic, "sync-like", formant moves
+//       with OSC2 pulse width.  Costs one extra wrap-buffer write in OSC2's
+//       render and one compare per sample in OSC1's — only while X-MOD is on.
+//   0 = v1 behaviour: free-running exponential FM (inharmonic).  Kept for
+//       A/B only — define -DJT_XMOD_RESET=0 in platformio.ini build_flags.
+//   Not applied when: SYNC is on (OSC1 is then the sync master — existing
+//   delayed-feed path is unchanged), OSC2 is supersaw (no wrap point), or
+//   OSC1 is supersaw (SupersawOsc has no sync input).
+// -----------------------------------------------------------------------------
+#ifndef JT_XMOD_RESET
+#define JT_XMOD_RESET 1
+#endif
 
 namespace JT {
 

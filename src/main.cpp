@@ -100,12 +100,26 @@ MIDI_CREATE_CUSTOM_INSTANCE(HardwareSerial, Serial1, midi1, JTSerialMidiSettings
 // OCRAM, and keeping that requirement in one translation unit means nothing
 // here has to care.  JT::gUsbHostPort is the facade.
 //
-// Cables accepted from the host port.  The Studiologic NC2x mirrors one
-// keypress onto cable 0 (its internal sound module) AND cable 1 (its MIDI
-// mode output), often at different transpositions, so accepting both sounds
-// every note twice.  Bit 1 alone takes the MIDI-mode stream.  Set to 0xFFFF
-// for a controller that uses a single cable.
-static constexpr uint16_t kHostCableMask = 0x0002u;
+// Cables accepted from the host port, bit per cable.
+//
+// Default: every cable.  Most controllers either use one cable or put
+// different controls on different cables — the Launchkey MK2 sends its keys
+// on cable 0 and its InControl surface on cable 1 — so narrowing by default
+// silences something.
+//
+// Studiologic (USB vendor 0x9516, NC2x): mirrors one keypress onto cable 0
+// (its internal sound module) AND cable 1 (its MIDI-mode output), often at
+// different transpositions, so accepting both sounds every note twice.  Bit 1
+// alone takes the MIDI-mode stream.  Matched on vendor ID so the rule follows
+// the instrument, not the port.
+static constexpr uint16_t kHostCableMaskDefault    = 0xFFFFu;
+static constexpr uint16_t kHostVidStudiologic      = 0x9516u;
+static constexpr uint16_t kHostCableMaskStudiologic = 0x0002u;
+
+// Boot after a fault: how long to wait for the serial monitor to reconnect
+// before printing the CrashReport, and how long to let it settle once it has.
+static constexpr uint32_t kCrashReportWaitMs   = 5000u;
+static constexpr uint32_t kCrashReportSettleMs = 500u;
 
 // -----------------------------------------------------------------------------
 // Audio objects — constructed once, wired once, never re-patched (F32 cables
@@ -683,7 +697,9 @@ void setup()
     // old adapter, so onHostRealtime is unchanged.
     JT::gUsbHostPort.setHandleRealTimeSystem(onHostRealtime);
     JT::gUsbHostPort.setHandleForward(onHostForward);
-    JT::gUsbHostPort.setCableMask(kHostCableMask);
+    JT::gUsbHostPort.setCableMask(kHostCableMaskDefault);
+    JT::gUsbHostPort.setCableMaskForVendor(kHostVidStudiologic,
+                                           kHostCableMaskStudiologic);
     JT::gUsbHostPort.begin();
 
     // --- Serial1 port (ESP32 controller, 1 Mbaud) ---------------------------
@@ -719,6 +735,15 @@ void setup()
     // stack — the difference between diagnosing a crash and guessing at one.
     // Prints nothing after a clean start or a fresh upload.
     if (CrashReport) {
+        // After a fault the Teensy reboots and USB serial re-enumerates; the
+        // monitor needs a moment to reconnect, and anything printed before
+        // then is lost — which is exactly the report that matters.  Wait for
+        // the host (bounded, and only after a fault, so a normal boot is not
+        // delayed).
+        const uint32_t waitStartMs = millis();
+        while (!Serial && ((millis() - waitStartMs) < kCrashReportWaitMs)) {
+        }
+        delay(kCrashReportSettleMs);   // monitor attached; let it start reading
         Serial.println("[S3.0] previous run ended in a fault:");
         Serial.print(CrashReport);
     }

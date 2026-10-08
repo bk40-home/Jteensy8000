@@ -187,6 +187,33 @@ TEST_CASE("cross-mod: depth widens the spectrum (periodicity collapses)")
     for (float x : fm) REQUIRE(std::isfinite(x));
 }
 
+#if JT_XMOD_RESET
+TEST_CASE("cross-mod phase lock: X-MOD output repeats at OSC2's period (JP-8000)")
+{
+    // OSC2 an octave below a 100-sample note = exactly 200 samples/cycle.
+    // OSC1 detuned off any ratio of that, so ONLY the X-MOD reset can make
+    // the output periodic at 200.  Measured JP reference (JE-8086): ~99 %
+    // harmonic of OSC2 through a PWM sweep; free-running exp-FM was ~1 %.
+    OscSection s;
+    s.noteOn(kSampleRate / 100.0f, 7);
+    s.setPitchOffset(1, 1);                     // OSC2 -12 st -> 200-sample cycle
+    s.setDetuneSemis(0, 0.37f);                 // OSC1 inharmonic to OSC2
+    s.setMixOsc2(0.0f);                         // hear OSC1 (the carrier) only
+    const auto dry = renderSec(s, 44160);
+    CHECK(periodicity(dry, 200) > 0.05);        // X-MOD off: no lock (unchanged)
+
+    s.setCrossMod(0.39f);                       // ≈ the fitted JE-8086 depth
+    const auto fm = renderSec(s, 44160);
+    CHECK(periodicity(fm, 200) < 0.01);         // locked to OSC2's period
+    for (float x : fm) REQUIRE(std::isfinite(x));
+
+    s.setWave(1, (int)Wave::Pulse);             // PWM'd pulse modulator (the
+    s.setShapeDc(1, 0.6f);                      // vowel patch): still locked
+    const auto pw = renderSec(s, 44160);
+    CHECK(periodicity(pw, 200) < 0.01);
+}
+#endif
+
 TEST_CASE("balance: v1 crossfade law composed with (not overwriting) mixes")
 {
     OscSection s;

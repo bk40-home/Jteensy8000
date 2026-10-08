@@ -43,6 +43,13 @@ static constexpr uint16_t kAudioConfigBufferSize = 512u;
 static constexpr int32_t kAudioResultPending = 0x7FFFFFFF;
 static constexpr int32_t kAudioResultSkipped = 0x7FFFFFFE;
 
+/* Consecutive failed isochronous completions before streaming is abandoned.
+   Isochronous traffic is never retried by the controller, so an occasional
+   error on a live device is normal and must not stop the stream; a long
+   unbroken run of them means the device is not there any more. 64 slots is
+   ~0.5 s of audio at 8 frames per slot. */
+static constexpr uint8_t kAudioMaxConsecutiveErrors = 64u;
+
 /* Fills 'frames' sample frames of interleaved 24-bit signed samples. Called
    from the USB host thread, once per eight frames, so it must not block. */
 typedef void (*UsbAudioFillFn)(void* context, int32_t* interleaved,
@@ -101,6 +108,11 @@ private:
   void submitSlot(uint8_t slot);
   void submitFeedback(void);
 
+  /* Common completion bookkeeping for data and feedback transfers. Returns
+     true when the transfer may be resubmitted, false when streaming has been
+     stopped. USB host thread only. */
+  bool completionAllowsResubmit(int result);
+
   void printPlan(void);
   void printSetup(void);
 
@@ -148,9 +160,18 @@ private:
   std::atomic<int32_t> lastError{0};
   std::atomic<uint32_t> feedbackQ16{0u};
 
+  /* Bumped on every attach so report() can tell a fresh device from the one
+     it already described, even when unplug and replug both happen inside one
+     report interval and it never saw the detached state in between. */
+  std::atomic<uint32_t> attachGeneration{0u};
+
+  /* USB host thread only. */
+  uint8_t consecutiveErrors = 0u;
+
   /* Main thread only. */
   uint32_t reportedAtMs = 0u;
   uint32_t lastFrames = 0u;
+  uint32_t reportedGeneration = 0u;
   bool planPrinted = false;
   bool setupPrinted = false;
 };

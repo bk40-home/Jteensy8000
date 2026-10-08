@@ -6,6 +6,7 @@
 #include <Arduino.h>
 
 #include <atomic>
+#include <cstring>     // memset — silence while the ASRC is not ready
 
 #include "core/AudioConfig.h"   // JT::kSampleRate — ASRC ratio seed
 #include "core/dsp/Asrc.h"
@@ -57,6 +58,20 @@ void audioFill(void* context, int32_t* interleaved, uint16_t frames,
                uint8_t channels)
 {
     (void)context;
+
+    // Gate on the SAME flag that gates the producer.  The device starts
+    // streaming (and therefore pulling) on the USB thread BEFORE poll() in
+    // loop() has latched its rate and run g_asrc.begin().  Without this gate
+    // a hot-plugged device pulls from the ring while begin() is resetting its
+    // indices underneath it: pull() writes back a stale readIndex, the fill
+    // reading is garbage, and the servo pins the ratio at its clamp while the
+    // counters run away.  The USB thread outranks loop(), so no pull is ever
+    // part-way through when begin() runs — this flag closes the only window.
+    if (!g_asrcReady.load(std::memory_order_acquire)) {
+        memset(interleaved, 0,
+               static_cast<size_t>(frames) * channels * sizeof(int32_t));
+        return;
+    }
     g_asrc.pull(interleaved, frames, channels);
 }
 #endif
@@ -145,6 +160,11 @@ void UsbHostPort::setHandleRealTimeSystem(UsbHostRealtimeFn fn)  { g_onRealtime 
 void UsbHostPort::setHandleForward(UsbHostForwardFn fn)          { g_onForward = fn; }
 
 void UsbHostPort::setCableMask(uint16_t mask) { g_midi.setCableMask(mask); }
+
+void UsbHostPort::setCableMaskForVendor(uint16_t vendorId, uint16_t mask)
+{
+    g_midi.setCableMaskForVendor(vendorId, mask);
+}
 
 bool UsbHostPort::midiConnected(void) const { return g_midi.isConnected(); }
 
@@ -241,6 +261,30 @@ void UsbHostPort::printStatus(void) const
 
     Serial.print(" | host midi=");
     Serial.print(g_midi.isConnected() ? 1 : 0);
+    if (g_midi.isConnected()) {
+        /* Who is attached and how its IN endpoint is declared.
+           Example: "dev=1235:007B ep=81/int/i1/64 cab=1 mask=FFFF"
+             int|blk  transfer type the device declared
+             iN       raw bInterval — i0 on an INTERRUPT endpoint is the
+                      value an unpatched host library cannot schedule
+             /N       wMaxPacketSize
+             cab      cables declared by the device
+             mask     cable mask actually in force for THIS device */
+        Serial.print(" dev=");
+        Serial.print(g_midi.deviceVid(), HEX);
+        Serial.print(':');
+        Serial.print(g_midi.devicePid(), HEX);
+        Serial.print(" ep=");
+        Serial.print(g_midi.inEndpoint(), HEX);
+        Serial.print(g_midi.inType() == kUsbMidiEpInterrupt ? "/int/i" : "/blk/i");
+        Serial.print(g_midi.inInterval());
+        Serial.print('/');
+        Serial.print(g_midi.inPacketSize());
+        Serial.print(" cab=");
+        Serial.print(g_midi.cableCount());
+        Serial.print(" mask=");
+        Serial.print(g_midi.effectiveCableMask(), HEX);
+    }
     /* xfer/rxb are the receive path BEFORE any decoding: if these stay at
        zero while keys are played, no bulk IN transfer ever completed and the
        fault is below the packet layer.  If they climb while rx stays zero,
@@ -277,8 +321,13 @@ void UsbHostPort::printStatus(void) const
         Serial.print(" or=");
         Serial.print(g_asrc.overruns());
     }
-    Serial.print(" aerr=");
-    Serial.print(g_audio.transferErrors());
+    // Only while streaming: the counter belongs to the audio device's
+    // session, and after it detaches it would otherwise sit on the line
+    // beside a different (MIDI-only) device.
+    if (g_audio.isStreaming()) {
+        Serial.print(" aerr=");
+        Serial.print(g_audio.transferErrors());
+    }
 #endif
 }
 

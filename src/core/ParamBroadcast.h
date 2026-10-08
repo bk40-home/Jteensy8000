@@ -31,7 +31,13 @@
 // PACING (spec §5)
 //   At most kMaxPerPass parameters per drain() call, bounding loop() latency.
 //   A full resync (140 params) completes in ceil(140/8) = 18 passes — tens of
-//   milliseconds of wall time, invisible next to the UART itself at 1 Mbaud.
+//   milliseconds of firmware wall time.  The WIRE, not this pacing, is the real
+//   limit: the Serial1 link to the ESP32 controller runs at 115200 baud (NOT
+//   the 1 Mbaud an earlier revision of this note assumed), so a full-state dump
+//   is ~180-270 ms of solid bytes.  Teensy TX is naturally throttled to the
+//   wire by Serial1 write backpressure; the burst-absorption problem lives on
+//   the RECEIVING side, where the ESP32 must size its UART RX buffer to hold a
+//   whole dump (see the controller's Config::UART_RX_BUFFER).
 //
 // CPU CONTRACT ("do not calculate if not required")
 //   Idle cost is one bitset scan of kDirtyWords words, all zero.  With no

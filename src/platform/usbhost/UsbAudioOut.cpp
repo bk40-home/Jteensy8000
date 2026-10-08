@@ -5,9 +5,23 @@
 #include "UsbAudioOut.h"
 
 #include <Arduino.h>
+#include <cerrno>
 #include <cstring>
 
 namespace {
+
+/* Completion results that mean the device or endpoint no longer exists, as
+   opposed to a transient transfer error on a live device.
+
+   -ENODEV : the library destroyed the endpoint with this transfer pending
+             (endpoint teardown after a disconnect).
+   -ENXIO  : the transfer was submitted after the endpoint was deactivated.
+             The library reports this SYNCHRONOUSLY from inside its message
+             loop, so a callback that resubmits on it never lets the loop
+             block — see completionAllowsResubmit(). */
+bool resultMeansDeviceGone(int result) {
+  return (result == -ENODEV) || (result == -ENXIO);
+}
 
 constexpr uint8_t kClassAudio = 0x01u;
 constexpr uint8_t kSubclassAudioStreaming = 0x02u;
@@ -76,6 +90,24 @@ bool UsbAudioOut::attach(const usb_interface_descriptor* interface,
                          size_t length) {
   (void)length;
   boundInterface = interface->bInterfaceNumber;
+
+  /* Everything below describes ONE device.  Without this reset a hot-plugged
+     device inherits the previous one's setup results, so the report shows
+     the old device's "ok" lines and hides whatever the new one actually
+     returned — the exact information needed to diagnose a hot-plug. */
+  resultConfig.store(kAudioResultPending, std::memory_order_relaxed);
+  resultSetInterface.store(kAudioResultPending, std::memory_order_relaxed);
+  resultSetRate.store(kAudioResultPending, std::memory_order_relaxed);
+  resultClearMute.store(kAudioResultPending, std::memory_order_relaxed);
+  framesSubmitted.store(0u, std::memory_order_relaxed);
+  bytesSent.store(0u, std::memory_order_relaxed);
+  completions.store(0u, std::memory_order_relaxed);
+  errors.store(0u, std::memory_order_relaxed);
+  lastError.store(0, std::memory_order_relaxed);
+  feedbackQ16.store(0u, std::memory_order_relaxed);
+  consecutiveErrors = 0u;
+
+  attachGeneration.fetch_add(1u, std::memory_order_release);
   attached.store(true, std::memory_order_release);
 
   /* Alternate setting 0 of a streaming interface carries no endpoints, so
@@ -225,6 +257,7 @@ void UsbAudioOut::startStreaming(void) {
   memset(g_feedbackBuffer, 0, sizeof(g_feedbackBuffer));
 
   pacer.reset(nominalQ16);
+  consecutiveErrors = 0u;
 
   /* Bind every callback BEFORE publishing 'streaming'.  A completion on one
      slot can re-enter while another slot's callback is still unbound, and the
@@ -233,14 +266,11 @@ void UsbAudioOut::startStreaming(void) {
   for (uint8_t slot = 0u; slot < kAudioSlotCount; ++slot) {
     slotCallback[slot] = [this, slot](int result) {
       completions.fetch_add(1u, std::memory_order_relaxed);
-      if (result < 0) {
-        errors.fetch_add(1u, std::memory_order_relaxed);
-        lastError.store(result, std::memory_order_relaxed);
-      } else {
+      if (result >= 0) {
         bytesSent.fetch_add(static_cast<uint32_t>(result),
                             std::memory_order_relaxed);
       }
-      if (streaming.load(std::memory_order_acquire)) {
+      if (completionAllowsResubmit(result)) {
         submitSlot(slot);
       }
     };
@@ -255,7 +285,7 @@ void UsbAudioOut::startStreaming(void) {
         pacer.setRate(fb.samplesPerFrameQ16);
       }
     }
-    if (streaming.load(std::memory_order_acquire)) {
+    if (completionAllowsResubmit(result)) {
       submitFeedback();
     }
   };
@@ -268,6 +298,40 @@ void UsbAudioOut::startStreaming(void) {
   if (feedbackEndpoint != 0u) {
     submitFeedback();
   }
+}
+
+bool UsbAudioOut::completionAllowsResubmit(int result) {
+  /* WHY THIS EXISTS — the hot-plug freeze.
+     On disconnect the library deactivates every endpoint first and calls
+     detach() only when the LAST reference to the device is dropped.  Every
+     queued transfer message holds a reference.  The old callbacks resubmitted
+     unconditionally while 'streaming' was true, and 'streaming' is only
+     cleared by detach().  Each resubmission failed at once with -ENXIO,
+     whose callback resubmitted again: a message was always in flight, the
+     reference count never reached zero, detach() never ran, and the USB host
+     thread (priority 64) never blocked.  loop() runs at priority 127, so it
+     was starved outright and the Teensy appeared to crash.
+
+     Stopping here on a "gone" result breaks that cycle: the in-flight
+     messages drain, the reference count falls to zero, detach() runs and the
+     device can re-enumerate cleanly. */
+  if (result >= 0) {
+    consecutiveErrors = 0u;
+    return streaming.load(std::memory_order_acquire);
+  }
+
+  errors.fetch_add(1u, std::memory_order_relaxed);
+  lastError.store(result, std::memory_order_relaxed);
+
+  if (resultMeansDeviceGone(result) ||
+      (++consecutiveErrors >= kAudioMaxConsecutiveErrors)) {
+    streaming.store(false, std::memory_order_release);
+    return false;
+  }
+
+  /* Transient error on a live device: isochronous data is never retried, so
+     keep the stream going and let the counters show it. */
+  return streaming.load(std::memory_order_acquire);
 }
 
 void UsbAudioOut::fillSlot(uint8_t slot) {
@@ -367,6 +431,22 @@ void UsbAudioOut::report(uint32_t intervalMs) {
   if (!attached.load(std::memory_order_acquire)) {
     planPrinted = false;
     setupPrinted = false;
+    return;
+  }
+
+  /* A new attach since the last report: describe this device from scratch,
+     even if the detached state between the two was never observed here. */
+  const uint32_t generation = attachGeneration.load(std::memory_order_acquire);
+  if (generation != reportedGeneration) {
+    reportedGeneration = generation;
+    planPrinted = false;
+    setupPrinted = false;
+    lastFrames = 0u;
+  }
+
+  /* Wait for the configuration fetch to finish; printing earlier only ever
+     reports "no playback plan (pending)", which reads like a failure. */
+  if (resultConfig.load(std::memory_order_relaxed) == kAudioResultPending) {
     return;
   }
 

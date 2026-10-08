@@ -267,25 +267,37 @@ void OscSection::render(float* out, size_t n)
     const bool haveXmod = xmod && need2;
     const float xg = xd * kXmodOctaveRange;
 
+    // X-MOD phase lock (JT_XMOD_RESET, see OscSection.h): in the no-sync path
+    // OSC2 exports its wrap positions and OSC1 restarts its phase on each one,
+    // so the FM'd carrier repeats every OSC2 cycle and stays harmonic.  Needs
+    // a real phase-wrapping OSC2 (supersaw has no single wrap point) and an
+    // audible OSC1 (nothing to lock otherwise).  Sync-on keeps the existing
+    // path — OSC1 is the sync MASTER there, so a reverse reset would be a
+    // second circular dependency (flagged as untested against the JP).
+    const bool xmodLock = (JT_XMOD_RESET != 0) && haveXmod && !sync && need1
+                       && !_u[1].isSupersaw();
+
     // ---- helper lambdas keep the two orderings from duplicating wave logic --
     // OSC2 (the modulator / slave).  syncIn is the master's wrap buffer when
-    // OSC2 is the sync slave; fed nullptr when free-running.
-    auto renderOsc2 = [&](const float* syncIn)
+    // OSC2 is the sync slave; fed nullptr when free-running.  syncOut receives
+    // OSC2's own wrap positions when X-MOD phase lock is live (else nullptr).
+    auto renderOsc2 = [&](const float* syncIn, float* syncOut)
     {
         const float* fm2 = extra2Active ? pitchRamp2
                          : (pitchActive ? pitchRamp : nullptr);
         if (_u[1].isSupersaw()) {
             _u[1].ss.render(b2, n, fm2, 1.0f, nullptr);   // supersaw ignores sync
         } else {
-            _u[1].core.render(b2, n, fm2, 1.0f, syncIn, nullptr);
+            _u[1].core.render(b2, n, fm2, 1.0f, syncIn, syncOut);
         }
         if (_u[1].comb.isActive()) _u[1].comb.process(b2, n);
     };
 
     // OSC1 (the carrier / master).  xmodSrc is the per-sample modulator this
     // block sees (either OSC2's fresh output, or the one-sample-delayed feed
-    // when OSC1 has to render first); syncOut is filled when OSC1 is master.
-    auto renderOsc1 = [&](const float* xmodSrc, float* syncOut)
+    // when OSC1 has to render first); syncOut is filled when OSC1 is master;
+    // syncIn is OSC2's wrap buffer when X-MOD phase lock is live.
+    auto renderOsc1 = [&](const float* xmodSrc, float* syncOut, const float* syncIn)
     {
         const float* fmBuf;
         float        fmOct;
@@ -311,7 +323,7 @@ void OscSection::render(float* out, size_t n)
         if (_u[0].isSupersaw()) {
             _u[0].ss.render(b1, n, fmBuf, fmOct, nullptr);   // supersaw: no sync-out
         } else {
-            _u[0].core.render(b1, n, fmBuf, fmOct, nullptr, syncOut);
+            _u[0].core.render(b1, n, fmBuf, fmOct, syncIn, syncOut);
         }
         if (_u[0].comb.isActive()) _u[0].comb.process(b1, n);
     };
@@ -333,25 +345,28 @@ void OscSection::render(float* out, size_t n)
             if (haveXmod) {
                 fm1Delayed[0] = _xmodTail;                 // carry across boundary
                 for (size_t i = 1; i < n; ++i) fm1Delayed[i] = _xmodPrev[i - 1];
-                renderOsc1(fm1Delayed, syncBuf);
+                renderOsc1(fm1Delayed, syncBuf, nullptr);
             } else {
-                renderOsc1(nullptr, syncBuf);
+                renderOsc1(nullptr, syncBuf, nullptr);
             }
         } else {
             // OSC1 muted but still the sync master: fill syncBuf via scratch.
-            renderOsc1(nullptr, syncBuf);
+            renderOsc1(nullptr, syncBuf, nullptr);
         }
         // --- OSC2 slave, reset by OSC1's wrap buffer ----------------------
         if (need2) {
-            renderOsc2(syncBuf);
+            renderOsc2(syncBuf, nullptr);
             _xmodTail = b2[n - 1];
             memcpy(_xmodPrev, b2, n * sizeof(float));       // seed next block
         }
     } else {
         // --- No sync: OSC2 (modulator) first, then OSC1 (carrier) ---------
         // v1's order; X-MOD reads OSC2's fresh same-block output (no delay).
-        if (need2) renderOsc2(nullptr);
-        if (need1) renderOsc1(need2 ? b2 : nullptr, nullptr);
+        // With X-MOD phase lock, syncBuf (unused on this path otherwise)
+        // carries OSC2's wraps into OSC1 as a reset — no extra buffer.
+        if (need2) renderOsc2(nullptr, xmodLock ? syncBuf : nullptr);
+        if (need1) renderOsc1(need2 ? b2 : nullptr, nullptr,
+                              xmodLock ? syncBuf : nullptr);
         if (need2) {
             _xmodTail = b2[n - 1];
             memcpy(_xmodPrev, b2, n * sizeof(float));

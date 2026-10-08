@@ -1,10 +1,15 @@
 /*
   UsbHostMidi.h - USB MIDI class driver for the Teensy 4.1 host port.
 
-  Claims a MIDIStreaming interface, streams its bulk IN endpoint continuously
+  Claims a MIDIStreaming interface, streams its IN endpoint continuously
   and delivers decoded messages through a lock-free queue. Transmission on the
-  bulk OUT endpoint is queued the same way, so parameter mirrors can be sent
+  OUT endpoint is queued the same way, so parameter mirrors can be sent
   back to a controller without any caller ever blocking on USB.
+
+  Endpoints may be BULK or INTERRUPT. The class specification says bulk, but
+  plenty of controllers ship interrupt MIDI endpoints (the Novation Launchkey
+  MK2 is one; the Studiologic NC2x is bulk). Each direction is driven with the
+  transfer type its own descriptor declares.
 
   The driver binds at interface level rather than device level, so it
   coexists with an audio class driver on the same composite instrument. A
@@ -51,6 +56,28 @@ static constexpr uint8_t kUsbMidiMaxCables = 16u;
 /* Consecutive failed transfers before the driver gives up, so a persistent
    error cannot become a resubmission spin. */
 static constexpr uint8_t kUsbMidiMaxConsecutiveErrors = 8u;
+
+/* Delay between attach() and the first transfer on either MIDI endpoint.
+
+   attach() runs BEFORE the library has finished configuring the device: it
+   queues SET_CONFIGURATION, calls the drivers, and only sends SET_INTERFACE
+   for each interface once SET_CONFIGURATION completes. Both requests reset
+   the device's data toggles to DATA0. A read submitted at attach time can
+   complete before that reset (a controller's connect burst does exactly
+   this), leaving the host expecting DATA1 while the device restarts at
+   DATA0: the first transfer arrives and nothing after it ever does. That is
+   the Launchkey MK2 failure, on the root port and behind a hub alike.
+
+   Waiting until the control sequence has finished means neither side has
+   moved its toggle when streaming starts. The sequence takes a few
+   milliseconds; 100 ms is ample and imperceptible at plug-in. */
+static constexpr uint32_t kUsbMidiStartDelayMs = 100u;
+
+/* Endpoint transfer types, as bmAttributes & 0x03 encodes them. Zero means
+   "no endpoint in this direction". */
+static constexpr uint8_t kUsbMidiEpNone = 0u;
+static constexpr uint8_t kUsbMidiEpBulk = 2u;
+static constexpr uint8_t kUsbMidiEpInterrupt = 3u;
 
 class UsbHostMidi : public USB_Driver, public USB_Driver::Factory {
 public:
@@ -124,12 +151,28 @@ public:
      keypress onto several cables at different transpositions.
 
      This is a mechanism, not a policy: the default accepts everything, and
-     the routing configuration decides what to narrow it to. */
+     the routing configuration decides what to narrow it to.
+
+     This is the DEFAULT mask, used for any device without a vendor rule
+     (see setCableMaskForVendor). */
   void setCableMask(uint16_t mask) {
     cableMask.store(mask, std::memory_order_relaxed);
   }
   uint16_t getCableMask(void) const {
     return cableMask.load(std::memory_order_relaxed);
+  }
+
+  /* Per-vendor override of the default mask. Cable use is a property of the
+     instrument, not of the port: the Studiologic NC2x mirrors each key onto
+     cables 0 and 1 and must be narrowed to one, while the Launchkey MK2 puts
+     its keys on cable 0 and InControl on cable 1 and needs both. One rule is
+     enough for the instruments in use; a second call replaces the first.
+
+     Call from setup() before the host stack starts: the rule is read on the
+     USB host thread without synchronisation. */
+  void setCableMaskForVendor(uint16_t vendorId, uint16_t mask) {
+    ruleVid = vendorId;
+    ruleMask = mask;
   }
 
   /* Messages decoded correctly but rejected by the cable mask. */
@@ -140,6 +183,24 @@ public:
   /* Endpoints found during attach, for reporting. Zero when absent. */
   uint8_t inEndpoint(void) const { return endpointIn; }
   uint8_t outEndpoint(void) const { return endpointOut; }
+
+  /* IN endpoint details as DECLARED by the device, for reporting.
+     inType() is kUsbMidiEpBulk or kUsbMidiEpInterrupt. inInterval() is the
+     raw bInterval: for a full-speed interrupt endpoint it must be 1..255,
+     and 0 is the value that leaves an unpatched host library unable to
+     schedule the endpoint at all (see the patch notes delivered with this
+     driver). */
+  uint8_t inType(void) const { return endpointInType; }
+  uint8_t inInterval(void) const { return endpointInInterval; }
+  uint16_t inPacketSize(void) const { return endpointInPacket; }
+
+  /* Identity of the bound device, for reporting. Zero when none. */
+  uint16_t deviceVid(void) const { return vid; }
+  uint16_t devicePid(void) const { return pid; }
+
+  /* The mask actually in force for the bound device: the vendor rule's mask
+     when the device matches it, the default mask otherwise. */
+  uint16_t effectiveCableMask(void) const;
 
   /* Cable to jack mapping declared by the endpoint's class descriptor. */
   uint8_t cableCount(void) const { return cablesIn; }
@@ -180,9 +241,17 @@ private:
 
   void detach(void) override;
 
-  /* Walk the interface's descriptors for its bulk endpoints and the cable
-     list attached to the IN endpoint. */
+  /* Walk the interface's descriptors for its bulk or interrupt endpoints and
+     the cable list attached to the IN endpoint. */
   bool parseInterface(const usb_interface_descriptor* interface, size_t length);
+
+  /* Issue one IN or OUT transfer with the type the endpoint declared. */
+  int startInTransfer(uint8_t slot);
+  int startOutTransfer(uint16_t bytes);
+
+  /* Runs from the start-delay timer on the USB host thread: publishes
+     'connected' and submits the reads. */
+  void startStreams(uint32_t generation);
 
   void submitRead(uint8_t slot);
   void handleTransfer(uint8_t slot, int result);
@@ -196,12 +265,33 @@ private:
   uint8_t interfaceNumber = 0u;
   uint8_t endpointIn = 0u;
   uint8_t endpointOut = 0u;
+  uint8_t endpointInType = kUsbMidiEpNone;
+  uint8_t endpointOutType = kUsbMidiEpNone;
+  uint8_t endpointInInterval = 0u;
+  uint16_t endpointInPacket = 0u;
   uint16_t readSize = kUsbMidiReadSize;
   uint8_t cablesIn = 0u;
   uint8_t cableJackIn[kUsbMidiMaxCables] = {0u};
+  uint16_t vid = 0u;
+  uint16_t pid = 0u;
+
+  /* Vendor rule; ruleVid 0 means no rule (0 is not an assigned vendor ID). */
+  uint16_t ruleVid = 0u;
+  uint16_t ruleMask = 0xFFFFu;
 
   USBCallback readCallback[kUsbMidiReadSlots];
   USBCallback writeCallback;
+
+  /* True from a successful attach() until detach(). Used to refuse a second
+     interface instead of getDevice(): when attach() fails, the library calls
+     detach() but leaves the driver's device pointer set, so getDevice() stays
+     non-null and every later offer() would be refused until reboot. */
+  std::atomic_bool bound{false};
+
+  /* Bumped on every attach; the start-delay timer captures it so a timer
+     belonging to a device that has since gone cannot start streams on a
+     newer one. USB host thread only. */
+  uint32_t attachGeneration = 0u;
 
   std::atomic_bool connected{false};
   std::atomic<uint16_t> cableMask{0xFFFFu};
