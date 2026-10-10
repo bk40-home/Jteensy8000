@@ -178,6 +178,8 @@ static constexpr Option kOpt_osc_wave[] = {
     { "BLvSAW" },
     { "vTRI" },
     { "BLvTRI" },
+    { "JvSAW" },
+    { "JvTRI" },
 };
 static constexpr Option kOpt_perf_mode[] = {
     { "Single" },
@@ -296,7 +298,7 @@ static constexpr Option kOpt_xpander_mode[] = {
 static constexpr int kNumParams = 252;
 
 static constexpr Param kParams[kNumParams] = {
-    { 0x0000, "osc1.wave",               "osc1.wave",               "Osc1 Wave",             "WAVE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      17.0f,     0.0f,      0.0f,      "",      false,  kOpt_osc_wave,         18,  0 },
+    { 0x0000, "osc1.wave",               "osc1.wave",               "Osc1 Wave",             "WAVE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      19.0f,     0.0f,      0.0f,      "",      false,  kOpt_osc_wave,         20,  0 },
     { 0x0001, "osc1.pitch_offset",       "osc1.pitch_offset",       "Osc1 Pitch",            "PITCH",     Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      4.0f,      0.0f,      2.0f,      "",      false,  kOpt_pitch_offset,      5,  0 },
     { 0x0002, "osc1.fine_tune",          "osc1.fine_tune",          "Osc1 Fine",             "FINE",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, -1.0f,     1.0f,      0.0f,      0.0f,      "norm",  true,   nullptr,                0,  0 },
     { 0x0003, "osc1.detune",             "osc1.detune",             "Osc1 Detune",           "DETUNE",    Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, -1.0f,     1.0f,      0.0f,      0.0f,      "norm",  true,   nullptr,                0,  0 },
@@ -310,7 +312,7 @@ static constexpr Param kParams[kNumParams] = {
     { 0x000B, "osc1.arb_bank",           "osc1.arb_bank",           "Osc1 Arb Bank",         "BANK",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0,  0 },
     { 0x000C, "osc1.arb_index",          "osc1.arb_index",          "Osc1 Arb Idx",          "IDX",       Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0,  0 },
     { 0x000D, "osc1.pwm_lfo1_depth",     "osc1.pwm_lfo1_depth",     "Osc1 PWM Amt",          "PWM AMT",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      1.0f,      "norm",  false,  nullptr,                0,  0 },
-    { 0x0080, "osc2.wave",               "osc2.wave",               "Osc2 Wave",             "WAVE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      17.0f,     0.0f,      0.0f,      "",      false,  kOpt_osc_wave,         18,  1 },
+    { 0x0080, "osc2.wave",               "osc2.wave",               "Osc2 Wave",             "WAVE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      19.0f,     0.0f,      0.0f,      "",      false,  kOpt_osc_wave,         20,  1 },
     { 0x0081, "osc2.pitch_offset",       "osc2.pitch_offset",       "Osc2 Pitch",            "PITCH",     Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      4.0f,      0.0f,      2.0f,      "",      false,  kOpt_pitch_offset,      5,  1 },
     { 0x0082, "osc2.fine_tune",          "osc2.fine_tune",          "Osc2 Fine",             "FINE",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, -1.0f,     1.0f,      0.0f,      0.0f,      "norm",  true,   nullptr,                0,  1 },
     { 0x0083, "osc2.detune",             "osc2.detune",             "Osc2 Detune",           "DETUNE",    Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, -1.0f,     1.0f,      0.0f,      0.0f,      "norm",  true,   nullptr,                0,  1 },

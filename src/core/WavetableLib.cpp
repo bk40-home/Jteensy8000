@@ -11,6 +11,9 @@
 
 // The 2.1 MB catalogue enters the build HERE and nowhere else.
 #include "data/akwf/AKWF_All.h"
+// Measured JP-8000 SHAPE morphs (~306 KB flash) — same firewall, same folder.
+#include "data/akwf/JpMorph/JpMorph_VSaw.h"
+#include "data/akwf/JpMorph/JpMorph_VTri.h"
 
 namespace JT {
 namespace WavetableLib {
@@ -44,6 +47,41 @@ JT_COLD int bankFromNorm(float norm01)
     int bank = (int)(norm01 * (float)kNumBanks);
     if (bank >= kNumBanks) bank = kNumBanks - 1;    // norm==1.0 edge
     return bank;
+}
+
+namespace {
+// One descriptor per generated set, built from the generated header's own
+// constants — a regenerated table with different frame/level geometry needs
+// no edit here.  constexpr: built at compile time (no static-init order
+// hazard), 7 fields each; the sample data they point at stays in flash.
+constexpr WaveTableSet makeSet(const int16_t* data, uint32_t spf, uint16_t frames,
+                     uint16_t levels, const uint16_t* off,
+                     const uint16_t* len, const uint16_t* harm)
+{
+    WaveTableSet s;
+    s.data = data;  s.samplesPerFrame = spf;  s.frames = frames;  s.levels = levels;
+    s.levelOffset = off;  s.levelLen = len;  s.levelHarm = harm;
+    return s;
+}
+
+constexpr WaveTableSet kJpVSaw = makeSet(
+    JpMorphVSaw::kData, JpMorphVSaw::kSamplesPerFrame, JpMorphVSaw::kFrames,
+    JpMorphVSaw::kLevels, JpMorphVSaw::kLevelOffset, JpMorphVSaw::kLevelLen,
+    JpMorphVSaw::kLevelHarm);
+
+constexpr WaveTableSet kJpVTri = makeSet(
+    JpMorphVTri::kData, JpMorphVTri::kSamplesPerFrame, JpMorphVTri::kFrames,
+    JpMorphVTri::kLevels, JpMorphVTri::kLevelOffset, JpMorphVTri::kLevelLen,
+    JpMorphVTri::kLevelHarm);
+} // namespace
+
+JT_COLD const WaveTableSet* jpMorphSet(Wave w)
+{
+    switch (w) {
+    case Wave::JpVarSaw: return &kJpVSaw;
+    case Wave::JpVarTri: return &kJpVTri;
+    default:             return nullptr;
+    }
 }
 
 JT_COLD int indexFromNorm(float norm01, int bank)

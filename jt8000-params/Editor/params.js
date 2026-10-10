@@ -638,7 +638,9 @@ window.PARAMS = {
    "vSAW",
    "BLvSAW",
    "vTRI",
-   "BLvTRI"
+   "BLvTRI",
+   "JvSAW",
+   "JvTRI"
   ],
   "perf_mode": [
    "Single",

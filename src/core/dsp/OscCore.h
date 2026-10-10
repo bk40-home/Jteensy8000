@@ -41,6 +41,7 @@
 #include <stddef.h>
 
 #include "core/AudioConfig.h"
+#include "core/dsp/WaveTableSet.h"
 
 namespace JT {
 
@@ -107,6 +108,14 @@ enum class Wave : uint8_t {
     BlVarSaw    = 15,   // polyBLEP saw morph
     VarTri      = 16,   // naive triangle fold
     BlVarTri    = 17,   // 2x-oversampled, base-triangle polyBLEP fold
+    // --- MEASURED JP-8000 SHAPE morphs (append-only; indices frozen) --------
+    // Single cycles captured from a JE-8086 (JP-8000 DSP emulation) SHAPE
+    // sweep, 17 frames min->max × 7 band-limited levels, played by the SAME
+    // table reader as ARB.  SHAPE covers every frame: shape_dc -1 -> frame 0
+    // (JP SHAPE min), 0 -> frame 8, +1 -> frame 16 (JP SHAPE max).  The
+    // formula morphs above stay untouched for existing patches.
+    JpVarSaw    = 18,   // "JvSAW" — data/akwf/JpMorph/JpMorph_VSaw.h
+    JpVarTri    = 19,   // "JvTRI" — data/akwf/JpMorph/JpMorph_VTri.h
 };
 
 class OscCore {
@@ -115,11 +124,18 @@ public:
     void setWave(Wave w)              { _wave = w; }
     void setFrequency(float hz);      // dirty-checked
     // Shape 0..1: pulse width for Pulse/BlPulse, rise-fraction for TriVar.
-    // Clamped to 0.05..0.95 so pulse never degenerates to DC.
+    // Clamped to 0.05..0.95 so pulse never degenerates to DC.  The table
+    // morph position keeps the FULL 0..1 range (clamped only to 0..1) so
+    // the measured JP waves reach their end frames.
     void setShape(float s);
     // Arbitrary wavetable: any length ≥ 2 (AKWF uses 600), int16 samples.
     // Passing nullptr falls back to naive saw (matches v1's arbdata guard).
+    // Wrapped internally as a 1-frame, 1-level WaveTableSet so ARB and the
+    // JP morphs share ONE reader (byte-identical ARB output — see .cpp).
     void setArbTable(const int16_t* data, uint16_t length);
+    // Morph set for the JpVarSaw/JpVarTri waves (static flash data from
+    // WavetableLib).  nullptr = those waves fall back to naive saw.
+    void setMorphSet(const WaveTableSet* set) { _morphSet = (set && set->valid()) ? set : nullptr; }
 
     void resetPhase(float phase01);   // caller-supplied randomisation
     // Sample & Hold needs a noise source; seeding keeps voices decorrelated
@@ -155,6 +171,16 @@ private:
                     const float* fmBuf, float fmOctaves,
                     const float* syncIn, float* syncOut);
 
+    // THE wavetable reader (ARB + JP morphs).  Picks the band-limited level
+    // and the two morph frames ONCE per block, then runs a tight per-sample
+    // loop.  Morph=false (1-frame sets, i.e. ARB) reads one frame only and is
+    // arithmetically identical to the pre-merge ARB loop.
+    template <bool HasFm, bool HasSyncIn, bool HasSyncOut, bool Morph>
+    void renderTable(float* out, size_t n,
+                     const float* fmBuf, float fmOctaves,
+                     const float* syncIn, float* syncOut,
+                     const WaveTableSet& ts);
+
     float nextNoise();                // xorshift32, ±1.0
 
     Wave     _wave   = Wave::Saw;
@@ -175,8 +201,15 @@ private:
 #endif
     uint32_t _rng    = 0x9E3779B9u;
 
+    // --- table reader state ---
+    // ARB keeps just pointer + length (as v1); render() wraps them in a
+    // 1-frame, 1-level WaveTableSet ON THE STACK each block, so an OscCore
+    // copy can never hold a descriptor pointing into another object.
     const int16_t* _arbData = nullptr;
     uint16_t       _arbLen  = 0;
+    // JP morph set (flash, owned by WavetableLib) and its morph position.
+    const WaveTableSet* _morphSet = nullptr;
+    float          _morph = 0.5f;           // 0..1, NOT pulse-clamped
 };
 
 } // namespace JT

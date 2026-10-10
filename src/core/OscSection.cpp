@@ -9,6 +9,7 @@
 #include <string.h>  // memset
 
 #include "core/dsp/FastMath.h"
+#include "core/WavetableLib.h"   // jpMorphSet (thin firewall header, no data)
 
 namespace JT {
 
@@ -81,6 +82,10 @@ void OscSection::setWave(int unit, int waveOption)
 {
     _u[unit].waveOption = waveOption;
     _u[unit].core.setWave((Wave)waveOption);
+    // Measured JP morphs: attach their flash table set (nullptr for every
+    // other wave — harmless, the core only reads it for JpVarSaw/JpVarTri).
+    // Control plane only; the lookup is a two-case switch.
+    _u[unit].core.setMorphSet(WavetableLib::jpMorphSet((Wave)waveOption));
 }
 
 void OscSection::setPitchOffset(int unit, int option)
@@ -113,7 +118,8 @@ void OscSection::setShapeDc(int unit, float dc)
 {
     // v1 fed shape DC into the pulse-width mod input: 0 DC = 50% width.
     // The v2 table's bipolar -1..1 covers the full 0..1 width (superset of
-    // v1's unipolar CC — see header).  OscCore clamps to 5..95%.
+    // v1's unipolar CC — see header).  OscCore clamps pulse to 5..95%; the
+    // measured JP morphs use the UNCLAMPED 0..1 (all 17 frames reachable).
     // Phase 3: store the base so the PWM LFO (render()) can offset it later
     // without losing this knob's own position; apply the base-only width
     // here so a patch with no PWM LFO wired needs no extra per-block work.

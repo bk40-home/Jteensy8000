@@ -84,6 +84,10 @@ void OscCore::setFrequency(float hz)
 
 void OscCore::setShape(float s)
 {
+    // Table morph keeps the FULL range so SHAPE reaches every JP frame; the
+    // 5..95% clamp below exists for pulse/TriVar only.
+    _morph = (s < 0.0f) ? 0.0f : ((s > 1.0f) ? 1.0f : s);
+
     // 5%..95%: a pulse at 0 or 1 width is silence-with-DC, and TriVar at
     // the extremes degenerates into the plain saws that already exist.
     if (s < 0.05f) s = 0.05f;
@@ -96,6 +100,8 @@ void OscCore::setArbTable(const int16_t* data, uint16_t length)
     // Table swap is glitch-safe by construction: it lands at a block
     // boundary (control plane) and phase is preserved, so mid-note bank
     // browsing morphs rather than clicks — same behaviour as v1.
+    // Stored as v1 did; render() wraps it as a 1-frame, 1-level set for the
+    // shared reader.  An invalid table -> the Arb case keeps v1's naive saw.
     _arbData = (length >= 2) ? data : nullptr;
     _arbLen  = (length >= 2) ? length : 0;
 }
@@ -169,23 +175,20 @@ inline float OscCore::step(size_t i, const float* fmBuf, float fmOctaves,
 }
 
 // -----------------------------------------------------------------------------
-// Waveform loops.  Every wave outputs ±1 nominal.
+// Loop macros shared by renderTable() and renderImpl() (both are templated on
+// the same <HasFm, HasSyncIn, HasSyncOut> set, and both loop on `i`).  Defined
+// once here, #undef'd after renderImpl.
 // -----------------------------------------------------------------------------
-template <bool HasFm, bool HasSyncIn, bool HasSyncOut>
-void OscCore::renderImpl(float* out, size_t n,
-                         const float* fmBuf, float fmOctaves,
-                         const float* syncIn, float* syncOut)
-{
-    // Local shorthand: advances phase with the active feature set.
-    #define JT_STEP() step<HasFm, HasSyncIn, HasSyncOut>(i, fmBuf, fmOctaves, syncIn, syncOut)
+// Local shorthand: advances phase with the active feature set.
+#define JT_STEP() step<HasFm, HasSyncIn, HasSyncOut>(i, fmBuf, fmOctaves, syncIn, syncOut)
 
 #if JT_SYNC_ANTIALIAS
-    // F3: applied after each sample write in a braced loop.  On a sync-reset
-    // sample it band-limits the step (out[i] vs the previously held level) and
-    // carries the residual to the next sample; otherwise just applies any
-    // pending carry.  Compiles away for non-slave instantiations (no HasSyncIn)
-    // and when the flag is off.
-    #define JT_SYNC_BLEP()                                                    \
+// F3: applied after each sample write in a braced loop.  On a sync-reset
+// sample it band-limits the step (out[i] vs the previously held level) and
+// carries the residual to the next sample; otherwise just applies any
+// pending carry.  Compiles away for non-slave instantiations (no HasSyncIn)
+// and when the flag is off.
+#define JT_SYNC_BLEP()                                                    \
         if (HasSyncIn) {                                                      \
             out[i] += _blepCarry; _blepCarry = 0.0f;                          \
             if (_blepFrac >= 0.0f) {                                          \
@@ -196,9 +199,85 @@ void OscCore::renderImpl(float* out, size_t n,
             _preResetOut = out[i];                                            \
         } else ((void)0)
 #else
-    #define JT_SYNC_BLEP() ((void)0)
+#define JT_SYNC_BLEP() ((void)0)
 #endif
 
+
+// -----------------------------------------------------------------------------
+// THE wavetable reader — ARB (1 frame, 1 level) and the measured JP morphs
+// (N frames × M band-limited levels) share this one loop.
+//
+// Per BLOCK (control work, done once):
+//   * level: first level whose highest harmonic × base increment is below
+//     Nyquist (0.5 cycles/sample).  Levels are stored most-harmonics-first;
+//     harm 0 means "unknown/full band" and is always accepted (ARB).  Chosen
+//     from the BASE pitch: FM/X-MOD excursions within the block can exceed it
+//     (same trade-off as every block-rate mip selector; brightness under deep
+//     FM is authentic to the table, aliasing is bounded by the next level).
+//   * morph: _morph (0..1, full range) -> frame pair (a, a+1) + fraction.
+//     Block-rate like PWM; 128 samples is far below audible stepping.
+// Per SAMPLE: linear interpolation along the cycle (multiply-indexed, any
+// length — AKWF is 600), then, for Morph, a linear crossfade between frames.
+//
+// BYTE-IDENTITY: with Morph=false the per-sample maths is exactly the old
+// ARB loop — pos = ph × (float)len, idx/frac/nxt, a + (b − a) × frac,
+// × (1/32768) — verified by cmp of rendered output before/after the merge.
+// -----------------------------------------------------------------------------
+template <bool HasFm, bool HasSyncIn, bool HasSyncOut, bool Morph>
+void OscCore::renderTable(float* out, size_t n,
+                          const float* fmBuf, float fmOctaves,
+                          const float* syncIn, float* syncOut,
+                          const WaveTableSet& ts)
+{
+    // --- band-limited level for this block's base pitch ---
+    uint16_t lvl = 0;
+    while (lvl + 1u < ts.levels
+           && ts.levelHarm[lvl] != 0u
+           && (float)ts.levelHarm[lvl] * _inc > 0.5f)
+        ++lvl;
+    const uint32_t len  = ts.levelLen[lvl];
+    const float    lenF = (float)len;
+
+    // --- morph frames (Morph only; frames >= 2 guaranteed by the caller) ---
+    uint32_t fA = 0;
+    float    mf = 0.0f;
+    if (Morph) {
+        const float pos = _morph * (float)(ts.frames - 1u);
+        fA = (uint32_t)pos;
+        if (fA > ts.frames - 2u) fA = ts.frames - 2u;     // _morph == 1 edge
+        mf = pos - (float)fA;
+    }
+    const int16_t* A = ts.data + fA * ts.samplesPerFrame + ts.levelOffset[lvl];
+    const int16_t* B = A + ts.samplesPerFrame;              // read only if Morph
+
+    for (size_t i = 0; i < n; ++i) {
+        const float pos  = JT_STEP() * lenF;
+        uint32_t idx     = (uint32_t)pos;
+        const float frac = pos - (float)idx;
+        if (idx >= len) idx = 0;                            // phase==1 edge
+        const uint32_t nxt = (idx + 1u < len) ? idx + 1u : 0u;
+        const float a = (float)A[idx];
+        const float b = (float)A[nxt];
+        float v = a + (b - a) * frac;
+        if (Morph) {
+            const float c = (float)B[idx];
+            const float d = (float)B[nxt];
+            const float w = c + (d - c) * frac;
+            v += (w - v) * mf;
+        }
+        out[i] = v * (1.0f / 32768.0f);
+        JT_SYNC_BLEP();
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Waveform loops.  Every wave outputs ±1 nominal.
+// -----------------------------------------------------------------------------
+template <bool HasFm, bool HasSyncIn, bool HasSyncOut>
+void OscCore::renderImpl(float* out, size_t n,
+                         const float* fmBuf, float fmOctaves,
+                         const float* syncIn, float* syncOut)
+{
     switch (_wave) {
 
     case Wave::Sine:
@@ -280,20 +359,36 @@ void OscCore::renderImpl(float* out, size_t n,
             }
             break;
         }
-        for (size_t i = 0; i < n; ++i) {
-            // Linear interpolation over an arbitrary-length int16 table
-            // (AKWF = 600 samples, deliberately not power-of-two — a
-            // modulo-mask trick is not available, so index by multiply).
-            const float pos  = JT_STEP() * (float)_arbLen;
-            uint32_t idx     = (uint32_t)pos;
-            const float frac = pos - (float)idx;
-            if (idx >= _arbLen) idx = 0;                  // phase==1 edge
-            const uint32_t nxt = (idx + 1u < _arbLen) ? idx + 1u : 0u;
-            const float a = (float)_arbData[idx];
-            const float b = (float)_arbData[nxt];
-            out[i] = (a + (b - a) * frac) * (1.0f / 32768.0f);
-            JT_SYNC_BLEP();
+        {
+            // AKWF (600-sample, 1 frame, 1 level, full band) through the
+            // shared reader.  Descriptor built here: 7 stores per block.
+            static constexpr uint16_t kZero[1] = { 0 };
+            const uint16_t len[1] = { _arbLen };
+            WaveTableSet ts;
+            ts.data = _arbData;  ts.samplesPerFrame = _arbLen;
+            ts.frames = 1;       ts.levels = 1;
+            ts.levelOffset = kZero; ts.levelLen = len; ts.levelHarm = kZero;
+            renderTable<HasFm, HasSyncIn, HasSyncOut, false>(out, n, fmBuf, fmOctaves,
+                                                             syncIn, syncOut, ts);
         }
+        break;
+
+    case Wave::JpVarSaw:
+    case Wave::JpVarTri:
+        if (_morphSet == nullptr) {
+            // Defensive: no set attached (OscSection attaches one on setWave).
+            for (size_t i = 0; i < n; ++i) {
+                out[i] = 2.0f * JT_STEP() - 1.0f;
+                JT_SYNC_BLEP();
+            }
+            break;
+        }
+        if (_morphSet->frames >= 2u)
+            renderTable<HasFm, HasSyncIn, HasSyncOut, true >(out, n, fmBuf, fmOctaves,
+                                                             syncIn, syncOut, *_morphSet);
+        else
+            renderTable<HasFm, HasSyncIn, HasSyncOut, false>(out, n, fmBuf, fmOctaves,
+                                                             syncIn, syncOut, *_morphSet);
         break;
 
     case Wave::BlSaw:
@@ -438,9 +533,10 @@ void OscCore::renderImpl(float* out, size_t n,
         break;
     }
 
-    #undef JT_STEP
-    #undef JT_SYNC_BLEP
 }
+
+#undef JT_STEP
+#undef JT_SYNC_BLEP
 
 // -----------------------------------------------------------------------------
 // Dispatch: pick the template instantiation for the features present, once
