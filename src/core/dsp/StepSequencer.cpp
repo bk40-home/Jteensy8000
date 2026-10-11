@@ -3,7 +3,8 @@
 // =============================================================================
 // Logic ported 1:1 from v1 StepSequencer.cpp (see docs/PHASE7_SEQUENCER_SPEC.md
 // for the file:line diagnosis).  Substitutions only: Arduino random() -> house
-// xorshift (D-2); Arduino constrain() -> local clamps; tempo-sync inert (D-1).
+// xorshift (D-2); Arduino constrain() -> local clamps.  Tempo sync (D-1) is
+// now live via TempoClock::freqForMode — see setTimingMode/updateFromClock.
 // © 2026 Kris Bishop — MIT licensed.
 // =============================================================================
 #include "core/dsp/StepSequencer.h"
@@ -235,7 +236,9 @@ void StepSequencer::setAuxBipolar(bool on)  { _auxBipolar  = on; }
 void StepSequencer::setRate(float hz)
 {
     _rateHz = clampf(hz, kFreeHzMin, kFreeHzMax);
-    if (_timingMode == TempoClock::kFree) recalcDuration();
+    // Store-only while synced: the knob is the Free FALLBACK, so editing it
+    // under a division must not move the clock-derived step length.
+    if (!synced()) recalcDuration();
 }
 
 void StepSequencer::setRetrigger(bool on) { _retrigger = on; }
@@ -248,24 +251,45 @@ void StepSequencer::reset()
     _auxOutput = 0.0f;                              // aux lane (Stage B)
 }
 
-// D-1: tempo-sync deferred.  Store the mode, but stay free-running — no ms
-// accessor on TempoClock yet.  When it lands, restore the v1 behaviour here.
-void StepSequencer::setTimingMode(int mode)
+// ---------------------------------------------------------------------------
+// Tempo sync (D-1 closed).
+//
+// Mode is an index into the shared timing_mode option set, which IS
+// TempoClock::Mode (frozen order, see TempoClock.h).  freqForMode returns <= 0
+// for Free and for any out-of-range index, so a corrupt stored value degrades
+// to free-running rather than reading past the multiplier table.
+//
+// Duration changes keep _phaseMs in absolute ms (no rescale), matching the
+// long-standing free-rate behaviour: tick()'s while-loop simply advances if the
+// new step is shorter than the time already elapsed.  At musical tempo changes
+// that is at most one early step edge, and Start/retrigger re-align it.
+// ---------------------------------------------------------------------------
+void StepSequencer::setTimingMode(int mode, const TempoClock& clock)
 {
     _timingMode = mode;
-    if (mode == TempoClock::kFree) recalcDuration();
-    // else: intentionally free-running until getTimeForMode(ms) exists.
+    updateFromClock(clock);
 }
 
-void StepSequencer::updateFromClock(const TempoClock& /*clock*/)
+void StepSequencer::updateFromClock(const TempoClock& clock)
 {
-    // D-1: no-op.  TempoClock has freqForMode(Hz) but not getTimeForMode(ms);
-    // wiring sync requires that accessor (a bounded follow-up).
+    // Free and not previously synced: nothing to resolve (BPM edits must not
+    // touch a free-running sequencer).  Free but previously synced: fall
+    // through so _syncHz clears and the free rate takes over again.
+    if (_timingMode == TempoClock::kFree && !synced()) return;
+
+    _syncHz = clock.freqForMode(_timingMode);      // <= 0 => not synced
+    if (_syncHz > 0.0f) _syncHz = clampf(_syncHz, kFreeHzMin, kFreeHzMax);
+    recalcDuration();
 }
 
 void StepSequencer::recalcDuration()
 {
-    _stepDurationMs = (_rateHz > 0.0f) ? (1000.0f / _rateHz) : 1000.0f;
+    // One reciprocal per actual change (rule 6).  Synced Hz wins; otherwise the
+    // free knob.  Both are already clamped to [kFreeHzMin, kFreeHzMax], whose
+    // span covers every synced extreme (4 Bars @ 40 BPM .. 1/32 @ 300 BPM —
+    // asserted in test_sequencer), so the clamp never bends a real division.
+    const float hz = synced() ? _syncHz : _rateHz;
+    _stepDurationMs = (hz > 0.0f) ? (1000.0f / hz) : 1000.0f;
 }
 
 } // namespace JT

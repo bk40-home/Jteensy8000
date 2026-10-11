@@ -1190,6 +1190,7 @@ static constexpr uint8_t kVis_FX_DELAY_SAT[] JT_TABLE_FLASH = { 1 };   // fx.del
 static constexpr uint8_t kVis_FX_DELAY_WOW[] JT_TABLE_FLASH = { 1 };   // fx.delay_engine in ['Tape']
 static constexpr uint8_t kVis_FX_DELAY_FLUTTER[] JT_TABLE_FLASH = { 1 };   // fx.delay_engine in ['Tape']
 static constexpr uint8_t kVis_FX_DELAY_WOW_RATE[] JT_TABLE_FLASH = { 1 };   // fx.delay_engine in ['Tape']
+static constexpr uint8_t kVis_SEQ_RATE[] JT_TABLE_FLASH = { 0 };   // seq.timing_mode in ['Free']
 static constexpr uint8_t kVis_REVERB_SHIMMER[] JT_TABLE_FLASH = { 1 };   // reverb.algorithm in ['Shimmer']
 
 // --- The table -----------------------------------------------------------------
@@ -1339,7 +1340,7 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::SEQ_DESTINATION, Str::s344, Str::s345, Str::s211, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_dest, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::SEQ_DEPTH, Str::s346, Str::s347, Str::s174, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 1, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::SEQ_RETRIGGER, Str::s348, Str::s349, Str::s350, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_RATE, Str::s351, Str::s352, Str::s193, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_RATE, Str::s351, Str::s352, Str::s193, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 2, Control::Pot, ID::SEQ_TIMING_MODE, kVis_SEQ_RATE, 1 },
     { ID::SEQ_TIMING_MODE, Str::s353, Str::s354, Str::s92, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 13, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::SEQ_STEP_SELECT, Str::s355, Str::s356, Str::s357, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s134, false, 0, -1, 0, nullptr, 13, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::SEQ_STEP_VALUE, Str::s358, Str::s359, Str::s360, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },

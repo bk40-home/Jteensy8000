@@ -1055,9 +1055,10 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             _seq.setRate(StepSequencer::kFreeHzMin * exp2f(norm * 11.2877124f));
             break;
         case ID::SEQ_TIMING_MODE:
-            // D-1: tempo-sync deferred (TempoClock has no getTimeForMode(ms)
-            // yet).  Stored inert; sequencer stays free-running at SEQ_RATE.
-            _seq.setTimingMode(opt);
+            // D-1 closed: option index == TempoClock::Mode.  Resolved once here
+            // against the shared clock; refreshSyncedRates() re-resolves on any
+            // later BPM/source change.  Free (0) falls back to SEQ_RATE.
+            _seq.setTimingMode(opt, _clock);
             break;
         // SEQ_STEP_SELECT / SEQ_STEP_VALUE and their aux twins are RETIRED.
         // ParamIDs are permanent so the rows stay in the table, but the engine
@@ -1163,6 +1164,12 @@ void SynthCore::refreshSyncedRates()
     // tempo's time.  A Free delay harmlessly re-asserts _fxDelayFreeMs, the
     // same no-op the Free LFOs below rely on — no branch needed here either.
     applyDelayTime();
+
+    // D-1: the step sequencer is the fifth consumer of the shared clock.  A
+    // Free sequencer returns immediately (one compare), so a BPM sweep costs
+    // nothing unless it is actually synced.  The arp needs no call here — it
+    // re-validates its own cached duration against clock.bpm() in tick().
+    _seq.updateFromClock(_clock);
 
     // All four, unconditionally: a Free LFO harmlessly re-asserts freeHz (a
     // no-op — same value it already has), so no branch on syncMode is needed

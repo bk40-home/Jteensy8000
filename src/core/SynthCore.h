@@ -134,8 +134,20 @@ public:
     // Size of the feedback-comb pool the OWNER must provide: 2 units x 8
     // voices x one delay line.  On Teensy declare it DMAMEM (OCRAM); on
     // the host any static/stack array works.  See FeedbackComb.h.
+    //
+    // DERIVED from FeedbackComb::kDelaySamples, never a literal.  This was a
+    // hardcoded 221u (the 44.1 kHz line length).  When kSampleRate moved to
+    // 48 kHz the comb line became 240 samples, but the pool stayed at 221 per
+    // line, so the constructor's attachStorage() -> reset() zero-filled 304
+    // floats (1216 bytes) PAST THE END of the owner's buffer:
+    //   * JUCE plugin (EngineHost, std::vector pool): heap corruption, the
+    //     Windows 0xC0000374 crash at launch.
+    //   * Teensy (DMAMEM gCombPool): silent OCRAM overrun into whatever
+    //     DMAMEM object the linker placed next.
+    //   * Host tests: glibc malloc assert / ASan heap-buffer-overflow.
+    // The static_assert in SynthCore.cpp pins the slicing to this size.
     static constexpr size_t kCombPoolFloats =
-        2u * VoiceAllocator::kMaxVoices * 221u;   // == FeedbackComb line
+        2u * VoiceAllocator::kMaxVoices * FeedbackComb::kDelaySamples;
 
     // Global-reverb delay memory the OWNER must provide (Phase 5).  ~39707
     // floats ≈ 155 KB — declare it EXTMEM (PSRAM) on Teensy, heap on host.

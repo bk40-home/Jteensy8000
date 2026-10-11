@@ -39,10 +39,15 @@
 //   geometric-decay bug, fixed in v2.1 by freezing _lastGateOutput).
 //
 // FLAGGED DEVIATIONS (CLAUDE.md rule 2, spec §7 — mirror the running ledger)
-//   D-1  SEQ_TIMING_MODE tempo-sync DEFERRED: v2 TempoClock exposes freqForMode
-//        (Hz) but no getTimeForMode (ms), the accessor v1's sync path needs.
-//        setTimingMode/updateFromClock are inert stubs here; the sequencer stays
-//        free-running at SEQ_RATE.  Bounded follow-up once the ms accessor lands.
+//   D-1  SEQ_TIMING_MODE tempo-sync — CLOSED.  Originally deferred for want of
+//        a TempoClock ms accessor; none is needed: step ms = 1000 / freqForMode,
+//        the same reciprocal the arpeggiator and the FX delay already use.
+//        Resolution is EVENT-DRIVEN, not per block — SynthCore calls
+//        updateFromClock() on a SEQ_TIMING_MODE edit and from
+//        refreshSyncedRates() on a BPM/source change (internal knob or external
+//        MIDI clock).  Steady-state cost is zero.
+//        Phase: a synced sequencer follows BPM but is not phase-locked to the
+//        bar; MIDI Start (0xFA) resets it to step 0, exactly as the arp does.
 //   D-2  RANDOM direction uses the house xorshift RNG (v2 core is Arduino-free),
 //        not Arduino random().  Behaviour-equivalent; RANDOM is non-reproducible
 //        by design.
@@ -146,11 +151,17 @@ public:
     bool stepBipolar() const { return _stepBipolar; }
     bool auxBipolar()  const { return _auxBipolar; }
 
-    // D-1: tempo-sync deferred.  Stored but inert — the sequencer stays free-
-    // running at SEQ_RATE until TempoClock gains a getTimeForMode(ms) accessor.
-    void setTimingMode(int mode);
+    // ---- Tempo sync (D-1 closed) -------------------------------------------
+    // setTimingMode stores the division (option index == TempoClock::Mode) and
+    // re-resolves the step duration against the clock passed in.  Free (0)
+    // falls back to setRate's Hz, so the rate knob keeps its value across a
+    // sync-on/sync-off round trip — the lfo*.free_hz / fx.delay_time contract.
+    // updateFromClock re-resolves after a BPM change; it is a no-op while Free.
+    // Both are control-plane calls (applyParam context), never per block.
+    void setTimingMode(int mode, const TempoClock& clock);
     int  timingMode() const { return _timingMode; }
-    void updateFromClock(const TempoClock& clock);   // no-op while free (D-1)
+    void updateFromClock(const TempoClock& clock);
+    bool synced()     const { return _syncHz > 0.0f; }
 
 #ifdef JT_TESTING
     uint8_t debugStepValue(int s) const
@@ -203,6 +214,10 @@ private:
     SeqDir  _direction  = SeqDir::Forward;
     SeqDest _destination= SeqDest::None;
     int     _timingMode = TempoClock::kFree;
+    // Clock-derived step rate (Hz) while a division is selected; <= 0 means
+    // "not synced" (Free, or a mode freqForMode rejects), so recalcDuration()
+    // falls back to _rateHz.  Cached here so tick() never touches the clock.
+    float   _syncHz     = -1.0f;
     bool    _retrigger  = false;   // matches seq.retrigger's table default
 
     // ---- Output ----

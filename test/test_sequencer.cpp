@@ -182,19 +182,124 @@ TEST_CASE("seq: rate CC map endpoints — 0.1 Hz and 20 Hz")
     CHECK(s.debugStepDurMs() == doctest::Approx(50.0f));
 }
 
-TEST_CASE("seq: disabled outputs 0 after ramp; TIMING_MODE is inert (D-1)")
+TEST_CASE("seq: disabled outputs 0 after the ramp")
 {
+    // Was paired with "TIMING_MODE is inert (D-1)".  D-1 is closed, so the
+    // sync half moved to the dedicated tempo-sync cases below.
     StepSequencer s;
     s.setEnabled(false);
     s.tick(10.0f);
     CHECK(s.getOutput() == doctest::Approx(0.0f));
+}
 
-    // D-1: setting a sync mode must NOT change the free-running step duration.
-    s.setRate(4.0f);                               // 250 ms/step free
-    const float before = s.debugStepDurMs();
-    s.setTimingMode(TempoClock::k1_8);             // any non-free mode
-    s.updateFromClock(TempoClock{});
-    CHECK(s.debugStepDurMs() == doctest::Approx(before));   // unchanged (inert)
+// -----------------------------------------------------------------------------
+// D-1 closed — tempo sync.  Step ms == 1000 / TempoClock::freqForMode, so at
+// 120 BPM a 1/16 step is 125 ms, 1/8 is 250 ms, a dotted 1/8 is 375 ms.
+// -----------------------------------------------------------------------------
+TEST_CASE("seq sync: a division sets the step length from the clock")
+{
+    TempoClock c; c.setBpm(120.0f);
+    StepSequencer s;
+    s.setRate(4.0f);                                   // 250 ms free fallback
+
+    s.setTimingMode(TempoClock::k1_16, c);
+    CHECK(s.synced());
+    CHECK(s.debugStepDurMs() == doctest::Approx(125.0f));
+
+    s.setTimingMode(TempoClock::k1_8D, c);             // dotted family (T2)
+    CHECK(s.debugStepDurMs() == doctest::Approx(375.0f));
+
+    s.setTimingMode(TempoClock::k1_8T, c);             // triplet: v1's 0.3333 mult
+    CHECK(s.debugStepDurMs() == doctest::Approx(1000.0f / c.freqForMode(TempoClock::k1_8T)));
+}
+
+TEST_CASE("seq sync: a BPM change re-resolves only through updateFromClock")
+{
+    TempoClock c; c.setBpm(120.0f);
+    StepSequencer s;
+    s.setTimingMode(TempoClock::k1_16, c);
+    CHECK(s.debugStepDurMs() == doctest::Approx(125.0f));
+
+    c.setBpm(150.0f);                                  // clock moves...
+    CHECK(s.debugStepDurMs() == doctest::Approx(125.0f));   // ...cache does not (event-driven)
+    s.updateFromClock(c);
+    CHECK(s.debugStepDurMs() == doctest::Approx(100.0f));   // 150 BPM 1/16
+}
+
+TEST_CASE("seq sync: the free knob is a fallback — stored while synced, restored on Free")
+{
+    TempoClock c; c.setBpm(120.0f);
+    StepSequencer s;
+    s.setRate(4.0f);                                   // 250 ms
+    s.setTimingMode(TempoClock::k1_16, c);
+
+    s.setRate(10.0f);                                  // edit the knob while synced
+    CHECK(s.debugStepDurMs() == doctest::Approx(125.0f));   // division still wins
+
+    s.setTimingMode(TempoClock::kFree, c);             // sync off
+    CHECK_FALSE(s.synced());
+    CHECK(s.debugStepDurMs() == doctest::Approx(100.0f));   // the knob's NEW value
+}
+
+TEST_CASE("seq sync: Free ignores BPM; a corrupt mode degrades to free-running")
+{
+    TempoClock c; c.setBpm(120.0f);
+    StepSequencer s;
+    s.setRate(4.0f);
+    s.updateFromClock(c);                              // Free: must be a no-op
+    c.setBpm(200.0f); s.updateFromClock(c);
+    CHECK(s.debugStepDurMs() == doctest::Approx(250.0f));
+
+    s.setTimingMode(99, c);                            // out-of-range stored index
+    CHECK_FALSE(s.synced());
+    CHECK(s.debugStepDurMs() == doctest::Approx(250.0f));
+}
+
+TEST_CASE("seq sync: a synced step lands on the clock grid when ticked")
+{
+    // Behavioural check through tick(), not just the cached duration: at
+    // 120 BPM 1/16, 125 ms of block ticks must advance exactly one step.
+    TempoClock c; c.setBpm(120.0f);
+    StepSequencer s;
+    s.setStepCount(16);
+    s.setEnabled(true);
+    s.setTimingMode(TempoClock::k1_16, c);
+    for (int i = 0; i < 124; ++i) s.tick(1.0f);
+    CHECK(s.currentStep() == 0);
+    s.tick(1.0f);
+    CHECK(s.currentStep() == 1);
+}
+
+TEST_CASE("seq sync (engine): CLOCK_TEMPO and SEQ_TIMING_MODE reach the sequencer")
+{
+    Rig rig;
+    rig.setE(ID::CLOCK_TEMPO, 120.0f);
+    rig.setNorm(ID::SEQ_TIMING_MODE, optNorm(ID::SEQ_TIMING_MODE, TempoClock::k1_16));
+    float L[kBlockSize], R[kBlockSize];
+    rig.block(L, R);
+    CHECK(rig.core.debugSeq().debugStepDurMs() == doctest::Approx(125.0f));
+
+    rig.setE(ID::CLOCK_TEMPO, 150.0f);                 // knob edit -> refreshSyncedRates
+    rig.block(L, R);
+    CHECK(rig.core.debugSeq().debugStepDurMs() == doctest::Approx(100.0f));
+
+    rig.setNorm(ID::SEQ_TIMING_MODE, optNorm(ID::SEQ_TIMING_MODE, TempoClock::kFree));
+    rig.block(L, R);
+    CHECK_FALSE(rig.core.debugSeq().synced());
+}
+
+TEST_CASE("seq sync (engine): external MIDI clock BPM drives a synced sequencer")
+{
+    Rig rig;
+    rig.setNorm(ID::CLOCK_CLOCK_SOURCE, optNorm(ID::CLOCK_CLOCK_SOURCE, TempoClock::kExtMidi));
+    rig.setNorm(ID::SEQ_TIMING_MODE, optNorm(ID::SEQ_TIMING_MODE, TempoClock::k1_8));
+    float L[kBlockSize], R[kBlockSize];
+    rig.block(L, R);
+
+    rig.core.setExternalBpm(140.0f);                   // drained at top of renderBlock
+    rig.block(L, R);
+    CHECK(rig.core.debugSeq().debugStepDurMs() ==
+          doctest::Approx(1000.0f / (140.0f / 60.0f / 0.5f)).epsilon(0.001));
 }
 
 // =============================================================================

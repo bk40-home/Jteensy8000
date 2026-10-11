@@ -18,6 +18,9 @@
 #                        the same loaded/validated model (build_model()).
 #   docs/ParamMap.md   — human-readable MIDI implementation chart, generated
 #                        so it can never lie about the firmware.
+#   gen/PatternPresets.h — arp / sequencer-gate pattern presets as constexpr
+#                        {ParamID, engineering value} write lists, for the
+#                        ESP32 and JUCE editors (tools/emit_presets.py).
 #
 # USAGE
 #   python3 tools/gen_params.py            # regenerate outputs in place
@@ -903,10 +906,19 @@ def main():
     header = emit_header(doc)
     docmd = emit_doc(doc)
 
+    # Pattern presets (arp + sequencer gate).  Validated here, BEFORE any file
+    # is written, so a bad preset fails the run with nothing half-updated.
+    from emit_presets import emit_presets, PRESETS_PATH, PresetError
+    try:
+        presets_h = emit_presets(doc)
+    except PresetError as e:
+        sys.exit(f"params.yaml INVALID (pattern_presets): {e}")
+
     ok = True
     header = pool_strings(header)
     ok &= write_if_changed(HEADER_PATH, header, args.check)
     ok &= write_if_changed(DOC_PATH, docmd, args.check)
+    ok &= write_if_changed(PRESETS_PATH, presets_h, args.check)
     if not ok:
         sys.exit(1)
     print(f"validated {len(doc['params'])} parameters, "

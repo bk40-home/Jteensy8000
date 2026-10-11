@@ -1769,6 +1769,11 @@ params:
     unit: "norm"
     default: 0.5
     smooth_ms: 5
+    # D-6 closed: seq.rate is now the FREE-RATE FALLBACK, used only while
+    # seq.timing_mode == Free — the lfo*.free_hz / fx.delay_time idiom.  Hidden
+    # on the panels while a division is selected, so the knob never shows a
+    # rate the engine is not using.
+    visible_when: {param: seq.timing_mode, is: "Free"}
     ui: {section: 13, group: 2}
   - id: 0x0689            # v1: CC::SEQ_TIMING_MODE (was CC 116)
     key: seq.timing_mode
@@ -3207,3 +3212,126 @@ params:
   # two params writing one piece of state fought each other at snapshot-drain
   # time (the mirror's Internal default overwrote an External selection every
   # block).  Select External once via clock.clock_source and the arp follows.
+
+# =============================================================================
+# Pattern presets — factory rhythm patterns for the arp and the sequencer gate
+# =============================================================================
+# WHAT A PRESET IS.  An ACTION, not a parameter: applying one writes ordinary
+# parameters (the explicit step arrays plus a few globals) through the normal
+# edit path, so the result is saved, broadcast and resynced like any knob turn.
+# No ParamID is spent, nothing is stored in a patch, and the Teensy firmware
+# never sees this block — tools/emit_presets.py turns it into
+# gen/PatternPresets.h for the ESP32 controller and the JUCE plugin.
+#
+# EACH PRESET IS A COMPLETE STATE.  family.fixed is applied first, then the
+# preset's own `set:` overrides it, then the step string.  Every global a
+# family touches is listed in `fixed`, so applying preset B after preset A
+# never inherits A's swing or gate by accident.  Steps past the string's
+# length are written back to the lane defaults, so a 4-step preset leaves no
+# stale tail behind steps 5..16.
+#
+# STEP STRING — one character per step, spaces ignored (group by beat):
+#   X   hit, full level            x   hit, softer (accent 0.6 / half gate)
+#   .   rest                       2 3 4   hit with that many ratchets (arp only)
+# The string's length becomes the step count (arp.step_count / seq.steps).
+#
+# FAMILY `arp` — writes arp.step_on_n / step_accent_n / step_ratchet_n.
+#   Accent is a velocity MULTIPLIER (it never boosts above the key), so it is
+#   only audible on a patch with velocity -> amp or filter.  Ratchet packs N hits
+#   into the step's GATE window: keep arp.gate_length >= 0.75 on ratchet presets
+#   or each sub-hit is a click.
+#
+# FAMILY `seq_gate` — a TRANCE GATE on the step sequencer's Amp lane.
+#   The Amp destination is ADDITIVE (SynthCore: ampMul = voice.amp_level +
+#   step x depth), so a chop is encoded INVERTED with depth -1:
+#       X -> step 0.0 (open)    x -> step 0.5 (-6 dB)    . -> step 1.0 (muted)
+#   Disabling the sequencer therefore always returns to full level — the safe
+#   failure.  Two consequences worth knowing:
+#     * the grid shows rests as TALL bars (tall = closed);
+#     * it assumes voice.amp_level 1.0 (the default).  Below that, a rest's gain
+#       goes negative and leaks an inverted signal — see ledger.
+#   seq.gate_length is pinned to 1.0: outside the gate window the lane outputs
+#   0, which in this encoding means OPEN, so a short gate would un-mute rests.
+#   Duty cycle comes from the RATE instead: 16 steps at 1/32 is a half-bar loop
+#   where "X." is one 16th note at 50% duty.  1/16 presets loop over a full bar
+#   with no duty control (each hit is a whole 16th).
+# =============================================================================
+pattern_presets:
+  arp:
+    fixed:
+      arp.enable: true
+      arp.mode: Up
+      arp.octaves: "1"
+      arp.rate: "1/16"
+      arp.gate_length: 0.5
+      arp.swing: 0.5
+    presets:
+      # ---- Chord mode: gates and stabs (hold a chord) ------------------------
+      - name: "Straight 16"
+        steps: "Xxxx Xxxx Xxxx Xxxx"
+        set: {arp.mode: Chord}
+      - name: "Offbeat 8"
+        steps: "..X. ..X. ..X. ..X."
+        set: {arp.mode: Chord, arp.gate_length: 0.6}
+      - name: "Gallop"
+        steps: "X.xx X.xx X.xx X.xx"
+        set: {arp.mode: Chord}
+      - name: "Rev Gallop"
+        steps: "Xx.x Xx.x Xx.x Xx.x"
+        set: {arp.mode: Chord}
+      - name: "Tresillo"
+        steps: "X..X ..X. X..X ..X."
+        set: {arp.mode: Chord, arp.gate_length: 0.7, arp.swing: 0.55}
+      - name: "Dotted Cross"
+        steps: "X..X ..X. .X.. X..."
+        set: {arp.mode: Chord, arp.gate_length: 0.6}
+      - name: "Half-Time"
+        steps: "X... ..x. X... x.x."
+        set: {arp.mode: Chord, arp.gate_length: 0.3}
+      - name: "Breath"
+        steps: "Xxxx Xxxx Xxxx x..."
+        set: {arp.mode: Chord}
+      - name: "Stutter Tail"
+        steps: "Xxxx Xxxx Xxxx X234"
+        set: {arp.mode: Chord, arp.gate_length: 0.9}
+      - name: "Build"
+        steps: "X... X.x. Xxxx 2222"
+        set: {arp.mode: Chord, arp.gate_length: 0.8}
+      # ---- Note mode: one held key is enough ---------------------------------
+      - name: "Psy Roll"
+        steps: ".Xxx .Xxx .Xxx .Xxx"
+        set: {arp.gate_length: 0.6}
+      - name: "Offbeat Bass"
+        steps: "..X. ..X. ..X. ..X."
+      - name: "Octave Bounce"
+        steps: "XxXx XxXx XxXx XxXx"
+        set: {arp.octaves: "2"}
+
+  seq_gate:
+    fixed:
+      seq.enable: true
+      seq.destination: Amp
+      seq.depth: -1.0
+      seq.gate_length: 1.0
+      seq.slide: 0.0
+      seq.direction: Fwd
+      seq.retrigger: true
+      seq.step_bipolar: false
+      seq.timing_mode: "1/32"
+    presets:
+      # ---- 1/32: half-bar loops, "X." = one 16th at 50% duty -----------------
+      - name: "Gate 16ths"
+        steps: "X.X. X.X. X.X. X.X."
+      - name: "Gate 8ths"
+        steps: "XX.. XX.. XX.. XX.."
+      - name: "Gallop Gate"
+        steps: "X... X.X. X... X.X."
+      - name: "Pump"
+        steps: "..xX XXXX ..xX XXXX"
+      # ---- 1/16: full-bar loops, each hit a whole 16th -----------------------
+      - name: "Tresillo Gate"
+        steps: "X..X ..X. X..X ..X."
+        set: {seq.timing_mode: "1/16"}
+      - name: "Trance Chop"
+        steps: "XX.X X.XX .X.X XX.X"
+        set: {seq.timing_mode: "1/16"}

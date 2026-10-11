@@ -111,12 +111,22 @@ default gate of 0.5 each lane is silent for half of every step. This is the
 main reason the modulation reads as subtle. Retained as inherited v1
 behaviour by explicit sign-off; a `seq.hold` toggle was offered and declined.
 
-### D-6 — Tempo-sync for the step sequencer (pre-existing)
+### D-6 — Tempo-sync for the step sequencer — CLOSED
 
-`SEQ_TIMING_MODE` is stored but inert: `TempoClock` exposes `freqForMode` (Hz)
-but not `getTimeForMode` (ms), which v1's sequencer sync path needs.
-`setTimingMode` / `updateFromClock` remain stubs. Unchanged by this pass.
-Also blocks `FX_DELAY_SYNC` and external MIDI clock for the delay.
+**Closed by the pattern-preset pass.** No `getTimeForMode` (ms) accessor was
+needed: step ms = `1000 / TempoClock::freqForMode(mode)`, the same reciprocal
+the arpeggiator and the T2 FX delay already use.
+
+- `StepSequencer::setTimingMode(mode, clock)` resolves once on a
+  `SEQ_TIMING_MODE` edit; `SynthCore::refreshSyncedRates()` calls
+  `_seq.updateFromClock()` on every BPM/source change (internal knob or
+  external MIDI clock). Event-driven: zero per-block cost.
+- `seq.rate` is now the Free FALLBACK (store-only while synced), the same
+  contract as `lfo*.free_hz` / `fx.delay_time`; `visible_when` hides it while
+  a division is selected.
+- Phase: BPM-follow only, not bar-phase-locked. MIDI Start resets to step 0
+  (already wired). Same model the arp shipped with.
+- Default patch unchanged: `seq.timing_mode` defaults to Free.
 
 ### D-7 — LFO master destination-selector (pre-existing)
 
