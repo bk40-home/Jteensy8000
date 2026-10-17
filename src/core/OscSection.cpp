@@ -47,6 +47,17 @@ void OscSection::Unit::applyPitchIfDirty()
 // -----------------------------------------------------------------------------
 // Control plane
 // -----------------------------------------------------------------------------
+void OscSection::retune(float noteHz)
+{
+    for (int u = 0; u < 2; ++u) {
+        _u[u].noteHz     = noteHz;
+        _u[u].pitchDirty = true;     // increments recomputed on next render
+    }
+    // Sub follows the BASE note only (never the FM/glide path — v1 fidelity,
+    // same as noteOn), so it steps to the new note.  Its phase is kept.
+    _subInc = (noteHz * 0.5f) / kSampleRate;
+}
+
 void OscSection::noteOn(float noteHz, uint32_t seedBase)
 {
     for (int u = 0; u < 2; ++u) {

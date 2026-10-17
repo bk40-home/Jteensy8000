@@ -112,6 +112,14 @@ option_sets:
   # Which layer the front panel edits. NOT an audio crossfade — it is a
   # selector, so it carries no slew (the v1 seed gave it smooth_ms: 5).
   layer_balance: ["A", "AB", "B"]
+  # Bass sequencer (section 18).  bass.enable is a 2-entry SELECT rather than a
+  # toggle because visible_when may only depend on a select: the editors flip
+  # between the bass page and the arp page on it (decision 7).
+  on_off: ["Off", "On"]
+  # Order FROZEN with BassDir / BassScale in BassSequencer.h — append only.
+  bass_dir: ["Fwd", "Rev", "PingPong", "Random"]
+  bass_scale: ["Chromatic", "Major", "Minor", "Dorian", "Phrygian", "Mixolydian",
+               "Harm Minor", "Min Pent", "Maj Pent", "Blues"]
 
 # -----------------------------------------------------------------------------
 # Sections — index IS the NRPN MSB.  Order is frozen (from v1).
@@ -140,6 +148,7 @@ sections:
   - {index: 15, name: "Global Reverb", groups: ["Tank", "Extended"]}
   - {index: 16, name: "Master", groups: ["Output"]}
   - {index: 17, name: "Arpeggiator", groups: ["Control", "Timing", "Steps"]}
+  - {index: 18, name: "Bass Sequencer", groups: ["Control", "Timing", "Generator", "Accent & Slide", "Steps"]}
 
 # -----------------------------------------------------------------------------
 # Parameters — 139 seeded from v1 + 1 new (master.volume).
@@ -1647,6 +1656,21 @@ params:
     default: 0            # Cascade — existing behaviour, default patch unchanged
     smooth_ms: 0
     ui: {section: 11, group: 2}
+  # LEGATO switch (bass-seq Phase 2, decision 8).  Mono/Unison only: a key
+  # pressed while another is held moves the pitch WITHOUT restarting the
+  # envelopes (and the glide, if armed, slides it).  In Mono the return to a
+  # still-held key on release is legato too.  OFF = v1 behaviour exactly, so
+  # the default patch is unchanged.  The bass sequencer's SLIDE steps always
+  # move legato whatever this switch says.
+  - id: 0x0587            # section 11, index 7
+    key: voice.legato
+    name: "Legato"
+    label: "LEGATO"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    ui: {section: 11, group: 1}
   # ---- [12] BPM Clock ----
   - id: 0x0600            # v1: CC::BPM_CLOCK_SOURCE (was CC 118)
     key: clock.clock_source
@@ -2536,6 +2560,7 @@ params:
     scope: patch
     default: false
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 0}
   - id: 0x0881            # section 17, index 1
     key: arp.mode
@@ -2546,6 +2571,7 @@ params:
     options: arp_mode
     default: 0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 0}
   - id: 0x0882            # section 17, index 2
     key: arp.octaves
@@ -2556,6 +2582,7 @@ params:
     options: arp_octaves
     default: 0            # option 0 == "1" octave
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 0}
   - id: 0x0883            # section 17, index 3
     key: arp.latch
@@ -2565,6 +2592,7 @@ params:
     scope: patch
     default: false
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 0}
   - id: 0x0884            # section 17, index 4
     key: arp.rate
@@ -2577,6 +2605,7 @@ params:
     options: timing_mode
     default: 7            # timing_mode index 7 == "1/16"
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 1}
   - id: 0x0885            # section 17, index 5
     key: arp.free_hz
@@ -2590,6 +2619,7 @@ params:
     unit: "norm"
     default: 0.5
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 1}
   - id: 0x0886            # section 17, index 6
     key: arp.gate_length
@@ -2601,6 +2631,7 @@ params:
     unit: "norm"
     default: 0.5
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 1}
   - id: 0x0887            # section 17, index 7
     key: arp.swing
@@ -2614,6 +2645,7 @@ params:
     unit: "norm"
     default: 0.5
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 1}
   - id: 0x0888            # section 17, index 8
     key: arp.step_count
@@ -2625,6 +2657,7 @@ params:
     unit: ""
     default: 16
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0889            # section 17, index 9
     key: arp.step_select
@@ -2638,6 +2671,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x088A            # section 17, index 10
     key: arp.step_onoff
@@ -2649,6 +2683,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x088B            # section 17, index 11
     key: arp.step_accent
@@ -2662,6 +2697,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x088C            # section 17, index 12
     key: arp.step_ratchet
@@ -2675,6 +2711,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   # ---- [17] Arpeggiator — EXPLICIT STEP ARRAYS ----------------------------
   # Same reasoning as the sequencer's explicit arrays above: three lanes of
@@ -2699,6 +2736,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x088E
     key: arp.step_on_2
@@ -2708,6 +2746,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x088F
     key: arp.step_on_3
@@ -2717,6 +2756,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0890
     key: arp.step_on_4
@@ -2726,6 +2766,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0891
     key: arp.step_on_5
@@ -2735,6 +2776,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0892
     key: arp.step_on_6
@@ -2744,6 +2786,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0893
     key: arp.step_on_7
@@ -2753,6 +2796,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0894
     key: arp.step_on_8
@@ -2762,6 +2806,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0895
     key: arp.step_on_9
@@ -2771,6 +2816,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0896
     key: arp.step_on_10
@@ -2780,6 +2826,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0897
     key: arp.step_on_11
@@ -2789,6 +2836,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0898
     key: arp.step_on_12
@@ -2798,6 +2846,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x0899
     key: arp.step_on_13
@@ -2807,6 +2856,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x089A
     key: arp.step_on_14
@@ -2816,6 +2866,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x089B
     key: arp.step_on_15
@@ -2825,6 +2876,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x089C
     key: arp.step_on_16
@@ -2834,6 +2886,7 @@ params:
     scope: patch
     default: true
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
 
   - id: 0x089D
@@ -2847,6 +2900,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x089E
     key: arp.step_accent_2
@@ -2859,6 +2913,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x089F
     key: arp.step_accent_3
@@ -2871,6 +2926,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A0
     key: arp.step_accent_4
@@ -2883,6 +2939,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A1
     key: arp.step_accent_5
@@ -2895,6 +2952,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A2
     key: arp.step_accent_6
@@ -2907,6 +2965,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A3
     key: arp.step_accent_7
@@ -2919,6 +2978,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A4
     key: arp.step_accent_8
@@ -2931,6 +2991,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A5
     key: arp.step_accent_9
@@ -2943,6 +3004,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A6
     key: arp.step_accent_10
@@ -2955,6 +3017,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A7
     key: arp.step_accent_11
@@ -2967,6 +3030,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A8
     key: arp.step_accent_12
@@ -2979,6 +3043,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08A9
     key: arp.step_accent_13
@@ -2991,6 +3056,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08AA
     key: arp.step_accent_14
@@ -3003,6 +3069,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08AB
     key: arp.step_accent_15
@@ -3015,6 +3082,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08AC
     key: arp.step_accent_16
@@ -3027,6 +3095,7 @@ params:
     unit: "norm"
     default: 1.0
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
 
   - id: 0x08AD
@@ -3039,6 +3108,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08AE
     key: arp.step_ratchet_2
@@ -3050,6 +3120,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08AF
     key: arp.step_ratchet_3
@@ -3061,6 +3132,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B0
     key: arp.step_ratchet_4
@@ -3072,6 +3144,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B1
     key: arp.step_ratchet_5
@@ -3083,6 +3156,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B2
     key: arp.step_ratchet_6
@@ -3094,6 +3168,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B3
     key: arp.step_ratchet_7
@@ -3105,6 +3180,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B4
     key: arp.step_ratchet_8
@@ -3116,6 +3192,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B5
     key: arp.step_ratchet_9
@@ -3127,6 +3204,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B6
     key: arp.step_ratchet_10
@@ -3138,6 +3216,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B7
     key: arp.step_ratchet_11
@@ -3149,6 +3228,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B8
     key: arp.step_ratchet_12
@@ -3160,6 +3240,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08B9
     key: arp.step_ratchet_13
@@ -3171,6 +3252,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08BA
     key: arp.step_ratchet_14
@@ -3182,6 +3264,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08BB
     key: arp.step_ratchet_15
@@ -3193,6 +3276,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
   - id: 0x08BC
     key: arp.step_ratchet_16
@@ -3204,6 +3288,7 @@ params:
     unit: ""
     default: 1
     smooth_ms: 0
+    visible_when: {param: bass.enable, is: "Off"}   # decision 7: bass page replaces arp page
     ui: {section: 17, group: 2}
 
   # NOTE: the arp deliberately has NO clock-source param of its own.  It follows
@@ -3212,6 +3297,622 @@ params:
   # two params writing one piece of state fought each other at snapshot-drain
   # time (the mirror's Internal default overwrote an External selection every
   # block).  Select External once via clock.clock_source and the arp follows.
+
+  # ===========================================================================
+  # [18] BASS SEQUENCER — 303-style bass line (bass-seq/phase0-proposal.md)
+  # ===========================================================================
+  # Section base 0x0900 == (18 << 7).  A third NOTE SOURCE beside the keys and
+  # the arp: while bass.enable is On, played keys are CONSUMED — the most
+  # recent held key is the transpose root — and only the bass line sounds.
+  # bass.enable On WINS over arp.enable (the arp's own value is kept, so turning
+  # the bass off brings the arp back exactly as it was — decision 4a).
+  #
+  # PATTERN STATE = (bass.seed, bass.mutation) + the amounts + bass.step_n.
+  # The generator is deterministic, so those params ARE the pattern: a patch
+  # reload reproduces it exactly.  New seed / Mutate / Undo are UI ACTIONS that
+  # write bass.seed and bass.mutation (no action params are spent).
+  #
+  # bass.step_n — packed per-step OVERRIDE (BassSequencer.h, "Packed step"):
+  #   bits 0-4 degree, 5 gate, 6 accent, 7 slide, 8-9 octave (0=-1,1=0,2=+1),
+  #   bit 10 USER.  0 = "use the generated step" (the default); bit 10 set =
+  #   this hand edit replaces it.
+  #
+  # DEFAULT PATCH INVARIANCE: bass.enable defaults Off, so key routing, the
+  # arp and every voice are untouched and the render baseline is unchanged.
+  - id: 0x0900            # section 18, index 0
+    key: bass.enable
+    name: "Bass Seq Enable"
+    label: "ON"
+    type: select
+    scope: patch
+    options: on_off
+    default: 0
+    smooth_ms: 0
+    ui: {section: 18, group: 0}
+  - id: 0x0901            # section 18, index 1
+    key: bass.latch
+    name: "Bass Latch"
+    label: "LATCH"
+    type: toggle
+    scope: patch
+    default: false
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 0}
+  - id: 0x0902            # section 18, index 2
+    key: bass.timing
+    name: "Bass Rate"
+    label: "RATE"
+    type: select
+    scope: patch
+    options: timing_mode
+    default: 7
+    # default 7 == "1/16"
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 1}
+  - id: 0x0903            # section 18, index 3
+    key: bass.free_hz
+    name: "Bass Free Rate"
+    label: "FREE"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    visible_when: {param: bass.timing, is: "Free"}
+    ui: {section: 18, group: 1}
+  - id: 0x0904            # section 18, index 4
+    key: bass.length
+    name: "Bass Steps"
+    label: "STEPS"
+    type: int
+    scope: patch
+    range: {min: 1, max: 32, curve: lin}
+    unit: ""
+    default: 16
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x0905            # section 18, index 5
+    key: bass.direction
+    name: "Bass Direction"
+    label: "DIR"
+    type: select
+    scope: patch
+    options: bass_dir
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x0906            # section 18, index 6
+    key: bass.scale
+    name: "Bass Scale"
+    label: "SCALE"
+    type: select
+    scope: patch
+    options: bass_scale
+    default: 2
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x0907            # section 18, index 7
+    key: bass.range
+    name: "Bass Range"
+    label: "RANGE"
+    type: int
+    scope: patch
+    range: {min: 1, max: 15, curve: lin}
+    unit: ""
+    default: 7
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x0908            # section 18, index 8
+    key: bass.gate_length
+    name: "Bass Gate"
+    label: "GATE"
+    type: continuous
+    scope: patch
+    range: {min: 0.1, max: 0.9, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 1}
+  - id: 0x0909            # section 18, index 9
+    key: bass.density
+    name: "Bass Density"
+    label: "DENS"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.75
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x090A            # section 18, index 10
+    key: bass.accent
+    name: "Bass Accent Prob"
+    label: "ACC%"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.25
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 3}
+  - id: 0x090B            # section 18, index 11
+    key: bass.slide
+    name: "Bass Slide Prob"
+    label: "SLD%"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.25
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 3}
+  - id: 0x090C            # section 18, index 12
+    key: bass.octave
+    name: "Bass Octave Prob"
+    label: "OCT%"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.15
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x090D            # section 18, index 13
+    key: bass.seed
+    name: "Bass Seed"
+    label: "SEED"
+    type: int
+    scope: patch
+    range: {min: 0, max: 16383, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x090E            # section 18, index 14
+    key: bass.mutation
+    name: "Bass Mutation"
+    label: "MUT"
+    type: int
+    scope: patch
+    range: {min: 0, max: 255, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 2}
+  - id: 0x090F            # section 18, index 15
+    key: bass.slide_time
+    name: "Bass Slide Time"
+    label: "SLIDE"
+    type: continuous
+    scope: patch
+    range: {min: 10, max: 500, curve: log}
+    unit: "ms"
+    default: 80
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 3}
+  - id: 0x0910            # section 18, index 16
+    key: bass.accent_amp
+    name: "Bass Accent Level"
+    label: "ACC AMP"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 3}
+  - id: 0x0911            # section 18, index 17
+    key: bass.accent_filter
+    name: "Bass Accent Filter"
+    label: "ACC FLT"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0.5
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 3}
+  - id: 0x0912            # section 18, index 18
+    key: bass.step_1
+    name: "Bass Step 1"
+    label: "S1"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0913            # section 18, index 19
+    key: bass.step_2
+    name: "Bass Step 2"
+    label: "S2"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0914            # section 18, index 20
+    key: bass.step_3
+    name: "Bass Step 3"
+    label: "S3"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0915            # section 18, index 21
+    key: bass.step_4
+    name: "Bass Step 4"
+    label: "S4"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0916            # section 18, index 22
+    key: bass.step_5
+    name: "Bass Step 5"
+    label: "S5"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0917            # section 18, index 23
+    key: bass.step_6
+    name: "Bass Step 6"
+    label: "S6"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0918            # section 18, index 24
+    key: bass.step_7
+    name: "Bass Step 7"
+    label: "S7"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0919            # section 18, index 25
+    key: bass.step_8
+    name: "Bass Step 8"
+    label: "S8"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x091A            # section 18, index 26
+    key: bass.step_9
+    name: "Bass Step 9"
+    label: "S9"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x091B            # section 18, index 27
+    key: bass.step_10
+    name: "Bass Step 10"
+    label: "S10"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x091C            # section 18, index 28
+    key: bass.step_11
+    name: "Bass Step 11"
+    label: "S11"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x091D            # section 18, index 29
+    key: bass.step_12
+    name: "Bass Step 12"
+    label: "S12"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x091E            # section 18, index 30
+    key: bass.step_13
+    name: "Bass Step 13"
+    label: "S13"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x091F            # section 18, index 31
+    key: bass.step_14
+    name: "Bass Step 14"
+    label: "S14"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0920            # section 18, index 32
+    key: bass.step_15
+    name: "Bass Step 15"
+    label: "S15"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0921            # section 18, index 33
+    key: bass.step_16
+    name: "Bass Step 16"
+    label: "S16"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0922            # section 18, index 34
+    key: bass.step_17
+    name: "Bass Step 17"
+    label: "S17"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0923            # section 18, index 35
+    key: bass.step_18
+    name: "Bass Step 18"
+    label: "S18"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0924            # section 18, index 36
+    key: bass.step_19
+    name: "Bass Step 19"
+    label: "S19"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0925            # section 18, index 37
+    key: bass.step_20
+    name: "Bass Step 20"
+    label: "S20"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0926            # section 18, index 38
+    key: bass.step_21
+    name: "Bass Step 21"
+    label: "S21"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0927            # section 18, index 39
+    key: bass.step_22
+    name: "Bass Step 22"
+    label: "S22"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0928            # section 18, index 40
+    key: bass.step_23
+    name: "Bass Step 23"
+    label: "S23"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0929            # section 18, index 41
+    key: bass.step_24
+    name: "Bass Step 24"
+    label: "S24"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x092A            # section 18, index 42
+    key: bass.step_25
+    name: "Bass Step 25"
+    label: "S25"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x092B            # section 18, index 43
+    key: bass.step_26
+    name: "Bass Step 26"
+    label: "S26"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x092C            # section 18, index 44
+    key: bass.step_27
+    name: "Bass Step 27"
+    label: "S27"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x092D            # section 18, index 45
+    key: bass.step_28
+    name: "Bass Step 28"
+    label: "S28"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x092E            # section 18, index 46
+    key: bass.step_29
+    name: "Bass Step 29"
+    label: "S29"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x092F            # section 18, index 47
+    key: bass.step_30
+    name: "Bass Step 30"
+    label: "S30"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0930            # section 18, index 48
+    key: bass.step_31
+    name: "Bass Step 31"
+    label: "S31"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
+  - id: 0x0931            # section 18, index 49
+    key: bass.step_32
+    name: "Bass Step 32"
+    label: "S32"
+    type: int
+    scope: patch
+    range: {min: 0, max: 2047, curve: lin}
+    unit: ""
+    default: 0
+    smooth_ms: 0
+    visible_when: {param: bass.enable, is: "On"}
+    ui: {section: 18, group: 4}
 
 # =============================================================================
 # Pattern presets — factory rhythm patterns for the arp and the sequencer gate

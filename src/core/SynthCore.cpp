@@ -207,11 +207,15 @@ void SynthCore::drainExternalClock()
             switch (_transportAction.load(std::memory_order_relaxed)) {
                 case kTransStart:
                     for (Layer& lz : _layers) lz.arp.transportStart();
+                    for (Layer& lz : _layers) lz.bass.transportStart();
                     _seq.reset();
                     break;
                 case kTransStop:
                     for (Layer& lz : _layers) lz.arp.transportStop();
                     for (Layer& lz : _layers) lz.arp.allNotesOff();   // release held arp notes
+                    // Bass: same contract as the arp — silence and forget the
+                    // held keys (its tick emits the NoteOff next block).
+                    for (Layer& lz : _layers) lz.bass.allNotesOff();
                     break;
                 case kTransContinue:
                 default:
@@ -235,7 +239,7 @@ void SynthCore::modWheel(uint8_t value7, uint8_t channel1to16)
                routeOrDefaultA(_router, 0, channel1to16, false));
 }
 
-// GLIDE_TIME norm (0..1) -> per-BLOCK slew fraction consumed by Voice::render.
+// Glide time (ms) -> per-BLOCK slew fraction consumed by Voice::render.
 //
 // Voice advances the glide ONCE PER BLOCK, moving a fixed fraction `rate` of
 // the remaining pitch distance each block (a geometric / constant-ratio slew).
@@ -246,30 +250,40 @@ void SynthCore::modWheel(uint8_t value7, uint8_t channel1to16)
 // Using kBlocksPerSec here divides out the once-per-block cadence explicitly —
 // no hidden ~128x factor, the number below IS the felt time.  (Voice snaps the
 // last <0.1 Hz, so the asymptotic tail never stalls the note.)
+float SynthCore::glideRateFromMs(float ms)
+{
+    if (ms <= 0.0f) return 1.0f;             // instant jump
+    const float rate = 1.0f / (ms * (1.0f / 1000.0f) * kBlocksPerSec);
+    // Guard the fast end: a rate >= 1.0 would over-shoot the geometric step, so
+    // clamp to an instant jump there.  (At 48 kHz / 128 a block is 2.67 ms, so
+    // anything under ~2.7 ms is already "one block".)
+    return (rate >= 1.0f) ? 1.0f : rate;
+}
+
+// GLIDE_TIME norm (0..1) -> glide time -> slew fraction.
 //
-// Curve: LINEAR in time across the knob, so travel feels even end to end
-// (replaces v1's log map, which crammed all usable glide into the bottom ~20%
-// of the knob).  norm 0 is a hard OFF (instant jump, no glide).
+// CURVE (changed, signed off 2026-10-17 — item 6): EXPONENTIAL in time,
+//     ms = kGlideMinMs * (kGlideMaxMs / kGlideMinMs) ^ norm
+// so every equal knob step multiplies the time by the same ratio and the short,
+// musical end gets most of the travel:
+//     norm 0.25 -> ~14 ms,  0.50 -> ~100 ms,  0.75 -> ~707 ms,  1.0 -> 5 s.
+// The previous LINEAR map (2 ms + 4998 ms * norm) put 500 ms at 10 % of the
+// knob, leaving the short glides almost unreachable.  CONSEQUENCE: a saved
+// patch's glide.time now produces a SHORTER glide for every value below 1.0
+// (same end points).  norm 0 is still a hard OFF.
 //
 // >>> To change the maximum glide time, edit kGlideMaxMs ONLY. <<<
-// e.g. 5000 for 5 s, 10000 for 10 s.  Nothing else needs touching.
 float SynthCore::glideRateFromNorm(float norm)
 {
     constexpr float kGlideMaxMs = 5000.0f;   // knob-max glide time, ms  <-- EDIT
-    constexpr float kGlideMinMs = 2.0f;      // shortest audible slide (norm just
-                                             // above 0); keeps a musical floor.
+    constexpr float kGlideMinMs = 2.0f;      // shortest slide (norm just above 0)
 
-    if (norm <= 0.0f) return 1.0f;           // OFF: rate 1.0 => close 100% of the
-                                             // gap in one block => instant jump.
+    if (norm <= 0.0f) return 1.0f;           // OFF: instant jump, as before
 
-    // Linear time in ms across the usable knob range.
-    const float ms      = kGlideMinMs + (kGlideMaxMs - kGlideMinMs) * norm;
-    const float seconds = ms * (1.0f / 1000.0f);
-    const float rate    = 1.0f / (seconds * kBlocksPerSec);
-
-    // Guard the fast end: a rate >= 1.0 would over-shoot the geometric step, so
-    // clamp to an instant jump there (matches the norm==0 OFF behaviour).
-    return (rate >= 1.0f) ? 1.0f : rate;
+    // log2(max/min) folded at compile time; one exp2f per knob move.
+    const float span = log2f(kGlideMaxMs / kGlideMinMs);
+    const float ms   = kGlideMinMs * exp2f((norm > 1.0f ? 1.0f : norm) * span);
+    return glideRateFromMs(ms);
 }
 
 void SynthCore::drainNoteEvents()
@@ -299,7 +313,13 @@ void SynthCore::drainNoteEvents()
                 // _alloc from its tick() in renderBlock.  When the arp is OFF
                 // this whole branch is skipped and the note goes straight to the
                 // allocator exactly as before (byte-identical default path).
-                if (L.arp.enabled()) {
+                // Bass sequencer (bass-seq P2) is checked FIRST: while it is on
+                // it consumes the keys (the newest held key is its transpose
+                // root) and wins over the arp (decision 4a).  Off => the arp /
+                // keyboard routing below is exactly as before.
+                if (L.bass.enabled()) {
+                    L.bass.noteOn(e.a, e.b);
+                } else if (L.arp.enabled()) {
                     L.arp.noteOn(e.a, e.b);
                 } else {
                     L.alloc.noteOn(e.a, e.b);
@@ -318,18 +338,21 @@ void SynthCore::drainNoteEvents()
                 if (_seq.retrigger()) _seq.reset();
                 break;
             case kEvOff:
-                if (L.arp.enabled()) L.arp.noteOff(e.a);
-                else                L.alloc.noteOff(e.a);
+                if      (L.bass.enabled()) L.bass.noteOff(e.a);
+                else if (L.arp.enabled())  L.arp.noteOff(e.a);
+                else                       L.alloc.noteOff(e.a);
                 break;
             case kEvSustain:  L.alloc.sustain(e.a != 0);    break;
             case kEvNotesOff:
                 // Panic clears BOTH the arp's held list and the voices, so a
                 // DAW all-notes-off silences everything regardless of routing.
                 L.arp.allNotesOff();
+                L.bass.allNotesOff();
                 L.alloc.allNotesOff();
                 break;
             case kEvSoundOff:
                 L.arp.allNotesOff();
+                L.bass.allNotesOff();
                 L.alloc.allSoundOff();
                 break;
             case kEvModWheel:
@@ -563,6 +586,12 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         }
         if (id >= ID::ARP_STEP_ACCENT_1 && id <= ID::ARP_STEP_ACCENT_16) {
             L.arp.setStepAccent((int)(id - ID::ARP_STEP_ACCENT_1), norm);
+            return;
+        }
+        if (id >= ID::BASS_STEP_1 && id <= ID::BASS_STEP_32) {
+            // Packed step override (BassSequencer.h): int 0..2047, 0 = generated.
+            L.bass.setStepPacked((int)(id - ID::BASS_STEP_1),
+                                 (uint16_t)lroundf(eng));
             return;
         }
         if (id >= ID::ARP_STEP_RATCHET_1 && id <= ID::ARP_STEP_RATCHET_16) {
@@ -905,6 +934,11 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             const float rate = glideRateFromNorm(norm);
             for (Voice& v : L.voices()) v.setGlideRate(rate);
         } break;
+        case ID::VOICE_LEGATO:
+            // Legato switch (decision 8): Mono/Unison pitch-only note changes.
+            // Off is the v1 retrigger behaviour, so the default is unchanged.
+            L.alloc.setLegato(norm >= 0.5f);
+            break;
         case ID::VOICE_POLY_MODE:
             // opt is the frozen index 0/1/2 == PolyMode Poly/Mono/Unison; the
             // allocator kills sounding voices on an actual change (v1 parity).
@@ -1093,7 +1127,9 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             // before the toggle sends its note-off to the other side, which
             // never knew about it.
             const bool on = (norm >= 0.5f);
-            if (on != L.arp.enabled()) {
+            // While the bass sequencer owns the keys the arp is dormant: its
+            // value is only stored, no key rerouting happens (decision 4a).
+            if (on != L.arp.enabled() && !L.bass.enabled()) {
                 if (on) L.alloc.allNotesOff();   // keys move keyboard -> arp
                 else    L.arp.allNotesOff();     // keys move arp -> keyboard
             }
@@ -1120,6 +1156,56 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             L.arp.setSwing(norm); break;
         case ID::ARP_STEP_COUNT:
             L.arp.setStepCount(1 + (int)lroundf(norm * 15.0f)); break;  // 1..16
+
+        // ------------- Bass sequencer (ParamTable section 18) --------------
+        // Note source #3.  bass.enable defaults Off => keys route as before and
+        // tick() is one bool test.  The 32 bass.step_n overrides are decoded
+        // arithmetically above, with the other step arrays.
+        case ID::BASS_ENABLE: {
+            const bool on = (opt >= 1);                 // on_off select: 0 Off, 1 On
+            if (on != L.bass.enabled()) {
+                // Keys move between owners: clear the side LOSING them, or a key
+                // held across the switch sends its note-off to an owner that
+                // never saw its note-on and the voice hangs (arp rule).
+                if (on) { L.alloc.allNotesOff(); L.arp.allNotesOff(); }
+                else    { L.bass.allNotesOff(); }       // its tick releases the note
+            }
+            L.bass.setEnabled(on);
+            break;
+        }
+        case ID::BASS_LATCH:     L.bass.setLatch(norm >= 0.5f); break;
+        case ID::BASS_TIMING:    L.bass.setTimingMode(opt, _clock); break;
+        case ID::BASS_FREE_HZ:
+            // Same exponential 0..1 -> 0.02..50 Hz law as arp.free_hz.
+            L.bass.setFreeHz(BassSequencer::kFreeHzMin
+                             * exp2f(norm * log2f(BassSequencer::kFreeHzMax
+                                                  / BassSequencer::kFreeHzMin)));
+            break;
+        case ID::BASS_LENGTH:    L.bass.setLength((int)lroundf(eng)); break;   // 1..32
+        case ID::BASS_DIRECTION: L.bass.setDirection((BassDir)opt); break;
+        case ID::BASS_SCALE:     L.bass.setScale((BassScale)opt); break;
+        case ID::BASS_RANGE:     L.bass.setRange((int)lroundf(eng)); break;    // 1..15
+        case ID::BASS_GATE_LENGTH: L.bass.setGateLength(eng); break;           // 0.1..0.9
+        case ID::BASS_DENSITY:   L.bass.setDensity(eng); break;
+        case ID::BASS_ACCENT:    L.bass.setAccentAmount(eng); break;
+        case ID::BASS_SLIDE:     L.bass.setSlideAmount(eng); break;
+        case ID::BASS_OCTAVE:    L.bass.setOctaveAmount(eng); break;
+        case ID::BASS_SEED:      L.bass.setSeed((uint16_t)lroundf(eng)); break;
+        case ID::BASS_MUTATION:  L.bass.setMutation((uint16_t)lroundf(eng)); break;
+        case ID::BASS_SLIDE_TIME:
+            // eng is ms (10..500, log).  Converted ONCE here through the same
+            // slew law as glide.time, so a slide and a glide of equal ms match.
+            L.bassSlideRate = glideRateFromMs(eng);
+            break;
+        case ID::BASS_ACCENT_AMP:
+            // 0..1 -> gain x1..x2 (+6 dB max) on accented steps.
+            L.bassAccentAmp = eng * kBassAccentAmpMax;
+            break;
+        case ID::BASS_ACCENT_FILTER:
+            // 0..1 -> filter-env depth x1..x2 on accented steps (needs a
+            // non-zero filter.env_amount to be heard).
+            L.bassAccentEnv = eng * kBassAccentEnvMax;
+            break;
 
         default:
             // Not yet handled (remaining FX/sequencer) or deliberately unwired
@@ -1158,6 +1244,48 @@ void SynthCore::applyDelayTime()
     _fx.setDelayTime(ms);
 }
 
+// -----------------------------------------------------------------------------
+// Bass sequencer events -> this layer's allocator.  Audio plane, same context
+// as the arp's direct allocator calls (renderBlock, before voices render).
+//
+//   NoteOn            -> alloc.noteOn, with the layer's accent boosts if the
+//                        step is accented (0,0 otherwise = plain note).
+//   NoteOn + kSlide   -> the sequencer always emits it IMMEDIATELY followed by
+//                        NoteOff(previous note).  The pair becomes ONE
+//                        alloc.slideNote(prev -> new): a legato pitch move at
+//                        bass.slide_time, no envelope restart, whatever the
+//                        poly mode / legato switch.  The NoteOff is consumed.
+//   NoteOff           -> alloc.noteOff.
+//
+// Accent on a SLID-INTO step: a slide does not re-strike, so there is no new
+// note for the accent to boost — it is ignored there (flagged deviation).
+// No LFO retrigger: sequenced notes behave like the arp's, not like keys.
+// -----------------------------------------------------------------------------
+void SynthCore::applyBassEvents(Layer& L)
+{
+    const int n = L.bass.eventCount();
+    for (int i = 0; i < n; ++i) {
+        const BassEvent& e = L.bass.event(i);
+        if (e.type != BassEvent::NoteOn) {
+            L.alloc.noteOff(e.note);
+            continue;
+        }
+        const bool  accent = (e.flags & BassEvent::kAccent) != 0;
+        const float aAmp   = accent ? L.bassAccentAmp : 0.0f;
+        const float aEnv   = accent ? L.bassAccentEnv : 0.0f;
+
+        const bool slidePair = (e.flags & BassEvent::kSlide) && (i + 1 < n)
+                            && L.bass.event(i + 1).type == BassEvent::NoteOff;
+        if (slidePair) {
+            L.alloc.slideNote(L.bass.event(i + 1).note, e.note, e.velocity,
+                              L.bassSlideRate, aAmp, aEnv);
+            ++i;                                  // NoteOff consumed by the slide
+        } else {
+            L.alloc.noteOn(e.note, e.velocity, aAmp, aEnv);
+        }
+    }
+}
+
 void SynthCore::refreshSyncedRates()
 {
     // T2: the delay first, so a BPM edit cannot leave it on the previous
@@ -1170,6 +1298,10 @@ void SynthCore::refreshSyncedRates()
     // nothing unless it is actually synced.  The arp needs no call here — it
     // re-validates its own cached duration against clock.bpm() in tick().
     _seq.updateFromClock(_clock);
+
+    // Bass sequencers: event-driven like the seq (a Free one is a no-op), both
+    // layers because the clock is shared.
+    for (Layer& lz : _layers) lz.bass.updateFromClock(_clock);
 
     // All four, unconditionally: a Free LFO harmlessly re-asserts freeHz (a
     // no-op — same value it already has), so no branch on syncMode is needed
@@ -1229,6 +1361,7 @@ void SynthCore::repartitionVoices()
     // layer would let the first rebind hand voices to A that B then silences.
     for (Voice& v : _voices) v.hardKill();
     for (Layer& lz : _layers) lz.arp.allNotesOff();
+    for (Layer& lz : _layers) lz.bass.allNotesOff();
 
     _layers[0].setSlice(_voices, countA);
     _layers[1].setSlice(_voices + countA,
@@ -1515,6 +1648,12 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         // Ticked in the same audio-plane context as drainNoteEvents, so its
         // noteOn/off run exactly where the note ring already mutates voices.
         lz.arp.tick(kBlockMs, lz.alloc, _clock);
+
+        // Bass sequencer (bass-seq P2): one block-rate tick, then apply its
+        // events to THIS layer's voices.  Disabled => tick is one bool test and
+        // emits nothing, so the loop in applyBassEvents does not run.
+        lz.bass.tick(kBlockMs);
+        if (lz.bass.eventCount() > 0) applyBassEvents(lz);
 
         for (Voice& v : lz.voices()) {
             if (!v.isActive()) continue;

@@ -124,9 +124,12 @@ TEST_CASE("performance: glide ON ramps from the previous note toward the new one
     settle(r);
     r.core.allSoundOff();
     r.setNorm(ID::GLIDE_ENABLE, 1.0f);     // toggle on
-    // Small time norm: even so, v1's per-BLOCK rate (the 128x quirk) keeps the
-    // slew slow, so we prove the RAMP (climb) not full arrival in a short window.
-    r.setNorm(ID::GLIDE_TIME, 0.1f);       // ~2.6 ms literal; slow via the quirk
+    // ~500 ms glide, so the RAMP (climb) is provable but arrival is not inside
+    // the short window.  GLIDE_TIME is EXPONENTIAL since 2026-10-17 (item 6):
+    // ms = 2 * 2500^norm, so 500 ms is norm log(250)/log(2500) = 0.706.  This
+    // is the same ~500 ms the old linear law gave at norm 0.1 — the test's
+    // physics is unchanged, only the knob position that produces it moved.
+    r.setNorm(ID::GLIDE_TIME, 0.706f);     // ~500 ms (exponential law)
     r.block();                             // warm-up: drains params before note
 
     r.core.noteOn(69, 100);                // establish A4 (440) as previous pitch
@@ -166,8 +169,11 @@ TEST_CASE("performance: longer GLIDE_TIME climbs slower than a shorter one")
         auto v = grab(r, 120);
         return freqHz(v, v.size() - 4000, v.size());   // pitch at window end
     };
-    const float fast = pitchAfter(0.1f);
-    const float slow = pitchAfter(0.5f);
+    // Exponential law (item 6): 0.706 ~ 500 ms and 0.911 ~ 2.5 s — the same two
+    // glide TIMES the linear law gave at 0.1 and 0.5, so the comparison and the
+    // "not arrived" premise are unchanged.
+    const float fast = pitchAfter(0.706f);
+    const float slow = pitchAfter(0.911f);
     CHECK(fast > slow);                     // shorter time => further up by now
     CHECK(slow > 440.0f);                   // the slow one still moved a little
     CHECK(fast < 880.0f);                   // even the fast one hasn't arrived

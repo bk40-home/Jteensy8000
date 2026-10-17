@@ -43,6 +43,7 @@
 #include "core/dsp/FxChain.h"
 #include "core/dsp/StepSequencer.h"
 #include "core/dsp/Arpeggiator.h"
+#include "core/dsp/BassSequencer.h"
 
 namespace JT {
 
@@ -79,8 +80,11 @@ struct LfoState {
     // MULTIPLICATIVE (unlike LFO1's additive depthPitchMod above): it scales all
     // four of THIS LFO's destination outputs together, so it is only meaningful
     // on lfo2.  Engine-only, never serialised — the wheel is a live control.
-    // Rest value 1.0f so a disarmed LFO (wheelToLfo2 == false) is a no-op multiply.
-    float wheelDepth   = 1.0f;   // 0..1 live wheel amount (only used when armed)
+    // Rest value 0.0f = wheel DOWN: an armed LFO2 is silent until the first CC1
+    // arrives, as on the JP-8000.  (It was 1.0f, which played every armed patch
+    // at full LFO2 depth until the wheel was touched.)  A disarmed LFO is still
+    // a no-op multiply: outputGain() returns 1.0f itself when not armed.
+    float wheelDepth   = 0.0f;   // 0..1 live wheel amount (only used when armed)
     bool  wheelToLfo2  = false;  // set from LFO2_MOD_WHEEL param
 
     // Tempo-sync state (Phase 3 subsystem 2, PHASE3_BPMCLOCK_SPEC.md §3
@@ -272,6 +276,21 @@ public:
         return static_cast<uint16_t>((step << 1) | run);
     }
 
+    // ---- Bass sequencer playhead (read-only telemetry) ---------------------
+    //
+    //     [13..6] reserved 0   [5..1] bassStep:5   [0] bassRunning:1
+    //
+    // Not broadcast on the wire yet (bass-seq grid decision 7b): the JUCE
+    // plugin reads it straight from its embedded engine in Sound mode.  Same
+    // layer rule as the arp word: the first layer whose bass line is running,
+    // else layer A.  Pure read of ISR-mutated state — telemetry semantics.
+    uint16_t bassStatusWord() const {
+        const Layer& lz = _layers[0].bass.running() ? _layers[0] : _layers[1];
+        const uint16_t step = static_cast<uint16_t>(lz.bass.currentStep()) & 0x1F;
+        const uint16_t run  = lz.bass.running() ? 1u : 0u;
+        return static_cast<uint16_t>((step << 1) | run);
+    }
+
     // ── Generic parameter smoothing ────────────────────────────────────────
     // Every param whose table row declares smooth_ms > 0 glides to its new
     // value instead of stepping to it.  All 76 of them, from one mechanism.
@@ -381,6 +400,7 @@ private:
     // delay on its old time would be a genuinely confusing bug to chase.
     void refreshSyncedRates();  // both LFOs of BOTH layers, plus the FX delay
 
+
     // --- note event ring (control -> audio, single producer / consumer) ---
     // 32 events is > two blocks of the densest realistic MIDI input; on
     // overflow the OLDEST unconsumed event is dropped and counted, which
@@ -479,6 +499,19 @@ private:
         // normally — the reason to have two at all.
         Arpeggiator arp;
 
+        // Per-layer bass sequencer (bass-seq P1): one line per layer, so Layer
+        // and Split modes give two independent bass lines.  A third NOTE
+        // SOURCE beside the keys and the arp; when enabled it wins over the
+        // arp (decision 4a).  It emits note EVENTS that applyBassEvents()
+        // turns into allocator calls — see that function for slide/accent.
+        BassSequencer bass;
+
+        // Cached, already-converted bass voice settings (control plane writes,
+        // applyBassEvents reads — no per-event maths).
+        float bassSlideRate = 0.0f;   // per-block glide fraction for SLIDE steps
+        float bassAccentAmp = 0.0f;   // accent amp gain add (x(1+a))
+        float bassAccentEnv = 0.0f;   // accent filter-env depth add (x(1+a))
+
         // Post-voice bus gain: perf.balance x this layer's VCA-mod factor,
         // ramped per sample.  Held here rather than in a pair of arrays so a
         // layer's gain cannot drift out of step with the voices it belongs to.
@@ -531,6 +564,10 @@ private:
     };
 
     Layer _layers[2];
+
+    // Bass sequencer: apply this block's note events to the layer's voices.
+    // Runs right after the layer's bass tick, in the arp's context.
+    void applyBassEvents(Layer& L);
 
     // Layer B's scratch bus.  Layer A always renders straight into the caller's
     // buffers, so only ONE extra stereo buffer is needed, not two.
@@ -593,9 +630,19 @@ private:
     // Amp level and LFO tremolo are per layer and applied on the layer bus —
     // see Layer::ampFixedLevel and renderBlock.  Nothing global remains.
 
-    // GLIDE_TIME norm -> v1 log ms -> per-sample fraction (spec §4.1).  Static:
-    // no per-instance state, and constexpr-friendly for the compiler.
+    // GLIDE_TIME norm -> glide time (exponential 2 ms..5 s) -> per-BLOCK slew
+    // fraction.  Static: no per-instance state.
     static float glideRateFromNorm(float norm);
+    // Glide time in ms -> per-BLOCK slew fraction.  Shared by GLIDE_TIME and the
+    // bass sequencer's slide time, so both use ONE slew law (Voice::render).
+    static float glideRateFromMs(float ms);
+
+    // Bass accent ranges at knob max (decision 4).  Tunable by ear against the
+    // JP-8080 A/B; kept here so they are named, not magic.
+    //   amp : x(1 + 1.0) = +6 dB on accented steps
+    //   env : x(1 + 1.0) = double the filter-env depth on accented steps
+    static constexpr float kBassAccentAmpMax = 1.0f;
+    static constexpr float kBassAccentEnvMax = 1.0f;
 
     // Phase 5 global reverb (PHASE5_REVERB_SPEC.md).  The tank plus the cached
     // control state v1's GlobalFX held: master wet mix + manual bypass, and the

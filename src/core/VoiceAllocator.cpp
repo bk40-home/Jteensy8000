@@ -71,11 +71,16 @@ Voice* VoiceAllocator::pickVoiceFor(uint8_t note)
     return oldestAny;                  // full board: oldest-steal
 }
 
-void VoiceAllocator::noteOn(uint8_t note, uint8_t velocity)
+void VoiceAllocator::noteOn(uint8_t note, uint8_t velocity,
+                            float accentAmp, float accentEnv)
 {
     // Note-on with velocity 0 is note-off in disguise (MIDI running status
     // convention) — honour it here so every transport gets it right for free.
     if (velocity == 0) { noteOff(note); return; }
+
+    // Latch the accent for whichever voice(s) this strike lands on.
+    _strikeAccentAmp = accentAmp;
+    _strikeAccentEnv = accentEnv;
 
     // Capture the PREVIOUS note the synth played before overwriting it — this
     // is the pitch poly-mode portamento slides FROM (v1 §1.1).
@@ -98,6 +103,7 @@ void VoiceAllocator::noteOn(uint8_t note, uint8_t velocity)
 
     v->setAge(++_clock);
     _sustained[(size_t)(v - _voices)] = false;    // fresh strike: not held
+    v->setAccent(_strikeAccentAmp, _strikeAccentEnv);
     v->noteOn(note, velocity, nextPhase01());
 }
 
@@ -105,12 +111,22 @@ void VoiceAllocator::noteOn(uint8_t note, uint8_t velocity)
 void VoiceAllocator::noteOnMono(uint8_t note, uint8_t velocity, float hz)
 {
     (void)hz;   // Voice recomputes Hz from the note; kept for signature parity
+    if (_count == 0) return;                      // zero-voice layer guard
+    // Was another key already held BEFORE this one?  That is what makes this
+    // strike a legato candidate (a fresh press after full release restarts).
+    const bool otherHeld = !_monoStack.empty();
     _monoStack.push(note);
     Voice& v = _voices[0];
     // The one mono voice's _baseHz already holds the previous note, so the
     // standard glide gate in Voice::noteOn slides legato runs automatically.
     v.setAge(++_clock);
     _sustained[0] = false;
+
+    // LEGATO: pitch move only.  legatoTo refuses (returns false, no change)
+    // if the voice is releasing / idle, and we fall through to a strike.
+    if (_legato && otherHeld && v.legatoTo(note, 0.0f)) return;
+
+    v.setAccent(_strikeAccentAmp, _strikeAccentEnv);
     v.noteOn(note, velocity, nextPhase01());
 }
 
@@ -118,6 +134,15 @@ void VoiceAllocator::noteOnMono(uint8_t note, uint8_t velocity, float hz)
 void VoiceAllocator::noteOnUnison(uint8_t note, uint8_t velocity, float hz)
 {
     (void)hz;
+    // LEGATO: a new key while the unison note is still held moves every
+    // unison voice's pitch; envelopes and the detune spread carry on.  All
+    // voices share one state, so if voice 0 can legato they all can.
+    if (_legato && _count > 0 && _unisonNote >= 0 && _unisonNote != (int)note
+        && _voices[0].legatoTo(note, 0.0f)) {
+        for (size_t i = 1; i < _count; ++i) _voices[i].legatoTo(note, 0.0f);
+        _unisonNote = (int)note;
+        return;
+    }
     // Release the previous unison note's voices if a different note arrives.
     if (_unisonNote >= 0 && _unisonNote != (int)note) {
         for (size_t i = 0; i < _count; ++i) _voices[i].noteOff();
@@ -126,6 +151,7 @@ void VoiceAllocator::noteOnUnison(uint8_t note, uint8_t velocity, float hz)
     for (size_t i = 0; i < _count; ++i) {
         _voices[i].setAge(++_clock);
         _sustained[i] = false;
+        _voices[i].setAccent(_strikeAccentAmp, _strikeAccentEnv);
         _voices[i].noteOn(note, velocity, nextPhase01());
     }
     // Spread is per-voice detune, applied after triggering so every voice has
@@ -149,6 +175,10 @@ void VoiceAllocator::noteOff(uint8_t note)
             const uint8_t ret = _monoStack.top();
             _lastNoteHz = noteToHz(ret);
             v.setAge(++_clock);
+            // LEGATO (signed off 2a): with the switch on, the return moves the
+            // pitch only — no envelope restart.  Off: v1's retrigger, as before.
+            if (_legato && v.legatoTo(ret, 0.0f)) return;
+            v.setAccent(0.0f, 0.0f);                 // a return is never accented
             v.noteOn(ret, 100, nextPhase01());
         } else if (_pedal) {
             _sustained[0] = true;      // pedal holds the last note
@@ -180,6 +210,44 @@ void VoiceAllocator::noteOff(uint8_t note)
             v.noteOff();
         }
     }
+}
+
+// --- SLIDE (bass sequencer) — contract in VoiceAllocator.h ---------------
+void VoiceAllocator::slideNote(uint8_t fromNote, uint8_t toNote, uint8_t velocity,
+                               float slideRate, float accentAmp, float accentEnv)
+{
+    _lastNoteHz = noteToHz(toNote);    // later poly strikes glide from here
+
+    if (_count > 0) {
+        if (_polyMode == PolyMode::Mono) {
+            Voice& v = _voices[0];
+            if (v.note() == fromNote && v.legatoTo(toNote, slideRate)) {
+                // Keep the note stack truthful: the held note IS toNote now.
+                _monoStack.remove(fromNote);
+                _monoStack.push(toNote);
+                return;
+            }
+        } else if (_polyMode == PolyMode::Unison) {
+            if (_unisonNote == (int)fromNote && _voices[0].legatoTo(toNote, slideRate)) {
+                for (size_t i = 1; i < _count; ++i) _voices[i].legatoTo(toNote, slideRate);
+                _unisonNote = (int)toNote;
+                return;
+            }
+        } else {
+            // Poly: move the (first) held voice on fromNote.
+            for (size_t i = 0; i < _count; ++i) {
+                Voice& v = _voices[i];
+                if (v.isActive() && v.note() == fromNote && v.legatoTo(toNote, slideRate))
+                    return;
+            }
+        }
+    }
+
+    // Nothing could slide (the note was stolen or already released): end the
+    // old note FIRST — in Mono that empties the stack so no return fires —
+    // then strike the new one normally, accent included.
+    noteOff(fromNote);
+    noteOn(toNote, velocity, accentAmp, accentEnv);
 }
 
 void VoiceAllocator::sustain(bool pedalDown)

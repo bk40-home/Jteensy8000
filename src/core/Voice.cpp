@@ -58,6 +58,9 @@ void Voice::startNote(uint8_t note, uint8_t velocity, float phaseRandom01)
     // ALWAYS tuned to the true note Hz (hz) — glide is expressed as a semitone
     // OFFSET into the FM path (render()), never by retuning the cores, so it
     // stacks with env/LFO/bend and costs nothing once settled.
+    // A normal strike always uses the PATCH glide rate: drop any override a
+    // previous legato slide left behind (see legatoTo / _slideRate).
+    _slideRate = 0.0f;
     if (_glideEnabled && _glideRate > 0.0f && _baseHz > 20.0f) {
         _glideTargetHz = hz;
         // A1 (retrigger continuity): if a slide is ALREADY in flight on this
@@ -96,6 +99,9 @@ void Voice::startNote(uint8_t note, uint8_t velocity, float phaseRandom01)
     // net gain is identical).  sens 0 → linear velNorm; sens 1 → velNorm².
     const float velAmpScale = (1.0f - _velAmpSens) + (_velAmpSens * velNorm);
     _velGain = velNorm * velAmpScale;
+    // Accent (bass sequencer): extra amp gain on accented steps.  Skipped
+    // entirely when 0 — keyboard notes and the default patch are untouched.
+    if (_accentAmp > 0.0f) _velGain *= (1.0f + _accentAmp);
 
     // Fresh filter state per note: a stolen voice must not smear the
     // previous note's resonance tail into the new one.  The note number
@@ -111,11 +117,49 @@ void Voice::startNote(uint8_t note, uint8_t velocity, float phaseRandom01)
 
     // (3) filter-env depth: v1 envScale = (1−sens)+sens·velNorm scales the filter
     // env amount.  Pushed as a factor on the filter's envDC (1.0 = no scaling).
-    _filter.setEnvVelScale((1.0f - _velEnvSens) + (_velEnvSens * velNorm));
+    // Accent adds filter-env DEPTH on top of the velocity scale (303 accent:
+    // a brighter, snappier sweep).  Only audible when filter.env_amount != 0.
+    float envScale = (1.0f - _velEnvSens) + (_velEnvSens * velNorm);
+    if (_accentEnv > 0.0f) envScale *= (1.0f + _accentEnv);
+    _filter.setEnvVelScale(envScale);
 
     _ampEnv.noteOn();
     _filterEnv.noteOn();   // gated with the note; drives cutoff, not gain
     _pitchEnv.noteOn();    // gated with the note; drives oscillator pitch
+}
+
+// ---------------------------------------------------------------------------
+// LEGATO note change — see Voice.h.  Everything startNote() resets is left
+// alone on purpose; only pitch-related state moves.
+// ---------------------------------------------------------------------------
+bool Voice::legatoTo(uint8_t note, float slideRate)
+{
+    // Only a held, sounding note can be moved legato.  A releasing voice is a
+    // note the player has let go of; a pending restart has not started yet.
+    if (!_ampEnv.isActive() || _ampEnv.isReleasing() || _pendingRestart) return false;
+
+    _note = note;
+    const float hz = 440.0f * exp2f(((float)note - 69.0f) / 12.0f);
+
+    const bool forced = (slideRate > 0.0f);
+    const bool glide  = forced || (_glideEnabled && _glideRate > 0.0f);
+    if (glide && _baseHz > 20.0f) {
+        // Same continuity rule as startNote (A1): an in-flight glide keeps
+        // sliding from where the pitch IS, a settled one starts from _baseHz.
+        if (!_glideActive) _glideCurrentHz = _baseHz;
+        _glideTargetHz = hz;
+        _glideActive   = true;
+        _slideRate     = forced ? slideRate : 0.0f;
+    } else {
+        _glideCurrentHz = _glideTargetHz = hz;
+        _glideActive    = false;
+        _slideRate      = 0.0f;
+    }
+    _baseHz = hz;
+
+    _oscs.retune(hz);        // no phase / noise / ramp reset
+    _filter.noteOn(note);    // key tracking follows the new note (no reset)
+    return true;
 }
 
 void Voice::noteOff()
@@ -194,8 +238,12 @@ void Voice::render(float* mixL, float* mixR, size_t n)
         if (delta < 0.1f && delta > -0.1f) {   // |delta| < 0.1 Hz: snap & stop
             _glideCurrentHz = _glideTargetHz;
             _glideActive    = false;
+            _slideRate      = 0.0f;           // override ends with its glide
         } else {
-            _glideCurrentHz += delta * _glideRate;
+            // A forced legato slide (bass seq) carries its own rate; otherwise
+            // the patch glide rate — the pre-legato expression, unchanged.
+            const float rate = (_slideRate > 0.0f) ? _slideRate : _glideRate;
+            _glideCurrentHz += delta * rate;
         }
         // Express the slide as a semitone offset the FM path applies on top of
         // the cores' true tuning (_baseHz): 12·log2(current/base), 0 when done.

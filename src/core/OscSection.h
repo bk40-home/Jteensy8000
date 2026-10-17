@@ -83,6 +83,15 @@ public:
     // voice while keeping the whole engine deterministic for tests/renders.
     void noteOn(float noteHz, uint32_t seedBase);
 
+    // LEGATO retune (bass-seq Phase 2, voice.legato): move both units and the
+    // sub to a new note frequency WITHOUT the noteOn resets — oscillator
+    // phases, supersaw phases, noise seeds and the pitch-mod ramp all carry
+    // on, so a legato note change is continuous (no click, no phase restart).
+    // Only the pitch-dirty flags are raised; the actual increments are
+    // recomputed lazily by the existing per-unit pitch path, exactly as a
+    // detune/offset edit would.  Cost: a few stores, at note rate.
+    void retune(float noteHz);
+
     // --- per-unit parameters (unit 0 = OSC1, unit 1 = OSC2) ---
     void setWave(int unit, int waveOption);            // osc_wave index
     void setPitchOffset(int unit, int option);         // {-24,-12,0,+12,+24}

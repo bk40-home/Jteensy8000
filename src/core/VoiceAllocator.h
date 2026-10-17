@@ -88,8 +88,32 @@ public:
     // release or re-pitch a voice that now belongs to the other layer.
     void setPool(Voice* voices, size_t count);
 
-    void noteOn(uint8_t note, uint8_t velocity);
+    // accentAmp / accentEnv: per-note ACCENT boosts from the bass sequencer
+    // (see Voice::setAccent).  Keyboard and arp callers use the defaults (0),
+    // which is the exact pre-accent behaviour.
+    void noteOn(uint8_t note, uint8_t velocity,
+                float accentAmp = 0.0f, float accentEnv = 0.0f);
     void noteOff(uint8_t note);
+
+    // --- LEGATO (voice.legato, bass-seq Phase 2) --------------------------
+    // OFF (default): every note restarts its envelopes, exactly as before.
+    // ON: in Mono, a key pressed while another is held — and the return to a
+    //     still-held key on release — moves the pitch only (Voice::legatoTo);
+    //     the envelopes keep running.  In Unison, a new key while the unison
+    //     note is held moves all unison voices legato.  (Unison keeps no note
+    //     stack — v1 — so there is no return-to-held-key there.)
+    //     Poly is unaffected: separate keys are separate notes.
+    void setLegato(bool on) { _legato = on; }
+    bool legato() const     { return _legato; }
+
+    // SLIDE (bass sequencer): move the voice(s) playing `fromNote` to `toNote`
+    // legato, gliding at `slideRate` (per-block fraction, > 0), whatever the
+    // poly mode and the legato switch.  This is the 303 slide: one continuous
+    // note, no envelope restart.  If nothing is sounding `fromNote` (e.g. it
+    // was stolen), it falls back to noteOff(from) + a normal accented strike.
+    // The caller must NOT send a separate noteOff(fromNote) afterwards.
+    void slideNote(uint8_t fromNote, uint8_t toNote, uint8_t velocity,
+                   float slideRate, float accentAmp, float accentEnv);
 
     void sustain(bool pedalDown);
 
@@ -127,6 +151,12 @@ private:
     void noteOnMono(uint8_t note, uint8_t velocity, float hz);
     void noteOnUnison(uint8_t note, uint8_t velocity, float hz);
 
+    // Accent for the strike in progress, set by noteOn() for the mode
+    // handlers and cleared after.  Avoids threading two floats through every
+    // private handler signature.
+    float _strikeAccentAmp = 0.0f;
+    float _strikeAccentEnv = 0.0f;
+
 public:
     // Bit i set = voice i currently sounding. For the controller's status
     // feed (voice-activity dots). Called from loop(); the audio ISR mutates
@@ -157,6 +187,7 @@ private:
     float         _unisonDetune  = 0.0f;   // 0..1 knob
     MonoNoteStack _monoStack;              // Mono legato note tracking
     int           _unisonNote    = -1;     // -1 = no unison note held
+    bool          _legato        = false;  // voice.legato; false = v1 behaviour
     // Last note the SYNTH played (any mode), so a stolen/idle poly voice
     // glides from it rather than its own stale pitch (v1 lastNoteFreq, §1.1).
     float         _lastNoteHz    = 0.0f;

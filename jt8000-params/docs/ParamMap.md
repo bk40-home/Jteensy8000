@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 252 parameters.**
+**Schema version 1 — 303 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -195,6 +195,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0584` | 4 | Bend Range | `voice.bend_range` | continuous | 0–24 st (lin) | 2 st | 0 ms | — | patch |
 | `0x0585` | 5 | Amp Level | `voice.amp_level` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch |
 | `0x0586` | 6 | Glide Mode | `glide.mode` | select | 0–2 (index) | 0 (Cascade) | 0 ms | — | patch |
+| `0x0587` | 7 | Legato | `voice.legato` | toggle | off / on | off | 0 ms | — | patch |
 
 ## [12] BPM Clock  *(NRPN MSB 12)*
 
@@ -357,6 +358,61 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x08BB` | 59 | Arp Step Ratchet 15 | `arp.step_ratchet_15` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
 | `0x08BC` | 60 | Arp Step Ratchet 16 | `arp.step_ratchet_16` | int | 1–4  (lin) | 1 | 0 ms | — | patch |
 
+## [18] Bass Sequencer  *(NRPN MSB 18)*
+
+| ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
+|---|---|---|---|---|---|---|---|---|---|
+| `0x0900` | 0 | Bass Seq Enable | `bass.enable` | select | 0–1 (index) | 0 (Off) | 0 ms | — | patch |
+| `0x0901` | 1 | Bass Latch | `bass.latch` | toggle | off / on | off | 0 ms | — | patch |
+| `0x0902` | 2 | Bass Rate | `bass.timing` | select | 0–14 (index) | 7 (1/16) | 0 ms | — | patch |
+| `0x0903` | 3 | Bass Free Rate | `bass.free_hz` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0904` | 4 | Bass Steps | `bass.length` | int | 1–32  (lin) | 16 | 0 ms | — | patch |
+| `0x0905` | 5 | Bass Direction | `bass.direction` | select | 0–3 (index) | 0 (Fwd) | 0 ms | — | patch |
+| `0x0906` | 6 | Bass Scale | `bass.scale` | select | 0–9 (index) | 2 (Minor) | 0 ms | — | patch |
+| `0x0907` | 7 | Bass Range | `bass.range` | int | 1–15  (lin) | 7 | 0 ms | — | patch |
+| `0x0908` | 8 | Bass Gate | `bass.gate_length` | continuous | 0.1–0.9 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0909` | 9 | Bass Density | `bass.density` | continuous | 0–1 norm (lin) | 0.75 norm | 0 ms | — | patch |
+| `0x090A` | 10 | Bass Accent Prob | `bass.accent` | continuous | 0–1 norm (lin) | 0.25 norm | 0 ms | — | patch |
+| `0x090B` | 11 | Bass Slide Prob | `bass.slide` | continuous | 0–1 norm (lin) | 0.25 norm | 0 ms | — | patch |
+| `0x090C` | 12 | Bass Octave Prob | `bass.octave` | continuous | 0–1 norm (lin) | 0.15 norm | 0 ms | — | patch |
+| `0x090D` | 13 | Bass Seed | `bass.seed` | int | 0–16383  (lin) | 0 | 0 ms | — | patch |
+| `0x090E` | 14 | Bass Mutation | `bass.mutation` | int | 0–255  (lin) | 0 | 0 ms | — | patch |
+| `0x090F` | 15 | Bass Slide Time | `bass.slide_time` | continuous | 10–500 ms (log) | 80 ms | 0 ms | — | patch |
+| `0x0910` | 16 | Bass Accent Level | `bass.accent_amp` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0911` | 17 | Bass Accent Filter | `bass.accent_filter` | continuous | 0–1 norm (lin) | 0.5 norm | 0 ms | — | patch |
+| `0x0912` | 18 | Bass Step 1 | `bass.step_1` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0913` | 19 | Bass Step 2 | `bass.step_2` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0914` | 20 | Bass Step 3 | `bass.step_3` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0915` | 21 | Bass Step 4 | `bass.step_4` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0916` | 22 | Bass Step 5 | `bass.step_5` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0917` | 23 | Bass Step 6 | `bass.step_6` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0918` | 24 | Bass Step 7 | `bass.step_7` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0919` | 25 | Bass Step 8 | `bass.step_8` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x091A` | 26 | Bass Step 9 | `bass.step_9` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x091B` | 27 | Bass Step 10 | `bass.step_10` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x091C` | 28 | Bass Step 11 | `bass.step_11` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x091D` | 29 | Bass Step 12 | `bass.step_12` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x091E` | 30 | Bass Step 13 | `bass.step_13` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x091F` | 31 | Bass Step 14 | `bass.step_14` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0920` | 32 | Bass Step 15 | `bass.step_15` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0921` | 33 | Bass Step 16 | `bass.step_16` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0922` | 34 | Bass Step 17 | `bass.step_17` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0923` | 35 | Bass Step 18 | `bass.step_18` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0924` | 36 | Bass Step 19 | `bass.step_19` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0925` | 37 | Bass Step 20 | `bass.step_20` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0926` | 38 | Bass Step 21 | `bass.step_21` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0927` | 39 | Bass Step 22 | `bass.step_22` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0928` | 40 | Bass Step 23 | `bass.step_23` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0929` | 41 | Bass Step 24 | `bass.step_24` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x092A` | 42 | Bass Step 25 | `bass.step_25` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x092B` | 43 | Bass Step 26 | `bass.step_26` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x092C` | 44 | Bass Step 27 | `bass.step_27` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x092D` | 45 | Bass Step 28 | `bass.step_28` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x092E` | 46 | Bass Step 29 | `bass.step_29` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x092F` | 47 | Bass Step 30 | `bass.step_30` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0930` | 48 | Bass Step 31 | `bass.step_31` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+| `0x0931` | 49 | Bass Step 32 | `bass.step_32` | int | 0–2047  (lin) | 0 | 0 ms | — | patch |
+
 ### Option sets
 
 - **osc_wave**: `SIN`, `SAW`, `SQR`, `TRI`, `ARB`, `PLS`, `rSAW`, `S&H`, `vTRI`, `BLS`, `rBLS`, `BLSQ`, `BLP`, `SSAW`, `vSAW`, `BLvSAW`, `vTRI`, `BLvTRI`, `JvSAW`, `JvTRI`
@@ -388,3 +444,6 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **arp_octaves**: `1`, `2`, `3`, `4`
 - **midi_channel**: `Ch 1`, `Ch 2`, `Ch 3`, `Ch 4`, `Ch 5`, `Ch 6`, `Ch 7`, `Ch 8`, `Ch 9`, `Ch 10`, `Ch 11`, `Ch 12`, `Ch 13`, `Ch 14`, `Ch 15`, `Ch 16`
 - **layer_balance**: `A`, `AB`, `B`
+- **on_off**: `Off`, `On`
+- **bass_dir**: `Fwd`, `Rev`, `PingPong`, `Random`
+- **bass_scale**: `Chromatic`, `Major`, `Minor`, `Dorian`, `Phrygian`, `Mixolydian`, `Harm Minor`, `Min Pent`, `Maj Pent`, `Blues`

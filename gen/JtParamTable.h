@@ -69,6 +69,24 @@ static constexpr Option kOpt_arp_octaves[] = {
     { "3" },
     { "4" },
 };
+static constexpr Option kOpt_bass_dir[] = {
+    { "Fwd" },
+    { "Rev" },
+    { "PingPong" },
+    { "Random" },
+};
+static constexpr Option kOpt_bass_scale[] = {
+    { "Chromatic" },
+    { "Major" },
+    { "Minor" },
+    { "Dorian" },
+    { "Phrygian" },
+    { "Mixolydian" },
+    { "Harm Minor" },
+    { "Min Pent" },
+    { "Maj Pent" },
+    { "Blues" },
+};
 static constexpr Option kOpt_clock_source[] = {
     { "Internal" },
     { "Ext MIDI" },
@@ -158,6 +176,10 @@ static constexpr Option kOpt_midi_channel[] = {
     { "Ch 14" },
     { "Ch 15" },
     { "Ch 16" },
+};
+static constexpr Option kOpt_on_off[] = {
+    { "Off" },
+    { "On" },
 };
 static constexpr Option kOpt_osc_wave[] = {
     { "SIN" },
@@ -293,9 +315,9 @@ static constexpr Option kOpt_xpander_mode[] = {
 };
 
 // ---------------------------------------------------------------------------
-// Parameters (252)
+// Parameters (303)
 // ---------------------------------------------------------------------------
-static constexpr int kNumParams = 252;
+static constexpr int kNumParams = 303;
 
 static constexpr Param kParams[kNumParams] = {
     { 0x0000, "osc1.wave",               "osc1.wave",               "Osc1 Wave",             "WAVE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      19.0f,     0.0f,      0.0f,      "",      false,  kOpt_osc_wave,         20,  0 },
@@ -419,6 +441,7 @@ static constexpr Param kParams[kNumParams] = {
     { 0x0584, "voice.bend_range",        "voice.bend_range",        "Bend Range",            "BEND",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      24.0f,     0.0f,      2.0f,      "st",    false,  nullptr,                0, 11 },
     { 0x0585, "voice.amp_level",         "voice.amp_level",         "Amp Level",             "AMP LVL",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      1.0f,      "norm",  false,  nullptr,                0, 11 },
     { 0x0586, "glide.mode",              "glide.mode",              "Glide Mode",            "GLIDE",     Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      2.0f,      0.0f,      0.0f,      "",      false,  kOpt_glide_mode,        3, 11 },
+    { 0x0587, "voice.legato",            "voice.legato",            "Legato",                "LEGATO",    Widget::Toggle, Type::Toggle,      Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  nullptr,                0, 11 },
     { 0x0600, "clock.clock_source",      "clock.clock_source",      "Clock Src",             "SRC",       Widget::Combo, Type::Select,      Scope::Performance,  Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  kOpt_clock_source,      2, 12 },
     { 0x0601, "clock.tempo",             "clock.tempo",             "BPM",                   "BPM",       Widget::Knob,  Type::Continuous,  Scope::Performance,  Curve::Lin, 40.0f,     300.0f,    0.0f,      170.0f,    "BPM",   false,  nullptr,                0, 12 },
     { 0x0680, "seq.enable",              "seq.enable",              "Seq Enable",            "ON",        Widget::Toggle, Type::Toggle,      Scope::PatchShared,  Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  nullptr,                0, 13 },
@@ -550,9 +573,59 @@ static constexpr Param kParams[kNumParams] = {
     { 0x08BA, "arp.step_ratchet_14",     "arp.step_ratchet_14",     "Arp Step Ratchet 14",   "R14",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 1.0f,      4.0f,      0.0f,      1.0f,      "",      false,  nullptr,                0, 17 },
     { 0x08BB, "arp.step_ratchet_15",     "arp.step_ratchet_15",     "Arp Step Ratchet 15",   "R15",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 1.0f,      4.0f,      0.0f,      1.0f,      "",      false,  nullptr,                0, 17 },
     { 0x08BC, "arp.step_ratchet_16",     "arp.step_ratchet_16",     "Arp Step Ratchet 16",   "R16",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 1.0f,      4.0f,      0.0f,      1.0f,      "",      false,  nullptr,                0, 17 },
+    { 0x0900, "bass.enable",             "bass.enable",             "Bass Seq Enable",       "ON",        Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  kOpt_on_off,            2, 18 },
+    { 0x0901, "bass.latch",              "bass.latch",              "Bass Latch",            "LATCH",     Widget::Toggle, Type::Toggle,      Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0902, "bass.timing",             "bass.timing",             "Bass Rate",             "RATE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      14.0f,     0.0f,      7.0f,      "",      false,  kOpt_timing_mode,      15, 18 },
+    { 0x0903, "bass.free_hz",            "bass.free_hz",            "Bass Free Rate",        "FREE",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.5f,      "norm",  false,  nullptr,                0, 18 },
+    { 0x0904, "bass.length",             "bass.length",             "Bass Steps",            "STEPS",     Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 1.0f,      32.0f,     0.0f,      16.0f,     "",      false,  nullptr,                0, 18 },
+    { 0x0905, "bass.direction",          "bass.direction",          "Bass Direction",        "DIR",       Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      3.0f,      0.0f,      0.0f,      "",      false,  kOpt_bass_dir,          4, 18 },
+    { 0x0906, "bass.scale",              "bass.scale",              "Bass Scale",            "SCALE",     Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      9.0f,      0.0f,      2.0f,      "",      false,  kOpt_bass_scale,       10, 18 },
+    { 0x0907, "bass.range",              "bass.range",              "Bass Range",            "RANGE",     Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 1.0f,      15.0f,     0.0f,      7.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0908, "bass.gate_length",        "bass.gate_length",        "Bass Gate",             "GATE",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.1f,      0.9f,      0.0f,      0.5f,      "norm",  false,  nullptr,                0, 18 },
+    { 0x0909, "bass.density",            "bass.density",            "Bass Density",          "DENS",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.75f,     "norm",  false,  nullptr,                0, 18 },
+    { 0x090A, "bass.accent",             "bass.accent",             "Bass Accent Prob",      "ACC%",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.25f,     "norm",  false,  nullptr,                0, 18 },
+    { 0x090B, "bass.slide",              "bass.slide",              "Bass Slide Prob",       "SLD%",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.25f,     "norm",  false,  nullptr,                0, 18 },
+    { 0x090C, "bass.octave",             "bass.octave",             "Bass Octave Prob",      "OCT%",      Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.15f,     "norm",  false,  nullptr,                0, 18 },
+    { 0x090D, "bass.seed",               "bass.seed",               "Bass Seed",             "SEED",      Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      16383.0f,  0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x090E, "bass.mutation",           "bass.mutation",           "Bass Mutation",         "MUT",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      255.0f,    0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x090F, "bass.slide_time",         "bass.slide_time",         "Bass Slide Time",       "SLIDE",     Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Log, 10.0f,     500.0f,    0.0f,      80.0f,     "ms",    false,  nullptr,                0, 18 },
+    { 0x0910, "bass.accent_amp",         "bass.accent_amp",         "Bass Accent Level",     "ACC AMP",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.5f,      "norm",  false,  nullptr,                0, 18 },
+    { 0x0911, "bass.accent_filter",      "bass.accent_filter",      "Bass Accent Filter",    "ACC FLT",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.5f,      "norm",  false,  nullptr,                0, 18 },
+    { 0x0912, "bass.step_1",             "bass.step_1",             "Bass Step 1",           "S1",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0913, "bass.step_2",             "bass.step_2",             "Bass Step 2",           "S2",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0914, "bass.step_3",             "bass.step_3",             "Bass Step 3",           "S3",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0915, "bass.step_4",             "bass.step_4",             "Bass Step 4",           "S4",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0916, "bass.step_5",             "bass.step_5",             "Bass Step 5",           "S5",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0917, "bass.step_6",             "bass.step_6",             "Bass Step 6",           "S6",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0918, "bass.step_7",             "bass.step_7",             "Bass Step 7",           "S7",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0919, "bass.step_8",             "bass.step_8",             "Bass Step 8",           "S8",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x091A, "bass.step_9",             "bass.step_9",             "Bass Step 9",           "S9",        Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x091B, "bass.step_10",            "bass.step_10",            "Bass Step 10",          "S10",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x091C, "bass.step_11",            "bass.step_11",            "Bass Step 11",          "S11",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x091D, "bass.step_12",            "bass.step_12",            "Bass Step 12",          "S12",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x091E, "bass.step_13",            "bass.step_13",            "Bass Step 13",          "S13",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x091F, "bass.step_14",            "bass.step_14",            "Bass Step 14",          "S14",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0920, "bass.step_15",            "bass.step_15",            "Bass Step 15",          "S15",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0921, "bass.step_16",            "bass.step_16",            "Bass Step 16",          "S16",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0922, "bass.step_17",            "bass.step_17",            "Bass Step 17",          "S17",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0923, "bass.step_18",            "bass.step_18",            "Bass Step 18",          "S18",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0924, "bass.step_19",            "bass.step_19",            "Bass Step 19",          "S19",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0925, "bass.step_20",            "bass.step_20",            "Bass Step 20",          "S20",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0926, "bass.step_21",            "bass.step_21",            "Bass Step 21",          "S21",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0927, "bass.step_22",            "bass.step_22",            "Bass Step 22",          "S22",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0928, "bass.step_23",            "bass.step_23",            "Bass Step 23",          "S23",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0929, "bass.step_24",            "bass.step_24",            "Bass Step 24",          "S24",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x092A, "bass.step_25",            "bass.step_25",            "Bass Step 25",          "S25",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x092B, "bass.step_26",            "bass.step_26",            "Bass Step 26",          "S26",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x092C, "bass.step_27",            "bass.step_27",            "Bass Step 27",          "S27",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x092D, "bass.step_28",            "bass.step_28",            "Bass Step 28",          "S28",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x092E, "bass.step_29",            "bass.step_29",            "Bass Step 29",          "S29",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x092F, "bass.step_30",            "bass.step_30",            "Bass Step 30",          "S30",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0930, "bass.step_31",            "bass.step_31",            "Bass Step 31",          "S31",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
+    { 0x0931, "bass.step_32",            "bass.step_32",            "Bass Step 32",          "S32",       Widget::Knob,  Type::Int,         Scope::Patch,        Curve::Lin, 0.0f,      2047.0f,   0.0f,      0.0f,      "",      false,  nullptr,                0, 18 },
 };
 
-static constexpr int kNumSections = 18;
+static constexpr int kNumSections = 19;
 static constexpr const char* kSectionNames[kNumSections] = {
     "Oscillator 1",
     "Oscillator 2",
@@ -572,6 +645,7 @@ static constexpr const char* kSectionNames[kNumSections] = {
     "Global Reverb",
     "Master",
     "Arpeggiator",
+    "Bass Sequencer",
 };
 
 } // namespace JtParams

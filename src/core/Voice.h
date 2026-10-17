@@ -65,6 +65,26 @@ public:
     void noteOff();
     void hardKill();                       // steal fallback: instant silence
 
+    // --- LEGATO note change (voice.legato + bass-seq slide, Phase 2) ------
+    // Moves this SOUNDING voice to a new note without a restart: envelopes,
+    // filter state, oscillator phases and the note's velocity all carry on.
+    // Only the pitch moves (oscillators retuned, filter key-tracking follows).
+    //   slideRate  > 0 : glide to the new pitch at this per-block rate even if
+    //                    the patch glide is OFF (a 303 slide must always slide).
+    //            == 0 : behave like the patch — glide if glide is armed, else
+    //                    jump.
+    // Returns false and changes NOTHING when the voice cannot legato (idle,
+    // releasing, or mid steal-fade); the caller then strikes a normal noteOn.
+    bool legatoTo(uint8_t note, float slideRate);
+
+    // Per-note ACCENT (bass sequencer).  Latched here and consumed by the next
+    // strike (startNote), so it survives the one-block steal-fade deferral.
+    //   ampAdd  : extra amp gain,          note gain    x (1 + ampAdd)
+    //   envAdd  : extra filter-env depth,  env depth    x (1 + envAdd)
+    // The allocator writes it before EVERY strike (0,0 for keyboard notes), so
+    // it never leaks into the next note.  0,0 is exactly the pre-accent maths.
+    void setAccent(float ampAdd, float envAdd) { _accentAmp = ampAdd; _accentEnv = envAdd; }
+
     // --- per-voice parameter targets (engine dirty-application) ---
     // Shared parameters fan out to all voices; each voice keeps its own
     // DSP state so per-voice modulation (Phase 3) needs no rework.
@@ -181,6 +201,14 @@ private:
     float   _glideCurrentHz = 440.0f; // where the slide is now
     float   _glideTargetHz  = 440.0f; // where it's heading (this note's pitch)
     float   _baseHz         = 440.0f; // this note's true frequency (glide start ref)
+    // Per-glide rate OVERRIDE set by a forced legato slide (bass-seq slide
+    // time).  0 = use the patch _glideRate.  Cleared when the glide lands and
+    // by every normal strike, so the patch glide is never permanently altered.
+    float   _slideRate      = 0.0f;
+
+    // Accent latched for the next strike (see setAccent).  0 = no accent.
+    float   _accentAmp      = 0.0f;
+    float   _accentEnv      = 0.0f;
 
     // Phase 4 pitch bend (spec §4.3).  0 = centred wheel → no shift → default
     // patch unaffected until a bend message arrives.
