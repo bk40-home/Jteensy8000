@@ -214,6 +214,99 @@ TEST_CASE("cross-mod phase lock: X-MOD output repeats at OSC2's period (JP-8000)
 }
 #endif
 
+// ---- JpXmod (mix.xmod_type = 1): measured JP-8000 law -------------------------
+
+TEST_CASE("JpXmod: default type is JtXmod; Jp output differs and stays bounded")
+{
+    OscSection jt, jp;
+    jt.noteOn(kSampleRate / 100.0f, 7);  jp.noteOn(kSampleRate / 100.0f, 7);
+    jt.setMixOsc2(0.0f);                 jp.setMixOsc2(0.0f);
+    jt.setCrossMod(0.5f);                jp.setCrossMod(0.5f);
+    jp.setXmodType(1);
+    const auto a = renderSec(jt, 44160);
+    const auto b = renderSec(jp, 44160);
+    double diff = 0.0;
+    for (size_t i = 0; i < a.size(); ++i) diff += std::fabs((double)a[i] - (double)b[i]);
+    CHECK(diff / (double)a.size() > 0.05);      // a genuinely different law
+    for (float x : b) { REQUIRE(std::isfinite(x)); REQUIRE(std::fabs(x) < 2.0f); }
+}
+
+#if JT_XMOD_RESET
+TEST_CASE("JpXmod: output repeats at OSC2's period (lock kept, harmonic)")
+{
+    // Same set-up as the JtXmod lock test.  JE-8086 measured 99.7–100 %
+    // harmonic of OSC2 under X-MOD; the reset makes it exact here.
+    OscSection s;
+    s.noteOn(kSampleRate / 100.0f, 7);
+    s.setPitchOffset(1, 1);                     // OSC2 -12 st -> 200 samples
+    s.setDetuneSemis(0, 0.37f);
+    s.setMixOsc2(0.0f);
+    s.setXmodType(1);
+    s.setCrossMod(0.39f);
+    const auto fm = renderSec(s, 44160);
+    CHECK(periodicity(fm, 200) < 0.01);
+    for (float x : fm) REQUIRE(std::isfinite(x));
+}
+#endif
+
+TEST_CASE("JpXmod: depth 0 is the dry oscillator (no law change at zero)")
+{
+    OscSection dry, jp;
+    dry.noteOn(kSampleRate / 100.0f, 3);  jp.noteOn(kSampleRate / 100.0f, 3);
+    dry.setMixOsc2(0.0f);                 jp.setMixOsc2(0.0f);
+    jp.setXmodType(1);                    // type set, depth still 0
+    const auto a = renderSec(dry, 44160);
+    const auto b = renderSec(jp, 44160);
+    for (size_t i = 0; i < a.size(); ++i) REQUIRE(a[i] == b[i]);
+}
+
+TEST_CASE("JpXmod: a SUPER SAW OSC1 is not cross-modulated (JP manual)")
+{
+    // Jp: X-MOD has no effect on supersaw OSC1 -> identical to depth 0.
+    OscSection off, jp;
+    for (OscSection* s : { &off, &jp }) {
+        s->noteOn(110.0f, 21);
+        s->setWave(0, (int)Wave::Supersaw);
+        s->setMixOsc2(0.0f);
+    }
+    jp.setXmodType(1);
+    jp.setCrossMod(1.0f);
+    const auto a = renderSec(off, 44160);
+    const auto b = renderSec(jp, 44160);
+    for (size_t i = 0; i < a.size(); ++i) REQUIRE(a[i] == b[i]);
+}
+
+TEST_CASE("JpXmod: works with hard sync on (delayed-feed path)")
+{
+    // Sync on main follows the JP panel: OSC1 = master, OSC2 = slave.  X-MOD
+    // then drives the MASTER from a one-sample-delayed OSC2 feed, so the
+    // slave's timbre must change with depth — and stay finite and bounded
+    // (linear FM here can push the master's rate negative: backward wraps
+    // must still produce valid sync fractions).
+    auto run = [](float depth) {
+        OscSection s;
+        s.noteOn(kSampleRate / 100.0f, 5);
+        s.setDetuneSemis(1, 7.0f);              // slave free rate ≠ master
+        s.setSyncEnabled(true);
+        s.setBalance(1.0f);                     // listen to the slave
+        s.setXmodType(1);
+        s.setCrossMod(depth);
+        return renderSec(s, 44160);
+    };
+    const auto dry = run(0.0f);
+    for (float d : { 0.2f, 0.6f, 1.0f }) {
+        const auto v = run(d);
+        double diff = 0.0;
+        for (size_t i = 0; i < v.size(); ++i) {
+            REQUIRE(std::isfinite(v[i]));
+            REQUIRE(std::fabs(v[i]) < 2.0f);
+            diff += std::fabs((double)v[i] - (double)dry[i]);
+        }
+        INFO("depth ", d);
+        CHECK(diff / (double)v.size() > 0.02);  // X-MOD reached the master
+    }
+}
+
 TEST_CASE("balance: v1 crossfade law composed with (not overwriting) mixes")
 {
     OscSection s;
@@ -315,4 +408,39 @@ TEST_CASE("engine wiring: waves, mixes, sync and supersaw via store writes")
     core.renderBlock(L, R, kBlockSize);
     core.renderBlock(L, R, kBlockSize);
     for (size_t k = 0; k < kBlockSize; ++k) REQUIRE(L[k] == 0.0f);
+}
+
+TEST_CASE("engine wiring: mix.xmod_type select switches the X-MOD law")
+{
+    // Two identical engines, same X-MOD depth; only the type select differs.
+    // Driven by OPTION INDEX through the select curve, as NRPN/UI would.
+    auto renderWith = [](int type) {
+        ParameterStore store;
+        static float combPool[SynthCore::kCombPoolFloats];
+        SynthCore core(store, combPool);
+        store.setEngineering(ID::ENV_AMP_SUSTAIN, 1.0f, Origin::Ui);
+        store.setEngineering(ID::MIX_OSC2, 0.0f, Origin::Ui);
+        store.setEngineering(ID::MIX_CROSS_MOD, 0.5f, Origin::Ui);
+        store.set(ID::MIX_XMOD_TYPE,
+                  Curves::toNorm(kParams[ParameterStore::indexOf(ID::MIX_XMOD_TYPE)],
+                                 (float)type),
+                  Origin::Ui);
+        core.noteOn(48, 127);
+        std::vector<float> v;
+        float L[kBlockSize], R[kBlockSize];
+        for (int b = 0; b < 40; ++b) {
+            core.renderBlock(L, R, kBlockSize);
+            v.insert(v.end(), L, L + kBlockSize);
+        }
+        return v;
+    };
+    const auto jt = renderWith(0);
+    const auto jp = renderWith(1);
+    double diff = 0.0, e = 1e-12;
+    for (size_t i = 0; i < jt.size(); ++i) {
+        diff += std::fabs((double)jt[i] - (double)jp[i]);
+        e    += std::fabs((double)jt[i]);
+    }
+    CHECK(diff / e > 0.1);                      // the select reached the voices
+    for (float x : jp) REQUIRE(std::isfinite(x));
 }

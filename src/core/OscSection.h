@@ -13,8 +13,12 @@
 //     Supersaw cannot participate in sync — the combination did not exist
 //     in v1 (the sync engine had its own plain cores); selecting supersaw
 //     on a synced oscillator simply renders it unsynced.
-//   * Cross-mod: OSC2 output exponentially FMs OSC1 at depth × 10 octaves
-//     full scale — v1 routed the same signal into the ±10-octave FM mixer.
+//   * Cross-mod, two selectable laws (mix.xmod_type, see setXmodType):
+//     JtXmod — OSC2 output exponentially FMs OSC1 at depth × 10 octaves
+//     full scale (v1 routed the same signal into the ±10-octave FM mixer);
+//     JpXmod — through-zero linear FM, OSC1 rate × (1 + 33.6·depth·OSC2),
+//     fitted to JE-8086 captures: k = 0.2645 per knob step (0..127), six
+//     steps over three OSC2 pitches, waveform fit error 0.07–0.31.
 //     PLUS (JT_XMOD_RESET, below) OSC1's phase restarts on every OSC2 wrap,
 //     which v1 did not do.  Measured against a JE-8086 (JP-8000 DSP
 //     emulation), 2026-09-30: the reference stays ~99 % harmonic of OSC2's
@@ -116,6 +120,14 @@ public:
     void setMixNoise(float v01)     { _noiseLevel = v01; }
     void setBalance(float bal)      { _balance = bal; }        // -1..1
     void setCrossMod(float depth01) { _xmodDepth = depth01; }
+    // X-MOD law (mix.xmod_type).  0 = JtXmod: the JT-8000 exponential law,
+    // OSC1 rate × 2^(depth × 10 oct × OSC2) — unchanged, the default.
+    // 1 = JpXmod: the JP-8000 law measured from JE-8086 captures (2026-10-18):
+    // through-zero LINEAR FM, OSC1 rate × (1 + kJpXmodDepth × depth × OSC2),
+    // negative rate runs OSC1 backwards; depth is relative to OSC1's own
+    // pitch (independent of OSC2's, verified at 0/+12/+24 st); no effect on
+    // a SUPER SAW OSC1 (JP manual).  Both keep the OSC2-wrap phase lock.
+    void setXmodType(int type)      { _xmodType = (type == 1) ? 1u : 0u; }
     void setSyncEnabled(bool on)    { _sync = on; }
 
     // --- Phase 3: PWM LFO (control plane, block boundaries) ---
@@ -212,6 +224,7 @@ private:
     float _noiseLevel = 0.0f;
     float _balance    = 0.0f;
     float _xmodDepth  = 0.0f;
+    uint8_t _xmodType = 0;             // 0 JtXmod (default), 1 JpXmod
     bool  _sync       = false;
 
     // --- Pass 7 pitch-envelope modulation ---

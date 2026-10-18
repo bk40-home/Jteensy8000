@@ -144,8 +144,13 @@ public:
 
     // --- audio plane ---
     // WRITES one block (replaces, no accumulate — OscSection owns mixing).
-    //   fmBuf   : optional ±1-ish modulator samples; pitch scales by
-    //             2^(fmBuf[i] × fmOctaves).  nullptr = no FM.
+    //   fmBuf   : optional per-sample FM input.  nullptr = no FM.
+    //             fmIsRatio == false (default): ±1-ish modulator samples;
+    //               pitch scales by 2^(fmBuf[i] × fmOctaves)  (exponential).
+    //             fmIsRatio == true: fmBuf[i] is the increment MULTIPLIER
+    //               itself, any sign (fmOctaves ignored) — through-zero
+    //               linear FM for JpXmod; a negative value runs the phase
+    //               backwards.
     //   syncIn  : optional master wrap buffer (see fillsSyncOut); slave
     //             resets phase where syncIn[i] >= 0.  nullptr = free-run.
     //   syncOut : optional wrap buffer THIS osc fills as master.
@@ -153,20 +158,31 @@ public:
     //             happened, or -1 when none.  nullptr = don't record.
     void render(float* out, size_t n,
                 const float* fmBuf, float fmOctaves,
-                const float* syncIn, float* syncOut);
+                const float* syncIn, float* syncOut,
+                bool fmIsRatio = false);
 
 private:
+    // FM modes for the step()/render templates (see render()).
+    static constexpr int kFmNone  = 0;   // no FM input
+    static constexpr int kFmExp2  = 1;   // 2^(fm × octaves): JtXmod, pitch env
+    static constexpr int kFmRatio = 2;   // fm is the signed increment ratio: JpXmod
+
+    // Picks the sync-in/sync-out instantiation for one FM mode.
+    template <int FmMode>
+    void renderSyncVariant(float* out, size_t n, const float* fmBuf, float fmOctaves,
+                           const float* syncIn, float* syncOut);
+
     // Shared per-sample phase step with the two optional behaviours.
     // Templated on the presence flags so each wave loop compiles to the
     // minimal variant actually needed (the switch below picks it) — zero
     // per-sample cost for features not in use.
-    template <bool HasFm, bool HasSyncIn, bool HasSyncOut>
+    template <int FmMode, bool HasSyncIn, bool HasSyncOut>
     inline float step(size_t i, const float* fmBuf, float fmOctaves,
                       const float* syncIn, float* syncOut);
 
     // One rendering loop per waveform family; templated the same way and
     // instantiated from render()'s dispatch.
-    template <bool HasFm, bool HasSyncIn, bool HasSyncOut>
+    template <int FmMode, bool HasSyncIn, bool HasSyncOut>
     void renderImpl(float* out, size_t n,
                     const float* fmBuf, float fmOctaves,
                     const float* syncIn, float* syncOut);
@@ -175,7 +191,7 @@ private:
     // and the two morph frames ONCE per block, then runs a tight per-sample
     // loop.  Morph=false (1-frame sets, i.e. ARB) reads one frame only and is
     // arithmetically identical to the pre-merge ARB loop.
-    template <bool HasFm, bool HasSyncIn, bool HasSyncOut, bool Morph>
+    template <int FmMode, bool HasSyncIn, bool HasSyncOut, bool Morph>
     void renderTable(float* out, size_t n,
                      const float* fmBuf, float fmOctaves,
                      const float* syncIn, float* syncOut,

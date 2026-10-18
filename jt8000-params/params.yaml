@@ -66,6 +66,7 @@ option_sets:
   # (Same rule that governs timing_mode; see ledger D-13.)
   reverb_algo: ["Plate", "Shimmer", "Hall"]
   pitch_mod_dest: ["OSC1+2", "OSC2", "X-MOD"]
+  xmod_type: ["JtXmod", "JpXmod"]
   l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
   # T2: dotted family APPENDED at indices 12..14, never inserted.  The stored
   # value of every select is its OPTION INDEX, and this set is shared by
@@ -585,6 +586,20 @@ params:
     smooth_ms: 0
     ui: {section: 2, group: 1}
     # Default "OSC1+2" = pre-routing behaviour: render baseline byte-identical.
+  - id: 0x0108            # v2: X-MOD law select (2026-10-18)
+    key: mix.xmod_type
+    name: "X-Mod Type"
+    label: "XM TYPE"
+    type: select
+    scope: patch
+    options: xmod_type
+    default: 0
+    smooth_ms: 0
+    ui: {section: 2, group: 1}
+    # JtXmod (default) = the JT-8000 exponential law, unchanged: existing
+    # patches and the render baseline stay byte-identical.  JpXmod = the
+    # JP-8000 law measured from JE-8086 captures: through-zero linear FM,
+    # OSC1 rate x (1 + 33.6 x depth x OSC2), depth relative to OSC1 pitch.
 
   # ---- [3] Filter ----
   - id: 0x0180            # v1: CC::FILTER_CUTOFF (was CC 23)

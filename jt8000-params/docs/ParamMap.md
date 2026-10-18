@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 303 parameters.**
+**Schema version 1 — 304 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -65,6 +65,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0105` | 5 | Cross Mod | `mix.cross_mod` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0106` | 6 | Osc Sync | `mix.osc_sync` | toggle | off / on | off | 0 ms | — | patch |
 | `0x0107` | 7 | Pitch Mod Dest | `mix.pitch_mod_dest` | select | 0–2 (index) | 0 (OSC1+2) | 0 ms | — | patch |
+| `0x0108` | 8 | X-Mod Type | `mix.xmod_type` | select | 0–1 (index) | 0 (JtXmod) | 0 ms | — | patch |
 
 ## [3] Filter  *(NRPN MSB 3)*
 
@@ -426,6 +427,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **delay_engine**: `Digital`, `Tape`
 - **reverb_algo**: `Plate`, `Shimmer`, `Hall`
 - **pitch_mod_dest**: `OSC1+2`, `OSC2`, `X-MOD`
+- **xmod_type**: `JtXmod`, `JpXmod`
 - **l_f_o_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
 - **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`, `1/4D`, `1/8D`, `1/16D`
 - **poly_mode**: `Poly`, `Mono`, `Unison`

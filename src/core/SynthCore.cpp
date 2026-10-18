@@ -819,6 +819,9 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::MIX_BALANCE:   for (Voice& v : L.voices()) v.oscSection().setBalance(eng); break;
         case ID::MIX_CROSS_MOD: for (Voice& v : L.voices()) v.oscSection().setCrossMod(eng); break;
         case ID::MIX_OSC_SYNC:  for (Voice& v : L.voices()) v.oscSection().setSyncEnabled(eng >= 0.5f); break;
+        // X-MOD law: 0 JtXmod (exponential, the default), 1 JpXmod (measured
+        // JP-8000 through-zero linear FM).  See OscSection::setXmodType.
+        case ID::MIX_XMOD_TYPE: for (Voice& v : L.voices()) v.oscSection().setXmodType(opt); break;
         // G1: JP-8000 "LFO1 & ENV Destination" — the voice steers the
         // (LFO1-pitch + pitch-env) lane by this each block (Voice::render).
         case ID::MIX_PITCH_MOD_DEST:

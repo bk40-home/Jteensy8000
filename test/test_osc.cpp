@@ -210,6 +210,52 @@ TEST_CASE("exponential FM: +1 octave doubles the frequency exactly")
     CHECK(z <= 442);
 }
 
+TEST_CASE("ratio FM (JpXmod path): rate scales LINEARLY with the ratio")
+{
+    // fmIsRatio: fmBuf is the per-sample increment ratio.  Ratio 3 -> 660 Hz.
+    OscCore o;
+    o.setWave(Wave::Saw);
+    o.setFrequency(220.0f);
+    float fm[kBlockSize];
+    for (float& f : fm) f = 3.0f;
+    // ~1 s in whole blocks; expected count scales with the real length so the
+    // test holds at any kSampleRate (44.1k-era tests hard-coded 44160).
+    const size_t blocks = (size_t)kSampleRate / kBlockSize;
+    std::vector<float> v(blocks * kBlockSize);
+    for (size_t off = 0; off < v.size(); off += kBlockSize)
+        o.render(v.data() + off, kBlockSize, fm, 0.0f, nullptr, nullptr, true);
+    const double expect = 660.0 * (double)v.size() / (double)kSampleRate;
+    const double z = (double)risingCrossings(v);
+    CHECK(z >= expect - 2.0);
+    CHECK(z <= expect + 2.0);
+    for (float x : v) REQUIRE(std::isfinite(x));
+}
+
+TEST_CASE("ratio FM (JpXmod path): a negative ratio runs the phase BACKWARDS")
+{
+    // Through-zero: ratio -1 plays the saw time-reversed — the ramp falls
+    // between resets instead of rising.  Same rate, opposite slope.
+    auto meanSlope = [](float ratio) {
+        OscCore o;
+        o.setWave(Wave::Saw);
+        o.setFrequency(100.0f);
+        float fm[kBlockSize];
+        for (float& f : fm) f = ratio;
+        std::vector<float> v(48 * kBlockSize);
+        for (size_t off = 0; off < v.size(); off += kBlockSize)
+            o.render(v.data() + off, kBlockSize, fm, 0.0f, nullptr, nullptr, true);
+        // Median-ish: count samples that step up vs down (the reset is one
+        // big step the other way, rare at 100 Hz).
+        int up = 0, down = 0;
+        for (size_t i = 1; i < v.size(); ++i) { if (v[i] > v[i - 1]) ++up; else if (v[i] < v[i - 1]) ++down; }
+        for (float x : v) REQUIRE(std::isfinite(x));
+        for (float x : v) REQUIRE(std::fabs(x) <= 1.2f);
+        return up - down;
+    };
+    CHECK(meanSlope( 1.0f) > 0);                // forward: rising ramp
+    CHECK(meanSlope(-1.0f) < 0);                // backward: falling ramp
+}
+
 TEST_CASE("oscillator abuse: parameter thrash stays finite and bounded")
 {
     OscCore o;

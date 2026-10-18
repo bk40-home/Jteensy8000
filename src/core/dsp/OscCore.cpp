@@ -128,28 +128,52 @@ float OscCore::nextNoise()
 // The shared phase step.  Returns the NEW phase; wrap/FM/sync handled here
 // so every waveform loop below stays a pure "phase -> sample" mapping.
 // -----------------------------------------------------------------------------
-template <bool HasFm, bool HasSyncIn, bool HasSyncOut>
+template <int FmMode, bool HasSyncIn, bool HasSyncOut>
 inline float OscCore::step(size_t i, const float* fmBuf, float fmOctaves,
                            const float* syncIn, float* syncOut)
 {
-    // Effective increment: exponential FM exactly as v1 routed it (±1.0
-    // modulator × N octaves through the fast pow2).  Compiled out entirely
-    // when HasFm is false.
+    // Effective increment.  FmMode is a compile-time constant, so each mode
+    // compiles to its own loop with no per-sample mode test:
+    //   kFmNone  (0): base increment only.
+    //   kFmExp2  (1): exponential FM exactly as v1 routed it (±1.0 modulator
+    //                 × N octaves through the fast pow2) — JtXmod + pitch env.
+    //   kFmRatio (2): fmBuf[i] IS the increment multiplier, any sign — the
+    //                 caller pre-composes 2^pitch × (1 + k·osc2) for JpXmod
+    //                 (through-zero linear FM: a negative ratio runs the
+    //                 phase BACKWARDS, exactly as measured on the JE-8086).
     float inc = _inc;
-    if (HasFm)
+    if (FmMode == kFmExp2)
         inc = _inc * FastMath::fastPow2(fmBuf[i] * fmOctaves);
+    else if (FmMode == kFmRatio)
+        inc = _inc * fmBuf[i];
 
     float ph = _phase + inc;
 
     bool  wrapped  = false;
     float wrapFrac = -1.0f;
-    if (ph >= 1.0f) {
-        ph -= 1.0f;
+    if (FmMode != kFmRatio) {
+        // Forward-only modes: the original single-wrap test, untouched, so
+        // their output stays byte-identical to the pre-JpXmod build.
+        if (ph >= 1.0f) {
+            ph -= 1.0f;
+            wrapped = true;
+            // Fraction of THIS sample at which the wrap occurred — lets the
+            // slave re-start with sub-sample alignment instead of quantising
+            // sync to sample edges.
+            wrapFrac = (inc > 0.0f) ? (1.0f - ph / inc) : 0.0f;
+        }
+    } else if (ph >= 1.0f || ph < 0.0f) {
+        // Through-zero: the phase may leave [0,1) in EITHER direction, and at
+        // full depth by more than one cycle per sample (|ratio| up to ~35 ×
+        // the base increment).  floorf folds any excursion back into range.
+        // Wrap fraction = where in this sample the 1->0 (forward) or 0->1
+        // (backward) boundary was crossed; clamped for the multi-cycle case.
+        const float startPh = _phase;
+        ph -= floorf(ph);
         wrapped = true;
-        // Fraction of THIS sample at which the wrap occurred — lets the
-        // slave re-start with sub-sample alignment instead of quantising
-        // sync to sample edges.
-        wrapFrac = (inc > 0.0f) ? (1.0f - ph / inc) : 0.0f;
+        float fr = (inc > 0.0f) ? (1.0f - startPh) / inc
+                 : (inc < 0.0f) ? startPh / -inc : 0.0f;
+        wrapFrac = (fr < 0.0f) ? 0.0f : ((fr > 1.0f) ? 1.0f : fr);
     }
 
     if (HasSyncOut)
@@ -159,6 +183,7 @@ inline float OscCore::step(size_t i, const float* fmBuf, float fmOctaves,
         // Hard sync: master wrapped syncIn[i] into the sample; the slave's
         // phase restarts and advances through the REMAINDER of the sample.
         ph = (1.0f - syncIn[i]) * inc;
+        if (FmMode == kFmRatio) ph -= floorf(ph);   // remainder may run backwards
         wrapped = true;               // a sync reset also refreshes S&H
 #if JT_SYNC_ANTIALIAS
         _blepFrac = syncIn[i];        // F3: consumed by JT_SYNC_BLEP in the loop
@@ -176,11 +201,11 @@ inline float OscCore::step(size_t i, const float* fmBuf, float fmOctaves,
 
 // -----------------------------------------------------------------------------
 // Loop macros shared by renderTable() and renderImpl() (both are templated on
-// the same <HasFm, HasSyncIn, HasSyncOut> set, and both loop on `i`).  Defined
+// the same <FmMode, HasSyncIn, HasSyncOut> set, and both loop on `i`).  Defined
 // once here, #undef'd after renderImpl.
 // -----------------------------------------------------------------------------
 // Local shorthand: advances phase with the active feature set.
-#define JT_STEP() step<HasFm, HasSyncIn, HasSyncOut>(i, fmBuf, fmOctaves, syncIn, syncOut)
+#define JT_STEP() step<FmMode, HasSyncIn, HasSyncOut>(i, fmBuf, fmOctaves, syncIn, syncOut)
 
 #if JT_SYNC_ANTIALIAS
 // F3: applied after each sample write in a braced loop.  On a sync-reset
@@ -223,7 +248,7 @@ inline float OscCore::step(size_t i, const float* fmBuf, float fmOctaves,
 // ARB loop — pos = ph × (float)len, idx/frac/nxt, a + (b − a) × frac,
 // × (1/32768) — verified by cmp of rendered output before/after the merge.
 // -----------------------------------------------------------------------------
-template <bool HasFm, bool HasSyncIn, bool HasSyncOut, bool Morph>
+template <int FmMode, bool HasSyncIn, bool HasSyncOut, bool Morph>
 void OscCore::renderTable(float* out, size_t n,
                           const float* fmBuf, float fmOctaves,
                           const float* syncIn, float* syncOut,
@@ -273,7 +298,7 @@ void OscCore::renderTable(float* out, size_t n,
 // -----------------------------------------------------------------------------
 // Waveform loops.  Every wave outputs ±1 nominal.
 // -----------------------------------------------------------------------------
-template <bool HasFm, bool HasSyncIn, bool HasSyncOut>
+template <int FmMode, bool HasSyncIn, bool HasSyncOut>
 void OscCore::renderImpl(float* out, size_t n,
                          const float* fmBuf, float fmOctaves,
                          const float* syncIn, float* syncOut)
@@ -368,7 +393,7 @@ void OscCore::renderImpl(float* out, size_t n,
             ts.data = _arbData;  ts.samplesPerFrame = _arbLen;
             ts.frames = 1;       ts.levels = 1;
             ts.levelOffset = kZero; ts.levelLen = len; ts.levelHarm = kZero;
-            renderTable<HasFm, HasSyncIn, HasSyncOut, false>(out, n, fmBuf, fmOctaves,
+            renderTable<FmMode, HasSyncIn, HasSyncOut, false>(out, n, fmBuf, fmOctaves,
                                                              syncIn, syncOut, ts);
         }
         break;
@@ -384,10 +409,10 @@ void OscCore::renderImpl(float* out, size_t n,
             break;
         }
         if (_morphSet->frames >= 2u)
-            renderTable<HasFm, HasSyncIn, HasSyncOut, true >(out, n, fmBuf, fmOctaves,
+            renderTable<FmMode, HasSyncIn, HasSyncOut, true >(out, n, fmBuf, fmOctaves,
                                                              syncIn, syncOut, *_morphSet);
         else
-            renderTable<HasFm, HasSyncIn, HasSyncOut, false>(out, n, fmBuf, fmOctaves,
+            renderTable<FmMode, HasSyncIn, HasSyncOut, false>(out, n, fmBuf, fmOctaves,
                                                              syncIn, syncOut, *_morphSet);
         break;
 
@@ -540,25 +565,30 @@ void OscCore::renderImpl(float* out, size_t n,
 
 // -----------------------------------------------------------------------------
 // Dispatch: pick the template instantiation for the features present, once
-// per block.  8 instantiations exist; only the ones a build actually calls
-// are emitted.
+// per block.  FM mode × sync-in × sync-out = 12 instantiations; only the ones
+// a build actually calls are emitted.
 // -----------------------------------------------------------------------------
-void OscCore::render(float* out, size_t n,
-                     const float* fmBuf, float fmOctaves,
-                     const float* syncIn, float* syncOut)
+template <int FmMode>
+void OscCore::renderSyncVariant(float* out, size_t n,
+                                const float* fmBuf, float fmOctaves,
+                                const float* syncIn, float* syncOut)
 {
-    const bool fm = (fmBuf != nullptr);
     const bool si = (syncIn != nullptr);
     const bool so = (syncOut != nullptr);
+    if      (!si && !so) renderImpl<FmMode, false, false>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+    else if ( si && !so) renderImpl<FmMode, true,  false>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+    else if (!si &&  so) renderImpl<FmMode, false, true >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+    else                 renderImpl<FmMode, true,  true >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+}
 
-    if (!fm && !si && !so)      renderImpl<false, false, false>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
-    else if ( fm && !si && !so) renderImpl<true,  false, false>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
-    else if (!fm &&  si && !so) renderImpl<false, true,  false>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
-    else if ( fm &&  si && !so) renderImpl<true,  true,  false>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
-    else if (!fm && !si &&  so) renderImpl<false, false, true >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
-    else if ( fm && !si &&  so) renderImpl<true,  false, true >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
-    else if (!fm &&  si &&  so) renderImpl<false, true,  true >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
-    else                        renderImpl<true,  true,  true >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+void OscCore::render(float* out, size_t n,
+                     const float* fmBuf, float fmOctaves,
+                     const float* syncIn, float* syncOut,
+                     bool fmIsRatio)
+{
+    if (fmBuf == nullptr)  renderSyncVariant<kFmNone >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+    else if (!fmIsRatio)   renderSyncVariant<kFmExp2 >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+    else                   renderSyncVariant<kFmRatio>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
 }
 
 } // namespace JT

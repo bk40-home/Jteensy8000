@@ -207,6 +207,7 @@ window.PARAMS = {
   "mix.osc_sync",
   "mix.pitch_mod_dest",
   "mix.sub",
+  "mix.xmod_type",
   "osc1.arb_bank",
   "osc1.arb_index",
   "osc1.detune",
@@ -348,6 +349,7 @@ window.PARAMS = {
   "mix.cross_mod": "Cross Mod",
   "mix.osc_sync": "Osc Sync",
   "mix.pitch_mod_dest": "Pitch Mod Dest",
+  "mix.xmod_type": "X-Mod Type",
   "filter.cutoff": "Cutoff",
   "filter.resonance": "Resonance",
   "filter.env_amount": "Filt Env Amt",
@@ -858,6 +860,10 @@ window.PARAMS = {
    "5+3",
    "6+2",
    "7+1"
+  ],
+  "xmod_type": [
+   "JtXmod",
+   "JpXmod"
   ],
   "xpander_mode": [
    "LP4",

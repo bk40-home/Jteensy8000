@@ -19,6 +19,10 @@ namespace {
 constexpr float kSubHeadroom = 0.9f;
 // v1 FM full scale: ±1.0 modulator = ±10 octaves (FM_OCTAVE_RANGE).
 constexpr float kXmodOctaveRange = 10.0f;
+// JpXmod full scale: OSC1 rate swing per unit OSC2 at depth 1.0.  Measured
+// from JE-8086 captures (2026-10-18): k = 0.2645 × knob (0..127) -> 33.6 at
+// 127, linear in the knob, relative to OSC1's own pitch.
+constexpr float kJpXmodDepth = 33.6f;
 // osc pitch-offset option set {-24,-12,0,+12,+24}, indexed by the select.
 constexpr float kPitchOffsetSemis[5] = { -24.0f, -12.0f, 0.0f, 12.0f, 24.0f };
 } // namespace
@@ -207,7 +211,11 @@ void OscSection::render(float* out, size_t n)
     // _xmodDepth exactly, so the baseline path and its gating are unchanged.
     float xd = _xmodDepth + _xmodOffset;
     if (xd < 0.0f) xd = 0.0f; else if (xd > 1.0f) xd = 1.0f;
-    const bool xmod     = (xd > 0.0f);
+    // JpXmod follows the JP-8000: X-MOD has no effect on a SUPER SAW OSC1
+    // (manual p.59 note), so it is simply off — OSC2 is then not needed for
+    // it either.  JtXmod keeps its existing behaviour (FMs the supersaw).
+    const bool jpXmod   = (_xmodType == 1u);
+    const bool xmod     = (xd > 0.0f) && !(jpXmod && _u[0].isSupersaw());
     // Hard sync needs a real phase-wrapping master.  Per the JP-8000 panel
     // diagram (manual p.59) OSC1 is the sync MASTER and OSC2 the slave — the
     // reverse of the v1 port we started from (F2).  Supersaw can't be a
@@ -318,6 +326,23 @@ void OscSection::render(float* out, size_t n)
     {
         const float* fmBuf;
         float        fmOct;
+        if (jpXmod && haveXmod) {
+            // JpXmod: through-zero LINEAR FM.  fm1 carries the signed
+            // increment RATIO per sample; the pitch envelope (exponential)
+            // multiplies in when live.  OscCore's ratio mode lets a negative
+            // ratio run OSC1 backwards — the measured JP behaviour.
+            const float k = kJpXmodDepth * xd;
+            if (pitchActive) {
+                for (size_t i = 0; i < n; ++i)
+                    fm1[i] = FastMath::fastPow2(pitchRamp[i]) * (1.0f + k * xmodSrc[i]);
+            } else {
+                for (size_t i = 0; i < n; ++i) fm1[i] = 1.0f + k * xmodSrc[i];
+            }
+            // Supersaw is excluded upstream (xmod false), so this is OscCore.
+            _u[0].core.render(b1, n, fm1, 0.0f, syncIn, syncOut, /*fmIsRatio=*/true);
+            if (_u[0].comb.isActive()) _u[0].comb.process(b1, n);
+            return;
+        }
         if (pitchActive) {
             // Both exponential-FM sources sum in octave space (pitch env +
             // cross-mod add before the 2^ conversion; fmOctaves = 1).
@@ -358,16 +383,17 @@ void OscSection::render(float* out, size_t n)
         // DC seed, which would silence the X-MOD timbre during sync.  On
         // steady tones (the X-MOD-under-sync use case) a block of delay is
         // phase only, inaudible; on fast transients it softens by ≤2.9 ms.
-        if (need1) {
-            if (haveXmod) {
-                fm1Delayed[0] = _xmodTail;                 // carry across boundary
-                for (size_t i = 1; i < n; ++i) fm1Delayed[i] = _xmodPrev[i - 1];
-                renderOsc1(fm1Delayed, syncBuf, nullptr);
-            } else {
-                renderOsc1(nullptr, syncBuf, nullptr);
-            }
+        // OSC1 renders even when muted (need1 false): it is still the sync
+        // master and its X-MOD'd timing is heard through the slave.  The
+        // X-MOD feed must therefore be built whenever X-MOD is live — the
+        // earlier muted-master branch passed nullptr here, and renderOsc1
+        // then read the modulator from address 0 (2026-10-18 fix: host
+        // SIGSEGV; on Teensy, address 0 is ITCM, so the FM read code bytes).
+        if (haveXmod) {
+            fm1Delayed[0] = _xmodTail;                     // carry across boundary
+            for (size_t i = 1; i < n; ++i) fm1Delayed[i] = _xmodPrev[i - 1];
+            renderOsc1(fm1Delayed, syncBuf, nullptr);
         } else {
-            // OSC1 muted but still the sync master: fill syncBuf via scratch.
             renderOsc1(nullptr, syncBuf, nullptr);
         }
         // --- OSC2 slave, reset by OSC1's wrap buffer ----------------------
