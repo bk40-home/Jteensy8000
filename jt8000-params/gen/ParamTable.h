@@ -130,804 +130,815 @@ static constexpr char s40[] JT_TABLE_FLASH = "IDX";
 static constexpr char s41[] JT_TABLE_FLASH = "osc1.pwm_lfo1_depth";
 static constexpr char s42[] JT_TABLE_FLASH = "Osc1 PWM Amt";
 static constexpr char s43[] JT_TABLE_FLASH = "PWM AMT";
-static constexpr char s44[] JT_TABLE_FLASH = "osc2.wave";
-static constexpr char s45[] JT_TABLE_FLASH = "Osc2 Wave";
-static constexpr char s46[] JT_TABLE_FLASH = "osc2.pitch_offset";
-static constexpr char s47[] JT_TABLE_FLASH = "Osc2 Pitch";
-static constexpr char s48[] JT_TABLE_FLASH = "osc2.fine_tune";
-static constexpr char s49[] JT_TABLE_FLASH = "Osc2 Fine";
-static constexpr char s50[] JT_TABLE_FLASH = "osc2.detune";
-static constexpr char s51[] JT_TABLE_FLASH = "Osc2 Detune";
-static constexpr char s52[] JT_TABLE_FLASH = "osc2.supersaw_detune";
-static constexpr char s53[] JT_TABLE_FLASH = "SS2 Detune";
-static constexpr char s54[] JT_TABLE_FLASH = "osc2.supersaw_mix";
-static constexpr char s55[] JT_TABLE_FLASH = "SS2 Mix";
-static constexpr char s56[] JT_TABLE_FLASH = "osc2.feedback_amount";
-static constexpr char s57[] JT_TABLE_FLASH = "Osc2 FB Amt";
-static constexpr char s58[] JT_TABLE_FLASH = "osc2.feedback_mix";
-static constexpr char s59[] JT_TABLE_FLASH = "Osc2 FB Mix";
-static constexpr char s60[] JT_TABLE_FLASH = "osc2.freq_dc";
-static constexpr char s61[] JT_TABLE_FLASH = "Osc2 Freq DC";
-static constexpr char s62[] JT_TABLE_FLASH = "osc2.shape_dc";
-static constexpr char s63[] JT_TABLE_FLASH = "Osc2 Shape DC";
-static constexpr char s64[] JT_TABLE_FLASH = "osc2.ring_mix";
-static constexpr char s65[] JT_TABLE_FLASH = "Ring 2 Mix";
-static constexpr char s66[] JT_TABLE_FLASH = "osc2.arb_bank";
-static constexpr char s67[] JT_TABLE_FLASH = "Osc2 Arb Bank";
-static constexpr char s68[] JT_TABLE_FLASH = "osc2.arb_index";
-static constexpr char s69[] JT_TABLE_FLASH = "Osc2 Arb Idx";
-static constexpr char s70[] JT_TABLE_FLASH = "osc2.pwm_lfo1_depth";
-static constexpr char s71[] JT_TABLE_FLASH = "Osc2 PWM Amt";
-static constexpr char s72[] JT_TABLE_FLASH = "mix.balance";
-static constexpr char s73[] JT_TABLE_FLASH = "Osc Balance";
-static constexpr char s74[] JT_TABLE_FLASH = "BAL";
-static constexpr char s75[] JT_TABLE_FLASH = "mix.osc1";
-static constexpr char s76[] JT_TABLE_FLASH = "Osc1 Mix";
-static constexpr char s77[] JT_TABLE_FLASH = "OSC1";
-static constexpr char s78[] JT_TABLE_FLASH = "mix.osc2";
-static constexpr char s79[] JT_TABLE_FLASH = "Osc2 Mix";
-static constexpr char s80[] JT_TABLE_FLASH = "OSC2";
-static constexpr char s81[] JT_TABLE_FLASH = "mix.sub";
-static constexpr char s82[] JT_TABLE_FLASH = "Sub Mix";
-static constexpr char s83[] JT_TABLE_FLASH = "SUB";
-static constexpr char s84[] JT_TABLE_FLASH = "mix.noise";
-static constexpr char s85[] JT_TABLE_FLASH = "Noise Mix";
-static constexpr char s86[] JT_TABLE_FLASH = "NOISE";
-static constexpr char s87[] JT_TABLE_FLASH = "mix.cross_mod";
-static constexpr char s88[] JT_TABLE_FLASH = "Cross Mod";
-static constexpr char s89[] JT_TABLE_FLASH = "XMOD";
-static constexpr char s90[] JT_TABLE_FLASH = "mix.osc_sync";
-static constexpr char s91[] JT_TABLE_FLASH = "Osc Sync";
-static constexpr char s92[] JT_TABLE_FLASH = "SYNC";
-static constexpr char s93[] JT_TABLE_FLASH = "bool";
-static constexpr char s94[] JT_TABLE_FLASH = "mix.pitch_mod_dest";
-static constexpr char s95[] JT_TABLE_FLASH = "Pitch Mod Dest";
-static constexpr char s96[] JT_TABLE_FLASH = "P.DEST";
-static constexpr char s97[] JT_TABLE_FLASH = "mix.xmod_type";
-static constexpr char s98[] JT_TABLE_FLASH = "X-Mod Type";
-static constexpr char s99[] JT_TABLE_FLASH = "XM TYPE";
-static constexpr char s100[] JT_TABLE_FLASH = "filter.cutoff";
-static constexpr char s101[] JT_TABLE_FLASH = "Cutoff";
-static constexpr char s102[] JT_TABLE_FLASH = "CUTOFF";
-static constexpr char s103[] JT_TABLE_FLASH = "Hz";
-static constexpr char s104[] JT_TABLE_FLASH = "filter.resonance";
-static constexpr char s105[] JT_TABLE_FLASH = "Resonance";
-static constexpr char s106[] JT_TABLE_FLASH = "RESO";
-static constexpr char s107[] JT_TABLE_FLASH = "filter.env_amount";
-static constexpr char s108[] JT_TABLE_FLASH = "Filt Env Amt";
-static constexpr char s109[] JT_TABLE_FLASH = "ENV";
-static constexpr char s110[] JT_TABLE_FLASH = "filter.key_track";
-static constexpr char s111[] JT_TABLE_FLASH = "Key Track";
-static constexpr char s112[] JT_TABLE_FLASH = "KEY TRK";
-static constexpr char s113[] JT_TABLE_FLASH = "filter.engine";
-static constexpr char s114[] JT_TABLE_FLASH = "Filt Engine";
-static constexpr char s115[] JT_TABLE_FLASH = "ENGINE";
-static constexpr char s116[] JT_TABLE_FLASH = "filter.mode";
-static constexpr char s117[] JT_TABLE_FLASH = "Filt Mode";
-static constexpr char s118[] JT_TABLE_FLASH = "MODE";
-static constexpr char s119[] JT_TABLE_FLASH = "filter.va_type";
-static constexpr char s120[] JT_TABLE_FLASH = "VA Type";
-static constexpr char s121[] JT_TABLE_FLASH = "VA TYPE";
-static constexpr char s122[] JT_TABLE_FLASH = "filter.octave_control";
-static constexpr char s123[] JT_TABLE_FLASH = "Oct Control";
-static constexpr char s124[] JT_TABLE_FLASH = "OCT CTRL";
-static constexpr char s125[] JT_TABLE_FLASH = "filter.obxa_res_mod_depth";
-static constexpr char s126[] JT_TABLE_FLASH = "Res Mod";
-static constexpr char s127[] JT_TABLE_FLASH = "RES MOD";
-static constexpr char s128[] JT_TABLE_FLASH = "filter.obxa_multimode";
-static constexpr char s129[] JT_TABLE_FLASH = "Multimode";
-static constexpr char s130[] JT_TABLE_FLASH = "MULTI";
-static constexpr char s131[] JT_TABLE_FLASH = "filter.obxa_xpander_mode";
-static constexpr char s132[] JT_TABLE_FLASH = "Xpander";
-static constexpr char s133[] JT_TABLE_FLASH = "XP MODE";
-static constexpr char s134[] JT_TABLE_FLASH = "filter.drive";
-static constexpr char s135[] JT_TABLE_FLASH = "Filt Drive";
-static constexpr char s136[] JT_TABLE_FLASH = "F.DRIVE";
-static constexpr char s137[] JT_TABLE_FLASH = "";
-static constexpr char s138[] JT_TABLE_FLASH = "env_amp.attack";
-static constexpr char s139[] JT_TABLE_FLASH = "Amp Attack";
-static constexpr char s140[] JT_TABLE_FLASH = "ATTACK";
-static constexpr char s141[] JT_TABLE_FLASH = "ms";
-static constexpr char s142[] JT_TABLE_FLASH = "env_amp.attack_curve";
-static constexpr char s143[] JT_TABLE_FLASH = "Amp Atk Slp";
-static constexpr char s144[] JT_TABLE_FLASH = "ATK SLOPE";
-static constexpr char s145[] JT_TABLE_FLASH = "slope";
-static constexpr char s146[] JT_TABLE_FLASH = "env_amp.decay";
-static constexpr char s147[] JT_TABLE_FLASH = "Amp Decay";
-static constexpr char s148[] JT_TABLE_FLASH = "DECAY";
-static constexpr char s149[] JT_TABLE_FLASH = "env_amp.decay_curve";
-static constexpr char s150[] JT_TABLE_FLASH = "Amp Dec Slp";
-static constexpr char s151[] JT_TABLE_FLASH = "DEC SLOPE";
-static constexpr char s152[] JT_TABLE_FLASH = "env_amp.sustain";
-static constexpr char s153[] JT_TABLE_FLASH = "Amp Sustain";
-static constexpr char s154[] JT_TABLE_FLASH = "SUSTAIN";
-static constexpr char s155[] JT_TABLE_FLASH = "env_amp.release";
-static constexpr char s156[] JT_TABLE_FLASH = "Amp Release";
-static constexpr char s157[] JT_TABLE_FLASH = "RELEASE";
-static constexpr char s158[] JT_TABLE_FLASH = "env_amp.release_curve";
-static constexpr char s159[] JT_TABLE_FLASH = "Amp Rel Slp";
-static constexpr char s160[] JT_TABLE_FLASH = "REL SLOPE";
-static constexpr char s161[] JT_TABLE_FLASH = "env_filter.attack";
-static constexpr char s162[] JT_TABLE_FLASH = "Filt Attack";
-static constexpr char s163[] JT_TABLE_FLASH = "env_filter.attack_curve";
-static constexpr char s164[] JT_TABLE_FLASH = "Filt Atk Slp";
-static constexpr char s165[] JT_TABLE_FLASH = "env_filter.decay";
-static constexpr char s166[] JT_TABLE_FLASH = "Filt Decay";
-static constexpr char s167[] JT_TABLE_FLASH = "env_filter.decay_curve";
-static constexpr char s168[] JT_TABLE_FLASH = "Filt Dec Slp";
-static constexpr char s169[] JT_TABLE_FLASH = "env_filter.sustain";
-static constexpr char s170[] JT_TABLE_FLASH = "Filt Sustain";
-static constexpr char s171[] JT_TABLE_FLASH = "env_filter.release";
-static constexpr char s172[] JT_TABLE_FLASH = "Filt Release";
-static constexpr char s173[] JT_TABLE_FLASH = "env_filter.release_curve";
-static constexpr char s174[] JT_TABLE_FLASH = "Filt Rel Slp";
-static constexpr char s175[] JT_TABLE_FLASH = "env_pitch.depth";
-static constexpr char s176[] JT_TABLE_FLASH = "Pitch Depth";
-static constexpr char s177[] JT_TABLE_FLASH = "DEPTH";
-static constexpr char s178[] JT_TABLE_FLASH = "env_pitch.attack";
-static constexpr char s179[] JT_TABLE_FLASH = "Pitch Attack";
-static constexpr char s180[] JT_TABLE_FLASH = "env_pitch.attack_curve";
-static constexpr char s181[] JT_TABLE_FLASH = "Pitch Atk Slp";
-static constexpr char s182[] JT_TABLE_FLASH = "env_pitch.decay";
-static constexpr char s183[] JT_TABLE_FLASH = "Pitch Decay";
-static constexpr char s184[] JT_TABLE_FLASH = "env_pitch.decay_curve";
-static constexpr char s185[] JT_TABLE_FLASH = "Pitch Dec Slp";
-static constexpr char s186[] JT_TABLE_FLASH = "env_pitch.sustain";
-static constexpr char s187[] JT_TABLE_FLASH = "Pitch Sustain";
-static constexpr char s188[] JT_TABLE_FLASH = "env_pitch.release";
-static constexpr char s189[] JT_TABLE_FLASH = "Pitch Release";
-static constexpr char s190[] JT_TABLE_FLASH = "env_pitch.release_curve";
-static constexpr char s191[] JT_TABLE_FLASH = "Pitch Rel Slp";
-static constexpr char s192[] JT_TABLE_FLASH = "lfo1.waveform";
-static constexpr char s193[] JT_TABLE_FLASH = "LFO1 Wave";
-static constexpr char s194[] JT_TABLE_FLASH = "lfo1.freq";
-static constexpr char s195[] JT_TABLE_FLASH = "LFO1 Rate";
-static constexpr char s196[] JT_TABLE_FLASH = "RATE";
-static constexpr char s197[] JT_TABLE_FLASH = "lfo1.depth";
-static constexpr char s198[] JT_TABLE_FLASH = "LFO1 Depth";
-static constexpr char s199[] JT_TABLE_FLASH = "lfo1.sync";
-static constexpr char s200[] JT_TABLE_FLASH = "LFO1 Sync";
-static constexpr char s201[] JT_TABLE_FLASH = "lfo1.pitch_depth";
-static constexpr char s202[] JT_TABLE_FLASH = "LFO1 Pitch";
-static constexpr char s203[] JT_TABLE_FLASH = "lfo1.filter_depth";
-static constexpr char s204[] JT_TABLE_FLASH = "LFO1 Filter";
-static constexpr char s205[] JT_TABLE_FLASH = "FILTER";
-static constexpr char s206[] JT_TABLE_FLASH = "lfo1.pwm_depth";
-static constexpr char s207[] JT_TABLE_FLASH = "LFO1 PWM";
-static constexpr char s208[] JT_TABLE_FLASH = "PWM";
-static constexpr char s209[] JT_TABLE_FLASH = "lfo1.amp_depth";
-static constexpr char s210[] JT_TABLE_FLASH = "LFO1 Amp";
-static constexpr char s211[] JT_TABLE_FLASH = "AMP";
-static constexpr char s212[] JT_TABLE_FLASH = "lfo1.destination";
-static constexpr char s213[] JT_TABLE_FLASH = "LFO1 Dest";
-static constexpr char s214[] JT_TABLE_FLASH = "DEST";
-static constexpr char s215[] JT_TABLE_FLASH = "lfo1.delay";
-static constexpr char s216[] JT_TABLE_FLASH = "LFO1 Delay";
-static constexpr char s217[] JT_TABLE_FLASH = "DELAY";
-static constexpr char s218[] JT_TABLE_FLASH = "lfo2.waveform";
-static constexpr char s219[] JT_TABLE_FLASH = "LFO2 Wave";
-static constexpr char s220[] JT_TABLE_FLASH = "lfo2.freq";
-static constexpr char s221[] JT_TABLE_FLASH = "LFO2 Rate";
-static constexpr char s222[] JT_TABLE_FLASH = "lfo2.depth";
-static constexpr char s223[] JT_TABLE_FLASH = "LFO2 Depth";
-static constexpr char s224[] JT_TABLE_FLASH = "lfo2.sync";
-static constexpr char s225[] JT_TABLE_FLASH = "LFO2 Sync";
-static constexpr char s226[] JT_TABLE_FLASH = "lfo2.pitch_depth";
-static constexpr char s227[] JT_TABLE_FLASH = "LFO2 Pitch";
-static constexpr char s228[] JT_TABLE_FLASH = "lfo2.filter_depth";
-static constexpr char s229[] JT_TABLE_FLASH = "LFO2 Filter";
-static constexpr char s230[] JT_TABLE_FLASH = "lfo2.pwm_depth";
-static constexpr char s231[] JT_TABLE_FLASH = "LFO2 PWM";
-static constexpr char s232[] JT_TABLE_FLASH = "lfo2.amp_depth";
-static constexpr char s233[] JT_TABLE_FLASH = "LFO2 Amp";
-static constexpr char s234[] JT_TABLE_FLASH = "lfo2.destination";
-static constexpr char s235[] JT_TABLE_FLASH = "LFO2 Dest";
-static constexpr char s236[] JT_TABLE_FLASH = "lfo2.delay";
-static constexpr char s237[] JT_TABLE_FLASH = "LFO2 Delay";
-static constexpr char s238[] JT_TABLE_FLASH = "lfo2.mod_wheel";
-static constexpr char s239[] JT_TABLE_FLASH = "LFO2 ModWhl";
-static constexpr char s240[] JT_TABLE_FLASH = "MOD WHL";
-static constexpr char s241[] JT_TABLE_FLASH = "fx.bass_gain";
-static constexpr char s242[] JT_TABLE_FLASH = "Bass";
-static constexpr char s243[] JT_TABLE_FLASH = "BASS";
-static constexpr char s244[] JT_TABLE_FLASH = "fx.treble_gain";
-static constexpr char s245[] JT_TABLE_FLASH = "Treble";
-static constexpr char s246[] JT_TABLE_FLASH = "TREBLE";
-static constexpr char s247[] JT_TABLE_FLASH = "fx.drive";
-static constexpr char s248[] JT_TABLE_FLASH = "Drive";
-static constexpr char s249[] JT_TABLE_FLASH = "DRIVE";
-static constexpr char s250[] JT_TABLE_FLASH = "fx.mod_effect";
-static constexpr char s251[] JT_TABLE_FLASH = "Mod FX";
-static constexpr char s252[] JT_TABLE_FLASH = "MOD TYPE";
-static constexpr char s253[] JT_TABLE_FLASH = "fx.mod_mix";
-static constexpr char s254[] JT_TABLE_FLASH = "Mod Mix";
-static constexpr char s255[] JT_TABLE_FLASH = "MOD MIX";
-static constexpr char s256[] JT_TABLE_FLASH = "fx.mod_rate";
-static constexpr char s257[] JT_TABLE_FLASH = "Mod Rate";
-static constexpr char s258[] JT_TABLE_FLASH = "MOD RATE";
-static constexpr char s259[] JT_TABLE_FLASH = "fx.mod_feedback";
-static constexpr char s260[] JT_TABLE_FLASH = "Mod FB";
-static constexpr char s261[] JT_TABLE_FLASH = "MOD FB";
-static constexpr char s262[] JT_TABLE_FLASH = "fx.delay_effect";
-static constexpr char s263[] JT_TABLE_FLASH = "Delay FX";
-static constexpr char s264[] JT_TABLE_FLASH = "DLY TYPE";
-static constexpr char s265[] JT_TABLE_FLASH = "fx.delay_time";
-static constexpr char s266[] JT_TABLE_FLASH = "Delay Time";
-static constexpr char s267[] JT_TABLE_FLASH = "DLY TIME";
-static constexpr char s268[] JT_TABLE_FLASH = "fx.delay_mix";
-static constexpr char s269[] JT_TABLE_FLASH = "Delay Mix";
-static constexpr char s270[] JT_TABLE_FLASH = "DLY MIX";
-static constexpr char s271[] JT_TABLE_FLASH = "fx.delay_feedback";
-static constexpr char s272[] JT_TABLE_FLASH = "Delay FB";
-static constexpr char s273[] JT_TABLE_FLASH = "DLY FB";
-static constexpr char s274[] JT_TABLE_FLASH = "fx.delay_sync";
-static constexpr char s275[] JT_TABLE_FLASH = "Delay Sync";
-static constexpr char s276[] JT_TABLE_FLASH = "DLY SYNC";
-static constexpr char s277[] JT_TABLE_FLASH = "fx.dry_mix";
-static constexpr char s278[] JT_TABLE_FLASH = "Dry Mix";
-static constexpr char s279[] JT_TABLE_FLASH = "DRY";
-static constexpr char s280[] JT_TABLE_FLASH = "fx.jpfx_mix";
-static constexpr char s281[] JT_TABLE_FLASH = "JPFX Mix";
-static constexpr char s282[] JT_TABLE_FLASH = "JPFX";
-static constexpr char s283[] JT_TABLE_FLASH = "fx.delay_engine";
-static constexpr char s284[] JT_TABLE_FLASH = "Delay Engine";
-static constexpr char s285[] JT_TABLE_FLASH = "DLY ENG";
-static constexpr char s286[] JT_TABLE_FLASH = "fx.delay_tone";
-static constexpr char s287[] JT_TABLE_FLASH = "Delay Tone";
-static constexpr char s288[] JT_TABLE_FLASH = "DLY TONE";
-static constexpr char s289[] JT_TABLE_FLASH = "fx.delay_sat";
-static constexpr char s290[] JT_TABLE_FLASH = "Delay Saturation";
-static constexpr char s291[] JT_TABLE_FLASH = "DLY SAT";
-static constexpr char s292[] JT_TABLE_FLASH = "fx.delay_wow";
-static constexpr char s293[] JT_TABLE_FLASH = "Delay Wow";
-static constexpr char s294[] JT_TABLE_FLASH = "DLY WOW";
-static constexpr char s295[] JT_TABLE_FLASH = "fx.delay_flutter";
-static constexpr char s296[] JT_TABLE_FLASH = "Delay Flutter";
-static constexpr char s297[] JT_TABLE_FLASH = "DLY FLUT";
-static constexpr char s298[] JT_TABLE_FLASH = "fx.delay_wow_rate";
-static constexpr char s299[] JT_TABLE_FLASH = "Delay Wow Rate";
-static constexpr char s300[] JT_TABLE_FLASH = "DLY WOWR";
-static constexpr char s301[] JT_TABLE_FLASH = "velocity.amp_sens";
-static constexpr char s302[] JT_TABLE_FLASH = "Vel Amp";
-static constexpr char s303[] JT_TABLE_FLASH = "velocity.filter_sens";
-static constexpr char s304[] JT_TABLE_FLASH = "Vel Filter";
-static constexpr char s305[] JT_TABLE_FLASH = "velocity.env_sens";
-static constexpr char s306[] JT_TABLE_FLASH = "Vel Env";
-static constexpr char s307[] JT_TABLE_FLASH = "glide.enable";
-static constexpr char s308[] JT_TABLE_FLASH = "Glide";
-static constexpr char s309[] JT_TABLE_FLASH = "ON";
-static constexpr char s310[] JT_TABLE_FLASH = "glide.time";
-static constexpr char s311[] JT_TABLE_FLASH = "Glide Time";
-static constexpr char s312[] JT_TABLE_FLASH = "TIME";
-static constexpr char s313[] JT_TABLE_FLASH = "voice.poly_mode";
-static constexpr char s314[] JT_TABLE_FLASH = "Poly Mode";
-static constexpr char s315[] JT_TABLE_FLASH = "voice.unison_detune";
-static constexpr char s316[] JT_TABLE_FLASH = "Unison Det";
-static constexpr char s317[] JT_TABLE_FLASH = "UNI DET";
-static constexpr char s318[] JT_TABLE_FLASH = "voice.bend_range";
-static constexpr char s319[] JT_TABLE_FLASH = "Bend Range";
-static constexpr char s320[] JT_TABLE_FLASH = "BEND";
-static constexpr char s321[] JT_TABLE_FLASH = "st";
-static constexpr char s322[] JT_TABLE_FLASH = "voice.amp_level";
-static constexpr char s323[] JT_TABLE_FLASH = "Amp Level";
-static constexpr char s324[] JT_TABLE_FLASH = "AMP LVL";
-static constexpr char s325[] JT_TABLE_FLASH = "glide.mode";
-static constexpr char s326[] JT_TABLE_FLASH = "Glide Mode";
-static constexpr char s327[] JT_TABLE_FLASH = "GLIDE";
-static constexpr char s328[] JT_TABLE_FLASH = "voice.legato";
-static constexpr char s329[] JT_TABLE_FLASH = "Legato";
-static constexpr char s330[] JT_TABLE_FLASH = "LEGATO";
-static constexpr char s331[] JT_TABLE_FLASH = "clock.clock_source";
-static constexpr char s332[] JT_TABLE_FLASH = "Clock Src";
-static constexpr char s333[] JT_TABLE_FLASH = "SRC";
-static constexpr char s334[] JT_TABLE_FLASH = "clock.tempo";
-static constexpr char s335[] JT_TABLE_FLASH = "BPM";
-static constexpr char s336[] JT_TABLE_FLASH = "seq.enable";
-static constexpr char s337[] JT_TABLE_FLASH = "Seq Enable";
-static constexpr char s338[] JT_TABLE_FLASH = "seq.steps";
-static constexpr char s339[] JT_TABLE_FLASH = "Seq Steps";
-static constexpr char s340[] JT_TABLE_FLASH = "STEPS";
-static constexpr char s341[] JT_TABLE_FLASH = "seq.gate_length";
-static constexpr char s342[] JT_TABLE_FLASH = "Seq Gate";
-static constexpr char s343[] JT_TABLE_FLASH = "GATE";
-static constexpr char s344[] JT_TABLE_FLASH = "seq.slide";
-static constexpr char s345[] JT_TABLE_FLASH = "Seq Slide";
-static constexpr char s346[] JT_TABLE_FLASH = "SLIDE";
-static constexpr char s347[] JT_TABLE_FLASH = "seq.direction";
-static constexpr char s348[] JT_TABLE_FLASH = "Seq Dir";
-static constexpr char s349[] JT_TABLE_FLASH = "DIR";
-static constexpr char s350[] JT_TABLE_FLASH = "seq.destination";
-static constexpr char s351[] JT_TABLE_FLASH = "Seq Dest";
-static constexpr char s352[] JT_TABLE_FLASH = "seq.depth";
-static constexpr char s353[] JT_TABLE_FLASH = "Seq Depth";
-static constexpr char s354[] JT_TABLE_FLASH = "seq.retrigger";
-static constexpr char s355[] JT_TABLE_FLASH = "Seq Retrig";
-static constexpr char s356[] JT_TABLE_FLASH = "RETRIG";
-static constexpr char s357[] JT_TABLE_FLASH = "seq.rate";
-static constexpr char s358[] JT_TABLE_FLASH = "Seq Rate";
-static constexpr char s359[] JT_TABLE_FLASH = "seq.timing_mode";
-static constexpr char s360[] JT_TABLE_FLASH = "Seq Sync";
-static constexpr char s361[] JT_TABLE_FLASH = "seq.step_select";
-static constexpr char s362[] JT_TABLE_FLASH = "Step Select";
-static constexpr char s363[] JT_TABLE_FLASH = "SEL";
-static constexpr char s364[] JT_TABLE_FLASH = "seq.step_value";
-static constexpr char s365[] JT_TABLE_FLASH = "Step Value";
-static constexpr char s366[] JT_TABLE_FLASH = "VAL";
-static constexpr char s367[] JT_TABLE_FLASH = "seq.aux_destination";
-static constexpr char s368[] JT_TABLE_FLASH = "Seq Aux Dest";
-static constexpr char s369[] JT_TABLE_FLASH = "AUX DEST";
-static constexpr char s370[] JT_TABLE_FLASH = "seq.aux_depth";
-static constexpr char s371[] JT_TABLE_FLASH = "Seq Aux Depth";
-static constexpr char s372[] JT_TABLE_FLASH = "AUX DEP";
-static constexpr char s373[] JT_TABLE_FLASH = "seq.aux_step_select";
-static constexpr char s374[] JT_TABLE_FLASH = "Aux Step Select";
-static constexpr char s375[] JT_TABLE_FLASH = "AUX SEL";
-static constexpr char s376[] JT_TABLE_FLASH = "seq.aux_step_value";
-static constexpr char s377[] JT_TABLE_FLASH = "Aux Step Value";
-static constexpr char s378[] JT_TABLE_FLASH = "AUX VAL";
-static constexpr char s379[] JT_TABLE_FLASH = "seq.step_1";
-static constexpr char s380[] JT_TABLE_FLASH = "Seq Step 1";
-static constexpr char s381[] JT_TABLE_FLASH = "S1";
-static constexpr char s382[] JT_TABLE_FLASH = "seq.step_2";
-static constexpr char s383[] JT_TABLE_FLASH = "Seq Step 2";
-static constexpr char s384[] JT_TABLE_FLASH = "S2";
-static constexpr char s385[] JT_TABLE_FLASH = "seq.step_3";
-static constexpr char s386[] JT_TABLE_FLASH = "Seq Step 3";
-static constexpr char s387[] JT_TABLE_FLASH = "S3";
-static constexpr char s388[] JT_TABLE_FLASH = "seq.step_4";
-static constexpr char s389[] JT_TABLE_FLASH = "Seq Step 4";
-static constexpr char s390[] JT_TABLE_FLASH = "S4";
-static constexpr char s391[] JT_TABLE_FLASH = "seq.step_5";
-static constexpr char s392[] JT_TABLE_FLASH = "Seq Step 5";
-static constexpr char s393[] JT_TABLE_FLASH = "S5";
-static constexpr char s394[] JT_TABLE_FLASH = "seq.step_6";
-static constexpr char s395[] JT_TABLE_FLASH = "Seq Step 6";
-static constexpr char s396[] JT_TABLE_FLASH = "S6";
-static constexpr char s397[] JT_TABLE_FLASH = "seq.step_7";
-static constexpr char s398[] JT_TABLE_FLASH = "Seq Step 7";
-static constexpr char s399[] JT_TABLE_FLASH = "S7";
-static constexpr char s400[] JT_TABLE_FLASH = "seq.step_8";
-static constexpr char s401[] JT_TABLE_FLASH = "Seq Step 8";
-static constexpr char s402[] JT_TABLE_FLASH = "S8";
-static constexpr char s403[] JT_TABLE_FLASH = "seq.step_9";
-static constexpr char s404[] JT_TABLE_FLASH = "Seq Step 9";
-static constexpr char s405[] JT_TABLE_FLASH = "S9";
-static constexpr char s406[] JT_TABLE_FLASH = "seq.step_10";
-static constexpr char s407[] JT_TABLE_FLASH = "Seq Step 10";
-static constexpr char s408[] JT_TABLE_FLASH = "S10";
-static constexpr char s409[] JT_TABLE_FLASH = "seq.step_11";
-static constexpr char s410[] JT_TABLE_FLASH = "Seq Step 11";
-static constexpr char s411[] JT_TABLE_FLASH = "S11";
-static constexpr char s412[] JT_TABLE_FLASH = "seq.step_12";
-static constexpr char s413[] JT_TABLE_FLASH = "Seq Step 12";
-static constexpr char s414[] JT_TABLE_FLASH = "S12";
-static constexpr char s415[] JT_TABLE_FLASH = "seq.step_13";
-static constexpr char s416[] JT_TABLE_FLASH = "Seq Step 13";
-static constexpr char s417[] JT_TABLE_FLASH = "S13";
-static constexpr char s418[] JT_TABLE_FLASH = "seq.step_14";
-static constexpr char s419[] JT_TABLE_FLASH = "Seq Step 14";
-static constexpr char s420[] JT_TABLE_FLASH = "S14";
-static constexpr char s421[] JT_TABLE_FLASH = "seq.step_15";
-static constexpr char s422[] JT_TABLE_FLASH = "Seq Step 15";
-static constexpr char s423[] JT_TABLE_FLASH = "S15";
-static constexpr char s424[] JT_TABLE_FLASH = "seq.step_16";
-static constexpr char s425[] JT_TABLE_FLASH = "Seq Step 16";
-static constexpr char s426[] JT_TABLE_FLASH = "S16";
-static constexpr char s427[] JT_TABLE_FLASH = "seq.aux_step_1";
-static constexpr char s428[] JT_TABLE_FLASH = "Seq Aux Step 1";
-static constexpr char s429[] JT_TABLE_FLASH = "A1";
-static constexpr char s430[] JT_TABLE_FLASH = "seq.aux_step_2";
-static constexpr char s431[] JT_TABLE_FLASH = "Seq Aux Step 2";
-static constexpr char s432[] JT_TABLE_FLASH = "A2";
-static constexpr char s433[] JT_TABLE_FLASH = "seq.aux_step_3";
-static constexpr char s434[] JT_TABLE_FLASH = "Seq Aux Step 3";
-static constexpr char s435[] JT_TABLE_FLASH = "A3";
-static constexpr char s436[] JT_TABLE_FLASH = "seq.aux_step_4";
-static constexpr char s437[] JT_TABLE_FLASH = "Seq Aux Step 4";
-static constexpr char s438[] JT_TABLE_FLASH = "A4";
-static constexpr char s439[] JT_TABLE_FLASH = "seq.aux_step_5";
-static constexpr char s440[] JT_TABLE_FLASH = "Seq Aux Step 5";
-static constexpr char s441[] JT_TABLE_FLASH = "A5";
-static constexpr char s442[] JT_TABLE_FLASH = "seq.aux_step_6";
-static constexpr char s443[] JT_TABLE_FLASH = "Seq Aux Step 6";
-static constexpr char s444[] JT_TABLE_FLASH = "A6";
-static constexpr char s445[] JT_TABLE_FLASH = "seq.aux_step_7";
-static constexpr char s446[] JT_TABLE_FLASH = "Seq Aux Step 7";
-static constexpr char s447[] JT_TABLE_FLASH = "A7";
-static constexpr char s448[] JT_TABLE_FLASH = "seq.aux_step_8";
-static constexpr char s449[] JT_TABLE_FLASH = "Seq Aux Step 8";
-static constexpr char s450[] JT_TABLE_FLASH = "A8";
-static constexpr char s451[] JT_TABLE_FLASH = "seq.aux_step_9";
-static constexpr char s452[] JT_TABLE_FLASH = "Seq Aux Step 9";
-static constexpr char s453[] JT_TABLE_FLASH = "A9";
-static constexpr char s454[] JT_TABLE_FLASH = "seq.aux_step_10";
-static constexpr char s455[] JT_TABLE_FLASH = "Seq Aux Step 10";
-static constexpr char s456[] JT_TABLE_FLASH = "A10";
-static constexpr char s457[] JT_TABLE_FLASH = "seq.aux_step_11";
-static constexpr char s458[] JT_TABLE_FLASH = "Seq Aux Step 11";
-static constexpr char s459[] JT_TABLE_FLASH = "A11";
-static constexpr char s460[] JT_TABLE_FLASH = "seq.aux_step_12";
-static constexpr char s461[] JT_TABLE_FLASH = "Seq Aux Step 12";
-static constexpr char s462[] JT_TABLE_FLASH = "A12";
-static constexpr char s463[] JT_TABLE_FLASH = "seq.aux_step_13";
-static constexpr char s464[] JT_TABLE_FLASH = "Seq Aux Step 13";
-static constexpr char s465[] JT_TABLE_FLASH = "A13";
-static constexpr char s466[] JT_TABLE_FLASH = "seq.aux_step_14";
-static constexpr char s467[] JT_TABLE_FLASH = "Seq Aux Step 14";
-static constexpr char s468[] JT_TABLE_FLASH = "A14";
-static constexpr char s469[] JT_TABLE_FLASH = "seq.aux_step_15";
-static constexpr char s470[] JT_TABLE_FLASH = "Seq Aux Step 15";
-static constexpr char s471[] JT_TABLE_FLASH = "A15";
-static constexpr char s472[] JT_TABLE_FLASH = "seq.aux_step_16";
-static constexpr char s473[] JT_TABLE_FLASH = "Seq Aux Step 16";
-static constexpr char s474[] JT_TABLE_FLASH = "A16";
-static constexpr char s475[] JT_TABLE_FLASH = "seq.step_bipolar";
-static constexpr char s476[] JT_TABLE_FLASH = "Seq Step Bipolar";
-static constexpr char s477[] JT_TABLE_FLASH = "BIPOL";
-static constexpr char s478[] JT_TABLE_FLASH = "seq.aux_bipolar";
-static constexpr char s479[] JT_TABLE_FLASH = "Seq Aux Bipolar";
-static constexpr char s480[] JT_TABLE_FLASH = "AUX BIP";
-static constexpr char s481[] JT_TABLE_FLASH = "perf.mode";
-static constexpr char s482[] JT_TABLE_FLASH = "Perf Mode";
-static constexpr char s483[] JT_TABLE_FLASH = "perf.edit_target";
-static constexpr char s484[] JT_TABLE_FLASH = "Edit Target";
-static constexpr char s485[] JT_TABLE_FLASH = "EDIT";
-static constexpr char s486[] JT_TABLE_FLASH = "perf.midi_channel_a";
-static constexpr char s487[] JT_TABLE_FLASH = "MIDI Ch A";
-static constexpr char s488[] JT_TABLE_FLASH = "CH A";
-static constexpr char s489[] JT_TABLE_FLASH = "perf.midi_channel_b";
-static constexpr char s490[] JT_TABLE_FLASH = "MIDI Ch B";
-static constexpr char s491[] JT_TABLE_FLASH = "CH B";
-static constexpr char s492[] JT_TABLE_FLASH = "perf.voice_split";
-static constexpr char s493[] JT_TABLE_FLASH = "Voice Split";
-static constexpr char s494[] JT_TABLE_FLASH = "VOICES";
-static constexpr char s495[] JT_TABLE_FLASH = "perf.split_note";
-static constexpr char s496[] JT_TABLE_FLASH = "Split Point";
-static constexpr char s497[] JT_TABLE_FLASH = "SPLIT";
-static constexpr char s498[] JT_TABLE_FLASH = "note";
-static constexpr char s499[] JT_TABLE_FLASH = "perf.balance";
-static constexpr char s500[] JT_TABLE_FLASH = "Layer Bal";
-static constexpr char s501[] JT_TABLE_FLASH = "BALANCE";
-static constexpr char s502[] JT_TABLE_FLASH = "reverb.size";
-static constexpr char s503[] JT_TABLE_FLASH = "Rev Size";
-static constexpr char s504[] JT_TABLE_FLASH = "SIZE";
-static constexpr char s505[] JT_TABLE_FLASH = "reverb.damp";
-static constexpr char s506[] JT_TABLE_FLASH = "Rev Hi Damp";
-static constexpr char s507[] JT_TABLE_FLASH = "HI DMP";
-static constexpr char s508[] JT_TABLE_FLASH = "reverb.lodamp";
-static constexpr char s509[] JT_TABLE_FLASH = "Rev Lo Damp";
-static constexpr char s510[] JT_TABLE_FLASH = "LO DMP";
-static constexpr char s511[] JT_TABLE_FLASH = "reverb.mix";
-static constexpr char s512[] JT_TABLE_FLASH = "Rev Mix";
-static constexpr char s513[] JT_TABLE_FLASH = "MIX";
-static constexpr char s514[] JT_TABLE_FLASH = "reverb.bypass";
-static constexpr char s515[] JT_TABLE_FLASH = "Rev Bypass";
-static constexpr char s516[] JT_TABLE_FLASH = "BYPASS";
-static constexpr char s517[] JT_TABLE_FLASH = "reverb.shimmer";
-static constexpr char s518[] JT_TABLE_FLASH = "Rev Shimmer";
-static constexpr char s519[] JT_TABLE_FLASH = "SHIMMER";
-static constexpr char s520[] JT_TABLE_FLASH = "reverb.freeze";
-static constexpr char s521[] JT_TABLE_FLASH = "Rev Freeze";
-static constexpr char s522[] JT_TABLE_FLASH = "FREEZE";
-static constexpr char s523[] JT_TABLE_FLASH = "reverb.lowpass";
-static constexpr char s524[] JT_TABLE_FLASH = "Rev Lo Pass";
-static constexpr char s525[] JT_TABLE_FLASH = "LO PASS";
-static constexpr char s526[] JT_TABLE_FLASH = "reverb.hipass";
-static constexpr char s527[] JT_TABLE_FLASH = "Rev Hi Pass";
-static constexpr char s528[] JT_TABLE_FLASH = "HI PASS";
-static constexpr char s529[] JT_TABLE_FLASH = "reverb.algorithm";
-static constexpr char s530[] JT_TABLE_FLASH = "Reverb Algorithm";
-static constexpr char s531[] JT_TABLE_FLASH = "REV ALGO";
-static constexpr char s532[] JT_TABLE_FLASH = "master.volume";
-static constexpr char s533[] JT_TABLE_FLASH = "Master Volume";
-static constexpr char s534[] JT_TABLE_FLASH = "VOLUME";
-static constexpr char s535[] JT_TABLE_FLASH = "arp.enable";
-static constexpr char s536[] JT_TABLE_FLASH = "Arp Enable";
-static constexpr char s537[] JT_TABLE_FLASH = "arp.mode";
-static constexpr char s538[] JT_TABLE_FLASH = "Arp Mode";
-static constexpr char s539[] JT_TABLE_FLASH = "arp.octaves";
-static constexpr char s540[] JT_TABLE_FLASH = "Arp Octaves";
-static constexpr char s541[] JT_TABLE_FLASH = "OCT";
-static constexpr char s542[] JT_TABLE_FLASH = "arp.latch";
-static constexpr char s543[] JT_TABLE_FLASH = "Arp Latch";
-static constexpr char s544[] JT_TABLE_FLASH = "LATCH";
-static constexpr char s545[] JT_TABLE_FLASH = "arp.rate";
-static constexpr char s546[] JT_TABLE_FLASH = "Arp Rate";
-static constexpr char s547[] JT_TABLE_FLASH = "arp.free_hz";
-static constexpr char s548[] JT_TABLE_FLASH = "Arp Free Rate";
-static constexpr char s549[] JT_TABLE_FLASH = "FREE";
-static constexpr char s550[] JT_TABLE_FLASH = "arp.gate_length";
-static constexpr char s551[] JT_TABLE_FLASH = "Arp Gate";
-static constexpr char s552[] JT_TABLE_FLASH = "arp.swing";
-static constexpr char s553[] JT_TABLE_FLASH = "Arp Swing";
-static constexpr char s554[] JT_TABLE_FLASH = "SWING";
-static constexpr char s555[] JT_TABLE_FLASH = "arp.step_count";
-static constexpr char s556[] JT_TABLE_FLASH = "Arp Steps";
-static constexpr char s557[] JT_TABLE_FLASH = "arp.step_select";
-static constexpr char s558[] JT_TABLE_FLASH = "Arp Step Select";
-static constexpr char s559[] JT_TABLE_FLASH = "STEP";
-static constexpr char s560[] JT_TABLE_FLASH = "arp.step_onoff";
-static constexpr char s561[] JT_TABLE_FLASH = "Arp Step On/Off";
-static constexpr char s562[] JT_TABLE_FLASH = "arp.step_accent";
-static constexpr char s563[] JT_TABLE_FLASH = "Arp Step Accent";
-static constexpr char s564[] JT_TABLE_FLASH = "ACCENT";
-static constexpr char s565[] JT_TABLE_FLASH = "arp.step_ratchet";
-static constexpr char s566[] JT_TABLE_FLASH = "Arp Step Ratchet";
-static constexpr char s567[] JT_TABLE_FLASH = "RATCH";
-static constexpr char s568[] JT_TABLE_FLASH = "arp.step_on_1";
-static constexpr char s569[] JT_TABLE_FLASH = "Arp Step On 1";
-static constexpr char s570[] JT_TABLE_FLASH = "O1";
-static constexpr char s571[] JT_TABLE_FLASH = "arp.step_on_2";
-static constexpr char s572[] JT_TABLE_FLASH = "Arp Step On 2";
-static constexpr char s573[] JT_TABLE_FLASH = "O2";
-static constexpr char s574[] JT_TABLE_FLASH = "arp.step_on_3";
-static constexpr char s575[] JT_TABLE_FLASH = "Arp Step On 3";
-static constexpr char s576[] JT_TABLE_FLASH = "O3";
-static constexpr char s577[] JT_TABLE_FLASH = "arp.step_on_4";
-static constexpr char s578[] JT_TABLE_FLASH = "Arp Step On 4";
-static constexpr char s579[] JT_TABLE_FLASH = "O4";
-static constexpr char s580[] JT_TABLE_FLASH = "arp.step_on_5";
-static constexpr char s581[] JT_TABLE_FLASH = "Arp Step On 5";
-static constexpr char s582[] JT_TABLE_FLASH = "O5";
-static constexpr char s583[] JT_TABLE_FLASH = "arp.step_on_6";
-static constexpr char s584[] JT_TABLE_FLASH = "Arp Step On 6";
-static constexpr char s585[] JT_TABLE_FLASH = "O6";
-static constexpr char s586[] JT_TABLE_FLASH = "arp.step_on_7";
-static constexpr char s587[] JT_TABLE_FLASH = "Arp Step On 7";
-static constexpr char s588[] JT_TABLE_FLASH = "O7";
-static constexpr char s589[] JT_TABLE_FLASH = "arp.step_on_8";
-static constexpr char s590[] JT_TABLE_FLASH = "Arp Step On 8";
-static constexpr char s591[] JT_TABLE_FLASH = "O8";
-static constexpr char s592[] JT_TABLE_FLASH = "arp.step_on_9";
-static constexpr char s593[] JT_TABLE_FLASH = "Arp Step On 9";
-static constexpr char s594[] JT_TABLE_FLASH = "O9";
-static constexpr char s595[] JT_TABLE_FLASH = "arp.step_on_10";
-static constexpr char s596[] JT_TABLE_FLASH = "Arp Step On 10";
-static constexpr char s597[] JT_TABLE_FLASH = "O10";
-static constexpr char s598[] JT_TABLE_FLASH = "arp.step_on_11";
-static constexpr char s599[] JT_TABLE_FLASH = "Arp Step On 11";
-static constexpr char s600[] JT_TABLE_FLASH = "O11";
-static constexpr char s601[] JT_TABLE_FLASH = "arp.step_on_12";
-static constexpr char s602[] JT_TABLE_FLASH = "Arp Step On 12";
-static constexpr char s603[] JT_TABLE_FLASH = "O12";
-static constexpr char s604[] JT_TABLE_FLASH = "arp.step_on_13";
-static constexpr char s605[] JT_TABLE_FLASH = "Arp Step On 13";
-static constexpr char s606[] JT_TABLE_FLASH = "O13";
-static constexpr char s607[] JT_TABLE_FLASH = "arp.step_on_14";
-static constexpr char s608[] JT_TABLE_FLASH = "Arp Step On 14";
-static constexpr char s609[] JT_TABLE_FLASH = "O14";
-static constexpr char s610[] JT_TABLE_FLASH = "arp.step_on_15";
-static constexpr char s611[] JT_TABLE_FLASH = "Arp Step On 15";
-static constexpr char s612[] JT_TABLE_FLASH = "O15";
-static constexpr char s613[] JT_TABLE_FLASH = "arp.step_on_16";
-static constexpr char s614[] JT_TABLE_FLASH = "Arp Step On 16";
-static constexpr char s615[] JT_TABLE_FLASH = "O16";
-static constexpr char s616[] JT_TABLE_FLASH = "arp.step_accent_1";
-static constexpr char s617[] JT_TABLE_FLASH = "Arp Step Accent 1";
-static constexpr char s618[] JT_TABLE_FLASH = "C1";
-static constexpr char s619[] JT_TABLE_FLASH = "arp.step_accent_2";
-static constexpr char s620[] JT_TABLE_FLASH = "Arp Step Accent 2";
-static constexpr char s621[] JT_TABLE_FLASH = "C2";
-static constexpr char s622[] JT_TABLE_FLASH = "arp.step_accent_3";
-static constexpr char s623[] JT_TABLE_FLASH = "Arp Step Accent 3";
-static constexpr char s624[] JT_TABLE_FLASH = "C3";
-static constexpr char s625[] JT_TABLE_FLASH = "arp.step_accent_4";
-static constexpr char s626[] JT_TABLE_FLASH = "Arp Step Accent 4";
-static constexpr char s627[] JT_TABLE_FLASH = "C4";
-static constexpr char s628[] JT_TABLE_FLASH = "arp.step_accent_5";
-static constexpr char s629[] JT_TABLE_FLASH = "Arp Step Accent 5";
-static constexpr char s630[] JT_TABLE_FLASH = "C5";
-static constexpr char s631[] JT_TABLE_FLASH = "arp.step_accent_6";
-static constexpr char s632[] JT_TABLE_FLASH = "Arp Step Accent 6";
-static constexpr char s633[] JT_TABLE_FLASH = "C6";
-static constexpr char s634[] JT_TABLE_FLASH = "arp.step_accent_7";
-static constexpr char s635[] JT_TABLE_FLASH = "Arp Step Accent 7";
-static constexpr char s636[] JT_TABLE_FLASH = "C7";
-static constexpr char s637[] JT_TABLE_FLASH = "arp.step_accent_8";
-static constexpr char s638[] JT_TABLE_FLASH = "Arp Step Accent 8";
-static constexpr char s639[] JT_TABLE_FLASH = "C8";
-static constexpr char s640[] JT_TABLE_FLASH = "arp.step_accent_9";
-static constexpr char s641[] JT_TABLE_FLASH = "Arp Step Accent 9";
-static constexpr char s642[] JT_TABLE_FLASH = "C9";
-static constexpr char s643[] JT_TABLE_FLASH = "arp.step_accent_10";
-static constexpr char s644[] JT_TABLE_FLASH = "Arp Step Accent 10";
-static constexpr char s645[] JT_TABLE_FLASH = "C10";
-static constexpr char s646[] JT_TABLE_FLASH = "arp.step_accent_11";
-static constexpr char s647[] JT_TABLE_FLASH = "Arp Step Accent 11";
-static constexpr char s648[] JT_TABLE_FLASH = "C11";
-static constexpr char s649[] JT_TABLE_FLASH = "arp.step_accent_12";
-static constexpr char s650[] JT_TABLE_FLASH = "Arp Step Accent 12";
-static constexpr char s651[] JT_TABLE_FLASH = "C12";
-static constexpr char s652[] JT_TABLE_FLASH = "arp.step_accent_13";
-static constexpr char s653[] JT_TABLE_FLASH = "Arp Step Accent 13";
-static constexpr char s654[] JT_TABLE_FLASH = "C13";
-static constexpr char s655[] JT_TABLE_FLASH = "arp.step_accent_14";
-static constexpr char s656[] JT_TABLE_FLASH = "Arp Step Accent 14";
-static constexpr char s657[] JT_TABLE_FLASH = "C14";
-static constexpr char s658[] JT_TABLE_FLASH = "arp.step_accent_15";
-static constexpr char s659[] JT_TABLE_FLASH = "Arp Step Accent 15";
-static constexpr char s660[] JT_TABLE_FLASH = "C15";
-static constexpr char s661[] JT_TABLE_FLASH = "arp.step_accent_16";
-static constexpr char s662[] JT_TABLE_FLASH = "Arp Step Accent 16";
-static constexpr char s663[] JT_TABLE_FLASH = "C16";
-static constexpr char s664[] JT_TABLE_FLASH = "arp.step_ratchet_1";
-static constexpr char s665[] JT_TABLE_FLASH = "Arp Step Ratchet 1";
-static constexpr char s666[] JT_TABLE_FLASH = "R1";
-static constexpr char s667[] JT_TABLE_FLASH = "arp.step_ratchet_2";
-static constexpr char s668[] JT_TABLE_FLASH = "Arp Step Ratchet 2";
-static constexpr char s669[] JT_TABLE_FLASH = "R2";
-static constexpr char s670[] JT_TABLE_FLASH = "arp.step_ratchet_3";
-static constexpr char s671[] JT_TABLE_FLASH = "Arp Step Ratchet 3";
-static constexpr char s672[] JT_TABLE_FLASH = "R3";
-static constexpr char s673[] JT_TABLE_FLASH = "arp.step_ratchet_4";
-static constexpr char s674[] JT_TABLE_FLASH = "Arp Step Ratchet 4";
-static constexpr char s675[] JT_TABLE_FLASH = "R4";
-static constexpr char s676[] JT_TABLE_FLASH = "arp.step_ratchet_5";
-static constexpr char s677[] JT_TABLE_FLASH = "Arp Step Ratchet 5";
-static constexpr char s678[] JT_TABLE_FLASH = "R5";
-static constexpr char s679[] JT_TABLE_FLASH = "arp.step_ratchet_6";
-static constexpr char s680[] JT_TABLE_FLASH = "Arp Step Ratchet 6";
-static constexpr char s681[] JT_TABLE_FLASH = "R6";
-static constexpr char s682[] JT_TABLE_FLASH = "arp.step_ratchet_7";
-static constexpr char s683[] JT_TABLE_FLASH = "Arp Step Ratchet 7";
-static constexpr char s684[] JT_TABLE_FLASH = "R7";
-static constexpr char s685[] JT_TABLE_FLASH = "arp.step_ratchet_8";
-static constexpr char s686[] JT_TABLE_FLASH = "Arp Step Ratchet 8";
-static constexpr char s687[] JT_TABLE_FLASH = "R8";
-static constexpr char s688[] JT_TABLE_FLASH = "arp.step_ratchet_9";
-static constexpr char s689[] JT_TABLE_FLASH = "Arp Step Ratchet 9";
-static constexpr char s690[] JT_TABLE_FLASH = "R9";
-static constexpr char s691[] JT_TABLE_FLASH = "arp.step_ratchet_10";
-static constexpr char s692[] JT_TABLE_FLASH = "Arp Step Ratchet 10";
-static constexpr char s693[] JT_TABLE_FLASH = "R10";
-static constexpr char s694[] JT_TABLE_FLASH = "arp.step_ratchet_11";
-static constexpr char s695[] JT_TABLE_FLASH = "Arp Step Ratchet 11";
-static constexpr char s696[] JT_TABLE_FLASH = "R11";
-static constexpr char s697[] JT_TABLE_FLASH = "arp.step_ratchet_12";
-static constexpr char s698[] JT_TABLE_FLASH = "Arp Step Ratchet 12";
-static constexpr char s699[] JT_TABLE_FLASH = "R12";
-static constexpr char s700[] JT_TABLE_FLASH = "arp.step_ratchet_13";
-static constexpr char s701[] JT_TABLE_FLASH = "Arp Step Ratchet 13";
-static constexpr char s702[] JT_TABLE_FLASH = "R13";
-static constexpr char s703[] JT_TABLE_FLASH = "arp.step_ratchet_14";
-static constexpr char s704[] JT_TABLE_FLASH = "Arp Step Ratchet 14";
-static constexpr char s705[] JT_TABLE_FLASH = "R14";
-static constexpr char s706[] JT_TABLE_FLASH = "arp.step_ratchet_15";
-static constexpr char s707[] JT_TABLE_FLASH = "Arp Step Ratchet 15";
-static constexpr char s708[] JT_TABLE_FLASH = "R15";
-static constexpr char s709[] JT_TABLE_FLASH = "arp.step_ratchet_16";
-static constexpr char s710[] JT_TABLE_FLASH = "Arp Step Ratchet 16";
-static constexpr char s711[] JT_TABLE_FLASH = "R16";
-static constexpr char s712[] JT_TABLE_FLASH = "bass.enable";
-static constexpr char s713[] JT_TABLE_FLASH = "Bass Seq Enable";
-static constexpr char s714[] JT_TABLE_FLASH = "bass.latch";
-static constexpr char s715[] JT_TABLE_FLASH = "Bass Latch";
-static constexpr char s716[] JT_TABLE_FLASH = "bass.timing";
-static constexpr char s717[] JT_TABLE_FLASH = "Bass Rate";
-static constexpr char s718[] JT_TABLE_FLASH = "bass.free_hz";
-static constexpr char s719[] JT_TABLE_FLASH = "Bass Free Rate";
-static constexpr char s720[] JT_TABLE_FLASH = "bass.length";
-static constexpr char s721[] JT_TABLE_FLASH = "Bass Steps";
-static constexpr char s722[] JT_TABLE_FLASH = "bass.direction";
-static constexpr char s723[] JT_TABLE_FLASH = "Bass Direction";
-static constexpr char s724[] JT_TABLE_FLASH = "bass.scale";
-static constexpr char s725[] JT_TABLE_FLASH = "Bass Scale";
-static constexpr char s726[] JT_TABLE_FLASH = "SCALE";
-static constexpr char s727[] JT_TABLE_FLASH = "bass.range";
-static constexpr char s728[] JT_TABLE_FLASH = "Bass Range";
-static constexpr char s729[] JT_TABLE_FLASH = "RANGE";
-static constexpr char s730[] JT_TABLE_FLASH = "bass.gate_length";
-static constexpr char s731[] JT_TABLE_FLASH = "Bass Gate";
-static constexpr char s732[] JT_TABLE_FLASH = "bass.density";
-static constexpr char s733[] JT_TABLE_FLASH = "Bass Density";
-static constexpr char s734[] JT_TABLE_FLASH = "DENS";
-static constexpr char s735[] JT_TABLE_FLASH = "bass.accent";
-static constexpr char s736[] JT_TABLE_FLASH = "Bass Accent Prob";
-static constexpr char s737[] JT_TABLE_FLASH = "ACC%";
-static constexpr char s738[] JT_TABLE_FLASH = "bass.slide";
-static constexpr char s739[] JT_TABLE_FLASH = "Bass Slide Prob";
-static constexpr char s740[] JT_TABLE_FLASH = "SLD%";
-static constexpr char s741[] JT_TABLE_FLASH = "bass.octave";
-static constexpr char s742[] JT_TABLE_FLASH = "Bass Octave Prob";
-static constexpr char s743[] JT_TABLE_FLASH = "OCT%";
-static constexpr char s744[] JT_TABLE_FLASH = "bass.seed";
-static constexpr char s745[] JT_TABLE_FLASH = "Bass Seed";
-static constexpr char s746[] JT_TABLE_FLASH = "SEED";
-static constexpr char s747[] JT_TABLE_FLASH = "bass.mutation";
-static constexpr char s748[] JT_TABLE_FLASH = "Bass Mutation";
-static constexpr char s749[] JT_TABLE_FLASH = "MUT";
-static constexpr char s750[] JT_TABLE_FLASH = "bass.slide_time";
-static constexpr char s751[] JT_TABLE_FLASH = "Bass Slide Time";
-static constexpr char s752[] JT_TABLE_FLASH = "bass.accent_amp";
-static constexpr char s753[] JT_TABLE_FLASH = "Bass Accent Level";
-static constexpr char s754[] JT_TABLE_FLASH = "ACC AMP";
-static constexpr char s755[] JT_TABLE_FLASH = "bass.accent_filter";
-static constexpr char s756[] JT_TABLE_FLASH = "Bass Accent Filter";
-static constexpr char s757[] JT_TABLE_FLASH = "ACC FLT";
-static constexpr char s758[] JT_TABLE_FLASH = "bass.step_1";
-static constexpr char s759[] JT_TABLE_FLASH = "Bass Step 1";
-static constexpr char s760[] JT_TABLE_FLASH = "bass.step_2";
-static constexpr char s761[] JT_TABLE_FLASH = "Bass Step 2";
-static constexpr char s762[] JT_TABLE_FLASH = "bass.step_3";
-static constexpr char s763[] JT_TABLE_FLASH = "Bass Step 3";
-static constexpr char s764[] JT_TABLE_FLASH = "bass.step_4";
-static constexpr char s765[] JT_TABLE_FLASH = "Bass Step 4";
-static constexpr char s766[] JT_TABLE_FLASH = "bass.step_5";
-static constexpr char s767[] JT_TABLE_FLASH = "Bass Step 5";
-static constexpr char s768[] JT_TABLE_FLASH = "bass.step_6";
-static constexpr char s769[] JT_TABLE_FLASH = "Bass Step 6";
-static constexpr char s770[] JT_TABLE_FLASH = "bass.step_7";
-static constexpr char s771[] JT_TABLE_FLASH = "Bass Step 7";
-static constexpr char s772[] JT_TABLE_FLASH = "bass.step_8";
-static constexpr char s773[] JT_TABLE_FLASH = "Bass Step 8";
-static constexpr char s774[] JT_TABLE_FLASH = "bass.step_9";
-static constexpr char s775[] JT_TABLE_FLASH = "Bass Step 9";
-static constexpr char s776[] JT_TABLE_FLASH = "bass.step_10";
-static constexpr char s777[] JT_TABLE_FLASH = "Bass Step 10";
-static constexpr char s778[] JT_TABLE_FLASH = "bass.step_11";
-static constexpr char s779[] JT_TABLE_FLASH = "Bass Step 11";
-static constexpr char s780[] JT_TABLE_FLASH = "bass.step_12";
-static constexpr char s781[] JT_TABLE_FLASH = "Bass Step 12";
-static constexpr char s782[] JT_TABLE_FLASH = "bass.step_13";
-static constexpr char s783[] JT_TABLE_FLASH = "Bass Step 13";
-static constexpr char s784[] JT_TABLE_FLASH = "bass.step_14";
-static constexpr char s785[] JT_TABLE_FLASH = "Bass Step 14";
-static constexpr char s786[] JT_TABLE_FLASH = "bass.step_15";
-static constexpr char s787[] JT_TABLE_FLASH = "Bass Step 15";
-static constexpr char s788[] JT_TABLE_FLASH = "bass.step_16";
-static constexpr char s789[] JT_TABLE_FLASH = "Bass Step 16";
-static constexpr char s790[] JT_TABLE_FLASH = "bass.step_17";
-static constexpr char s791[] JT_TABLE_FLASH = "Bass Step 17";
-static constexpr char s792[] JT_TABLE_FLASH = "S17";
-static constexpr char s793[] JT_TABLE_FLASH = "bass.step_18";
-static constexpr char s794[] JT_TABLE_FLASH = "Bass Step 18";
-static constexpr char s795[] JT_TABLE_FLASH = "S18";
-static constexpr char s796[] JT_TABLE_FLASH = "bass.step_19";
-static constexpr char s797[] JT_TABLE_FLASH = "Bass Step 19";
-static constexpr char s798[] JT_TABLE_FLASH = "S19";
-static constexpr char s799[] JT_TABLE_FLASH = "bass.step_20";
-static constexpr char s800[] JT_TABLE_FLASH = "Bass Step 20";
-static constexpr char s801[] JT_TABLE_FLASH = "S20";
-static constexpr char s802[] JT_TABLE_FLASH = "bass.step_21";
-static constexpr char s803[] JT_TABLE_FLASH = "Bass Step 21";
-static constexpr char s804[] JT_TABLE_FLASH = "S21";
-static constexpr char s805[] JT_TABLE_FLASH = "bass.step_22";
-static constexpr char s806[] JT_TABLE_FLASH = "Bass Step 22";
-static constexpr char s807[] JT_TABLE_FLASH = "S22";
-static constexpr char s808[] JT_TABLE_FLASH = "bass.step_23";
-static constexpr char s809[] JT_TABLE_FLASH = "Bass Step 23";
-static constexpr char s810[] JT_TABLE_FLASH = "S23";
-static constexpr char s811[] JT_TABLE_FLASH = "bass.step_24";
-static constexpr char s812[] JT_TABLE_FLASH = "Bass Step 24";
-static constexpr char s813[] JT_TABLE_FLASH = "S24";
-static constexpr char s814[] JT_TABLE_FLASH = "bass.step_25";
-static constexpr char s815[] JT_TABLE_FLASH = "Bass Step 25";
-static constexpr char s816[] JT_TABLE_FLASH = "S25";
-static constexpr char s817[] JT_TABLE_FLASH = "bass.step_26";
-static constexpr char s818[] JT_TABLE_FLASH = "Bass Step 26";
-static constexpr char s819[] JT_TABLE_FLASH = "S26";
-static constexpr char s820[] JT_TABLE_FLASH = "bass.step_27";
-static constexpr char s821[] JT_TABLE_FLASH = "Bass Step 27";
-static constexpr char s822[] JT_TABLE_FLASH = "S27";
-static constexpr char s823[] JT_TABLE_FLASH = "bass.step_28";
-static constexpr char s824[] JT_TABLE_FLASH = "Bass Step 28";
-static constexpr char s825[] JT_TABLE_FLASH = "S28";
-static constexpr char s826[] JT_TABLE_FLASH = "bass.step_29";
-static constexpr char s827[] JT_TABLE_FLASH = "Bass Step 29";
-static constexpr char s828[] JT_TABLE_FLASH = "S29";
-static constexpr char s829[] JT_TABLE_FLASH = "bass.step_30";
-static constexpr char s830[] JT_TABLE_FLASH = "Bass Step 30";
-static constexpr char s831[] JT_TABLE_FLASH = "S30";
-static constexpr char s832[] JT_TABLE_FLASH = "bass.step_31";
-static constexpr char s833[] JT_TABLE_FLASH = "Bass Step 31";
-static constexpr char s834[] JT_TABLE_FLASH = "S31";
-static constexpr char s835[] JT_TABLE_FLASH = "bass.step_32";
-static constexpr char s836[] JT_TABLE_FLASH = "Bass Step 32";
-static constexpr char s837[] JT_TABLE_FLASH = "S32";
+static constexpr char s44[] JT_TABLE_FLASH = "osc1.jfbk_feedback";
+static constexpr char s45[] JT_TABLE_FLASH = "Osc1 JFBK Feedback";
+static constexpr char s46[] JT_TABLE_FLASH = "FBK AMT";
+static constexpr char s47[] JT_TABLE_FLASH = "osc2.wave";
+static constexpr char s48[] JT_TABLE_FLASH = "Osc2 Wave";
+static constexpr char s49[] JT_TABLE_FLASH = "osc2.pitch_offset";
+static constexpr char s50[] JT_TABLE_FLASH = "Osc2 Pitch";
+static constexpr char s51[] JT_TABLE_FLASH = "osc2.fine_tune";
+static constexpr char s52[] JT_TABLE_FLASH = "Osc2 Fine";
+static constexpr char s53[] JT_TABLE_FLASH = "osc2.detune";
+static constexpr char s54[] JT_TABLE_FLASH = "Osc2 Detune";
+static constexpr char s55[] JT_TABLE_FLASH = "osc2.supersaw_detune";
+static constexpr char s56[] JT_TABLE_FLASH = "SS2 Detune";
+static constexpr char s57[] JT_TABLE_FLASH = "osc2.supersaw_mix";
+static constexpr char s58[] JT_TABLE_FLASH = "SS2 Mix";
+static constexpr char s59[] JT_TABLE_FLASH = "osc2.feedback_amount";
+static constexpr char s60[] JT_TABLE_FLASH = "Osc2 FB Amt";
+static constexpr char s61[] JT_TABLE_FLASH = "osc2.feedback_mix";
+static constexpr char s62[] JT_TABLE_FLASH = "Osc2 FB Mix";
+static constexpr char s63[] JT_TABLE_FLASH = "osc2.freq_dc";
+static constexpr char s64[] JT_TABLE_FLASH = "Osc2 Freq DC";
+static constexpr char s65[] JT_TABLE_FLASH = "osc2.shape_dc";
+static constexpr char s66[] JT_TABLE_FLASH = "Osc2 Shape DC";
+static constexpr char s67[] JT_TABLE_FLASH = "osc2.ring_mix";
+static constexpr char s68[] JT_TABLE_FLASH = "Ring 2 Mix";
+static constexpr char s69[] JT_TABLE_FLASH = "osc2.arb_bank";
+static constexpr char s70[] JT_TABLE_FLASH = "Osc2 Arb Bank";
+static constexpr char s71[] JT_TABLE_FLASH = "osc2.arb_index";
+static constexpr char s72[] JT_TABLE_FLASH = "Osc2 Arb Idx";
+static constexpr char s73[] JT_TABLE_FLASH = "osc2.pwm_lfo1_depth";
+static constexpr char s74[] JT_TABLE_FLASH = "Osc2 PWM Amt";
+static constexpr char s75[] JT_TABLE_FLASH = "osc2.jfbk_feedback";
+static constexpr char s76[] JT_TABLE_FLASH = "Osc2 JFBK Feedback";
+static constexpr char s77[] JT_TABLE_FLASH = "mix.balance";
+static constexpr char s78[] JT_TABLE_FLASH = "Osc Balance";
+static constexpr char s79[] JT_TABLE_FLASH = "BAL";
+static constexpr char s80[] JT_TABLE_FLASH = "mix.osc1";
+static constexpr char s81[] JT_TABLE_FLASH = "Osc1 Mix";
+static constexpr char s82[] JT_TABLE_FLASH = "OSC1";
+static constexpr char s83[] JT_TABLE_FLASH = "mix.osc2";
+static constexpr char s84[] JT_TABLE_FLASH = "Osc2 Mix";
+static constexpr char s85[] JT_TABLE_FLASH = "OSC2";
+static constexpr char s86[] JT_TABLE_FLASH = "mix.sub";
+static constexpr char s87[] JT_TABLE_FLASH = "Sub Mix";
+static constexpr char s88[] JT_TABLE_FLASH = "SUB";
+static constexpr char s89[] JT_TABLE_FLASH = "mix.noise";
+static constexpr char s90[] JT_TABLE_FLASH = "Noise Mix";
+static constexpr char s91[] JT_TABLE_FLASH = "NOISE";
+static constexpr char s92[] JT_TABLE_FLASH = "mix.cross_mod";
+static constexpr char s93[] JT_TABLE_FLASH = "Cross Mod";
+static constexpr char s94[] JT_TABLE_FLASH = "XMOD";
+static constexpr char s95[] JT_TABLE_FLASH = "mix.osc_sync";
+static constexpr char s96[] JT_TABLE_FLASH = "Osc Sync";
+static constexpr char s97[] JT_TABLE_FLASH = "SYNC";
+static constexpr char s98[] JT_TABLE_FLASH = "bool";
+static constexpr char s99[] JT_TABLE_FLASH = "mix.pitch_mod_dest";
+static constexpr char s100[] JT_TABLE_FLASH = "Pitch Mod Dest";
+static constexpr char s101[] JT_TABLE_FLASH = "P.DEST";
+static constexpr char s102[] JT_TABLE_FLASH = "mix.xmod_type";
+static constexpr char s103[] JT_TABLE_FLASH = "X-Mod Type";
+static constexpr char s104[] JT_TABLE_FLASH = "XM TYPE";
+static constexpr char s105[] JT_TABLE_FLASH = "mix.pwm_law";
+static constexpr char s106[] JT_TABLE_FLASH = "PWM Law";
+static constexpr char s107[] JT_TABLE_FLASH = "PWM LAW";
+static constexpr char s108[] JT_TABLE_FLASH = "filter.cutoff";
+static constexpr char s109[] JT_TABLE_FLASH = "Cutoff";
+static constexpr char s110[] JT_TABLE_FLASH = "CUTOFF";
+static constexpr char s111[] JT_TABLE_FLASH = "Hz";
+static constexpr char s112[] JT_TABLE_FLASH = "filter.resonance";
+static constexpr char s113[] JT_TABLE_FLASH = "Resonance";
+static constexpr char s114[] JT_TABLE_FLASH = "RESO";
+static constexpr char s115[] JT_TABLE_FLASH = "filter.env_amount";
+static constexpr char s116[] JT_TABLE_FLASH = "Filt Env Amt";
+static constexpr char s117[] JT_TABLE_FLASH = "ENV";
+static constexpr char s118[] JT_TABLE_FLASH = "filter.key_track";
+static constexpr char s119[] JT_TABLE_FLASH = "Key Track";
+static constexpr char s120[] JT_TABLE_FLASH = "KEY TRK";
+static constexpr char s121[] JT_TABLE_FLASH = "filter.engine";
+static constexpr char s122[] JT_TABLE_FLASH = "Filt Engine";
+static constexpr char s123[] JT_TABLE_FLASH = "ENGINE";
+static constexpr char s124[] JT_TABLE_FLASH = "filter.mode";
+static constexpr char s125[] JT_TABLE_FLASH = "Filt Mode";
+static constexpr char s126[] JT_TABLE_FLASH = "MODE";
+static constexpr char s127[] JT_TABLE_FLASH = "filter.va_type";
+static constexpr char s128[] JT_TABLE_FLASH = "VA Type";
+static constexpr char s129[] JT_TABLE_FLASH = "VA TYPE";
+static constexpr char s130[] JT_TABLE_FLASH = "filter.octave_control";
+static constexpr char s131[] JT_TABLE_FLASH = "Oct Control";
+static constexpr char s132[] JT_TABLE_FLASH = "OCT CTRL";
+static constexpr char s133[] JT_TABLE_FLASH = "filter.obxa_res_mod_depth";
+static constexpr char s134[] JT_TABLE_FLASH = "Res Mod";
+static constexpr char s135[] JT_TABLE_FLASH = "RES MOD";
+static constexpr char s136[] JT_TABLE_FLASH = "filter.obxa_multimode";
+static constexpr char s137[] JT_TABLE_FLASH = "Multimode";
+static constexpr char s138[] JT_TABLE_FLASH = "MULTI";
+static constexpr char s139[] JT_TABLE_FLASH = "filter.obxa_xpander_mode";
+static constexpr char s140[] JT_TABLE_FLASH = "Xpander";
+static constexpr char s141[] JT_TABLE_FLASH = "XP MODE";
+static constexpr char s142[] JT_TABLE_FLASH = "filter.drive";
+static constexpr char s143[] JT_TABLE_FLASH = "Filt Drive";
+static constexpr char s144[] JT_TABLE_FLASH = "F.DRIVE";
+static constexpr char s145[] JT_TABLE_FLASH = "";
+static constexpr char s146[] JT_TABLE_FLASH = "env_amp.attack";
+static constexpr char s147[] JT_TABLE_FLASH = "Amp Attack";
+static constexpr char s148[] JT_TABLE_FLASH = "ATTACK";
+static constexpr char s149[] JT_TABLE_FLASH = "ms";
+static constexpr char s150[] JT_TABLE_FLASH = "env_amp.attack_curve";
+static constexpr char s151[] JT_TABLE_FLASH = "Amp Atk Slp";
+static constexpr char s152[] JT_TABLE_FLASH = "ATK SLOPE";
+static constexpr char s153[] JT_TABLE_FLASH = "slope";
+static constexpr char s154[] JT_TABLE_FLASH = "env_amp.decay";
+static constexpr char s155[] JT_TABLE_FLASH = "Amp Decay";
+static constexpr char s156[] JT_TABLE_FLASH = "DECAY";
+static constexpr char s157[] JT_TABLE_FLASH = "env_amp.decay_curve";
+static constexpr char s158[] JT_TABLE_FLASH = "Amp Dec Slp";
+static constexpr char s159[] JT_TABLE_FLASH = "DEC SLOPE";
+static constexpr char s160[] JT_TABLE_FLASH = "env_amp.sustain";
+static constexpr char s161[] JT_TABLE_FLASH = "Amp Sustain";
+static constexpr char s162[] JT_TABLE_FLASH = "SUSTAIN";
+static constexpr char s163[] JT_TABLE_FLASH = "env_amp.release";
+static constexpr char s164[] JT_TABLE_FLASH = "Amp Release";
+static constexpr char s165[] JT_TABLE_FLASH = "RELEASE";
+static constexpr char s166[] JT_TABLE_FLASH = "env_amp.release_curve";
+static constexpr char s167[] JT_TABLE_FLASH = "Amp Rel Slp";
+static constexpr char s168[] JT_TABLE_FLASH = "REL SLOPE";
+static constexpr char s169[] JT_TABLE_FLASH = "env_filter.attack";
+static constexpr char s170[] JT_TABLE_FLASH = "Filt Attack";
+static constexpr char s171[] JT_TABLE_FLASH = "env_filter.attack_curve";
+static constexpr char s172[] JT_TABLE_FLASH = "Filt Atk Slp";
+static constexpr char s173[] JT_TABLE_FLASH = "env_filter.decay";
+static constexpr char s174[] JT_TABLE_FLASH = "Filt Decay";
+static constexpr char s175[] JT_TABLE_FLASH = "env_filter.decay_curve";
+static constexpr char s176[] JT_TABLE_FLASH = "Filt Dec Slp";
+static constexpr char s177[] JT_TABLE_FLASH = "env_filter.sustain";
+static constexpr char s178[] JT_TABLE_FLASH = "Filt Sustain";
+static constexpr char s179[] JT_TABLE_FLASH = "env_filter.release";
+static constexpr char s180[] JT_TABLE_FLASH = "Filt Release";
+static constexpr char s181[] JT_TABLE_FLASH = "env_filter.release_curve";
+static constexpr char s182[] JT_TABLE_FLASH = "Filt Rel Slp";
+static constexpr char s183[] JT_TABLE_FLASH = "env_pitch.depth";
+static constexpr char s184[] JT_TABLE_FLASH = "Pitch Depth";
+static constexpr char s185[] JT_TABLE_FLASH = "DEPTH";
+static constexpr char s186[] JT_TABLE_FLASH = "env_pitch.attack";
+static constexpr char s187[] JT_TABLE_FLASH = "Pitch Attack";
+static constexpr char s188[] JT_TABLE_FLASH = "env_pitch.attack_curve";
+static constexpr char s189[] JT_TABLE_FLASH = "Pitch Atk Slp";
+static constexpr char s190[] JT_TABLE_FLASH = "env_pitch.decay";
+static constexpr char s191[] JT_TABLE_FLASH = "Pitch Decay";
+static constexpr char s192[] JT_TABLE_FLASH = "env_pitch.decay_curve";
+static constexpr char s193[] JT_TABLE_FLASH = "Pitch Dec Slp";
+static constexpr char s194[] JT_TABLE_FLASH = "env_pitch.sustain";
+static constexpr char s195[] JT_TABLE_FLASH = "Pitch Sustain";
+static constexpr char s196[] JT_TABLE_FLASH = "env_pitch.release";
+static constexpr char s197[] JT_TABLE_FLASH = "Pitch Release";
+static constexpr char s198[] JT_TABLE_FLASH = "env_pitch.release_curve";
+static constexpr char s199[] JT_TABLE_FLASH = "Pitch Rel Slp";
+static constexpr char s200[] JT_TABLE_FLASH = "lfo1.waveform";
+static constexpr char s201[] JT_TABLE_FLASH = "LFO1 Wave";
+static constexpr char s202[] JT_TABLE_FLASH = "lfo1.freq";
+static constexpr char s203[] JT_TABLE_FLASH = "LFO1 Rate";
+static constexpr char s204[] JT_TABLE_FLASH = "RATE";
+static constexpr char s205[] JT_TABLE_FLASH = "lfo1.depth";
+static constexpr char s206[] JT_TABLE_FLASH = "LFO1 Depth";
+static constexpr char s207[] JT_TABLE_FLASH = "lfo1.sync";
+static constexpr char s208[] JT_TABLE_FLASH = "LFO1 Sync";
+static constexpr char s209[] JT_TABLE_FLASH = "lfo1.pitch_depth";
+static constexpr char s210[] JT_TABLE_FLASH = "LFO1 Pitch";
+static constexpr char s211[] JT_TABLE_FLASH = "lfo1.filter_depth";
+static constexpr char s212[] JT_TABLE_FLASH = "LFO1 Filter";
+static constexpr char s213[] JT_TABLE_FLASH = "FILTER";
+static constexpr char s214[] JT_TABLE_FLASH = "lfo1.pwm_depth";
+static constexpr char s215[] JT_TABLE_FLASH = "LFO1 PWM";
+static constexpr char s216[] JT_TABLE_FLASH = "PWM";
+static constexpr char s217[] JT_TABLE_FLASH = "lfo1.amp_depth";
+static constexpr char s218[] JT_TABLE_FLASH = "LFO1 Amp";
+static constexpr char s219[] JT_TABLE_FLASH = "AMP";
+static constexpr char s220[] JT_TABLE_FLASH = "lfo1.destination";
+static constexpr char s221[] JT_TABLE_FLASH = "LFO1 Dest";
+static constexpr char s222[] JT_TABLE_FLASH = "DEST";
+static constexpr char s223[] JT_TABLE_FLASH = "lfo1.delay";
+static constexpr char s224[] JT_TABLE_FLASH = "LFO1 Delay";
+static constexpr char s225[] JT_TABLE_FLASH = "DELAY";
+static constexpr char s226[] JT_TABLE_FLASH = "lfo2.waveform";
+static constexpr char s227[] JT_TABLE_FLASH = "LFO2 Wave";
+static constexpr char s228[] JT_TABLE_FLASH = "lfo2.freq";
+static constexpr char s229[] JT_TABLE_FLASH = "LFO2 Rate";
+static constexpr char s230[] JT_TABLE_FLASH = "lfo2.depth";
+static constexpr char s231[] JT_TABLE_FLASH = "LFO2 Depth";
+static constexpr char s232[] JT_TABLE_FLASH = "lfo2.sync";
+static constexpr char s233[] JT_TABLE_FLASH = "LFO2 Sync";
+static constexpr char s234[] JT_TABLE_FLASH = "lfo2.pitch_depth";
+static constexpr char s235[] JT_TABLE_FLASH = "LFO2 Pitch";
+static constexpr char s236[] JT_TABLE_FLASH = "lfo2.filter_depth";
+static constexpr char s237[] JT_TABLE_FLASH = "LFO2 Filter";
+static constexpr char s238[] JT_TABLE_FLASH = "lfo2.pwm_depth";
+static constexpr char s239[] JT_TABLE_FLASH = "LFO2 PWM";
+static constexpr char s240[] JT_TABLE_FLASH = "lfo2.amp_depth";
+static constexpr char s241[] JT_TABLE_FLASH = "LFO2 Amp";
+static constexpr char s242[] JT_TABLE_FLASH = "lfo2.destination";
+static constexpr char s243[] JT_TABLE_FLASH = "LFO2 Dest";
+static constexpr char s244[] JT_TABLE_FLASH = "lfo2.delay";
+static constexpr char s245[] JT_TABLE_FLASH = "LFO2 Delay";
+static constexpr char s246[] JT_TABLE_FLASH = "lfo2.mod_wheel";
+static constexpr char s247[] JT_TABLE_FLASH = "LFO2 ModWhl";
+static constexpr char s248[] JT_TABLE_FLASH = "MOD WHL";
+static constexpr char s249[] JT_TABLE_FLASH = "fx.bass_gain";
+static constexpr char s250[] JT_TABLE_FLASH = "Bass";
+static constexpr char s251[] JT_TABLE_FLASH = "BASS";
+static constexpr char s252[] JT_TABLE_FLASH = "fx.treble_gain";
+static constexpr char s253[] JT_TABLE_FLASH = "Treble";
+static constexpr char s254[] JT_TABLE_FLASH = "TREBLE";
+static constexpr char s255[] JT_TABLE_FLASH = "fx.drive";
+static constexpr char s256[] JT_TABLE_FLASH = "Drive";
+static constexpr char s257[] JT_TABLE_FLASH = "DRIVE";
+static constexpr char s258[] JT_TABLE_FLASH = "fx.mod_effect";
+static constexpr char s259[] JT_TABLE_FLASH = "Mod FX";
+static constexpr char s260[] JT_TABLE_FLASH = "MOD TYPE";
+static constexpr char s261[] JT_TABLE_FLASH = "fx.mod_mix";
+static constexpr char s262[] JT_TABLE_FLASH = "Mod Mix";
+static constexpr char s263[] JT_TABLE_FLASH = "MOD MIX";
+static constexpr char s264[] JT_TABLE_FLASH = "fx.mod_rate";
+static constexpr char s265[] JT_TABLE_FLASH = "Mod Rate";
+static constexpr char s266[] JT_TABLE_FLASH = "MOD RATE";
+static constexpr char s267[] JT_TABLE_FLASH = "fx.mod_feedback";
+static constexpr char s268[] JT_TABLE_FLASH = "Mod FB";
+static constexpr char s269[] JT_TABLE_FLASH = "MOD FB";
+static constexpr char s270[] JT_TABLE_FLASH = "fx.delay_effect";
+static constexpr char s271[] JT_TABLE_FLASH = "Delay FX";
+static constexpr char s272[] JT_TABLE_FLASH = "DLY TYPE";
+static constexpr char s273[] JT_TABLE_FLASH = "fx.delay_time";
+static constexpr char s274[] JT_TABLE_FLASH = "Delay Time";
+static constexpr char s275[] JT_TABLE_FLASH = "DLY TIME";
+static constexpr char s276[] JT_TABLE_FLASH = "fx.delay_mix";
+static constexpr char s277[] JT_TABLE_FLASH = "Delay Mix";
+static constexpr char s278[] JT_TABLE_FLASH = "DLY MIX";
+static constexpr char s279[] JT_TABLE_FLASH = "fx.delay_feedback";
+static constexpr char s280[] JT_TABLE_FLASH = "Delay FB";
+static constexpr char s281[] JT_TABLE_FLASH = "DLY FB";
+static constexpr char s282[] JT_TABLE_FLASH = "fx.delay_sync";
+static constexpr char s283[] JT_TABLE_FLASH = "Delay Sync";
+static constexpr char s284[] JT_TABLE_FLASH = "DLY SYNC";
+static constexpr char s285[] JT_TABLE_FLASH = "fx.dry_mix";
+static constexpr char s286[] JT_TABLE_FLASH = "Dry Mix";
+static constexpr char s287[] JT_TABLE_FLASH = "DRY";
+static constexpr char s288[] JT_TABLE_FLASH = "fx.jpfx_mix";
+static constexpr char s289[] JT_TABLE_FLASH = "JPFX Mix";
+static constexpr char s290[] JT_TABLE_FLASH = "JPFX";
+static constexpr char s291[] JT_TABLE_FLASH = "fx.delay_engine";
+static constexpr char s292[] JT_TABLE_FLASH = "Delay Engine";
+static constexpr char s293[] JT_TABLE_FLASH = "DLY ENG";
+static constexpr char s294[] JT_TABLE_FLASH = "fx.delay_tone";
+static constexpr char s295[] JT_TABLE_FLASH = "Delay Tone";
+static constexpr char s296[] JT_TABLE_FLASH = "DLY TONE";
+static constexpr char s297[] JT_TABLE_FLASH = "fx.delay_sat";
+static constexpr char s298[] JT_TABLE_FLASH = "Delay Saturation";
+static constexpr char s299[] JT_TABLE_FLASH = "DLY SAT";
+static constexpr char s300[] JT_TABLE_FLASH = "fx.delay_wow";
+static constexpr char s301[] JT_TABLE_FLASH = "Delay Wow";
+static constexpr char s302[] JT_TABLE_FLASH = "DLY WOW";
+static constexpr char s303[] JT_TABLE_FLASH = "fx.delay_flutter";
+static constexpr char s304[] JT_TABLE_FLASH = "Delay Flutter";
+static constexpr char s305[] JT_TABLE_FLASH = "DLY FLUT";
+static constexpr char s306[] JT_TABLE_FLASH = "fx.delay_wow_rate";
+static constexpr char s307[] JT_TABLE_FLASH = "Delay Wow Rate";
+static constexpr char s308[] JT_TABLE_FLASH = "DLY WOWR";
+static constexpr char s309[] JT_TABLE_FLASH = "velocity.amp_sens";
+static constexpr char s310[] JT_TABLE_FLASH = "Vel Amp";
+static constexpr char s311[] JT_TABLE_FLASH = "velocity.filter_sens";
+static constexpr char s312[] JT_TABLE_FLASH = "Vel Filter";
+static constexpr char s313[] JT_TABLE_FLASH = "velocity.env_sens";
+static constexpr char s314[] JT_TABLE_FLASH = "Vel Env";
+static constexpr char s315[] JT_TABLE_FLASH = "glide.enable";
+static constexpr char s316[] JT_TABLE_FLASH = "Glide";
+static constexpr char s317[] JT_TABLE_FLASH = "ON";
+static constexpr char s318[] JT_TABLE_FLASH = "glide.time";
+static constexpr char s319[] JT_TABLE_FLASH = "Glide Time";
+static constexpr char s320[] JT_TABLE_FLASH = "TIME";
+static constexpr char s321[] JT_TABLE_FLASH = "voice.poly_mode";
+static constexpr char s322[] JT_TABLE_FLASH = "Poly Mode";
+static constexpr char s323[] JT_TABLE_FLASH = "voice.unison_detune";
+static constexpr char s324[] JT_TABLE_FLASH = "Unison Det";
+static constexpr char s325[] JT_TABLE_FLASH = "UNI DET";
+static constexpr char s326[] JT_TABLE_FLASH = "voice.bend_range";
+static constexpr char s327[] JT_TABLE_FLASH = "Bend Range";
+static constexpr char s328[] JT_TABLE_FLASH = "BEND";
+static constexpr char s329[] JT_TABLE_FLASH = "st";
+static constexpr char s330[] JT_TABLE_FLASH = "voice.amp_level";
+static constexpr char s331[] JT_TABLE_FLASH = "Amp Level";
+static constexpr char s332[] JT_TABLE_FLASH = "AMP LVL";
+static constexpr char s333[] JT_TABLE_FLASH = "glide.mode";
+static constexpr char s334[] JT_TABLE_FLASH = "Glide Mode";
+static constexpr char s335[] JT_TABLE_FLASH = "GLIDE";
+static constexpr char s336[] JT_TABLE_FLASH = "voice.legato";
+static constexpr char s337[] JT_TABLE_FLASH = "Legato";
+static constexpr char s338[] JT_TABLE_FLASH = "LEGATO";
+static constexpr char s339[] JT_TABLE_FLASH = "clock.clock_source";
+static constexpr char s340[] JT_TABLE_FLASH = "Clock Src";
+static constexpr char s341[] JT_TABLE_FLASH = "SRC";
+static constexpr char s342[] JT_TABLE_FLASH = "clock.tempo";
+static constexpr char s343[] JT_TABLE_FLASH = "BPM";
+static constexpr char s344[] JT_TABLE_FLASH = "seq.enable";
+static constexpr char s345[] JT_TABLE_FLASH = "Seq Enable";
+static constexpr char s346[] JT_TABLE_FLASH = "seq.steps";
+static constexpr char s347[] JT_TABLE_FLASH = "Seq Steps";
+static constexpr char s348[] JT_TABLE_FLASH = "STEPS";
+static constexpr char s349[] JT_TABLE_FLASH = "seq.gate_length";
+static constexpr char s350[] JT_TABLE_FLASH = "Seq Gate";
+static constexpr char s351[] JT_TABLE_FLASH = "GATE";
+static constexpr char s352[] JT_TABLE_FLASH = "seq.slide";
+static constexpr char s353[] JT_TABLE_FLASH = "Seq Slide";
+static constexpr char s354[] JT_TABLE_FLASH = "SLIDE";
+static constexpr char s355[] JT_TABLE_FLASH = "seq.direction";
+static constexpr char s356[] JT_TABLE_FLASH = "Seq Dir";
+static constexpr char s357[] JT_TABLE_FLASH = "DIR";
+static constexpr char s358[] JT_TABLE_FLASH = "seq.destination";
+static constexpr char s359[] JT_TABLE_FLASH = "Seq Dest";
+static constexpr char s360[] JT_TABLE_FLASH = "seq.depth";
+static constexpr char s361[] JT_TABLE_FLASH = "Seq Depth";
+static constexpr char s362[] JT_TABLE_FLASH = "seq.retrigger";
+static constexpr char s363[] JT_TABLE_FLASH = "Seq Retrig";
+static constexpr char s364[] JT_TABLE_FLASH = "RETRIG";
+static constexpr char s365[] JT_TABLE_FLASH = "seq.rate";
+static constexpr char s366[] JT_TABLE_FLASH = "Seq Rate";
+static constexpr char s367[] JT_TABLE_FLASH = "seq.timing_mode";
+static constexpr char s368[] JT_TABLE_FLASH = "Seq Sync";
+static constexpr char s369[] JT_TABLE_FLASH = "seq.step_select";
+static constexpr char s370[] JT_TABLE_FLASH = "Step Select";
+static constexpr char s371[] JT_TABLE_FLASH = "SEL";
+static constexpr char s372[] JT_TABLE_FLASH = "seq.step_value";
+static constexpr char s373[] JT_TABLE_FLASH = "Step Value";
+static constexpr char s374[] JT_TABLE_FLASH = "VAL";
+static constexpr char s375[] JT_TABLE_FLASH = "seq.aux_destination";
+static constexpr char s376[] JT_TABLE_FLASH = "Seq Aux Dest";
+static constexpr char s377[] JT_TABLE_FLASH = "AUX DEST";
+static constexpr char s378[] JT_TABLE_FLASH = "seq.aux_depth";
+static constexpr char s379[] JT_TABLE_FLASH = "Seq Aux Depth";
+static constexpr char s380[] JT_TABLE_FLASH = "AUX DEP";
+static constexpr char s381[] JT_TABLE_FLASH = "seq.aux_step_select";
+static constexpr char s382[] JT_TABLE_FLASH = "Aux Step Select";
+static constexpr char s383[] JT_TABLE_FLASH = "AUX SEL";
+static constexpr char s384[] JT_TABLE_FLASH = "seq.aux_step_value";
+static constexpr char s385[] JT_TABLE_FLASH = "Aux Step Value";
+static constexpr char s386[] JT_TABLE_FLASH = "AUX VAL";
+static constexpr char s387[] JT_TABLE_FLASH = "seq.step_1";
+static constexpr char s388[] JT_TABLE_FLASH = "Seq Step 1";
+static constexpr char s389[] JT_TABLE_FLASH = "S1";
+static constexpr char s390[] JT_TABLE_FLASH = "seq.step_2";
+static constexpr char s391[] JT_TABLE_FLASH = "Seq Step 2";
+static constexpr char s392[] JT_TABLE_FLASH = "S2";
+static constexpr char s393[] JT_TABLE_FLASH = "seq.step_3";
+static constexpr char s394[] JT_TABLE_FLASH = "Seq Step 3";
+static constexpr char s395[] JT_TABLE_FLASH = "S3";
+static constexpr char s396[] JT_TABLE_FLASH = "seq.step_4";
+static constexpr char s397[] JT_TABLE_FLASH = "Seq Step 4";
+static constexpr char s398[] JT_TABLE_FLASH = "S4";
+static constexpr char s399[] JT_TABLE_FLASH = "seq.step_5";
+static constexpr char s400[] JT_TABLE_FLASH = "Seq Step 5";
+static constexpr char s401[] JT_TABLE_FLASH = "S5";
+static constexpr char s402[] JT_TABLE_FLASH = "seq.step_6";
+static constexpr char s403[] JT_TABLE_FLASH = "Seq Step 6";
+static constexpr char s404[] JT_TABLE_FLASH = "S6";
+static constexpr char s405[] JT_TABLE_FLASH = "seq.step_7";
+static constexpr char s406[] JT_TABLE_FLASH = "Seq Step 7";
+static constexpr char s407[] JT_TABLE_FLASH = "S7";
+static constexpr char s408[] JT_TABLE_FLASH = "seq.step_8";
+static constexpr char s409[] JT_TABLE_FLASH = "Seq Step 8";
+static constexpr char s410[] JT_TABLE_FLASH = "S8";
+static constexpr char s411[] JT_TABLE_FLASH = "seq.step_9";
+static constexpr char s412[] JT_TABLE_FLASH = "Seq Step 9";
+static constexpr char s413[] JT_TABLE_FLASH = "S9";
+static constexpr char s414[] JT_TABLE_FLASH = "seq.step_10";
+static constexpr char s415[] JT_TABLE_FLASH = "Seq Step 10";
+static constexpr char s416[] JT_TABLE_FLASH = "S10";
+static constexpr char s417[] JT_TABLE_FLASH = "seq.step_11";
+static constexpr char s418[] JT_TABLE_FLASH = "Seq Step 11";
+static constexpr char s419[] JT_TABLE_FLASH = "S11";
+static constexpr char s420[] JT_TABLE_FLASH = "seq.step_12";
+static constexpr char s421[] JT_TABLE_FLASH = "Seq Step 12";
+static constexpr char s422[] JT_TABLE_FLASH = "S12";
+static constexpr char s423[] JT_TABLE_FLASH = "seq.step_13";
+static constexpr char s424[] JT_TABLE_FLASH = "Seq Step 13";
+static constexpr char s425[] JT_TABLE_FLASH = "S13";
+static constexpr char s426[] JT_TABLE_FLASH = "seq.step_14";
+static constexpr char s427[] JT_TABLE_FLASH = "Seq Step 14";
+static constexpr char s428[] JT_TABLE_FLASH = "S14";
+static constexpr char s429[] JT_TABLE_FLASH = "seq.step_15";
+static constexpr char s430[] JT_TABLE_FLASH = "Seq Step 15";
+static constexpr char s431[] JT_TABLE_FLASH = "S15";
+static constexpr char s432[] JT_TABLE_FLASH = "seq.step_16";
+static constexpr char s433[] JT_TABLE_FLASH = "Seq Step 16";
+static constexpr char s434[] JT_TABLE_FLASH = "S16";
+static constexpr char s435[] JT_TABLE_FLASH = "seq.aux_step_1";
+static constexpr char s436[] JT_TABLE_FLASH = "Seq Aux Step 1";
+static constexpr char s437[] JT_TABLE_FLASH = "A1";
+static constexpr char s438[] JT_TABLE_FLASH = "seq.aux_step_2";
+static constexpr char s439[] JT_TABLE_FLASH = "Seq Aux Step 2";
+static constexpr char s440[] JT_TABLE_FLASH = "A2";
+static constexpr char s441[] JT_TABLE_FLASH = "seq.aux_step_3";
+static constexpr char s442[] JT_TABLE_FLASH = "Seq Aux Step 3";
+static constexpr char s443[] JT_TABLE_FLASH = "A3";
+static constexpr char s444[] JT_TABLE_FLASH = "seq.aux_step_4";
+static constexpr char s445[] JT_TABLE_FLASH = "Seq Aux Step 4";
+static constexpr char s446[] JT_TABLE_FLASH = "A4";
+static constexpr char s447[] JT_TABLE_FLASH = "seq.aux_step_5";
+static constexpr char s448[] JT_TABLE_FLASH = "Seq Aux Step 5";
+static constexpr char s449[] JT_TABLE_FLASH = "A5";
+static constexpr char s450[] JT_TABLE_FLASH = "seq.aux_step_6";
+static constexpr char s451[] JT_TABLE_FLASH = "Seq Aux Step 6";
+static constexpr char s452[] JT_TABLE_FLASH = "A6";
+static constexpr char s453[] JT_TABLE_FLASH = "seq.aux_step_7";
+static constexpr char s454[] JT_TABLE_FLASH = "Seq Aux Step 7";
+static constexpr char s455[] JT_TABLE_FLASH = "A7";
+static constexpr char s456[] JT_TABLE_FLASH = "seq.aux_step_8";
+static constexpr char s457[] JT_TABLE_FLASH = "Seq Aux Step 8";
+static constexpr char s458[] JT_TABLE_FLASH = "A8";
+static constexpr char s459[] JT_TABLE_FLASH = "seq.aux_step_9";
+static constexpr char s460[] JT_TABLE_FLASH = "Seq Aux Step 9";
+static constexpr char s461[] JT_TABLE_FLASH = "A9";
+static constexpr char s462[] JT_TABLE_FLASH = "seq.aux_step_10";
+static constexpr char s463[] JT_TABLE_FLASH = "Seq Aux Step 10";
+static constexpr char s464[] JT_TABLE_FLASH = "A10";
+static constexpr char s465[] JT_TABLE_FLASH = "seq.aux_step_11";
+static constexpr char s466[] JT_TABLE_FLASH = "Seq Aux Step 11";
+static constexpr char s467[] JT_TABLE_FLASH = "A11";
+static constexpr char s468[] JT_TABLE_FLASH = "seq.aux_step_12";
+static constexpr char s469[] JT_TABLE_FLASH = "Seq Aux Step 12";
+static constexpr char s470[] JT_TABLE_FLASH = "A12";
+static constexpr char s471[] JT_TABLE_FLASH = "seq.aux_step_13";
+static constexpr char s472[] JT_TABLE_FLASH = "Seq Aux Step 13";
+static constexpr char s473[] JT_TABLE_FLASH = "A13";
+static constexpr char s474[] JT_TABLE_FLASH = "seq.aux_step_14";
+static constexpr char s475[] JT_TABLE_FLASH = "Seq Aux Step 14";
+static constexpr char s476[] JT_TABLE_FLASH = "A14";
+static constexpr char s477[] JT_TABLE_FLASH = "seq.aux_step_15";
+static constexpr char s478[] JT_TABLE_FLASH = "Seq Aux Step 15";
+static constexpr char s479[] JT_TABLE_FLASH = "A15";
+static constexpr char s480[] JT_TABLE_FLASH = "seq.aux_step_16";
+static constexpr char s481[] JT_TABLE_FLASH = "Seq Aux Step 16";
+static constexpr char s482[] JT_TABLE_FLASH = "A16";
+static constexpr char s483[] JT_TABLE_FLASH = "seq.step_bipolar";
+static constexpr char s484[] JT_TABLE_FLASH = "Seq Step Bipolar";
+static constexpr char s485[] JT_TABLE_FLASH = "BIPOL";
+static constexpr char s486[] JT_TABLE_FLASH = "seq.aux_bipolar";
+static constexpr char s487[] JT_TABLE_FLASH = "Seq Aux Bipolar";
+static constexpr char s488[] JT_TABLE_FLASH = "AUX BIP";
+static constexpr char s489[] JT_TABLE_FLASH = "perf.mode";
+static constexpr char s490[] JT_TABLE_FLASH = "Perf Mode";
+static constexpr char s491[] JT_TABLE_FLASH = "perf.edit_target";
+static constexpr char s492[] JT_TABLE_FLASH = "Edit Target";
+static constexpr char s493[] JT_TABLE_FLASH = "EDIT";
+static constexpr char s494[] JT_TABLE_FLASH = "perf.midi_channel_a";
+static constexpr char s495[] JT_TABLE_FLASH = "MIDI Ch A";
+static constexpr char s496[] JT_TABLE_FLASH = "CH A";
+static constexpr char s497[] JT_TABLE_FLASH = "perf.midi_channel_b";
+static constexpr char s498[] JT_TABLE_FLASH = "MIDI Ch B";
+static constexpr char s499[] JT_TABLE_FLASH = "CH B";
+static constexpr char s500[] JT_TABLE_FLASH = "perf.voice_split";
+static constexpr char s501[] JT_TABLE_FLASH = "Voice Split";
+static constexpr char s502[] JT_TABLE_FLASH = "VOICES";
+static constexpr char s503[] JT_TABLE_FLASH = "perf.split_note";
+static constexpr char s504[] JT_TABLE_FLASH = "Split Point";
+static constexpr char s505[] JT_TABLE_FLASH = "SPLIT";
+static constexpr char s506[] JT_TABLE_FLASH = "note";
+static constexpr char s507[] JT_TABLE_FLASH = "perf.balance";
+static constexpr char s508[] JT_TABLE_FLASH = "Layer Bal";
+static constexpr char s509[] JT_TABLE_FLASH = "BALANCE";
+static constexpr char s510[] JT_TABLE_FLASH = "reverb.size";
+static constexpr char s511[] JT_TABLE_FLASH = "Rev Size";
+static constexpr char s512[] JT_TABLE_FLASH = "SIZE";
+static constexpr char s513[] JT_TABLE_FLASH = "reverb.damp";
+static constexpr char s514[] JT_TABLE_FLASH = "Rev Hi Damp";
+static constexpr char s515[] JT_TABLE_FLASH = "HI DMP";
+static constexpr char s516[] JT_TABLE_FLASH = "reverb.lodamp";
+static constexpr char s517[] JT_TABLE_FLASH = "Rev Lo Damp";
+static constexpr char s518[] JT_TABLE_FLASH = "LO DMP";
+static constexpr char s519[] JT_TABLE_FLASH = "reverb.mix";
+static constexpr char s520[] JT_TABLE_FLASH = "Rev Mix";
+static constexpr char s521[] JT_TABLE_FLASH = "MIX";
+static constexpr char s522[] JT_TABLE_FLASH = "reverb.bypass";
+static constexpr char s523[] JT_TABLE_FLASH = "Rev Bypass";
+static constexpr char s524[] JT_TABLE_FLASH = "BYPASS";
+static constexpr char s525[] JT_TABLE_FLASH = "reverb.shimmer";
+static constexpr char s526[] JT_TABLE_FLASH = "Rev Shimmer";
+static constexpr char s527[] JT_TABLE_FLASH = "SHIMMER";
+static constexpr char s528[] JT_TABLE_FLASH = "reverb.freeze";
+static constexpr char s529[] JT_TABLE_FLASH = "Rev Freeze";
+static constexpr char s530[] JT_TABLE_FLASH = "FREEZE";
+static constexpr char s531[] JT_TABLE_FLASH = "reverb.lowpass";
+static constexpr char s532[] JT_TABLE_FLASH = "Rev Lo Pass";
+static constexpr char s533[] JT_TABLE_FLASH = "LO PASS";
+static constexpr char s534[] JT_TABLE_FLASH = "reverb.hipass";
+static constexpr char s535[] JT_TABLE_FLASH = "Rev Hi Pass";
+static constexpr char s536[] JT_TABLE_FLASH = "HI PASS";
+static constexpr char s537[] JT_TABLE_FLASH = "reverb.algorithm";
+static constexpr char s538[] JT_TABLE_FLASH = "Reverb Algorithm";
+static constexpr char s539[] JT_TABLE_FLASH = "REV ALGO";
+static constexpr char s540[] JT_TABLE_FLASH = "master.volume";
+static constexpr char s541[] JT_TABLE_FLASH = "Master Volume";
+static constexpr char s542[] JT_TABLE_FLASH = "VOLUME";
+static constexpr char s543[] JT_TABLE_FLASH = "master.usb_return_level";
+static constexpr char s544[] JT_TABLE_FLASH = "USB Return Level";
+static constexpr char s545[] JT_TABLE_FLASH = "USB RTN";
+static constexpr char s546[] JT_TABLE_FLASH = "arp.enable";
+static constexpr char s547[] JT_TABLE_FLASH = "Arp Enable";
+static constexpr char s548[] JT_TABLE_FLASH = "arp.mode";
+static constexpr char s549[] JT_TABLE_FLASH = "Arp Mode";
+static constexpr char s550[] JT_TABLE_FLASH = "arp.octaves";
+static constexpr char s551[] JT_TABLE_FLASH = "Arp Octaves";
+static constexpr char s552[] JT_TABLE_FLASH = "OCT";
+static constexpr char s553[] JT_TABLE_FLASH = "arp.latch";
+static constexpr char s554[] JT_TABLE_FLASH = "Arp Latch";
+static constexpr char s555[] JT_TABLE_FLASH = "LATCH";
+static constexpr char s556[] JT_TABLE_FLASH = "arp.rate";
+static constexpr char s557[] JT_TABLE_FLASH = "Arp Rate";
+static constexpr char s558[] JT_TABLE_FLASH = "arp.free_hz";
+static constexpr char s559[] JT_TABLE_FLASH = "Arp Free Rate";
+static constexpr char s560[] JT_TABLE_FLASH = "FREE";
+static constexpr char s561[] JT_TABLE_FLASH = "arp.gate_length";
+static constexpr char s562[] JT_TABLE_FLASH = "Arp Gate";
+static constexpr char s563[] JT_TABLE_FLASH = "arp.swing";
+static constexpr char s564[] JT_TABLE_FLASH = "Arp Swing";
+static constexpr char s565[] JT_TABLE_FLASH = "SWING";
+static constexpr char s566[] JT_TABLE_FLASH = "arp.step_count";
+static constexpr char s567[] JT_TABLE_FLASH = "Arp Steps";
+static constexpr char s568[] JT_TABLE_FLASH = "arp.step_select";
+static constexpr char s569[] JT_TABLE_FLASH = "Arp Step Select";
+static constexpr char s570[] JT_TABLE_FLASH = "STEP";
+static constexpr char s571[] JT_TABLE_FLASH = "arp.step_onoff";
+static constexpr char s572[] JT_TABLE_FLASH = "Arp Step On/Off";
+static constexpr char s573[] JT_TABLE_FLASH = "arp.step_accent";
+static constexpr char s574[] JT_TABLE_FLASH = "Arp Step Accent";
+static constexpr char s575[] JT_TABLE_FLASH = "ACCENT";
+static constexpr char s576[] JT_TABLE_FLASH = "arp.step_ratchet";
+static constexpr char s577[] JT_TABLE_FLASH = "Arp Step Ratchet";
+static constexpr char s578[] JT_TABLE_FLASH = "RATCH";
+static constexpr char s579[] JT_TABLE_FLASH = "arp.step_on_1";
+static constexpr char s580[] JT_TABLE_FLASH = "Arp Step On 1";
+static constexpr char s581[] JT_TABLE_FLASH = "O1";
+static constexpr char s582[] JT_TABLE_FLASH = "arp.step_on_2";
+static constexpr char s583[] JT_TABLE_FLASH = "Arp Step On 2";
+static constexpr char s584[] JT_TABLE_FLASH = "O2";
+static constexpr char s585[] JT_TABLE_FLASH = "arp.step_on_3";
+static constexpr char s586[] JT_TABLE_FLASH = "Arp Step On 3";
+static constexpr char s587[] JT_TABLE_FLASH = "O3";
+static constexpr char s588[] JT_TABLE_FLASH = "arp.step_on_4";
+static constexpr char s589[] JT_TABLE_FLASH = "Arp Step On 4";
+static constexpr char s590[] JT_TABLE_FLASH = "O4";
+static constexpr char s591[] JT_TABLE_FLASH = "arp.step_on_5";
+static constexpr char s592[] JT_TABLE_FLASH = "Arp Step On 5";
+static constexpr char s593[] JT_TABLE_FLASH = "O5";
+static constexpr char s594[] JT_TABLE_FLASH = "arp.step_on_6";
+static constexpr char s595[] JT_TABLE_FLASH = "Arp Step On 6";
+static constexpr char s596[] JT_TABLE_FLASH = "O6";
+static constexpr char s597[] JT_TABLE_FLASH = "arp.step_on_7";
+static constexpr char s598[] JT_TABLE_FLASH = "Arp Step On 7";
+static constexpr char s599[] JT_TABLE_FLASH = "O7";
+static constexpr char s600[] JT_TABLE_FLASH = "arp.step_on_8";
+static constexpr char s601[] JT_TABLE_FLASH = "Arp Step On 8";
+static constexpr char s602[] JT_TABLE_FLASH = "O8";
+static constexpr char s603[] JT_TABLE_FLASH = "arp.step_on_9";
+static constexpr char s604[] JT_TABLE_FLASH = "Arp Step On 9";
+static constexpr char s605[] JT_TABLE_FLASH = "O9";
+static constexpr char s606[] JT_TABLE_FLASH = "arp.step_on_10";
+static constexpr char s607[] JT_TABLE_FLASH = "Arp Step On 10";
+static constexpr char s608[] JT_TABLE_FLASH = "O10";
+static constexpr char s609[] JT_TABLE_FLASH = "arp.step_on_11";
+static constexpr char s610[] JT_TABLE_FLASH = "Arp Step On 11";
+static constexpr char s611[] JT_TABLE_FLASH = "O11";
+static constexpr char s612[] JT_TABLE_FLASH = "arp.step_on_12";
+static constexpr char s613[] JT_TABLE_FLASH = "Arp Step On 12";
+static constexpr char s614[] JT_TABLE_FLASH = "O12";
+static constexpr char s615[] JT_TABLE_FLASH = "arp.step_on_13";
+static constexpr char s616[] JT_TABLE_FLASH = "Arp Step On 13";
+static constexpr char s617[] JT_TABLE_FLASH = "O13";
+static constexpr char s618[] JT_TABLE_FLASH = "arp.step_on_14";
+static constexpr char s619[] JT_TABLE_FLASH = "Arp Step On 14";
+static constexpr char s620[] JT_TABLE_FLASH = "O14";
+static constexpr char s621[] JT_TABLE_FLASH = "arp.step_on_15";
+static constexpr char s622[] JT_TABLE_FLASH = "Arp Step On 15";
+static constexpr char s623[] JT_TABLE_FLASH = "O15";
+static constexpr char s624[] JT_TABLE_FLASH = "arp.step_on_16";
+static constexpr char s625[] JT_TABLE_FLASH = "Arp Step On 16";
+static constexpr char s626[] JT_TABLE_FLASH = "O16";
+static constexpr char s627[] JT_TABLE_FLASH = "arp.step_accent_1";
+static constexpr char s628[] JT_TABLE_FLASH = "Arp Step Accent 1";
+static constexpr char s629[] JT_TABLE_FLASH = "C1";
+static constexpr char s630[] JT_TABLE_FLASH = "arp.step_accent_2";
+static constexpr char s631[] JT_TABLE_FLASH = "Arp Step Accent 2";
+static constexpr char s632[] JT_TABLE_FLASH = "C2";
+static constexpr char s633[] JT_TABLE_FLASH = "arp.step_accent_3";
+static constexpr char s634[] JT_TABLE_FLASH = "Arp Step Accent 3";
+static constexpr char s635[] JT_TABLE_FLASH = "C3";
+static constexpr char s636[] JT_TABLE_FLASH = "arp.step_accent_4";
+static constexpr char s637[] JT_TABLE_FLASH = "Arp Step Accent 4";
+static constexpr char s638[] JT_TABLE_FLASH = "C4";
+static constexpr char s639[] JT_TABLE_FLASH = "arp.step_accent_5";
+static constexpr char s640[] JT_TABLE_FLASH = "Arp Step Accent 5";
+static constexpr char s641[] JT_TABLE_FLASH = "C5";
+static constexpr char s642[] JT_TABLE_FLASH = "arp.step_accent_6";
+static constexpr char s643[] JT_TABLE_FLASH = "Arp Step Accent 6";
+static constexpr char s644[] JT_TABLE_FLASH = "C6";
+static constexpr char s645[] JT_TABLE_FLASH = "arp.step_accent_7";
+static constexpr char s646[] JT_TABLE_FLASH = "Arp Step Accent 7";
+static constexpr char s647[] JT_TABLE_FLASH = "C7";
+static constexpr char s648[] JT_TABLE_FLASH = "arp.step_accent_8";
+static constexpr char s649[] JT_TABLE_FLASH = "Arp Step Accent 8";
+static constexpr char s650[] JT_TABLE_FLASH = "C8";
+static constexpr char s651[] JT_TABLE_FLASH = "arp.step_accent_9";
+static constexpr char s652[] JT_TABLE_FLASH = "Arp Step Accent 9";
+static constexpr char s653[] JT_TABLE_FLASH = "C9";
+static constexpr char s654[] JT_TABLE_FLASH = "arp.step_accent_10";
+static constexpr char s655[] JT_TABLE_FLASH = "Arp Step Accent 10";
+static constexpr char s656[] JT_TABLE_FLASH = "C10";
+static constexpr char s657[] JT_TABLE_FLASH = "arp.step_accent_11";
+static constexpr char s658[] JT_TABLE_FLASH = "Arp Step Accent 11";
+static constexpr char s659[] JT_TABLE_FLASH = "C11";
+static constexpr char s660[] JT_TABLE_FLASH = "arp.step_accent_12";
+static constexpr char s661[] JT_TABLE_FLASH = "Arp Step Accent 12";
+static constexpr char s662[] JT_TABLE_FLASH = "C12";
+static constexpr char s663[] JT_TABLE_FLASH = "arp.step_accent_13";
+static constexpr char s664[] JT_TABLE_FLASH = "Arp Step Accent 13";
+static constexpr char s665[] JT_TABLE_FLASH = "C13";
+static constexpr char s666[] JT_TABLE_FLASH = "arp.step_accent_14";
+static constexpr char s667[] JT_TABLE_FLASH = "Arp Step Accent 14";
+static constexpr char s668[] JT_TABLE_FLASH = "C14";
+static constexpr char s669[] JT_TABLE_FLASH = "arp.step_accent_15";
+static constexpr char s670[] JT_TABLE_FLASH = "Arp Step Accent 15";
+static constexpr char s671[] JT_TABLE_FLASH = "C15";
+static constexpr char s672[] JT_TABLE_FLASH = "arp.step_accent_16";
+static constexpr char s673[] JT_TABLE_FLASH = "Arp Step Accent 16";
+static constexpr char s674[] JT_TABLE_FLASH = "C16";
+static constexpr char s675[] JT_TABLE_FLASH = "arp.step_ratchet_1";
+static constexpr char s676[] JT_TABLE_FLASH = "Arp Step Ratchet 1";
+static constexpr char s677[] JT_TABLE_FLASH = "R1";
+static constexpr char s678[] JT_TABLE_FLASH = "arp.step_ratchet_2";
+static constexpr char s679[] JT_TABLE_FLASH = "Arp Step Ratchet 2";
+static constexpr char s680[] JT_TABLE_FLASH = "R2";
+static constexpr char s681[] JT_TABLE_FLASH = "arp.step_ratchet_3";
+static constexpr char s682[] JT_TABLE_FLASH = "Arp Step Ratchet 3";
+static constexpr char s683[] JT_TABLE_FLASH = "R3";
+static constexpr char s684[] JT_TABLE_FLASH = "arp.step_ratchet_4";
+static constexpr char s685[] JT_TABLE_FLASH = "Arp Step Ratchet 4";
+static constexpr char s686[] JT_TABLE_FLASH = "R4";
+static constexpr char s687[] JT_TABLE_FLASH = "arp.step_ratchet_5";
+static constexpr char s688[] JT_TABLE_FLASH = "Arp Step Ratchet 5";
+static constexpr char s689[] JT_TABLE_FLASH = "R5";
+static constexpr char s690[] JT_TABLE_FLASH = "arp.step_ratchet_6";
+static constexpr char s691[] JT_TABLE_FLASH = "Arp Step Ratchet 6";
+static constexpr char s692[] JT_TABLE_FLASH = "R6";
+static constexpr char s693[] JT_TABLE_FLASH = "arp.step_ratchet_7";
+static constexpr char s694[] JT_TABLE_FLASH = "Arp Step Ratchet 7";
+static constexpr char s695[] JT_TABLE_FLASH = "R7";
+static constexpr char s696[] JT_TABLE_FLASH = "arp.step_ratchet_8";
+static constexpr char s697[] JT_TABLE_FLASH = "Arp Step Ratchet 8";
+static constexpr char s698[] JT_TABLE_FLASH = "R8";
+static constexpr char s699[] JT_TABLE_FLASH = "arp.step_ratchet_9";
+static constexpr char s700[] JT_TABLE_FLASH = "Arp Step Ratchet 9";
+static constexpr char s701[] JT_TABLE_FLASH = "R9";
+static constexpr char s702[] JT_TABLE_FLASH = "arp.step_ratchet_10";
+static constexpr char s703[] JT_TABLE_FLASH = "Arp Step Ratchet 10";
+static constexpr char s704[] JT_TABLE_FLASH = "R10";
+static constexpr char s705[] JT_TABLE_FLASH = "arp.step_ratchet_11";
+static constexpr char s706[] JT_TABLE_FLASH = "Arp Step Ratchet 11";
+static constexpr char s707[] JT_TABLE_FLASH = "R11";
+static constexpr char s708[] JT_TABLE_FLASH = "arp.step_ratchet_12";
+static constexpr char s709[] JT_TABLE_FLASH = "Arp Step Ratchet 12";
+static constexpr char s710[] JT_TABLE_FLASH = "R12";
+static constexpr char s711[] JT_TABLE_FLASH = "arp.step_ratchet_13";
+static constexpr char s712[] JT_TABLE_FLASH = "Arp Step Ratchet 13";
+static constexpr char s713[] JT_TABLE_FLASH = "R13";
+static constexpr char s714[] JT_TABLE_FLASH = "arp.step_ratchet_14";
+static constexpr char s715[] JT_TABLE_FLASH = "Arp Step Ratchet 14";
+static constexpr char s716[] JT_TABLE_FLASH = "R14";
+static constexpr char s717[] JT_TABLE_FLASH = "arp.step_ratchet_15";
+static constexpr char s718[] JT_TABLE_FLASH = "Arp Step Ratchet 15";
+static constexpr char s719[] JT_TABLE_FLASH = "R15";
+static constexpr char s720[] JT_TABLE_FLASH = "arp.step_ratchet_16";
+static constexpr char s721[] JT_TABLE_FLASH = "Arp Step Ratchet 16";
+static constexpr char s722[] JT_TABLE_FLASH = "R16";
+static constexpr char s723[] JT_TABLE_FLASH = "bass.enable";
+static constexpr char s724[] JT_TABLE_FLASH = "Bass Seq Enable";
+static constexpr char s725[] JT_TABLE_FLASH = "bass.latch";
+static constexpr char s726[] JT_TABLE_FLASH = "Bass Latch";
+static constexpr char s727[] JT_TABLE_FLASH = "bass.timing";
+static constexpr char s728[] JT_TABLE_FLASH = "Bass Rate";
+static constexpr char s729[] JT_TABLE_FLASH = "bass.free_hz";
+static constexpr char s730[] JT_TABLE_FLASH = "Bass Free Rate";
+static constexpr char s731[] JT_TABLE_FLASH = "bass.length";
+static constexpr char s732[] JT_TABLE_FLASH = "Bass Steps";
+static constexpr char s733[] JT_TABLE_FLASH = "bass.direction";
+static constexpr char s734[] JT_TABLE_FLASH = "Bass Direction";
+static constexpr char s735[] JT_TABLE_FLASH = "bass.scale";
+static constexpr char s736[] JT_TABLE_FLASH = "Bass Scale";
+static constexpr char s737[] JT_TABLE_FLASH = "SCALE";
+static constexpr char s738[] JT_TABLE_FLASH = "bass.range";
+static constexpr char s739[] JT_TABLE_FLASH = "Bass Range";
+static constexpr char s740[] JT_TABLE_FLASH = "RANGE";
+static constexpr char s741[] JT_TABLE_FLASH = "bass.gate_length";
+static constexpr char s742[] JT_TABLE_FLASH = "Bass Gate";
+static constexpr char s743[] JT_TABLE_FLASH = "bass.density";
+static constexpr char s744[] JT_TABLE_FLASH = "Bass Density";
+static constexpr char s745[] JT_TABLE_FLASH = "DENS";
+static constexpr char s746[] JT_TABLE_FLASH = "bass.accent";
+static constexpr char s747[] JT_TABLE_FLASH = "Bass Accent Prob";
+static constexpr char s748[] JT_TABLE_FLASH = "ACC%";
+static constexpr char s749[] JT_TABLE_FLASH = "bass.slide";
+static constexpr char s750[] JT_TABLE_FLASH = "Bass Slide Prob";
+static constexpr char s751[] JT_TABLE_FLASH = "SLD%";
+static constexpr char s752[] JT_TABLE_FLASH = "bass.octave";
+static constexpr char s753[] JT_TABLE_FLASH = "Bass Octave Prob";
+static constexpr char s754[] JT_TABLE_FLASH = "OCT%";
+static constexpr char s755[] JT_TABLE_FLASH = "bass.seed";
+static constexpr char s756[] JT_TABLE_FLASH = "Bass Seed";
+static constexpr char s757[] JT_TABLE_FLASH = "SEED";
+static constexpr char s758[] JT_TABLE_FLASH = "bass.mutation";
+static constexpr char s759[] JT_TABLE_FLASH = "Bass Mutation";
+static constexpr char s760[] JT_TABLE_FLASH = "MUT";
+static constexpr char s761[] JT_TABLE_FLASH = "bass.slide_time";
+static constexpr char s762[] JT_TABLE_FLASH = "Bass Slide Time";
+static constexpr char s763[] JT_TABLE_FLASH = "bass.accent_amp";
+static constexpr char s764[] JT_TABLE_FLASH = "Bass Accent Level";
+static constexpr char s765[] JT_TABLE_FLASH = "ACC AMP";
+static constexpr char s766[] JT_TABLE_FLASH = "bass.accent_filter";
+static constexpr char s767[] JT_TABLE_FLASH = "Bass Accent Filter";
+static constexpr char s768[] JT_TABLE_FLASH = "ACC FLT";
+static constexpr char s769[] JT_TABLE_FLASH = "bass.step_1";
+static constexpr char s770[] JT_TABLE_FLASH = "Bass Step 1";
+static constexpr char s771[] JT_TABLE_FLASH = "bass.step_2";
+static constexpr char s772[] JT_TABLE_FLASH = "Bass Step 2";
+static constexpr char s773[] JT_TABLE_FLASH = "bass.step_3";
+static constexpr char s774[] JT_TABLE_FLASH = "Bass Step 3";
+static constexpr char s775[] JT_TABLE_FLASH = "bass.step_4";
+static constexpr char s776[] JT_TABLE_FLASH = "Bass Step 4";
+static constexpr char s777[] JT_TABLE_FLASH = "bass.step_5";
+static constexpr char s778[] JT_TABLE_FLASH = "Bass Step 5";
+static constexpr char s779[] JT_TABLE_FLASH = "bass.step_6";
+static constexpr char s780[] JT_TABLE_FLASH = "Bass Step 6";
+static constexpr char s781[] JT_TABLE_FLASH = "bass.step_7";
+static constexpr char s782[] JT_TABLE_FLASH = "Bass Step 7";
+static constexpr char s783[] JT_TABLE_FLASH = "bass.step_8";
+static constexpr char s784[] JT_TABLE_FLASH = "Bass Step 8";
+static constexpr char s785[] JT_TABLE_FLASH = "bass.step_9";
+static constexpr char s786[] JT_TABLE_FLASH = "Bass Step 9";
+static constexpr char s787[] JT_TABLE_FLASH = "bass.step_10";
+static constexpr char s788[] JT_TABLE_FLASH = "Bass Step 10";
+static constexpr char s789[] JT_TABLE_FLASH = "bass.step_11";
+static constexpr char s790[] JT_TABLE_FLASH = "Bass Step 11";
+static constexpr char s791[] JT_TABLE_FLASH = "bass.step_12";
+static constexpr char s792[] JT_TABLE_FLASH = "Bass Step 12";
+static constexpr char s793[] JT_TABLE_FLASH = "bass.step_13";
+static constexpr char s794[] JT_TABLE_FLASH = "Bass Step 13";
+static constexpr char s795[] JT_TABLE_FLASH = "bass.step_14";
+static constexpr char s796[] JT_TABLE_FLASH = "Bass Step 14";
+static constexpr char s797[] JT_TABLE_FLASH = "bass.step_15";
+static constexpr char s798[] JT_TABLE_FLASH = "Bass Step 15";
+static constexpr char s799[] JT_TABLE_FLASH = "bass.step_16";
+static constexpr char s800[] JT_TABLE_FLASH = "Bass Step 16";
+static constexpr char s801[] JT_TABLE_FLASH = "bass.step_17";
+static constexpr char s802[] JT_TABLE_FLASH = "Bass Step 17";
+static constexpr char s803[] JT_TABLE_FLASH = "S17";
+static constexpr char s804[] JT_TABLE_FLASH = "bass.step_18";
+static constexpr char s805[] JT_TABLE_FLASH = "Bass Step 18";
+static constexpr char s806[] JT_TABLE_FLASH = "S18";
+static constexpr char s807[] JT_TABLE_FLASH = "bass.step_19";
+static constexpr char s808[] JT_TABLE_FLASH = "Bass Step 19";
+static constexpr char s809[] JT_TABLE_FLASH = "S19";
+static constexpr char s810[] JT_TABLE_FLASH = "bass.step_20";
+static constexpr char s811[] JT_TABLE_FLASH = "Bass Step 20";
+static constexpr char s812[] JT_TABLE_FLASH = "S20";
+static constexpr char s813[] JT_TABLE_FLASH = "bass.step_21";
+static constexpr char s814[] JT_TABLE_FLASH = "Bass Step 21";
+static constexpr char s815[] JT_TABLE_FLASH = "S21";
+static constexpr char s816[] JT_TABLE_FLASH = "bass.step_22";
+static constexpr char s817[] JT_TABLE_FLASH = "Bass Step 22";
+static constexpr char s818[] JT_TABLE_FLASH = "S22";
+static constexpr char s819[] JT_TABLE_FLASH = "bass.step_23";
+static constexpr char s820[] JT_TABLE_FLASH = "Bass Step 23";
+static constexpr char s821[] JT_TABLE_FLASH = "S23";
+static constexpr char s822[] JT_TABLE_FLASH = "bass.step_24";
+static constexpr char s823[] JT_TABLE_FLASH = "Bass Step 24";
+static constexpr char s824[] JT_TABLE_FLASH = "S24";
+static constexpr char s825[] JT_TABLE_FLASH = "bass.step_25";
+static constexpr char s826[] JT_TABLE_FLASH = "Bass Step 25";
+static constexpr char s827[] JT_TABLE_FLASH = "S25";
+static constexpr char s828[] JT_TABLE_FLASH = "bass.step_26";
+static constexpr char s829[] JT_TABLE_FLASH = "Bass Step 26";
+static constexpr char s830[] JT_TABLE_FLASH = "S26";
+static constexpr char s831[] JT_TABLE_FLASH = "bass.step_27";
+static constexpr char s832[] JT_TABLE_FLASH = "Bass Step 27";
+static constexpr char s833[] JT_TABLE_FLASH = "S27";
+static constexpr char s834[] JT_TABLE_FLASH = "bass.step_28";
+static constexpr char s835[] JT_TABLE_FLASH = "Bass Step 28";
+static constexpr char s836[] JT_TABLE_FLASH = "S28";
+static constexpr char s837[] JT_TABLE_FLASH = "bass.step_29";
+static constexpr char s838[] JT_TABLE_FLASH = "Bass Step 29";
+static constexpr char s839[] JT_TABLE_FLASH = "S29";
+static constexpr char s840[] JT_TABLE_FLASH = "bass.step_30";
+static constexpr char s841[] JT_TABLE_FLASH = "Bass Step 30";
+static constexpr char s842[] JT_TABLE_FLASH = "S30";
+static constexpr char s843[] JT_TABLE_FLASH = "bass.step_31";
+static constexpr char s844[] JT_TABLE_FLASH = "Bass Step 31";
+static constexpr char s845[] JT_TABLE_FLASH = "S31";
+static constexpr char s846[] JT_TABLE_FLASH = "bass.step_32";
+static constexpr char s847[] JT_TABLE_FLASH = "Bass Step 32";
+static constexpr char s848[] JT_TABLE_FLASH = "S32";
 } // namespace Str
 
 // --- Option sets (display strings for Select params) -------------------------
-static constexpr const char* const kOpt_osc_wave[] JT_TABLE_FLASH = { "SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW", "vSAW", "BLvSAW", "vTRI", "BLvTRI", "JvSAW", "JvTRI" };
+static constexpr const char* const kOpt_osc_wave[] JT_TABLE_FLASH = { "SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW", "vSAW", "BLvSAW", "vTRI", "BLvTRI", "JvSAW", "JvTRI", "JTRIM", "JFBK" };
 static constexpr const char* const kOpt_pitch_offset[] JT_TABLE_FLASH = { "-24", "-12", "0", "+12", "+24" };
 static constexpr const char* const kOpt_filter_engine[] JT_TABLE_FLASH = { "OBXa", "VA" };
 static constexpr const char* const kOpt_filter_mode[] JT_TABLE_FLASH = { "4-Pole", "2-Pole", "2P BP", "2P Push", "Xpander", "Xpander M" };
@@ -939,11 +950,12 @@ static constexpr const char* const kOpt_delay_engine[] JT_TABLE_FLASH = { "Digit
 static constexpr const char* const kOpt_reverb_algo[] JT_TABLE_FLASH = { "Plate", "Shimmer", "Hall" };
 static constexpr const char* const kOpt_pitch_mod_dest[] JT_TABLE_FLASH = { "OSC1+2", "OSC2", "X-MOD" };
 static constexpr const char* const kOpt_xmod_type[] JT_TABLE_FLASH = { "JtXmod", "JpXmod" };
+static constexpr const char* const kOpt_pwm_law[] JT_TABLE_FLASH = { "JtPwm", "JpPwm" };
 static constexpr const char* const kOpt_l_f_o_dest[] JT_TABLE_FLASH = { "None", "Pitch", "Filter", "PWM", "Amp" };
 static constexpr const char* const kOpt_timing_mode[] JT_TABLE_FLASH = { "Free", "4 Bars", "2 Bars", "1 Bar", "1/2", "1/4", "1/8", "1/16", "1/32", "1/4T", "1/8T", "1/16T", "1/4D", "1/8D", "1/16D" };
 static constexpr const char* const kOpt_poly_mode[] JT_TABLE_FLASH = { "Poly", "Mono", "Unison" };
 static constexpr const char* const kOpt_glide_mode[] JT_TABLE_FLASH = { "Cascade", "Parallel", "Positional" };
-static constexpr const char* const kOpt_f_x_mod_effect[] JT_TABLE_FLASH = { "OFF", "Chorus 1", "Chorus 2", "Chorus 3", "Flanger 1", "Flanger 2", "Flanger 3", "Phaser 1", "Phaser 2", "Phaser 3", "Phaser 4", "Super Chorus" };
+static constexpr const char* const kOpt_f_x_mod_effect[] JT_TABLE_FLASH = { "OFF", "Chorus 1", "Chorus 2", "Chorus 3", "Flanger 1", "Flanger 2", "Flanger 3", "Phaser 1", "Phaser 2", "Phaser 3", "Phaser 4", "Super Chorus", "SChorus SLW", "SChorus MID", "SChorus FST", "SChorus CLR", "Flanger SLW", "Flanger DEEP", "Flanger FST", "DeepPhs SLW", "Jet Phasing", "Twisting", "Freeze Ph 1", "Freeze Ph 2" };
 static constexpr const char* const kOpt_f_x_delay_effect[] JT_TABLE_FLASH = { "OFF", "Mono Short", "Mono Long", "Pan L>R", "Pan R>L", "Pan Stereo" };
 static constexpr const char* const kOpt_drive[] JT_TABLE_FLASH = { "OFF", "Soft", "Hard" };
 static constexpr const char* const kOpt_seq_dir[] JT_TABLE_FLASH = { "Fwd", "Rev", "Bounce", "Random" };
@@ -1067,6 +1079,7 @@ inline constexpr uint16_t OSC1_RING_MIX                = 0x000A;
 inline constexpr uint16_t OSC1_ARB_BANK                = 0x000B;
 inline constexpr uint16_t OSC1_ARB_INDEX               = 0x000C;
 inline constexpr uint16_t OSC1_PWM_LFO1_DEPTH          = 0x000D;
+inline constexpr uint16_t OSC1_JFBK_FEEDBACK           = 0x000E;
 inline constexpr uint16_t OSC2_WAVE                    = 0x0080;
 inline constexpr uint16_t OSC2_PITCH_OFFSET            = 0x0081;
 inline constexpr uint16_t OSC2_FINE_TUNE               = 0x0082;
@@ -1081,6 +1094,7 @@ inline constexpr uint16_t OSC2_RING_MIX                = 0x008A;
 inline constexpr uint16_t OSC2_ARB_BANK                = 0x008B;
 inline constexpr uint16_t OSC2_ARB_INDEX               = 0x008C;
 inline constexpr uint16_t OSC2_PWM_LFO1_DEPTH          = 0x008D;
+inline constexpr uint16_t OSC2_JFBK_FEEDBACK           = 0x008E;
 inline constexpr uint16_t MIX_BALANCE                  = 0x0100;
 inline constexpr uint16_t MIX_OSC1                     = 0x0101;
 inline constexpr uint16_t MIX_OSC2                     = 0x0102;
@@ -1090,6 +1104,7 @@ inline constexpr uint16_t MIX_CROSS_MOD                = 0x0105;
 inline constexpr uint16_t MIX_OSC_SYNC                 = 0x0106;
 inline constexpr uint16_t MIX_PITCH_MOD_DEST           = 0x0107;
 inline constexpr uint16_t MIX_XMOD_TYPE                = 0x0108;
+inline constexpr uint16_t MIX_PWM_LAW                  = 0x0109;
 inline constexpr uint16_t FILTER_CUTOFF                = 0x0180;
 inline constexpr uint16_t FILTER_RESONANCE             = 0x0181;
 inline constexpr uint16_t FILTER_ENV_AMOUNT            = 0x0182;
@@ -1246,6 +1261,7 @@ inline constexpr uint16_t REVERB_LOWPASS               = 0x0787;
 inline constexpr uint16_t REVERB_HIPASS                = 0x0788;
 inline constexpr uint16_t REVERB_ALGORITHM             = 0x0789;
 inline constexpr uint16_t MASTER_VOLUME                = 0x0800;
+inline constexpr uint16_t MASTER_USB_RETURN_LEVEL      = 0x0801;
 inline constexpr uint16_t ARP_ENABLE                   = 0x0880;
 inline constexpr uint16_t ARP_MODE                     = 0x0881;
 inline constexpr uint16_t ARP_OCTAVES                  = 0x0882;
@@ -1364,10 +1380,12 @@ static constexpr uint8_t kVis_OSC1_SUPERSAW_DETUNE[] JT_TABLE_FLASH = { 13 };   
 static constexpr uint8_t kVis_OSC1_SUPERSAW_MIX[] JT_TABLE_FLASH = { 13 };   // osc1.wave in ['SSAW']
 static constexpr uint8_t kVis_OSC1_ARB_BANK[] JT_TABLE_FLASH = { 4 };   // osc1.wave in ['ARB']
 static constexpr uint8_t kVis_OSC1_ARB_INDEX[] JT_TABLE_FLASH = { 4 };   // osc1.wave in ['ARB']
+static constexpr uint8_t kVis_OSC1_JFBK_FEEDBACK[] JT_TABLE_FLASH = { 21 };   // osc1.wave in ['JFBK']
 static constexpr uint8_t kVis_OSC2_SUPERSAW_DETUNE[] JT_TABLE_FLASH = { 13 };   // osc2.wave in ['SSAW']
 static constexpr uint8_t kVis_OSC2_SUPERSAW_MIX[] JT_TABLE_FLASH = { 13 };   // osc2.wave in ['SSAW']
 static constexpr uint8_t kVis_OSC2_ARB_BANK[] JT_TABLE_FLASH = { 4 };   // osc2.wave in ['ARB']
 static constexpr uint8_t kVis_OSC2_ARB_INDEX[] JT_TABLE_FLASH = { 4 };   // osc2.wave in ['ARB']
+static constexpr uint8_t kVis_OSC2_JFBK_FEEDBACK[] JT_TABLE_FLASH = { 21 };   // osc2.wave in ['JFBK']
 static constexpr uint8_t kVis_FILTER_MODE[] JT_TABLE_FLASH = { 0 };   // filter.engine in ['OBXa']
 static constexpr uint8_t kVis_FILTER_VA_TYPE[] JT_TABLE_FLASH = { 1 };   // filter.engine in ['VA']
 static constexpr uint8_t kVis_FILTER_OBXA_RES_MOD_DEPTH[] JT_TABLE_FLASH = { 0 };   // filter.engine in ['OBXa']
@@ -1496,7 +1514,7 @@ static constexpr uint8_t kVis_BASS_STEP_32[] JT_TABLE_FLASH = { 1 };   // bass.e
 // --- The table -----------------------------------------------------------------
 static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     // ---- [0] Oscillator 1 ----
-    { ID::OSC1_WAVE, Str::s0, Str::s1, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 19.0f, 0.0f, Str::s3, false, 0, -1, 20, kOpt_osc_wave, 0, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::OSC1_WAVE, Str::s0, Str::s1, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 21.0f, 0.0f, Str::s3, false, 0, -1, 22, kOpt_osc_wave, 0, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::OSC1_PITCH_OFFSET, Str::s4, Str::s5, Str::s6, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 2.0f, Str::s3, false, 0, -1, 5, kOpt_pitch_offset, 0, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::OSC1_FINE_TUNE, Str::s7, Str::s8, Str::s9, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 0, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::OSC1_DETUNE, Str::s11, Str::s12, Str::s13, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 0, 0, Control::Pot, kNoVisDep, nullptr, 0 },
@@ -1510,314 +1528,318 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::OSC1_ARB_BANK, Str::s35, Str::s36, Str::s37, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 0, 4, Control::Pot, ID::OSC1_WAVE, kVis_OSC1_ARB_BANK, 1 },
     { ID::OSC1_ARB_INDEX, Str::s38, Str::s39, Str::s40, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 0, 4, Control::Pot, ID::OSC1_WAVE, kVis_OSC1_ARB_INDEX, 1 },
     { ID::OSC1_PWM_LFO1_DEPTH, Str::s41, Str::s42, Str::s43, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 0, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC1_JFBK_FEEDBACK, Str::s44, Str::s45, Str::s46, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 0, 1, Control::Pot, ID::OSC1_WAVE, kVis_OSC1_JFBK_FEEDBACK, 1 },
     // ---- [1] Oscillator 2 ----
-    { ID::OSC2_WAVE, Str::s44, Str::s45, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 19.0f, 0.0f, Str::s3, false, 0, -1, 20, kOpt_osc_wave, 1, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_PITCH_OFFSET, Str::s46, Str::s47, Str::s6, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 2.0f, Str::s3, false, 0, -1, 5, kOpt_pitch_offset, 1, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_FINE_TUNE, Str::s48, Str::s49, Str::s9, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_DETUNE, Str::s50, Str::s51, Str::s13, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_SUPERSAW_DETUNE, Str::s52, Str::s53, Str::s16, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 1, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_SUPERSAW_DETUNE, 1 },
-    { ID::OSC2_SUPERSAW_MIX, Str::s54, Str::s55, Str::s19, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 1, 1, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_SUPERSAW_MIX, 1 },
-    { ID::OSC2_FEEDBACK_AMOUNT, Str::s56, Str::s57, Str::s22, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_FEEDBACK_MIX, Str::s58, Str::s59, Str::s25, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_FREQ_DC, Str::s60, Str::s61, Str::s28, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_SHAPE_DC, Str::s62, Str::s63, Str::s31, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_RING_MIX, Str::s64, Str::s65, Str::s34, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::OSC2_ARB_BANK, Str::s66, Str::s67, Str::s37, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 1, 4, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_ARB_BANK, 1 },
-    { ID::OSC2_ARB_INDEX, Str::s68, Str::s69, Str::s40, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 1, 4, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_ARB_INDEX, 1 },
-    { ID::OSC2_PWM_LFO1_DEPTH, Str::s70, Str::s71, Str::s43, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_WAVE, Str::s47, Str::s48, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 21.0f, 0.0f, Str::s3, false, 0, -1, 22, kOpt_osc_wave, 1, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_PITCH_OFFSET, Str::s49, Str::s50, Str::s6, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 2.0f, Str::s3, false, 0, -1, 5, kOpt_pitch_offset, 1, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_FINE_TUNE, Str::s51, Str::s52, Str::s9, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_DETUNE, Str::s53, Str::s54, Str::s13, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_SUPERSAW_DETUNE, Str::s55, Str::s56, Str::s16, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 1, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_SUPERSAW_DETUNE, 1 },
+    { ID::OSC2_SUPERSAW_MIX, Str::s57, Str::s58, Str::s19, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 1, 1, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_SUPERSAW_MIX, 1 },
+    { ID::OSC2_FEEDBACK_AMOUNT, Str::s59, Str::s60, Str::s22, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_FEEDBACK_MIX, Str::s61, Str::s62, Str::s25, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_FREQ_DC, Str::s63, Str::s64, Str::s28, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_SHAPE_DC, Str::s65, Str::s66, Str::s31, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_RING_MIX, Str::s67, Str::s68, Str::s34, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_ARB_BANK, Str::s69, Str::s70, Str::s37, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 1, 4, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_ARB_BANK, 1 },
+    { ID::OSC2_ARB_INDEX, Str::s71, Str::s72, Str::s40, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 1, 4, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_ARB_INDEX, 1 },
+    { ID::OSC2_PWM_LFO1_DEPTH, Str::s73, Str::s74, Str::s43, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::OSC2_JFBK_FEEDBACK, Str::s75, Str::s76, Str::s46, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 1, 1, Control::Pot, ID::OSC2_WAVE, kVis_OSC2_JFBK_FEEDBACK, 1 },
     // ---- [2] Mixer ----
-    { ID::MIX_BALANCE, Str::s72, Str::s73, Str::s74, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, 17, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::MIX_OSC1, Str::s75, Str::s76, Str::s77, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.787402f, Str::s10, false, 5, -1, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::MIX_OSC2, Str::s78, Str::s79, Str::s80, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.787402f, Str::s10, false, 5, -1, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::MIX_SUB, Str::s81, Str::s82, Str::s83, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 19, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::MIX_NOISE, Str::s84, Str::s85, Str::s86, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::MIX_CROSS_MOD, Str::s87, Str::s88, Str::s89, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 2, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::MIX_OSC_SYNC, Str::s90, Str::s91, Str::s92, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 2, 1, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::MIX_PITCH_MOD_DEST, Str::s94, Str::s95, Str::s96, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_pitch_mod_dest, 2, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::MIX_XMOD_TYPE, Str::s97, Str::s98, Str::s99, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_xmod_type, 2, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::MIX_BALANCE, Str::s77, Str::s78, Str::s79, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, 17, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MIX_OSC1, Str::s80, Str::s81, Str::s82, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.787402f, Str::s10, false, 5, -1, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MIX_OSC2, Str::s83, Str::s84, Str::s85, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.787402f, Str::s10, false, 5, -1, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MIX_SUB, Str::s86, Str::s87, Str::s88, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 19, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MIX_NOISE, Str::s89, Str::s90, Str::s91, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 2, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MIX_CROSS_MOD, Str::s92, Str::s93, Str::s94, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 2, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MIX_OSC_SYNC, Str::s95, Str::s96, Str::s97, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 2, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::MIX_PITCH_MOD_DEST, Str::s99, Str::s100, Str::s101, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_pitch_mod_dest, 2, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::MIX_XMOD_TYPE, Str::s102, Str::s103, Str::s104, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_xmod_type, 2, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::MIX_PWM_LAW, Str::s105, Str::s106, Str::s107, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_pwm_law, 2, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
     // ---- [3] Filter ----
-    { ID::FILTER_CUTOFF, Str::s100, Str::s101, Str::s102, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 20.0f, 0.0f, 20000.0f, 20000.0f, Str::s103, false, 5, 74, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FILTER_RESONANCE, Str::s104, Str::s105, Str::s106, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 71, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FILTER_ENV_AMOUNT, Str::s107, Str::s108, Str::s109, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, 16, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FILTER_KEY_TRACK, Str::s110, Str::s111, Str::s112, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FILTER_ENGINE, Str::s113, Str::s114, Str::s115, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_filter_engine, 3, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FILTER_MODE, Str::s116, Str::s117, Str::s118, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_filter_mode, 3, 1, Control::Encoder, ID::FILTER_ENGINE, kVis_FILTER_MODE, 1 },
-    { ID::FILTER_VA_TYPE, Str::s119, Str::s120, Str::s121, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 16.0f, 0.0f, Str::s3, false, 0, -1, 17, kOpt_v_a_filter, 3, 1, Control::Encoder, ID::FILTER_ENGINE, kVis_FILTER_VA_TYPE, 1 },
-    { ID::FILTER_OCTAVE_CONTROL, Str::s122, Str::s123, Str::s124, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.4f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FILTER_OBXA_RES_MOD_DEPTH, Str::s125, Str::s126, Str::s127, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_OBXA_RES_MOD_DEPTH, 1 },
-    { ID::FILTER_OBXA_MULTIMODE, Str::s128, Str::s129, Str::s130, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_OBXA_MULTIMODE, 1 },
-    { ID::FILTER_OBXA_XPANDER_MODE, Str::s131, Str::s132, Str::s133, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_xpander_mode, 3, 3, Control::Encoder, ID::FILTER_MODE, kVis_FILTER_OBXA_XPANDER_MODE, 2 },
-    { ID::FILTER_DRIVE, Str::s134, Str::s135, Str::s136, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 5, -1, 0, nullptr, 3, 0, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_DRIVE, 1 },
+    { ID::FILTER_CUTOFF, Str::s108, Str::s109, Str::s110, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 20.0f, 0.0f, 20000.0f, 20000.0f, Str::s111, false, 5, 74, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FILTER_RESONANCE, Str::s112, Str::s113, Str::s114, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 71, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FILTER_ENV_AMOUNT, Str::s115, Str::s116, Str::s117, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, 16, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FILTER_KEY_TRACK, Str::s118, Str::s119, Str::s120, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FILTER_ENGINE, Str::s121, Str::s122, Str::s123, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_filter_engine, 3, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FILTER_MODE, Str::s124, Str::s125, Str::s126, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_filter_mode, 3, 1, Control::Encoder, ID::FILTER_ENGINE, kVis_FILTER_MODE, 1 },
+    { ID::FILTER_VA_TYPE, Str::s127, Str::s128, Str::s129, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 16.0f, 0.0f, Str::s3, false, 0, -1, 17, kOpt_v_a_filter, 3, 1, Control::Encoder, ID::FILTER_ENGINE, kVis_FILTER_VA_TYPE, 1 },
+    { ID::FILTER_OCTAVE_CONTROL, Str::s130, Str::s131, Str::s132, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.4f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FILTER_OBXA_RES_MOD_DEPTH, Str::s133, Str::s134, Str::s135, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_OBXA_RES_MOD_DEPTH, 1 },
+    { ID::FILTER_OBXA_MULTIMODE, Str::s136, Str::s137, Str::s138, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_OBXA_MULTIMODE, 1 },
+    { ID::FILTER_OBXA_XPANDER_MODE, Str::s139, Str::s140, Str::s141, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_xpander_mode, 3, 3, Control::Encoder, ID::FILTER_MODE, kVis_FILTER_OBXA_XPANDER_MODE, 2 },
+    { ID::FILTER_DRIVE, Str::s142, Str::s143, Str::s144, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 5, -1, 0, nullptr, 3, 0, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_DRIVE, 1 },
     // ---- [4] Amp Envelope ----
-    { ID::ENV_AMP_ATTACK, Str::s138, Str::s139, Str::s140, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 1.0f, Str::s141, false, 0, 73, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_AMP_ATTACK_CURVE, Str::s142, Str::s143, Str::s144, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_AMP_DECAY, Str::s146, Str::s147, Str::s148, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 113.097f, Str::s141, false, 0, 75, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_AMP_DECAY_CURVE, Str::s149, Str::s150, Str::s151, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_AMP_SUSTAIN, Str::s152, Str::s153, Str::s154, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, 70, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_AMP_RELEASE, Str::s155, Str::s156, Str::s157, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 4.38231f, Str::s141, false, 0, 72, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_AMP_RELEASE_CURVE, Str::s158, Str::s159, Str::s160, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_AMP_ATTACK, Str::s146, Str::s147, Str::s148, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 1.0f, Str::s149, false, 0, 73, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_AMP_ATTACK_CURVE, Str::s150, Str::s151, Str::s152, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_AMP_DECAY, Str::s154, Str::s155, Str::s156, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 113.097f, Str::s149, false, 0, 75, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_AMP_DECAY_CURVE, Str::s157, Str::s158, Str::s159, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_AMP_SUSTAIN, Str::s160, Str::s161, Str::s162, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, 70, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_AMP_RELEASE, Str::s163, Str::s164, Str::s165, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 4.38231f, Str::s149, false, 0, 72, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_AMP_RELEASE_CURVE, Str::s166, Str::s167, Str::s168, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 4, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [5] Filter Envelope ----
-    { ID::ENV_FILTER_ATTACK, Str::s161, Str::s162, Str::s140, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 1.0f, Str::s141, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_FILTER_ATTACK_CURVE, Str::s163, Str::s164, Str::s144, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_FILTER_DECAY, Str::s165, Str::s166, Str::s148, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 113.097f, Str::s141, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_FILTER_DECAY_CURVE, Str::s167, Str::s168, Str::s151, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_FILTER_SUSTAIN, Str::s169, Str::s170, Str::s154, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_FILTER_RELEASE, Str::s171, Str::s172, Str::s157, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 4.38231f, Str::s141, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_FILTER_RELEASE_CURVE, Str::s173, Str::s174, Str::s160, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_FILTER_ATTACK, Str::s169, Str::s170, Str::s148, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 1.0f, Str::s149, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_FILTER_ATTACK_CURVE, Str::s171, Str::s172, Str::s152, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_FILTER_DECAY, Str::s173, Str::s174, Str::s156, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 113.097f, Str::s149, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_FILTER_DECAY_CURVE, Str::s175, Str::s176, Str::s159, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_FILTER_SUSTAIN, Str::s177, Str::s178, Str::s162, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_FILTER_RELEASE, Str::s179, Str::s180, Str::s165, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 4.38231f, Str::s149, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_FILTER_RELEASE_CURVE, Str::s181, Str::s182, Str::s168, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 5, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [6] Pitch Envelope ----
-    { ID::ENV_PITCH_DEPTH, Str::s175, Str::s176, Str::s177, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 6, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::ENV_PITCH_ATTACK, Str::s178, Str::s179, Str::s140, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 1.0f, Str::s141, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_PITCH_ATTACK_CURVE, Str::s180, Str::s181, Str::s144, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_PITCH_DECAY, Str::s182, Str::s183, Str::s148, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 113.097f, Str::s141, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_PITCH_DECAY_CURVE, Str::s184, Str::s185, Str::s151, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_PITCH_SUSTAIN, Str::s186, Str::s187, Str::s154, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_PITCH_RELEASE, Str::s188, Str::s189, Str::s157, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 4.38231f, Str::s141, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::ENV_PITCH_RELEASE_CURVE, Str::s190, Str::s191, Str::s160, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_DEPTH, Str::s183, Str::s184, Str::s185, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 6, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_ATTACK, Str::s186, Str::s187, Str::s148, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 1.0f, Str::s149, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_ATTACK_CURVE, Str::s188, Str::s189, Str::s152, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_DECAY, Str::s190, Str::s191, Str::s156, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 113.097f, Str::s149, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_DECAY_CURVE, Str::s192, Str::s193, Str::s159, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_SUSTAIN, Str::s194, Str::s195, Str::s162, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_RELEASE, Str::s196, Str::s197, Str::s165, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Log, 1.0f, 0.0f, 11880.0f, 4.38231f, Str::s149, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::ENV_PITCH_RELEASE_CURVE, Str::s198, Str::s199, Str::s168, Type::Continuous, Scope::Patch, Widget::Envelope, Curve::Seg2, 0.15f, 1.0f, 5.0f, 1.0f, Str::s153, false, 0, -1, 0, nullptr, 6, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [7] LFO 1 ----
-    { ID::LFO1_WAVEFORM, Str::s192, Str::s193, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_l_f_o_wave, 7, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_FREQ, Str::s194, Str::s195, Str::s196, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 0.03f, 0.0f, 39.0f, 0.03f, Str::s103, false, 0, 76, 0, nullptr, 7, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_DEPTH, Str::s197, Str::s198, Str::s177, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_SYNC, Str::s199, Str::s200, Str::s92, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 7, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_PITCH_DEPTH, Str::s201, Str::s202, Str::s6, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 77, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_FILTER_DEPTH, Str::s203, Str::s204, Str::s205, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_PWM_DEPTH, Str::s206, Str::s207, Str::s208, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_AMP_DEPTH, Str::s209, Str::s210, Str::s211, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_DESTINATION, Str::s212, Str::s213, Str::s214, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_l_f_o_dest, 7, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::LFO1_DELAY, Str::s215, Str::s216, Str::s217, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 78, 0, nullptr, 7, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_WAVEFORM, Str::s200, Str::s201, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_l_f_o_wave, 7, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_FREQ, Str::s202, Str::s203, Str::s204, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 0.03f, 0.0f, 39.0f, 0.03f, Str::s111, false, 0, 76, 0, nullptr, 7, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_DEPTH, Str::s205, Str::s206, Str::s185, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_SYNC, Str::s207, Str::s208, Str::s97, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 7, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_PITCH_DEPTH, Str::s209, Str::s210, Str::s6, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 77, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_FILTER_DEPTH, Str::s211, Str::s212, Str::s213, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_PWM_DEPTH, Str::s214, Str::s215, Str::s216, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_AMP_DEPTH, Str::s217, Str::s218, Str::s219, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 7, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_DESTINATION, Str::s220, Str::s221, Str::s222, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_l_f_o_dest, 7, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::LFO1_DELAY, Str::s223, Str::s224, Str::s225, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 78, 0, nullptr, 7, 2, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [8] LFO 2 ----
-    { ID::LFO2_WAVEFORM, Str::s218, Str::s219, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_l_f_o_wave, 8, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_FREQ, Str::s220, Str::s221, Str::s196, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 0.03f, 0.0f, 39.0f, 0.03f, Str::s103, false, 0, -1, 0, nullptr, 8, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_DEPTH, Str::s222, Str::s223, Str::s177, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_SYNC, Str::s224, Str::s225, Str::s92, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 8, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_PITCH_DEPTH, Str::s226, Str::s227, Str::s6, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_FILTER_DEPTH, Str::s228, Str::s229, Str::s205, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_PWM_DEPTH, Str::s230, Str::s231, Str::s208, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_AMP_DEPTH, Str::s232, Str::s233, Str::s211, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_DESTINATION, Str::s234, Str::s235, Str::s214, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_l_f_o_dest, 8, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_DELAY, Str::s236, Str::s237, Str::s217, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::LFO2_MOD_WHEEL, Str::s238, Str::s239, Str::s240, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 8, 2, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_WAVEFORM, Str::s226, Str::s227, Str::s2, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_l_f_o_wave, 8, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_FREQ, Str::s228, Str::s229, Str::s204, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 0.03f, 0.0f, 39.0f, 0.03f, Str::s111, false, 0, -1, 0, nullptr, 8, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_DEPTH, Str::s230, Str::s231, Str::s185, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_SYNC, Str::s232, Str::s233, Str::s97, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 8, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_PITCH_DEPTH, Str::s234, Str::s235, Str::s6, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_FILTER_DEPTH, Str::s236, Str::s237, Str::s213, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_PWM_DEPTH, Str::s238, Str::s239, Str::s216, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_AMP_DEPTH, Str::s240, Str::s241, Str::s219, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_DESTINATION, Str::s242, Str::s243, Str::s222, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_l_f_o_dest, 8, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_DELAY, Str::s244, Str::s245, Str::s225, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 8, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::LFO2_MOD_WHEEL, Str::s246, Str::s247, Str::s248, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 8, 2, Control::Switch, kNoVisDep, nullptr, 0 },
     // ---- [9] Effects ----
-    { ID::FX_BASS_GAIN, Str::s241, Str::s242, Str::s243, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_TREBLE_GAIN, Str::s244, Str::s245, Str::s246, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DRIVE, Str::s247, Str::s248, Str::s249, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_drive, 9, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_EFFECT, Str::s250, Str::s251, Str::s252, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 11.0f, 0.0f, Str::s3, false, 0, -1, 12, kOpt_f_x_mod_effect, 9, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_MIX, Str::s253, Str::s254, Str::s255, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 93, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_RATE, Str::s256, Str::s257, Str::s258, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_MOD_FEEDBACK, Str::s259, Str::s260, Str::s261, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_EFFECT, Str::s262, Str::s263, Str::s264, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_f_x_delay_effect, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_TIME, Str::s265, Str::s266, Str::s267, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Log, 10.0f, 0.0f, 10000.0f, 750.0f, Str::s141, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, ID::FX_DELAY_SYNC, kVis_FX_DELAY_TIME, 1 },
-    { ID::FX_DELAY_MIX, Str::s268, Str::s269, Str::s270, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 94, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_FEEDBACK, Str::s271, Str::s272, Str::s273, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_SYNC, Str::s274, Str::s275, Str::s276, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_DRY_MIX, Str::s277, Str::s278, Str::s279, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_JPFX_MIX, Str::s280, Str::s281, Str::s282, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_ENGINE, Str::s283, Str::s284, Str::s285, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_delay_engine, 9, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::FX_DELAY_TONE, Str::s286, Str::s287, Str::s288, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Log, 500.0f, 0.0f, 12000.0f, 12000.0f, Str::s103, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_TONE, 1 },
-    { ID::FX_DELAY_SAT, Str::s289, Str::s290, Str::s291, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_SAT, 1 },
-    { ID::FX_DELAY_WOW, Str::s292, Str::s293, Str::s294, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_WOW, 1 },
-    { ID::FX_DELAY_FLUTTER, Str::s295, Str::s296, Str::s297, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_FLUTTER, 1 },
-    { ID::FX_DELAY_WOW_RATE, Str::s298, Str::s299, Str::s300, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Log, 0.2f, 0.0f, 3.0f, 0.7f, Str::s103, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_WOW_RATE, 1 },
+    { ID::FX_BASS_GAIN, Str::s249, Str::s250, Str::s251, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_TREBLE_GAIN, Str::s252, Str::s253, Str::s254, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 9, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DRIVE, Str::s255, Str::s256, Str::s257, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_drive, 9, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_EFFECT, Str::s258, Str::s259, Str::s260, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 23.0f, 0.0f, Str::s3, false, 0, -1, 24, kOpt_f_x_mod_effect, 9, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_MIX, Str::s261, Str::s262, Str::s263, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 93, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_RATE, Str::s264, Str::s265, Str::s266, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_MOD_FEEDBACK, Str::s267, Str::s268, Str::s269, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_EFFECT, Str::s270, Str::s271, Str::s272, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_f_x_delay_effect, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_TIME, Str::s273, Str::s274, Str::s275, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Log, 10.0f, 0.0f, 10000.0f, 750.0f, Str::s149, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, ID::FX_DELAY_SYNC, kVis_FX_DELAY_TIME, 1 },
+    { ID::FX_DELAY_MIX, Str::s276, Str::s277, Str::s278, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 94, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_FEEDBACK, Str::s279, Str::s280, Str::s281, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_SYNC, Str::s282, Str::s283, Str::s284, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 9, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_DRY_MIX, Str::s285, Str::s286, Str::s287, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_JPFX_MIX, Str::s288, Str::s289, Str::s290, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 9, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_ENGINE, Str::s291, Str::s292, Str::s293, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_delay_engine, 9, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::FX_DELAY_TONE, Str::s294, Str::s295, Str::s296, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Log, 500.0f, 0.0f, 12000.0f, 12000.0f, Str::s111, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_TONE, 1 },
+    { ID::FX_DELAY_SAT, Str::s297, Str::s298, Str::s299, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_SAT, 1 },
+    { ID::FX_DELAY_WOW, Str::s300, Str::s301, Str::s302, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_WOW, 1 },
+    { ID::FX_DELAY_FLUTTER, Str::s303, Str::s304, Str::s305, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_FLUTTER, 1 },
+    { ID::FX_DELAY_WOW_RATE, Str::s306, Str::s307, Str::s308, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Log, 0.2f, 0.0f, 3.0f, 0.7f, Str::s111, false, 20, -1, 0, nullptr, 9, 3, Control::Pot, ID::FX_DELAY_ENGINE, kVis_FX_DELAY_WOW_RATE, 1 },
     // ---- [10] Velocity ----
-    { ID::VELOCITY_AMP_SENS, Str::s301, Str::s302, Str::s211, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::VELOCITY_FILTER_SENS, Str::s303, Str::s304, Str::s205, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::VELOCITY_ENV_SENS, Str::s305, Str::s306, Str::s109, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VELOCITY_AMP_SENS, Str::s309, Str::s310, Str::s219, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VELOCITY_FILTER_SENS, Str::s311, Str::s312, Str::s213, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VELOCITY_ENV_SENS, Str::s313, Str::s314, Str::s117, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 10, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [11] Performance ----
-    { ID::GLIDE_ENABLE, Str::s307, Str::s308, Str::s309, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, 65, 0, nullptr, 11, 0, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::GLIDE_TIME, Str::s310, Str::s311, Str::s312, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 5, 0, nullptr, 11, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::VOICE_POLY_MODE, Str::s313, Str::s314, Str::s118, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_poly_mode, 11, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::VOICE_UNISON_DETUNE, Str::s315, Str::s316, Str::s317, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 18, 0, nullptr, 11, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::VOICE_BEND_RANGE, Str::s318, Str::s319, Str::s320, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 24.0f, 2.0f, Str::s321, false, 0, -1, 0, nullptr, 11, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::VOICE_AMP_LEVEL, Str::s322, Str::s323, Str::s324, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 11, 2, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::GLIDE_MODE, Str::s325, Str::s326, Str::s327, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_glide_mode, 11, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::VOICE_LEGATO, Str::s328, Str::s329, Str::s330, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 11, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::GLIDE_ENABLE, Str::s315, Str::s316, Str::s317, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, 65, 0, nullptr, 11, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::GLIDE_TIME, Str::s318, Str::s319, Str::s320, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 5, 0, nullptr, 11, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VOICE_POLY_MODE, Str::s321, Str::s322, Str::s126, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_poly_mode, 11, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::VOICE_UNISON_DETUNE, Str::s323, Str::s324, Str::s325, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 18, 0, nullptr, 11, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VOICE_BEND_RANGE, Str::s326, Str::s327, Str::s328, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 24.0f, 2.0f, Str::s329, false, 0, -1, 0, nullptr, 11, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::VOICE_AMP_LEVEL, Str::s330, Str::s331, Str::s332, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 5, -1, 0, nullptr, 11, 2, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::GLIDE_MODE, Str::s333, Str::s334, Str::s335, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_glide_mode, 11, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::VOICE_LEGATO, Str::s336, Str::s337, Str::s338, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 11, 1, Control::Switch, kNoVisDep, nullptr, 0 },
     // ---- [12] BPM Clock ----
-    { ID::CLOCK_CLOCK_SOURCE, Str::s331, Str::s332, Str::s333, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_clock_source, 12, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::CLOCK_TEMPO, Str::s334, Str::s335, Str::s335, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 40.0f, 0.0f, 300.0f, 170.0f, Str::s335, false, 0, -1, 0, nullptr, 12, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::CLOCK_CLOCK_SOURCE, Str::s339, Str::s340, Str::s341, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_clock_source, 12, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::CLOCK_TEMPO, Str::s342, Str::s343, Str::s343, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 40.0f, 0.0f, 300.0f, 170.0f, Str::s343, false, 0, -1, 0, nullptr, 12, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [13] Step Sequencer ----
-    { ID::SEQ_ENABLE, Str::s336, Str::s337, Str::s309, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 0, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEPS, Str::s338, Str::s339, Str::s340, Type::Int, Scope::PatchShared, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 9.0f, Str::s137, false, 0, -1, 0, nullptr, 13, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_GATE_LENGTH, Str::s341, Str::s342, Str::s343, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_SLIDE, Str::s344, Str::s345, Str::s346, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_DIRECTION, Str::s347, Str::s348, Str::s349, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_seq_dir, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_DESTINATION, Str::s350, Str::s351, Str::s214, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_dest, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_DEPTH, Str::s352, Str::s353, Str::s177, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_RETRIGGER, Str::s354, Str::s355, Str::s356, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_RATE, Str::s357, Str::s358, Str::s196, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 2, Control::Pot, ID::SEQ_TIMING_MODE, kVis_SEQ_RATE, 1 },
-    { ID::SEQ_TIMING_MODE, Str::s359, Str::s360, Str::s92, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 13, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_SELECT, Str::s361, Str::s362, Str::s363, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 13, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_VALUE, Str::s364, Str::s365, Str::s366, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_DESTINATION, Str::s367, Str::s368, Str::s369, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_seq_aux_dest, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_DEPTH, Str::s370, Str::s371, Str::s372, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_SELECT, Str::s373, Str::s374, Str::s375, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_VALUE, Str::s376, Str::s377, Str::s378, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_1, Str::s379, Str::s380, Str::s381, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_2, Str::s382, Str::s383, Str::s384, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_3, Str::s385, Str::s386, Str::s387, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_4, Str::s388, Str::s389, Str::s390, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_5, Str::s391, Str::s392, Str::s393, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_6, Str::s394, Str::s395, Str::s396, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_7, Str::s397, Str::s398, Str::s399, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_8, Str::s400, Str::s401, Str::s402, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_9, Str::s403, Str::s404, Str::s405, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_10, Str::s406, Str::s407, Str::s408, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_11, Str::s409, Str::s410, Str::s411, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_12, Str::s412, Str::s413, Str::s414, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_13, Str::s415, Str::s416, Str::s417, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_14, Str::s418, Str::s419, Str::s420, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_15, Str::s421, Str::s422, Str::s423, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_16, Str::s424, Str::s425, Str::s426, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_1, Str::s427, Str::s428, Str::s429, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_2, Str::s430, Str::s431, Str::s432, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_3, Str::s433, Str::s434, Str::s435, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_4, Str::s436, Str::s437, Str::s438, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_5, Str::s439, Str::s440, Str::s441, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_6, Str::s442, Str::s443, Str::s444, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_7, Str::s445, Str::s446, Str::s447, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_8, Str::s448, Str::s449, Str::s450, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_9, Str::s451, Str::s452, Str::s453, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_10, Str::s454, Str::s455, Str::s456, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_11, Str::s457, Str::s458, Str::s459, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_12, Str::s460, Str::s461, Str::s462, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_13, Str::s463, Str::s464, Str::s465, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_14, Str::s466, Str::s467, Str::s468, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_15, Str::s469, Str::s470, Str::s471, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_STEP_16, Str::s472, Str::s473, Str::s474, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_STEP_BIPOLAR, Str::s475, Str::s476, Str::s477, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::SEQ_AUX_BIPOLAR, Str::s478, Str::s479, Str::s480, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_ENABLE, Str::s344, Str::s345, Str::s317, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 13, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEPS, Str::s346, Str::s347, Str::s348, Type::Int, Scope::PatchShared, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 9.0f, Str::s145, false, 0, -1, 0, nullptr, 13, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_GATE_LENGTH, Str::s349, Str::s350, Str::s351, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_SLIDE, Str::s352, Str::s353, Str::s354, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 13, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_DIRECTION, Str::s355, Str::s356, Str::s357, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_seq_dir, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_DESTINATION, Str::s358, Str::s359, Str::s222, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 4.0f, 0.0f, Str::s3, false, 0, -1, 5, kOpt_seq_dest, 13, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_DEPTH, Str::s360, Str::s361, Str::s185, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_RETRIGGER, Str::s362, Str::s363, Str::s364, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_RATE, Str::s365, Str::s366, Str::s204, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 5, -1, 0, nullptr, 13, 2, Control::Pot, ID::SEQ_TIMING_MODE, kVis_SEQ_RATE, 1 },
+    { ID::SEQ_TIMING_MODE, Str::s367, Str::s368, Str::s97, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 0.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 13, 2, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_SELECT, Str::s369, Str::s370, Str::s371, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 13, 3, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_VALUE, Str::s372, Str::s373, Str::s374, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_DESTINATION, Str::s375, Str::s376, Str::s377, Type::Select, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_seq_aux_dest, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_DEPTH, Str::s378, Str::s379, Str::s380, Type::Continuous, Scope::PatchShared, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_SELECT, Str::s381, Str::s382, Str::s383, Type::Int, Scope::PatchShared, Widget::Grid, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 13, 4, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_VALUE, Str::s384, Str::s385, Str::s386, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_1, Str::s387, Str::s388, Str::s389, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_2, Str::s390, Str::s391, Str::s392, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_3, Str::s393, Str::s394, Str::s395, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_4, Str::s396, Str::s397, Str::s398, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_5, Str::s399, Str::s400, Str::s401, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_6, Str::s402, Str::s403, Str::s404, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_7, Str::s405, Str::s406, Str::s407, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_8, Str::s408, Str::s409, Str::s410, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_9, Str::s411, Str::s412, Str::s413, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_10, Str::s414, Str::s415, Str::s416, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_11, Str::s417, Str::s418, Str::s419, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_12, Str::s420, Str::s421, Str::s422, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_13, Str::s423, Str::s424, Str::s425, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_14, Str::s426, Str::s427, Str::s428, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_15, Str::s429, Str::s430, Str::s431, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_16, Str::s432, Str::s433, Str::s434, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 3, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_1, Str::s435, Str::s436, Str::s437, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_2, Str::s438, Str::s439, Str::s440, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_3, Str::s441, Str::s442, Str::s443, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_4, Str::s444, Str::s445, Str::s446, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_5, Str::s447, Str::s448, Str::s449, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_6, Str::s450, Str::s451, Str::s452, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_7, Str::s453, Str::s454, Str::s455, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_8, Str::s456, Str::s457, Str::s458, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_9, Str::s459, Str::s460, Str::s461, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_10, Str::s462, Str::s463, Str::s464, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_11, Str::s465, Str::s466, Str::s467, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_12, Str::s468, Str::s469, Str::s470, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_13, Str::s471, Str::s472, Str::s473, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_14, Str::s474, Str::s475, Str::s476, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_15, Str::s477, Str::s478, Str::s479, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_STEP_16, Str::s480, Str::s481, Str::s482, Type::Continuous, Scope::PatchShared, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 0, -1, 0, nullptr, 13, 4, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_STEP_BIPOLAR, Str::s483, Str::s484, Str::s485, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::SEQ_AUX_BIPOLAR, Str::s486, Str::s487, Str::s488, Type::Toggle, Scope::PatchShared, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 13, 1, Control::Switch, kNoVisDep, nullptr, 0 },
     // ---- [14] Voice Mode ----
-    { ID::PERF_MODE, Str::s481, Str::s482, Str::s118, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_perf_mode, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_EDIT_TARGET, Str::s483, Str::s484, Str::s485, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_edit_target, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_MIDI_CHANNEL_A, Str::s486, Str::s487, Str::s488, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 0.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_MIDI_CHANNEL_B, Str::s489, Str::s490, Str::s491, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 1.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_VOICE_SPLIT, Str::s492, Str::s493, Str::s494, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 3.0f, Str::s3, false, 0, -1, 7, kOpt_voice_split, 14, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::PERF_SPLIT_NOTE, Str::s495, Str::s496, Str::s497, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 60.0f, Str::s498, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::PERF_BALANCE, Str::s499, Str::s500, Str::s501, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 64.0f, Str::s137, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::PERF_MODE, Str::s489, Str::s490, Str::s126, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_perf_mode, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_EDIT_TARGET, Str::s491, Str::s492, Str::s493, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_edit_target, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_MIDI_CHANNEL_A, Str::s494, Str::s495, Str::s496, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 0.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_MIDI_CHANNEL_B, Str::s497, Str::s498, Str::s499, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 15.0f, 1.0f, Str::s3, false, 0, -1, 16, kOpt_midi_channel, 14, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_VOICE_SPLIT, Str::s500, Str::s501, Str::s502, Type::Select, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 3.0f, Str::s3, false, 0, -1, 7, kOpt_voice_split, 14, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::PERF_SPLIT_NOTE, Str::s503, Str::s504, Str::s505, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 60.0f, Str::s506, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::PERF_BALANCE, Str::s507, Str::s508, Str::s509, Type::Continuous, Scope::Performance, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 127.0f, 64.0f, Str::s145, false, 0, -1, 0, nullptr, 14, 1, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [15] Global Reverb ----
-    { ID::REVERB_SIZE, Str::s502, Str::s503, Str::s504, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_DAMP, Str::s505, Str::s506, Str::s507, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_LODAMP, Str::s508, Str::s509, Str::s510, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_MIX, Str::s511, Str::s512, Str::s513, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 91, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_BYPASS, Str::s514, Str::s515, Str::s516, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 15, 0, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_SHIMMER, Str::s517, Str::s518, Str::s519, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, ID::REVERB_ALGORITHM, kVis_REVERB_SHIMMER, 1 },
-    { ID::REVERB_FREEZE, Str::s520, Str::s521, Str::s522, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 15, 1, Control::Switch, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_LOWPASS, Str::s523, Str::s524, Str::s525, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_HIPASS, Str::s526, Str::s527, Str::s528, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
-    { ID::REVERB_ALGORITHM, Str::s529, Str::s530, Str::s531, Type::Select, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_reverb_algo, 15, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_SIZE, Str::s510, Str::s511, Str::s512, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_DAMP, Str::s513, Str::s514, Str::s515, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_LODAMP, Str::s516, Str::s517, Str::s518, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_MIX, Str::s519, Str::s520, Str::s521, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, 91, 0, nullptr, 15, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_BYPASS, Str::s522, Str::s523, Str::s524, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 15, 0, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_SHIMMER, Str::s525, Str::s526, Str::s527, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, ID::REVERB_ALGORITHM, kVis_REVERB_SHIMMER, 1 },
+    { ID::REVERB_FREEZE, Str::s528, Str::s529, Str::s530, Type::Toggle, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 15, 1, Control::Switch, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_LOWPASS, Str::s531, Str::s532, Str::s533, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_HIPASS, Str::s534, Str::s535, Str::s536, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 15, 1, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::REVERB_ALGORITHM, Str::s537, Str::s538, Str::s539, Type::Select, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2.0f, 0.0f, Str::s3, false, 0, -1, 3, kOpt_reverb_algo, 15, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
     // ---- [16] Master ----
-    { ID::MASTER_VOLUME, Str::s532, Str::s533, Str::s534, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.8f, Str::s10, false, 20, 7, 0, nullptr, 16, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MASTER_VOLUME, Str::s540, Str::s541, Str::s542, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.8f, Str::s10, false, 20, 7, 0, nullptr, 16, 0, Control::Pot, kNoVisDep, nullptr, 0 },
+    { ID::MASTER_USB_RETURN_LEVEL, Str::s543, Str::s544, Str::s545, Type::Continuous, Scope::Global, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 20, -1, 0, nullptr, 16, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     // ---- [17] Arpeggiator ----
-    { ID::ARP_ENABLE, Str::s535, Str::s536, Str::s309, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, ID::BASS_ENABLE, kVis_ARP_ENABLE, 1 },
-    { ID::ARP_MODE, Str::s537, Str::s538, Str::s118, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 0.0f, Str::s3, false, 0, -1, 7, kOpt_arp_mode, 17, 0, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_MODE, 1 },
-    { ID::ARP_OCTAVES, Str::s539, Str::s540, Str::s541, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_arp_octaves, 17, 0, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_OCTAVES, 1 },
-    { ID::ARP_LATCH, Str::s542, Str::s543, Str::s544, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, ID::BASS_ENABLE, kVis_ARP_LATCH, 1 },
-    { ID::ARP_RATE, Str::s545, Str::s546, Str::s196, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 7.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 17, 1, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_RATE, 1 },
-    { ID::ARP_FREE_HZ, Str::s547, Str::s548, Str::s549, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, ID::BASS_ENABLE, kVis_ARP_FREE_HZ, 1 },
-    { ID::ARP_GATE_LENGTH, Str::s550, Str::s551, Str::s343, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, ID::BASS_ENABLE, kVis_ARP_GATE_LENGTH, 1 },
-    { ID::ARP_SWING, Str::s552, Str::s553, Str::s554, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, ID::BASS_ENABLE, kVis_ARP_SWING, 1 },
-    { ID::ARP_STEP_COUNT, Str::s555, Str::s556, Str::s340, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 16.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_COUNT, 1 },
-    { ID::ARP_STEP_SELECT, Str::s557, Str::s558, Str::s559, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_SELECT, 1 },
-    { ID::ARP_STEP_ONOFF, Str::s560, Str::s561, Str::s343, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ONOFF, 1 },
-    { ID::ARP_STEP_ACCENT, Str::s562, Str::s563, Str::s564, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT, 1 },
-    { ID::ARP_STEP_RATCHET, Str::s565, Str::s566, Str::s567, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET, 1 },
-    { ID::ARP_STEP_ON_1, Str::s568, Str::s569, Str::s570, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_1, 1 },
-    { ID::ARP_STEP_ON_2, Str::s571, Str::s572, Str::s573, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_2, 1 },
-    { ID::ARP_STEP_ON_3, Str::s574, Str::s575, Str::s576, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_3, 1 },
-    { ID::ARP_STEP_ON_4, Str::s577, Str::s578, Str::s579, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_4, 1 },
-    { ID::ARP_STEP_ON_5, Str::s580, Str::s581, Str::s582, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_5, 1 },
-    { ID::ARP_STEP_ON_6, Str::s583, Str::s584, Str::s585, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_6, 1 },
-    { ID::ARP_STEP_ON_7, Str::s586, Str::s587, Str::s588, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_7, 1 },
-    { ID::ARP_STEP_ON_8, Str::s589, Str::s590, Str::s591, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_8, 1 },
-    { ID::ARP_STEP_ON_9, Str::s592, Str::s593, Str::s594, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_9, 1 },
-    { ID::ARP_STEP_ON_10, Str::s595, Str::s596, Str::s597, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_10, 1 },
-    { ID::ARP_STEP_ON_11, Str::s598, Str::s599, Str::s600, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_11, 1 },
-    { ID::ARP_STEP_ON_12, Str::s601, Str::s602, Str::s603, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_12, 1 },
-    { ID::ARP_STEP_ON_13, Str::s604, Str::s605, Str::s606, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_13, 1 },
-    { ID::ARP_STEP_ON_14, Str::s607, Str::s608, Str::s609, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_14, 1 },
-    { ID::ARP_STEP_ON_15, Str::s610, Str::s611, Str::s612, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_15, 1 },
-    { ID::ARP_STEP_ON_16, Str::s613, Str::s614, Str::s615, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s93, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_16, 1 },
-    { ID::ARP_STEP_ACCENT_1, Str::s616, Str::s617, Str::s618, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_1, 1 },
-    { ID::ARP_STEP_ACCENT_2, Str::s619, Str::s620, Str::s621, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_2, 1 },
-    { ID::ARP_STEP_ACCENT_3, Str::s622, Str::s623, Str::s624, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_3, 1 },
-    { ID::ARP_STEP_ACCENT_4, Str::s625, Str::s626, Str::s627, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_4, 1 },
-    { ID::ARP_STEP_ACCENT_5, Str::s628, Str::s629, Str::s630, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_5, 1 },
-    { ID::ARP_STEP_ACCENT_6, Str::s631, Str::s632, Str::s633, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_6, 1 },
-    { ID::ARP_STEP_ACCENT_7, Str::s634, Str::s635, Str::s636, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_7, 1 },
-    { ID::ARP_STEP_ACCENT_8, Str::s637, Str::s638, Str::s639, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_8, 1 },
-    { ID::ARP_STEP_ACCENT_9, Str::s640, Str::s641, Str::s642, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_9, 1 },
-    { ID::ARP_STEP_ACCENT_10, Str::s643, Str::s644, Str::s645, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_10, 1 },
-    { ID::ARP_STEP_ACCENT_11, Str::s646, Str::s647, Str::s648, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_11, 1 },
-    { ID::ARP_STEP_ACCENT_12, Str::s649, Str::s650, Str::s651, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_12, 1 },
-    { ID::ARP_STEP_ACCENT_13, Str::s652, Str::s653, Str::s654, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_13, 1 },
-    { ID::ARP_STEP_ACCENT_14, Str::s655, Str::s656, Str::s657, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_14, 1 },
-    { ID::ARP_STEP_ACCENT_15, Str::s658, Str::s659, Str::s660, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_15, 1 },
-    { ID::ARP_STEP_ACCENT_16, Str::s661, Str::s662, Str::s663, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_16, 1 },
-    { ID::ARP_STEP_RATCHET_1, Str::s664, Str::s665, Str::s666, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_1, 1 },
-    { ID::ARP_STEP_RATCHET_2, Str::s667, Str::s668, Str::s669, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_2, 1 },
-    { ID::ARP_STEP_RATCHET_3, Str::s670, Str::s671, Str::s672, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_3, 1 },
-    { ID::ARP_STEP_RATCHET_4, Str::s673, Str::s674, Str::s675, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_4, 1 },
-    { ID::ARP_STEP_RATCHET_5, Str::s676, Str::s677, Str::s678, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_5, 1 },
-    { ID::ARP_STEP_RATCHET_6, Str::s679, Str::s680, Str::s681, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_6, 1 },
-    { ID::ARP_STEP_RATCHET_7, Str::s682, Str::s683, Str::s684, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_7, 1 },
-    { ID::ARP_STEP_RATCHET_8, Str::s685, Str::s686, Str::s687, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_8, 1 },
-    { ID::ARP_STEP_RATCHET_9, Str::s688, Str::s689, Str::s690, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_9, 1 },
-    { ID::ARP_STEP_RATCHET_10, Str::s691, Str::s692, Str::s693, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_10, 1 },
-    { ID::ARP_STEP_RATCHET_11, Str::s694, Str::s695, Str::s696, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_11, 1 },
-    { ID::ARP_STEP_RATCHET_12, Str::s697, Str::s698, Str::s699, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_12, 1 },
-    { ID::ARP_STEP_RATCHET_13, Str::s700, Str::s701, Str::s702, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_13, 1 },
-    { ID::ARP_STEP_RATCHET_14, Str::s703, Str::s704, Str::s705, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_14, 1 },
-    { ID::ARP_STEP_RATCHET_15, Str::s706, Str::s707, Str::s708, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_15, 1 },
-    { ID::ARP_STEP_RATCHET_16, Str::s709, Str::s710, Str::s711, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s137, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_16, 1 },
+    { ID::ARP_ENABLE, Str::s546, Str::s547, Str::s317, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, ID::BASS_ENABLE, kVis_ARP_ENABLE, 1 },
+    { ID::ARP_MODE, Str::s548, Str::s549, Str::s126, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 6.0f, 0.0f, Str::s3, false, 0, -1, 7, kOpt_arp_mode, 17, 0, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_MODE, 1 },
+    { ID::ARP_OCTAVES, Str::s550, Str::s551, Str::s552, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_arp_octaves, 17, 0, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_OCTAVES, 1 },
+    { ID::ARP_LATCH, Str::s553, Str::s554, Str::s555, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 0, Control::Switch, ID::BASS_ENABLE, kVis_ARP_LATCH, 1 },
+    { ID::ARP_RATE, Str::s556, Str::s557, Str::s204, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 7.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 17, 1, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_RATE, 1 },
+    { ID::ARP_FREE_HZ, Str::s558, Str::s559, Str::s560, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, ID::BASS_ENABLE, kVis_ARP_FREE_HZ, 1 },
+    { ID::ARP_GATE_LENGTH, Str::s561, Str::s562, Str::s351, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, ID::BASS_ENABLE, kVis_ARP_GATE_LENGTH, 1 },
+    { ID::ARP_SWING, Str::s563, Str::s564, Str::s565, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 17, 1, Control::Pot, ID::BASS_ENABLE, kVis_ARP_SWING, 1 },
+    { ID::ARP_STEP_COUNT, Str::s566, Str::s567, Str::s348, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 16.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_COUNT, 1 },
+    { ID::ARP_STEP_SELECT, Str::s568, Str::s569, Str::s570, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 16.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_SELECT, 1 },
+    { ID::ARP_STEP_ONOFF, Str::s571, Str::s572, Str::s351, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ONOFF, 1 },
+    { ID::ARP_STEP_ACCENT, Str::s573, Str::s574, Str::s575, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT, 1 },
+    { ID::ARP_STEP_RATCHET, Str::s576, Str::s577, Str::s578, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET, 1 },
+    { ID::ARP_STEP_ON_1, Str::s579, Str::s580, Str::s581, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_1, 1 },
+    { ID::ARP_STEP_ON_2, Str::s582, Str::s583, Str::s584, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_2, 1 },
+    { ID::ARP_STEP_ON_3, Str::s585, Str::s586, Str::s587, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_3, 1 },
+    { ID::ARP_STEP_ON_4, Str::s588, Str::s589, Str::s590, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_4, 1 },
+    { ID::ARP_STEP_ON_5, Str::s591, Str::s592, Str::s593, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_5, 1 },
+    { ID::ARP_STEP_ON_6, Str::s594, Str::s595, Str::s596, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_6, 1 },
+    { ID::ARP_STEP_ON_7, Str::s597, Str::s598, Str::s599, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_7, 1 },
+    { ID::ARP_STEP_ON_8, Str::s600, Str::s601, Str::s602, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_8, 1 },
+    { ID::ARP_STEP_ON_9, Str::s603, Str::s604, Str::s605, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_9, 1 },
+    { ID::ARP_STEP_ON_10, Str::s606, Str::s607, Str::s608, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_10, 1 },
+    { ID::ARP_STEP_ON_11, Str::s609, Str::s610, Str::s611, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_11, 1 },
+    { ID::ARP_STEP_ON_12, Str::s612, Str::s613, Str::s614, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_12, 1 },
+    { ID::ARP_STEP_ON_13, Str::s615, Str::s616, Str::s617, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_13, 1 },
+    { ID::ARP_STEP_ON_14, Str::s618, Str::s619, Str::s620, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_14, 1 },
+    { ID::ARP_STEP_ON_15, Str::s621, Str::s622, Str::s623, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_15, 1 },
+    { ID::ARP_STEP_ON_16, Str::s624, Str::s625, Str::s626, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s98, false, 0, -1, 0, nullptr, 17, 2, Control::Switch, ID::BASS_ENABLE, kVis_ARP_STEP_ON_16, 1 },
+    { ID::ARP_STEP_ACCENT_1, Str::s627, Str::s628, Str::s629, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_1, 1 },
+    { ID::ARP_STEP_ACCENT_2, Str::s630, Str::s631, Str::s632, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_2, 1 },
+    { ID::ARP_STEP_ACCENT_3, Str::s633, Str::s634, Str::s635, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_3, 1 },
+    { ID::ARP_STEP_ACCENT_4, Str::s636, Str::s637, Str::s638, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_4, 1 },
+    { ID::ARP_STEP_ACCENT_5, Str::s639, Str::s640, Str::s641, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_5, 1 },
+    { ID::ARP_STEP_ACCENT_6, Str::s642, Str::s643, Str::s644, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_6, 1 },
+    { ID::ARP_STEP_ACCENT_7, Str::s645, Str::s646, Str::s647, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_7, 1 },
+    { ID::ARP_STEP_ACCENT_8, Str::s648, Str::s649, Str::s650, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_8, 1 },
+    { ID::ARP_STEP_ACCENT_9, Str::s651, Str::s652, Str::s653, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_9, 1 },
+    { ID::ARP_STEP_ACCENT_10, Str::s654, Str::s655, Str::s656, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_10, 1 },
+    { ID::ARP_STEP_ACCENT_11, Str::s657, Str::s658, Str::s659, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_11, 1 },
+    { ID::ARP_STEP_ACCENT_12, Str::s660, Str::s661, Str::s662, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_12, 1 },
+    { ID::ARP_STEP_ACCENT_13, Str::s663, Str::s664, Str::s665, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_13, 1 },
+    { ID::ARP_STEP_ACCENT_14, Str::s666, Str::s667, Str::s668, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_14, 1 },
+    { ID::ARP_STEP_ACCENT_15, Str::s669, Str::s670, Str::s671, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_15, 1 },
+    { ID::ARP_STEP_ACCENT_16, Str::s672, Str::s673, Str::s674, Type::Continuous, Scope::Patch, Widget::Grid, Curve::Lin, 0.0f, 0.0f, 1.0f, 1.0f, Str::s10, false, 0, -1, 0, nullptr, 17, 2, Control::Pot, ID::BASS_ENABLE, kVis_ARP_STEP_ACCENT_16, 1 },
+    { ID::ARP_STEP_RATCHET_1, Str::s675, Str::s676, Str::s677, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_1, 1 },
+    { ID::ARP_STEP_RATCHET_2, Str::s678, Str::s679, Str::s680, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_2, 1 },
+    { ID::ARP_STEP_RATCHET_3, Str::s681, Str::s682, Str::s683, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_3, 1 },
+    { ID::ARP_STEP_RATCHET_4, Str::s684, Str::s685, Str::s686, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_4, 1 },
+    { ID::ARP_STEP_RATCHET_5, Str::s687, Str::s688, Str::s689, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_5, 1 },
+    { ID::ARP_STEP_RATCHET_6, Str::s690, Str::s691, Str::s692, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_6, 1 },
+    { ID::ARP_STEP_RATCHET_7, Str::s693, Str::s694, Str::s695, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_7, 1 },
+    { ID::ARP_STEP_RATCHET_8, Str::s696, Str::s697, Str::s698, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_8, 1 },
+    { ID::ARP_STEP_RATCHET_9, Str::s699, Str::s700, Str::s701, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_9, 1 },
+    { ID::ARP_STEP_RATCHET_10, Str::s702, Str::s703, Str::s704, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_10, 1 },
+    { ID::ARP_STEP_RATCHET_11, Str::s705, Str::s706, Str::s707, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_11, 1 },
+    { ID::ARP_STEP_RATCHET_12, Str::s708, Str::s709, Str::s710, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_12, 1 },
+    { ID::ARP_STEP_RATCHET_13, Str::s711, Str::s712, Str::s713, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_13, 1 },
+    { ID::ARP_STEP_RATCHET_14, Str::s714, Str::s715, Str::s716, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_14, 1 },
+    { ID::ARP_STEP_RATCHET_15, Str::s717, Str::s718, Str::s719, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_15, 1 },
+    { ID::ARP_STEP_RATCHET_16, Str::s720, Str::s721, Str::s722, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 4.0f, 1.0f, Str::s145, false, 0, -1, 0, nullptr, 17, 2, Control::Encoder, ID::BASS_ENABLE, kVis_ARP_STEP_RATCHET_16, 1 },
     // ---- [18] Bass Sequencer ----
-    { ID::BASS_ENABLE, Str::s712, Str::s713, Str::s309, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_on_off, 18, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
-    { ID::BASS_LATCH, Str::s714, Str::s715, Str::s544, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s93, false, 0, -1, 0, nullptr, 18, 0, Control::Switch, ID::BASS_ENABLE, kVis_BASS_LATCH, 1 },
-    { ID::BASS_TIMING, Str::s716, Str::s717, Str::s196, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 7.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 18, 1, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_TIMING, 1 },
-    { ID::BASS_FREE_HZ, Str::s718, Str::s719, Str::s549, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 1, Control::Pot, ID::BASS_TIMING, kVis_BASS_FREE_HZ, 1 },
-    { ID::BASS_LENGTH, Str::s720, Str::s721, Str::s340, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 32.0f, 16.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_LENGTH, 1 },
-    { ID::BASS_DIRECTION, Str::s722, Str::s723, Str::s349, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_bass_dir, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_DIRECTION, 1 },
-    { ID::BASS_SCALE, Str::s724, Str::s725, Str::s726, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 9.0f, 2.0f, Str::s3, false, 0, -1, 10, kOpt_bass_scale, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_SCALE, 1 },
-    { ID::BASS_RANGE, Str::s727, Str::s728, Str::s729, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 15.0f, 7.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_RANGE, 1 },
-    { ID::BASS_GATE_LENGTH, Str::s730, Str::s731, Str::s343, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.1f, 0.0f, 0.9f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 1, Control::Pot, ID::BASS_ENABLE, kVis_BASS_GATE_LENGTH, 1 },
-    { ID::BASS_DENSITY, Str::s732, Str::s733, Str::s734, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.75f, Str::s10, false, 0, -1, 0, nullptr, 18, 2, Control::Pot, ID::BASS_ENABLE, kVis_BASS_DENSITY, 1 },
-    { ID::BASS_ACCENT, Str::s735, Str::s736, Str::s737, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.25f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_ACCENT, 1 },
-    { ID::BASS_SLIDE, Str::s738, Str::s739, Str::s740, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.25f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_SLIDE, 1 },
-    { ID::BASS_OCTAVE, Str::s741, Str::s742, Str::s743, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.15f, Str::s10, false, 0, -1, 0, nullptr, 18, 2, Control::Pot, ID::BASS_ENABLE, kVis_BASS_OCTAVE, 1 },
-    { ID::BASS_SEED, Str::s744, Str::s745, Str::s746, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 16383.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_SEED, 1 },
-    { ID::BASS_MUTATION, Str::s747, Str::s748, Str::s749, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 255.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_MUTATION, 1 },
-    { ID::BASS_SLIDE_TIME, Str::s750, Str::s751, Str::s346, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 10.0f, 0.0f, 500.0f, 80.0f, Str::s141, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_SLIDE_TIME, 1 },
-    { ID::BASS_ACCENT_AMP, Str::s752, Str::s753, Str::s754, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_ACCENT_AMP, 1 },
-    { ID::BASS_ACCENT_FILTER, Str::s755, Str::s756, Str::s757, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_ACCENT_FILTER, 1 },
-    { ID::BASS_STEP_1, Str::s758, Str::s759, Str::s381, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_1, 1 },
-    { ID::BASS_STEP_2, Str::s760, Str::s761, Str::s384, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_2, 1 },
-    { ID::BASS_STEP_3, Str::s762, Str::s763, Str::s387, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_3, 1 },
-    { ID::BASS_STEP_4, Str::s764, Str::s765, Str::s390, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_4, 1 },
-    { ID::BASS_STEP_5, Str::s766, Str::s767, Str::s393, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_5, 1 },
-    { ID::BASS_STEP_6, Str::s768, Str::s769, Str::s396, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_6, 1 },
-    { ID::BASS_STEP_7, Str::s770, Str::s771, Str::s399, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_7, 1 },
-    { ID::BASS_STEP_8, Str::s772, Str::s773, Str::s402, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_8, 1 },
-    { ID::BASS_STEP_9, Str::s774, Str::s775, Str::s405, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_9, 1 },
-    { ID::BASS_STEP_10, Str::s776, Str::s777, Str::s408, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_10, 1 },
-    { ID::BASS_STEP_11, Str::s778, Str::s779, Str::s411, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_11, 1 },
-    { ID::BASS_STEP_12, Str::s780, Str::s781, Str::s414, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_12, 1 },
-    { ID::BASS_STEP_13, Str::s782, Str::s783, Str::s417, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_13, 1 },
-    { ID::BASS_STEP_14, Str::s784, Str::s785, Str::s420, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_14, 1 },
-    { ID::BASS_STEP_15, Str::s786, Str::s787, Str::s423, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_15, 1 },
-    { ID::BASS_STEP_16, Str::s788, Str::s789, Str::s426, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_16, 1 },
-    { ID::BASS_STEP_17, Str::s790, Str::s791, Str::s792, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_17, 1 },
-    { ID::BASS_STEP_18, Str::s793, Str::s794, Str::s795, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_18, 1 },
-    { ID::BASS_STEP_19, Str::s796, Str::s797, Str::s798, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_19, 1 },
-    { ID::BASS_STEP_20, Str::s799, Str::s800, Str::s801, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_20, 1 },
-    { ID::BASS_STEP_21, Str::s802, Str::s803, Str::s804, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_21, 1 },
-    { ID::BASS_STEP_22, Str::s805, Str::s806, Str::s807, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_22, 1 },
-    { ID::BASS_STEP_23, Str::s808, Str::s809, Str::s810, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_23, 1 },
-    { ID::BASS_STEP_24, Str::s811, Str::s812, Str::s813, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_24, 1 },
-    { ID::BASS_STEP_25, Str::s814, Str::s815, Str::s816, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_25, 1 },
-    { ID::BASS_STEP_26, Str::s817, Str::s818, Str::s819, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_26, 1 },
-    { ID::BASS_STEP_27, Str::s820, Str::s821, Str::s822, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_27, 1 },
-    { ID::BASS_STEP_28, Str::s823, Str::s824, Str::s825, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_28, 1 },
-    { ID::BASS_STEP_29, Str::s826, Str::s827, Str::s828, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_29, 1 },
-    { ID::BASS_STEP_30, Str::s829, Str::s830, Str::s831, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_30, 1 },
-    { ID::BASS_STEP_31, Str::s832, Str::s833, Str::s834, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_31, 1 },
-    { ID::BASS_STEP_32, Str::s835, Str::s836, Str::s837, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s137, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_32, 1 },
+    { ID::BASS_ENABLE, Str::s723, Str::s724, Str::s317, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_on_off, 18, 0, Control::Encoder, kNoVisDep, nullptr, 0 },
+    { ID::BASS_LATCH, Str::s725, Str::s726, Str::s555, Type::Toggle, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s98, false, 0, -1, 0, nullptr, 18, 0, Control::Switch, ID::BASS_ENABLE, kVis_BASS_LATCH, 1 },
+    { ID::BASS_TIMING, Str::s727, Str::s728, Str::s204, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 14.0f, 7.0f, Str::s3, false, 0, -1, 15, kOpt_timing_mode, 18, 1, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_TIMING, 1 },
+    { ID::BASS_FREE_HZ, Str::s729, Str::s730, Str::s560, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 1, Control::Pot, ID::BASS_TIMING, kVis_BASS_FREE_HZ, 1 },
+    { ID::BASS_LENGTH, Str::s731, Str::s732, Str::s348, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 32.0f, 16.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_LENGTH, 1 },
+    { ID::BASS_DIRECTION, Str::s733, Str::s734, Str::s357, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 3.0f, 0.0f, Str::s3, false, 0, -1, 4, kOpt_bass_dir, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_DIRECTION, 1 },
+    { ID::BASS_SCALE, Str::s735, Str::s736, Str::s737, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 9.0f, 2.0f, Str::s3, false, 0, -1, 10, kOpt_bass_scale, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_SCALE, 1 },
+    { ID::BASS_RANGE, Str::s738, Str::s739, Str::s740, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 1.0f, 0.0f, 15.0f, 7.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_RANGE, 1 },
+    { ID::BASS_GATE_LENGTH, Str::s741, Str::s742, Str::s351, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.1f, 0.0f, 0.9f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 1, Control::Pot, ID::BASS_ENABLE, kVis_BASS_GATE_LENGTH, 1 },
+    { ID::BASS_DENSITY, Str::s743, Str::s744, Str::s745, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.75f, Str::s10, false, 0, -1, 0, nullptr, 18, 2, Control::Pot, ID::BASS_ENABLE, kVis_BASS_DENSITY, 1 },
+    { ID::BASS_ACCENT, Str::s746, Str::s747, Str::s748, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.25f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_ACCENT, 1 },
+    { ID::BASS_SLIDE, Str::s749, Str::s750, Str::s751, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.25f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_SLIDE, 1 },
+    { ID::BASS_OCTAVE, Str::s752, Str::s753, Str::s754, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.15f, Str::s10, false, 0, -1, 0, nullptr, 18, 2, Control::Pot, ID::BASS_ENABLE, kVis_BASS_OCTAVE, 1 },
+    { ID::BASS_SEED, Str::s755, Str::s756, Str::s757, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 16383.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_SEED, 1 },
+    { ID::BASS_MUTATION, Str::s758, Str::s759, Str::s760, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 255.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 2, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_MUTATION, 1 },
+    { ID::BASS_SLIDE_TIME, Str::s761, Str::s762, Str::s354, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Log, 10.0f, 0.0f, 500.0f, 80.0f, Str::s149, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_SLIDE_TIME, 1 },
+    { ID::BASS_ACCENT_AMP, Str::s763, Str::s764, Str::s765, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_ACCENT_AMP, 1 },
+    { ID::BASS_ACCENT_FILTER, Str::s766, Str::s767, Str::s768, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.5f, Str::s10, false, 0, -1, 0, nullptr, 18, 3, Control::Pot, ID::BASS_ENABLE, kVis_BASS_ACCENT_FILTER, 1 },
+    { ID::BASS_STEP_1, Str::s769, Str::s770, Str::s389, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_1, 1 },
+    { ID::BASS_STEP_2, Str::s771, Str::s772, Str::s392, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_2, 1 },
+    { ID::BASS_STEP_3, Str::s773, Str::s774, Str::s395, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_3, 1 },
+    { ID::BASS_STEP_4, Str::s775, Str::s776, Str::s398, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_4, 1 },
+    { ID::BASS_STEP_5, Str::s777, Str::s778, Str::s401, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_5, 1 },
+    { ID::BASS_STEP_6, Str::s779, Str::s780, Str::s404, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_6, 1 },
+    { ID::BASS_STEP_7, Str::s781, Str::s782, Str::s407, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_7, 1 },
+    { ID::BASS_STEP_8, Str::s783, Str::s784, Str::s410, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_8, 1 },
+    { ID::BASS_STEP_9, Str::s785, Str::s786, Str::s413, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_9, 1 },
+    { ID::BASS_STEP_10, Str::s787, Str::s788, Str::s416, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_10, 1 },
+    { ID::BASS_STEP_11, Str::s789, Str::s790, Str::s419, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_11, 1 },
+    { ID::BASS_STEP_12, Str::s791, Str::s792, Str::s422, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_12, 1 },
+    { ID::BASS_STEP_13, Str::s793, Str::s794, Str::s425, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_13, 1 },
+    { ID::BASS_STEP_14, Str::s795, Str::s796, Str::s428, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_14, 1 },
+    { ID::BASS_STEP_15, Str::s797, Str::s798, Str::s431, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_15, 1 },
+    { ID::BASS_STEP_16, Str::s799, Str::s800, Str::s434, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_16, 1 },
+    { ID::BASS_STEP_17, Str::s801, Str::s802, Str::s803, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_17, 1 },
+    { ID::BASS_STEP_18, Str::s804, Str::s805, Str::s806, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_18, 1 },
+    { ID::BASS_STEP_19, Str::s807, Str::s808, Str::s809, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_19, 1 },
+    { ID::BASS_STEP_20, Str::s810, Str::s811, Str::s812, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_20, 1 },
+    { ID::BASS_STEP_21, Str::s813, Str::s814, Str::s815, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_21, 1 },
+    { ID::BASS_STEP_22, Str::s816, Str::s817, Str::s818, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_22, 1 },
+    { ID::BASS_STEP_23, Str::s819, Str::s820, Str::s821, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_23, 1 },
+    { ID::BASS_STEP_24, Str::s822, Str::s823, Str::s824, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_24, 1 },
+    { ID::BASS_STEP_25, Str::s825, Str::s826, Str::s827, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_25, 1 },
+    { ID::BASS_STEP_26, Str::s828, Str::s829, Str::s830, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_26, 1 },
+    { ID::BASS_STEP_27, Str::s831, Str::s832, Str::s833, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_27, 1 },
+    { ID::BASS_STEP_28, Str::s834, Str::s835, Str::s836, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_28, 1 },
+    { ID::BASS_STEP_29, Str::s837, Str::s838, Str::s839, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_29, 1 },
+    { ID::BASS_STEP_30, Str::s840, Str::s841, Str::s842, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_30, 1 },
+    { ID::BASS_STEP_31, Str::s843, Str::s844, Str::s845, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_31, 1 },
+    { ID::BASS_STEP_32, Str::s846, Str::s847, Str::s848, Type::Int, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 2047.0f, 0.0f, Str::s145, false, 0, -1, 0, nullptr, 18, 4, Control::Encoder, ID::BASS_ENABLE, kVis_BASS_STEP_32, 1 },
 };
 
 inline constexpr size_t kParamCount = sizeof(kParams) / sizeof(kParams[0]);
@@ -1841,29 +1863,30 @@ inline constexpr size_t kParamCount = sizeof(kParams) / sizeof(kParams[0]);
 // kBankIndex is a plain constexpr array, i.e. .rodata -> DTCM on the IMXRT1062,
 // NOT JT_TABLE_FLASH: slotFor() runs once per dirty parameter in the
 // audio-plane drain, where a FLEXSPI miss costs more than these bytes of RAM.
-inline constexpr int16_t kBankIndex[] = {  // 304 entries, 608 B DTCM
+inline constexpr int16_t kBankIndex[] = {  // 308 entries, 616 B DTCM
       0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
      16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,
      32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,
      48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,
      64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,
-     80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  -1,  -1,  -1,  -1,
+     80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  -1,
      -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
-     92,  93,  94,  95,  96,  97,  98,  99, 100, 101, 102,  -1,  -1,  -1,  -1,  -1,
-     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
-     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  95,  96,  97,  98,  99, 100, 101, 102, 103, 104, 105,  -1,  -1,
      -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
      -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
-     -1, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117,
-    118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133,
-    134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149,
-    150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165,
-    166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181,
-    182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197,
-    198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213,
+     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1,
+     -1,  -1,  -1,  -1,  -1, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116,
+    117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132,
+    133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148,
+    149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164,
+    165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180,
+    181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196,
+    197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212,
+    213, 214, 215, 216,
 };
 
-inline constexpr size_t kBankedCount = 214;   // Scope::Patch params
+inline constexpr size_t kBankedCount = 217;   // Scope::Patch params
 inline constexpr size_t kStoreSlots  = kParamCount + kBankedCount;
 
 inline constexpr bool isBanked(size_t index) { return kBankIndex[index] >= 0; }
@@ -1878,21 +1901,21 @@ inline constexpr size_t slotFor(size_t index, uint8_t layer) {
 // Reverse of kBankIndex: which parameter owns each APPENDED (layer-B) slot.
 // The audio-plane drain pops a slot and must name the parameter again;
 // without this it would linear-scan kBankIndex per dirty param, in the ISR.
-inline constexpr int16_t kBankOwner[] = {  // 214 entries, 428 B DTCM
+inline constexpr int16_t kBankOwner[] = {  // 217 entries, 434 B DTCM
       0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,  14,  15,
      16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,  28,  29,  30,  31,
      32,  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  45,  46,  47,
      48,  49,  50,  51,  52,  53,  54,  55,  56,  57,  58,  59,  60,  61,  62,  63,
      64,  65,  66,  67,  68,  69,  70,  71,  72,  73,  74,  75,  76,  77,  78,  79,
-     80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91, 112, 113, 114, 115,
-    116, 117, 118, 119, 120, 121, 122, 193, 194, 195, 196, 197, 198, 199, 200, 201,
-    202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217,
-    218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233,
-    234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249,
-    250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265,
-    266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281,
-    282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297,
-    298, 299, 300, 301, 302, 303,
+     80,  81,  82,  83,  84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94, 115,
+    116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 197, 198, 199, 200, 201, 202,
+    203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218,
+    219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234,
+    235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250,
+    251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266,
+    267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282,
+    283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298,
+    299, 300, 301, 302, 303, 304, 305, 306, 307,
 };
 
 // Decompose a storage slot back into (parameter, layer).  Both are one
@@ -1938,8 +1961,8 @@ inline constexpr uint16_t idFromNrpn(uint8_t msb, uint8_t lsb) {
 }
 
 // Compile-time guarantees — a bad regeneration cannot even compile.
-static_assert(kParamCount == 304, "param count changed — regenerate consumers");
-static_assert(kBankedCount == 214, "banked count changed — ParameterStore must be resized");
+static_assert(kParamCount == 308, "param count changed — regenerate consumers");
+static_assert(kBankedCount == 217, "banked count changed — ParameterStore must be resized");
 static_assert(sizeof(kBankIndex) / sizeof(kBankIndex[0]) == kParamCount,
               "bank index table must be one entry per parameter");
 static_assert(sizeof(kBankOwner) / sizeof(kBankOwner[0]) == kBankedCount,

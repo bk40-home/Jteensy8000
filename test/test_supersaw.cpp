@@ -79,38 +79,97 @@ TEST_CASE("detune spreads the swarm: no longer periodic, crossings rise")
     const auto vHi = renderN(hi, 44160);
     CHECK(periodicity(vHi, 100) > 0.05);      // beats break the period
 
-    // Detuned sides run up to ±11% of centre — total positive-going
-    // crossings must exceed the unison count noticeably.
-    CHECK(risingCrossings(vHi) > risingCrossings(vLo) + 20);
+    // LESSON (2026-10-22, JP mix law 1b): this used to assert that rising
+    // zero-crossings exceed the unison count by 20.  That premise held only
+    // while v1 split the side gain by 6 (quiet sides = small wobbles adding
+    // crossings to a dominant centre saw).  With the JP per-voice law the
+    // swarm's mean frequency is still f0, so crossings do NOT rise — the DSP
+    // is right, the proxy was wrong.  Pin the physics directly instead: the
+    // lowest voice (−11.0 %) must be present at harmonic 4 in the detuned
+    // render and absent in the unison one.
+    auto lowVoiceAmp = [](const std::vector<float>& v) {
+        const double w = 2.0 * 3.14159265358979 * 4.0 * ((double)kSampleRate / 100.0)
+                       * (1.0 - 0.11002313) / (double)kSampleRate;
+        double re = 0.0, im = 0.0;
+        for (size_t i = 0; i < 44100; ++i) {
+            const double t = (double)i / 44099.0;
+            const double win = 0.42 - 0.5 * std::cos(6.28318530718 * t) + 0.08 * std::cos(12.5663706144 * t);
+            re += (double)v[i] * win * std::cos(w * (double)i);
+            im -= (double)v[i] * win * std::sin(w * (double)i);
+        }
+        return std::sqrt(re * re + im * im);
+    };
+    CHECK(lowVoiceAmp(vHi) > 20.0 * lowVoiceAmp(vLo));
 }
 
-TEST_CASE("mix knob: level stays compensated-flat; side swarm emerges")
+TEST_CASE("mix knob: JP-8000 law - side/centre amplitude follows the JE-8086")
 {
-    // The Szabó gain curves drop the centre while raising the sides, and
-    // random-phase summation adds side POWER, not amplitude — so absolute
-    // RMS is roughly flat by design (that is what mix compensation is FOR).
-    // Pin that stability band (measured from the port: 0.32..0.41 over the
-    // whole grid) rather than a naive coherent-sum prediction.
-    auto rmsAt = [](float mix, float det) {
+    // 2026-10-22 sign-off 1b: each side voice gets the FULL Szabó side gain
+    // (v1 divided it by 6).  Reference = side/centre amplitude measured from
+    // a JE-8086 capture at full detune, mix 0..1 (osc-shapes doc, §5).
+    // Measured the same way here: single-bin DFTs at harmonic 4 of each of
+    // the seven voice frequencies over 1 s.  Tolerance 0.08 covers the
+    // capture's knob-calibration offset (JP sits ~0.06 under Szabó mid-range).
+    static const float kJpRatio[11] = { 0.070f, 0.120f, 0.238f, 0.374f, 0.515f, 0.632f,
+                                        0.757f, 0.898f, 1.025f, 1.154f, 1.281f };
+    static const double kOff[7] = { -0.11002313, -0.06288439, -0.01952356, 0.0,
+                                     0.01991221,  0.06216538,  0.10745242 };
+    const float f0 = 130.8128f;
+    for (int m = 0; m <= 10; m += 2) {
+        SupersawOsc o;
+        o.seedNoise(5);
+        o.setFrequency(f0);
+        o.setDetune(1.0f);
+        o.setMix((float)m / 10.0f);
+        o.noteOn();
+        const auto v = renderN(o, (size_t)kSampleRate + 4800);
+        double amp[7];
+        for (int k = 0; k < 7; ++k) {
+            const double w = 2.0 * 3.14159265358979 * 4.0 * (double)f0 * (1.0 + kOff[k]) / (double)kSampleRate;
+            double re = 0.0, im = 0.0;
+            const size_t L = (size_t)kSampleRate;
+            for (size_t i = 0; i < L; ++i) {
+                // Blackman window: keeps neighbouring voices' leakage out.
+                const double t = (double)i / (double)(L - 1);
+                const double win = 0.42 - 0.5 * std::cos(6.28318530718 * t) + 0.08 * std::cos(12.5663706144 * t);
+                const double x = (double)v[i + 4800] * win;
+                re += x * std::cos(w * (double)i);
+                im -= x * std::sin(w * (double)i);
+            }
+            amp[k] = std::sqrt(re * re + im * im);
+        }
+        const double side = (amp[0] + amp[1] + amp[2] + amp[4] + amp[5] + amp[6]) / 6.0;
+        CAPTURE(m);
+        const double ratio = side / amp[3];
+        CAPTURE(ratio);
+        CHECK(std::fabs(ratio - (double)kJpRatio[m]) < 0.08);
+    }
+}
+
+TEST_CASE("mix knob: JP level - no compensation, RMS tracks the JE-8086")
+{
+    // JE-8086 supersaw RMS relative to its own plain saw, full detune:
+    // mix 0 -> 0.581, 0.5 -> 0.831, 1.0 -> 0.882 (osc-shapes doc, §5).
+    // A plain ±1 saw has RMS 1/sqrt(3).  ±0.10 covers random-phase spread.
+    auto rmsAt = [](float mix) {
         SupersawOsc o;
         o.seedNoise(7);
         o.setFrequency(441.0f);
-        o.setDetune(det);
+        o.setDetune(1.0f);
         o.setMix(mix);
         o.noteOn();
-        const auto v = renderN(o, 44160);
+        const auto v = renderN(o, 48000);
         double acc = 0.0;
         for (float s : v) acc += (double)s * (double)s;
-        return (float)std::sqrt(acc / (double)v.size());
+        return std::sqrt(acc / (double)v.size()) * std::sqrt(3.0);
     };
-    for (float mix : { 0.0f, 0.5f, 1.0f })
-        for (float det : { 0.0f, 1.0f }) {
-            CAPTURE(mix); CAPTURE(det);
-            const float r = rmsAt(mix, det);
-            CHECK(r > 0.25f);
-            CHECK(r < 0.55f);
-        }
+    CHECK(std::fabs(rmsAt(0.0f) - 0.581) < 0.10);
+    CHECK(std::fabs(rmsAt(0.5f) - 0.831) < 0.10);
+    CHECK(std::fabs(rmsAt(1.0f) - 0.882) < 0.10);
+}
 
+TEST_CASE("mix knob: side swarm emerges (periodicity)")
+{
     // The AUDIBLE meaning of mix, pinned via periodicity at full detune:
     // mix=0 -> sides ~ -43 dB each, output near-periodic at the centre;
     // mix=1 -> the swarm dominates and periodicity collapses.
@@ -174,7 +233,7 @@ TEST_CASE("seeded determinism: same seed identical, different seed different")
     CHECK(a != c);                            // and the phases really vary
 }
 
-TEST_CASE("supersaw abuse: parameter thrash stays finite and clipped to ±1")
+TEST_CASE("supersaw abuse: parameter thrash stays finite and inside the ±3.0 safety bound")
 {
     SupersawOsc o;
     uint32_t rng = 11;
@@ -188,7 +247,7 @@ TEST_CASE("supersaw abuse: parameter thrash stays finite and clipped to ±1")
         o.render(out, kBlockSize, nullptr, 0.0f, nullptr);
         for (float s : out) {
             REQUIRE(std::isfinite(s));
-            REQUIRE(std::fabs(s) <= 1.0f);    // v1's output clip guarantees
+            REQUIRE(std::fabs(s) <= 3.0f);    // kClip safety bound (1b, header deviation 5)
         }
     }
 }

@@ -81,6 +81,12 @@ public:
     static constexpr float    kMaxModMs     = 50.0f;        // v1 JPFX_MAX_MOD_MS
     static constexpr float    kMinDelaySamp = 1.0f;         // v1 JPFX_MIN_DELAY_SAMP
     static constexpr uint8_t  kNumModPresets   = 11;        // v1 JPFX_NUM_MOD_VARIATIONS
+    // 3a/4a (JP capture gap analysis 2026-10-22): the twelve JP-8000 Multi-FX
+    // modulation types, APPENDED after the v1 presets (fx.mod_effect option
+    // indices 12..23 -> engine types 11..22).  Option indices are stored in
+    // patches, so the v1 presets keep 0..10 untouched.
+    static constexpr uint8_t  kNumJpModTypes   = 12;
+    static constexpr uint8_t  kNumModTypes     = kNumModPresets + kNumJpModTypes;
     static constexpr uint8_t  kNumDelayPresets = 5;         // v1 JPFX_NUM_DELAY_VARIATIONS
 
     // Rate-derived (AudioConfig.h msToSamples): the duration is fixed, the
@@ -214,9 +220,10 @@ public:
     void setBassGain(float dB);
     void setTrebleGain(float dB);
 
-    // Modulation: type -1 = OFF, 0..10 = preset (v1 ModEffectType).
+    // Modulation: type -1 = OFF, 0..10 = v1 preset (v1 ModEffectType),
+    // 11..22 = JP-8000 Multi-FX type (kJpModTypes order).  Out of range = OFF.
     void setModEffect(int v1Type);
-    void setModMix(float mix);          // 0..1 (Level knob)
+    void setModMix(float mix);          // 0..1 (Level knob, square-law send — 2a)
     void setModRate(float rateHz);      // Hz, 0 = use preset rate
     void setModFeedback(float fb);      // 0..0.99, <0 = use preset feedback
 
@@ -404,6 +411,18 @@ private:
     // ---- Modulation (v1 AudioEffectJPFX.cpp:625-763) ----
     inline void processModulation(float inL, float inR, float& outL, float& outR);
 
+    // ---- JP-8000 Multi-FX modulation (measured pair engine, 2026-10-23) ----
+    // Structure measured from the JE-8086 noise capture
+    // (chorus-fx/jp-noise-capture-analysis-2026-10-23.md), identical for all
+    // twelve types:
+    //   W = g * [ x(t - c - d(t)) - x(t - c + d(t)) ]  +  g3 * x(t - 2c)
+    //   L = dry + m^2 * W        R = dry - m^2 * W     (MONO wet, R inverted)
+    // d(t) = D * LFO (static / tri / sine / unipolar tri), then a per-type
+    // wet high-pass.  Deep Phasing adds a feedback term (its resonance).  One mono wet path: 2-3 reads
+    // per sample, about half the work of the per-side voices it replaces.
+    inline void processModulationJp(float inL, float inR, float& outL, float& outR);
+    void prepareJpMod();     // control-plane: type change only
+
     // ---- Delay (v1 AudioEffectJPFX.cpp:766-897) ----
     inline void processDelay(float inL, float inR, float& outL, float& outR);
 
@@ -470,12 +489,32 @@ private:
     bool  _toneDirty  = false;
 
     // -- Modulation --
-    int   _modType             = -1;    // -1=OFF, 0..10 (v1 ModEffectType)
+    int   _modType             = -1;    // -1=OFF, 0..10 v1 preset, 11..22 JP type
     float _modMix              = 0.5f;
+    float _modWetGain          = 0.25f;   // 2a: _modMix^2, cached by setModMix
     float _modRateOverride     = -1.0f; // -1 = use preset
     float _modFeedbackOverride = -1.0f; // -1 = use preset
     float _lfoPhaseL = 0.0f, _lfoPhaseR = 0.5f;   // R offset for stereo width
     float _lfoIncL   = 0.0f, _lfoIncR   = 0.0f;
+
+    // -- JP Multi-FX pair-engine cache (filled by prepareJpMod) --
+    // Pre-scaled to samples / cycles so the inner loop is add, wrap, shape,
+    // two multiply-adds, two or three interpolated reads.
+    float   _jpPhase    = 0.0f;   // LFO phase, cycles 0..1
+    float   _jpInc      = 0.0f;   // cycles per sample (0 when static)
+    float   _jpCentre   = 0.0f;   // c, samples
+    float   _jpDepth    = 0.0f;   // D, samples
+    float   _jpStaticD  = 0.0f;   // d for static types, samples
+    float   _jpG        = 0.0f;   // pair gain g
+    float   _jpG3       = 0.0f;   // fixed-tap gain at 2c (0 = no third read)
+    float   _jpFeedback = 0.0f;   // W fed back into the line (Deep Phasing)
+    float   _jpLastW    = 0.0f;   // previous W, for the feedback write
+    uint8_t _jpShape    = 0;      // JpLfoShape
+    // Wet high-pass (the JE high-passes W per type: 70 Hz .. 1.5 kHz).
+    // TPT one-pole: G computed once per type change, 2 MACs per stage per sample.
+    float   _jpHpG      = 0.0f;
+    float   _jpHpS[2]   = {};     // integrator state per stage
+    uint8_t _jpHpPoles  = 0;
 
     // -- Delay --
     int   _delayType             = -1;   // -1=OFF, 0..4 (v1 DelayEffectType)
@@ -547,7 +586,23 @@ private:
     struct DelayParams {
         float delayMsL, delayMsR, feedback, mix;
     };
+    // JP Multi-FX type description (measured pair engine, 2026-10-23).
+    // kJpLfoUni = unipolar triangle, d = D * (1 + tri) / 2: the taps meet
+    // (W = 0) once per cycle but never cross (Deep Phasing).
+    enum JpLfoShape : uint8_t { kJpLfoStatic = 0, kJpLfoTri = 1, kJpLfoSine = 2, kJpLfoUni = 3 };
+    struct JpModParams {
+        float   centreMs;   // c: centre of the tap pair
+        float   depthMs;    // D: LFO amplitude of d (static types: the fixed d)
+        uint8_t shape;      // JpLfoShape
+        float   rateHz;     // LFO rate (ignored when static)
+        float   g;          // pair gain
+        float   g3;         // gain of the fixed tap at 2c (0 = none)
+        float   feedback;   // W fed back into the delay line (0 = none)
+        float   hpHz;       // wet high-pass corner (measured per type)
+        uint8_t hpPoles;    // 0..2 cascaded one-pole TPT stages
+    };
     static const ModParams   kModPresets[kNumModPresets];
+    static const JpModParams kJpModTypes[kNumJpModTypes];
     static const DelayParams kDelayPresets[kNumDelayPresets];
 };
 

@@ -614,8 +614,15 @@ void setup()
     // default.  Set once here; loop() tracks the return level thereafter.
 #if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
     gRetMixL.gain(0, 1.0f);  gRetMixR.gain(0, 1.0f);
-    gRetMixL.gain(1, gStore.get(0x0801));
-    gRetMixR.gain(1, gStore.get(0x0801));
+    {
+        // Named ID, never a literal: if master.usb_return_level ever leaves
+        // params.yaml this stops compiling.  The old hex literal compiled
+        // against a table that lacked it, get() returned 0.0f and the DAW
+        // return was silently muted (fixed 2026-10-22).
+        const float retInit = gStore.get(JT::Params::ID::MASTER_USB_RETURN_LEVEL);
+        gRetMixL.gain(1, retInit);
+        gRetMixR.gain(1, retInit);
+    }
 #endif
 
 #if defined(JT_BACKEND_SGTL5000)
@@ -867,7 +874,8 @@ void loop()
     // than a change-detect branch would be.  ch0 (synth) is fixed at unity.
 #if defined(JT_BACKEND_PCM5102) || defined(JT_BACKEND_SGTL5000)
     {
-        const float retLevel = gStore.get(0x0801);   // master.usb_return_level 0..1
+        // master.usb_return_level, 0..1 linear (norm == engineering here).
+        const float retLevel = gStore.get(JT::Params::ID::MASTER_USB_RETURN_LEVEL);
         gRetMixL.gain(1, retLevel);
         gRetMixR.gain(1, retLevel);
     }

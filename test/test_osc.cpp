@@ -273,3 +273,66 @@ TEST_CASE("oscillator abuse: parameter thrash stays finite and bounded")
         }
     }
 }
+
+// =============================================================================
+// PWM law (mix.pwm_law, sign-off 5b 2026-10-22).  The JE-8086 shows the
+// JP-8000 floors pulse width + LFO at 50 % (its PW knob narrows one way, and
+// at PW = 0 half of each LFO cycle sits flat at a square).  JtPwm must stay
+// the v1 5..95 % clamp; neither law may touch TriVar's skew.
+// =============================================================================
+namespace {
+
+// Fraction of one cycle the naive Pulse sits HIGH (exact at 480 samples/cycle).
+double highFraction(OscCore& o)
+{
+    o.setFrequency(kSampleRate / 480.0f);
+    o.resetPhase(0.0f);
+    const auto v = renderSamples(o, 480 * 3);
+    size_t hi = 0;
+    for (size_t i = 480; i < 480 * 3; ++i) if (v[i] > 0.0f) ++hi;
+    return (double)hi / 960.0;
+}
+
+} // namespace
+
+TEST_CASE("PWM law: JtPwm (default) keeps the v1 5..95 % clamp, through 50 %")
+{
+    OscCore o; o.setWave(Wave::Pulse);
+    o.setShape(0.20f); CHECK(highFraction(o) == doctest::Approx(0.20).epsilon(0.01));
+    o.setShape(0.01f); CHECK(highFraction(o) == doctest::Approx(0.05).epsilon(0.01));
+    o.setShape(0.99f); CHECK(highFraction(o) == doctest::Approx(0.95).epsilon(0.01));
+}
+
+TEST_CASE("PWM law: JpPwm floors the pulse at 50 %, leaves the narrow side alone")
+{
+    OscCore o; o.setWave(Wave::Pulse);
+    o.setJpPwmClamp(true);
+    o.setShape(0.20f); CHECK(highFraction(o) == doctest::Approx(0.50).epsilon(0.01));
+    o.setShape(0.50f); CHECK(highFraction(o) == doctest::Approx(0.50).epsilon(0.01));
+    o.setShape(0.80f); CHECK(highFraction(o) == doctest::Approx(0.80).epsilon(0.01));
+    o.setShape(0.99f); CHECK(highFraction(o) == doctest::Approx(0.95).epsilon(0.01));
+}
+
+TEST_CASE("PWM law: switching re-applies the current width immediately")
+{
+    OscCore o; o.setWave(Wave::BlPulse);
+    o.setShape(0.25f);
+    o.setJpPwmClamp(true);                      // no new setShape() needed
+    o.setWave(Wave::Pulse);
+    CHECK(highFraction(o) == doctest::Approx(0.50).epsilon(0.01));
+    o.setJpPwmClamp(false);
+    CHECK(highFraction(o) == doctest::Approx(0.25).epsilon(0.01));
+}
+
+TEST_CASE("PWM law: TriVar skew is untouched by either law")
+{
+    auto render = [](bool jp) {
+        OscCore o; o.setWave(Wave::TriVar);
+        o.setJpPwmClamp(jp);
+        o.setShape(0.2f);
+        o.setFrequency(kSampleRate / 480.0f); o.resetPhase(0.0f);
+        return renderSamples(o, 960);
+    };
+    const auto a = render(false), b = render(true);
+    for (size_t i = 0; i < a.size(); ++i) REQUIRE(a[i] == b[i]);   // bit-identical
+}

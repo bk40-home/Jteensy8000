@@ -31,6 +31,25 @@
 //   3. Amplitude/velocity staging: v1 folded velocity into _amp here; v2
 //      applies velocity and envelope at the Voice stage like every other
 //      source.  Identical math, one stage later.
+//   4. MIX LAW = JP-8000, NOT v1 (signed off 2026-10-22, item 1b).  v1 split
+//      the Szabó side gain across the six side voices (sideTotal / 6); the
+//      JE-8086 captures show the JP gives EACH side voice the full Szabó
+//      side value (measured side/centre amplitude within ~0.05 of Szabó at
+//      every mix; v1 was ~6x too quiet).  The JP also applies NO mix
+//      compensation: its supersaw RMS is a constant multiple of the
+//      per-voice Szabó sum (0.53..0.60 x the UNFILTERED sum, relative to its
+//      own plain saw, flat across the whole mix sweep).  So v1's
+//      (1 + 0.5·mix) boost is gone.  kOutputGain = 0.71 is that level
+//      re-calibrated THROUGH this class's pitch-tracked HPF (rendered at the
+//      capture pitch, 20 seeds: JE/JT RMS ratio 1.17..1.27 at 0.57, flat
+//      across mix -> x1.24).  Existing patches using SSAW change sound
+//      (accepted at sign-off).  See osc-shapes/jp-osc1-capture-analysis.
+//   5. OUTPUT BOUND.  v1's ±1 double clip existed for a sum that rarely
+//      exceeded 1; the JP-law sum peaks near 1.5-2 on ordinary settings and
+//      the JP output is NOT clipped (capture peaks ~3x its saw peak).  The
+//      pre-gain clip is removed; the output clip stays only as a safety
+//      bound at ±kClip = 3.0, above the worst-case coherent peak
+//      0.71 × (centre + 6 × side) ≈ 2.8, so it never touches the sound.
 //
 // SUPERSAW ON BOTH OSCILLATORS
 //   Per the Pass 4 sign-off this class is owned by BOTH OscUnits (v1
@@ -90,10 +109,14 @@ private:
     float _mixAmt    = 0.5f;
     bool  _polyBlep  = false;
 
-    // v1 OscillatorBlock configuration, fixed (see header):
-    static constexpr float kOutputGain   = 1.0f;
-    static constexpr float kCompMaxGain  = 1.5f;   // mix compensation ceiling
-    static constexpr float kPmRangeCycles = 0.5f;  // 180°
+    // Output staging (see deviations 4 and 5 in the header):
+    //   kOutputGain — measured JP level relative to a plain ±1 saw, through
+    //                 the tracked HPF below (header deviation 4).  The ONE
+    //                 trim point if an A/B against the JE wants it nudged.
+    //   kClip       — safety bound only; above the worst-case coherent peak.
+    static constexpr float kOutputGain    = 0.71f;
+    static constexpr float kClip          = 3.0f;
+    static constexpr float kPmRangeCycles = 0.5f;  // 180° (v1)
 
     // derived per-voice state
     float _phase[kVoices]    = { 0.0f };

@@ -52,6 +52,51 @@ inline float reflectFold(float x)
     return t;
 }
 
+// -----------------------------------------------------------------------------
+// JP-8000 SAW SHAPE law ("JvSAW", Wave::JpVarSaw) — MEASURED, closed form.
+// Source: JE-8086 calibrated Ctrl1 ramp, 2026-10-22 (osc-shapes doc §1).
+//   y = (2φ − 1) − β(k) · (4π²/3) · B3(φ),   B3(φ) = φ(φ − ½)(φ − 1)
+// i.e. a fixed saw plus β × the saw integrated twice (a 1/n³ series in phase
+// with the saw — B3 is the closed form of that series; 4π²/3 converts the
+// series weight to B3 units).  Fit error 0.2–1.1 % across the sweep.
+//   β(k) = 1.2118 − 4.70·k, linear to 0.01; pure saw at k ≈ 0.258.
+//   Below k = 0.0334 the JP holds β (end-stop dead zone) — clamped here.
+// B3 is C1-continuous, so the ONLY discontinuity is the saw edge at φ = 0:
+// one polyBLEP, exactly as BlSaw.  JP itself is band-limited (−45 dB alias
+// at C7, measured) so the band-limited form is the faithful one.
+// Level: kJpSawGain = 1 / peak at k = 1 (1.657) -> output peak ±1 nominal at
+// the loudest shape, while the JP's relative level change across SHAPE
+// (RMS dip ~10 dB at the centre) is kept exactly.
+// -----------------------------------------------------------------------------
+constexpr float kJpSawBeta0    = 1.2118f;
+constexpr float kJpSawBetaK    = 4.70f;
+constexpr float kJpSawKMin     = 0.0334f;           // measured dead zone
+constexpr float kJpSawB3Scale  = 13.1594725f;       // 4π²/3
+constexpr float kJpSawGain     = 0.6034671f;        // 1 / 1.657091
+
+// -----------------------------------------------------------------------------
+// JP-8000 TRIANGLE MOD law ("JTRIM", Wave::JpTriMod) — MEASURED, closed form.
+// Source: JE-8086 calibrated Ctrl1 ramp, 2026-10-22 (osc-shapes doc §3).
+//   y = wrap( g(k) · tri(φ) ),  wrap(v) = ((v + 1) mod 2) − 1  (WRAP-around,
+//   not the reflect-fold of vTRI), tri rising −1 -> +1 over φ 0 -> ½.
+// Fit error 2–9 % across the sweep; odd harmonics only; constant level.
+//   g(k) = 1.635 − 0.967·(k − ½), clamped to [1.375, 2.02] — the JP holds g
+//   below k ≈ 0.10 and above k ≈ 0.77 (end-stop dead zones, measured).
+// Because 1 < g < 3 there are exactly FOUR wrap jumps per cycle, at phases
+// solved once per block from g:
+//   rising half  (v = g(4φ − 1)):  v = −1 at φa = (1 − 1/g)/4, v = +1 at
+//                                   φb = (1 + 1/g)/4   — both jumps −2
+//   falling half (v = g(3 − 4φ)):  v = +1 at φc = (3 − 1/g)/4, v = −1 at
+//                                   φd = (3 + 1/g)/4   — both jumps +2
+// Each jump gets one polyBLEP (correction h/2 · polyBlep, h = jump height —
+// the same convention as BlSaw's −polyBlep for its −2 edge).  The JP's own
+// Tri-mod measures −35 dB alias at C7, so polyBLEP is the matching quality.
+// -----------------------------------------------------------------------------
+constexpr float kJpTriModGMid   = 1.635f;
+constexpr float kJpTriModGSlope = 0.967f;
+constexpr float kJpTriModGMin   = 1.375f;
+constexpr float kJpTriModGMax   = 2.02f;
+
 #if JT_SYNC_ANTIALIAS
 // F3: band-limit a HARD-SYNC reset — a step discontinuity of arbitrary height
 // (unlike the periodic edges polyBlep handles).  `frac` is the sub-sample
@@ -90,9 +135,22 @@ void OscCore::setShape(float s)
 
     // 5%..95%: a pulse at 0 or 1 width is silence-with-DC, and TriVar at
     // the extremes degenerates into the plain saws that already exist.
+    // The floor is 50 % under the JP PWM law (setJpPwmClamp) — see header.
+    _shapeIn = s;
     if (s < 0.05f) s = 0.05f;
     if (s > 0.95f) s = 0.95f;
     _shape = s;
+    // Pulse width: same clamp under JtPwm (byte-identical), 50 % floor under
+    // JpPwm.  Kept apart from _shape so the law never touches TriVar.
+    _pw = (s < _pwFloor) ? _pwFloor : s;
+}
+
+void OscCore::setJpPwmClamp(bool on)
+{
+    const float floor = on ? 0.5f : 0.05f;
+    if (floor == _pwFloor) return;           // dirty check: no-op re-sends
+    _pwFloor = floor;
+    setShape(_shapeIn);                      // re-clamp the current width
 }
 
 void OscCore::setArbTable(const int16_t* data, uint16_t length)
@@ -335,7 +393,7 @@ void OscCore::renderImpl(float* out, size_t n,
 
     case Wave::Pulse:
         for (size_t i = 0; i < n; ++i) {
-            out[i] = (JT_STEP() < _shape) ? 1.0f : -1.0f;
+            out[i] = (JT_STEP() < _pw) ? 1.0f : -1.0f;
             JT_SYNC_BLEP();
         }
         break;
@@ -398,7 +456,61 @@ void OscCore::renderImpl(float* out, size_t n,
         }
         break;
 
-    case Wave::JpVarSaw:
+    case Wave::JpVarSaw: {
+        // Measured JP SAW SHAPE — closed form (law + provenance at the top of
+        // this file).  Per-BLOCK: β from the morph position (block-rate like
+        // every other SHAPE consumer, so LFO1 Ctrl2 modulation works through
+        // setShape exactly as before).  Per-SAMPLE: ~6 multiply-adds + one
+        // polyBLEP — cheaper than the 2-frame table read it replaces, and no
+        // flash data at all.
+        const float k    = (_morph < kJpSawKMin) ? kJpSawKMin : _morph;
+        const float beta = kJpSawBeta0 - kJpSawBetaK * k;
+        const float cB3  = beta * kJpSawB3Scale * kJpSawGain;   // folded gains
+        for (size_t i = 0; i < n; ++i) {
+            const float ph  = JT_STEP();
+            const float saw = 2.0f * ph - 1.0f - polyBlep(ph, _inc);
+            const float b3  = ph * (ph - 0.5f) * (ph - 1.0f);    // B3(φ)
+            out[i] = kJpSawGain * saw - cB3 * b3;
+            JT_SYNC_BLEP();
+        }
+        break;
+    }
+
+    case Wave::JpTriMod: {
+        // Measured JP TRIANGLE MOD — closed form (law at the top of this
+        // file).  Per-BLOCK: gain and the four jump phases.  Per-SAMPLE:
+        // triangle, one multiply, one conditional wrap, four polyBLEP tests
+        // (each returns 0 after two compares unless within one sample of
+        // its jump).
+        float g = kJpTriModGMid - kJpTriModGSlope * (_morph - 0.5f);
+        if (g < kJpTriModGMin) g = kJpTriModGMin;
+        if (g > kJpTriModGMax) g = kJpTriModGMax;
+        const float invG = 1.0f / g;
+        const float pA = 0.25f * (1.0f - invG);     // rising,  −2
+        const float pB = 0.25f * (1.0f + invG);     // rising,  −2
+        const float pC = 0.25f * (3.0f - invG);     // falling, +2
+        const float pD = 0.25f * (3.0f + invG);     // falling, +2
+        for (size_t i = 0; i < n; ++i) {
+            const float ph = JT_STEP();
+            const float x  = ph + ph;                               // 0..2
+            float v = g * (2.0f * ((x < 1.0f) ? x : 2.0f - x) - 1.0f);
+            if (v >  1.0f) v -= 2.0f;                               // wrap: |v| < 3
+            if (v < -1.0f) v += 2.0f;
+            // Distance past each jump, wrapped to 0..1 (subtraction from the
+            // same 'ph' — the BlSquare rule, so the comparator and the BLEP
+            // can never disagree across the wrap).
+            float dA = ph - pA; if (dA < 0.0f) dA += 1.0f;
+            float dB = ph - pB; if (dB < 0.0f) dB += 1.0f;
+            float dC = ph - pC; if (dC < 0.0f) dC += 1.0f;
+            float dD = ph - pD; if (dD < 0.0f) dD += 1.0f;
+            v -= polyBlep(dA, _inc) + polyBlep(dB, _inc);           // h = −2
+            v += polyBlep(dC, _inc) + polyBlep(dD, _inc);           // h = +2
+            out[i] = v;
+            JT_SYNC_BLEP();
+        }
+        break;
+    }
+
     case Wave::JpVarTri:
         if (_morphSet == nullptr) {
             // Defensive: no set attached (OscSection attaches one on setWave).
@@ -453,9 +565,9 @@ void OscCore::renderImpl(float* out, size_t n,
     case Wave::BlPulse:
         for (size_t i = 0; i < n; ++i) {
             const float ph = JT_STEP();
-            float v = (ph < _shape) ? 1.0f : -1.0f;
+            float v = (ph < _pw) ? 1.0f : -1.0f;
             v += polyBlep(ph, _inc);                              // rising edge
-            float ph2 = ph - _shape;         // same rule as BlSquare above
+            float ph2 = ph - _pw;            // same rule as BlSquare above
             if (ph2 < 0.0f) ph2 += 1.0f;
             v -= polyBlep(ph2, _inc);
             out[i] = v;
@@ -552,8 +664,9 @@ void OscCore::renderImpl(float* out, size_t n,
     }
 
     case Wave::Supersaw:
-        // Owned by SupersawOsc; OscSection never routes it here.  Emit
-        // silence rather than trusting the caller — cheap insurance.
+    case Wave::JpFeedback:
+        // Owned by SupersawOsc / JpFeedbackOsc; OscSection never routes them
+        // here.  Emit silence rather than trusting the caller — cheap insurance.
         for (size_t i = 0; i < n; ++i) out[i] = 0.0f;
         break;
     }

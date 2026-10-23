@@ -11,8 +11,11 @@
 
 // The 2.1 MB catalogue enters the build HERE and nowhere else.
 #include "data/akwf/AKWF_All.h"
-// Measured JP-8000 SHAPE morphs (~306 KB flash) — same firewall, same folder.
-#include "data/akwf/JpMorph/JpMorph_VSaw.h"
+// Measured JP-8000 TRI SHAPE morph (33 frames, ~304 KB flash) — same
+// firewall, same folder.  The JvSAW table is NO LONGER included: since
+// 2026-10-22 JvSAW is a measured closed form in OscCore (sign-off item 2),
+// so data/akwf/JpMorph/JpMorph_VSaw.h is unreferenced (deletion is Kris's
+// call — listed in the handoff) and its ~157 KB leave the flash image.
 #include "data/akwf/JpMorph/JpMorph_VTri.h"
 
 namespace JT {
@@ -64,11 +67,6 @@ constexpr WaveTableSet makeSet(const int16_t* data, uint32_t spf, uint16_t frame
     return s;
 }
 
-constexpr WaveTableSet kJpVSaw = makeSet(
-    JpMorphVSaw::kData, JpMorphVSaw::kSamplesPerFrame, JpMorphVSaw::kFrames,
-    JpMorphVSaw::kLevels, JpMorphVSaw::kLevelOffset, JpMorphVSaw::kLevelLen,
-    JpMorphVSaw::kLevelHarm);
-
 constexpr WaveTableSet kJpVTri = makeSet(
     JpMorphVTri::kData, JpMorphVTri::kSamplesPerFrame, JpMorphVTri::kFrames,
     JpMorphVTri::kLevels, JpMorphVTri::kLevelOffset, JpMorphVTri::kLevelLen,
@@ -78,7 +76,7 @@ constexpr WaveTableSet kJpVTri = makeSet(
 JT_COLD const WaveTableSet* jpMorphSet(Wave w)
 {
     switch (w) {
-    case Wave::JpVarSaw: return &kJpVSaw;
+    // JpVarSaw is a closed form (no table) -> nullptr, like every formula wave.
     case Wave::JpVarTri: return &kJpVTri;
     default:             return nullptr;
     }

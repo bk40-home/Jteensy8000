@@ -215,9 +215,10 @@ void SupersawOsc::calculateGains()
     const float centreGain = clamp01(-0.55366f * x + 0.99785f);
 
     // Sides (Szabo): y = -0.73764x^2 + 1.2841x + 0.044372 - parabolic,
-    // near-silent at 0, peaking around x ~ 0.87; split across 6 voices.
-    const float sideTotal = clamp01(-0.73764f * x * x + 1.2841f * x + 0.044372f);
-    const float sideEach  = sideTotal / 6.0f;
+    // near-silent at 0, peaking around x ~ 0.87.  JP-8000 law: EACH of the
+    // six side voices gets this full value (v1 divided it by 6 - see header
+    // deviation 4; JE-8086 side/centre ratio follows the undivided curve).
+    const float sideEach = clamp01(-0.73764f * x * x + 1.2841f * x + 0.044372f);
 
     for (int i = 0; i < kVoices; ++i)
         _gain[i] = (i == kCentreIdx) ? centreGain : sideEach;
@@ -241,10 +242,8 @@ void SupersawOsc::render(float* out, size_t n,
                          const float* fmBuf, float fmOctaves,
                          const float* pmBuf)
 {
-    // Mix compensation, block-rate (v1: computed once per update()).
-    // Detuned voices partially cancel; the boost restores perceived level
-    // as mix rises.  ON with max 1.5 == the v1 OscillatorBlock setting.
-    const float mixGain = 1.0f + _mixAmt * (kCompMaxGain - 1.0f);
+    // No mix compensation: the JP-8000 has none (header deviation 4) - the
+    // level rise with mix IS the measured JP behaviour.
 
     for (size_t s = 0; s < n; ++s) {
         // FM: ONE fastPow2 per sample shared by all 7 voices (v1 layout).
@@ -273,15 +272,15 @@ void SupersawOsc::render(float* out, size_t n,
             if (_phase[i] >= 1.0f) _phase[i] -= 1.0f;
         }
 
-        // Pitch-tracked HPF, then v1's exact clip -> gain -> clip staging
-        // (the double clip shapes how hot mixes saturate - keep it).
+        // Pitch-tracked HPF, then v1's clip -> gain -> clip staging, with the
+        // bounds raised to the safety value kClip (header deviation 5): the
+        // JP-law sum legitimately exceeds ±1 and the JP does not clip it.
         float hpOut = _hpfAlpha * (_hpfPrevOut + sample - _hpfPrevIn);
         _hpfPrevIn  = sample;
         _hpfPrevOut = hpOut;
 
-        hpOut = fmaxf(-1.0f, fminf(1.0f, hpOut));
-        float o = hpOut * kOutputGain * mixGain;
-        out[s] = fmaxf(-1.0f, fminf(1.0f, o));
+        const float o = hpOut * kOutputGain;
+        out[s] = fmaxf(-kClip, fminf(kClip, o));
     }
 }
 

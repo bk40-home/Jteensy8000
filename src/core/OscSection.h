@@ -59,6 +59,7 @@
 #include "core/AudioConfig.h"
 #include "core/dsp/OscCore.h"
 #include "core/dsp/SupersawOsc.h"
+#include "core/dsp/JpFeedbackOsc.h"
 #include "core/dsp/FeedbackComb.h"
 
 // -----------------------------------------------------------------------------
@@ -107,6 +108,10 @@ public:
     void setSupersawMix(int unit, float v01);
     void setFeedbackAmount(int unit, float v01);       // JP-8000 comb loop
     void setFeedbackMix(int unit, float v01);
+    // JP-8000 FEEDBACK OSC (wave "JFBK") — Ctrl2 FEEDBACK AMOUNT, 0..1
+    // (osc<n>.jfbk_feedback).  Ctrl1 HARMONICS rides the shared SHAPE route
+    // (setShapeDc + the LFO1 shape lane).  Independent of the FeedbackComb.
+    void setJfbkFeedback(int unit, float v01);
     // One kDelaySamples slice of the platform's comb pool per unit —
     // see FeedbackComb::attachStorage for the DTCM/OCRAM rationale.
     void attachCombStorage(int unit, float* line);
@@ -129,6 +134,15 @@ public:
     // a SUPER SAW OSC1 (JP manual).  Both keep the OSC2-wrap phase lock.
     void setXmodType(int type)      { _xmodType = (type == 1) ? 1u : 0u; }
     void setSyncEnabled(bool on)    { _sync = on; }
+    // PWM law (mix.pwm_law): 0 = JtPwm (v1, default), 1 = JpPwm — the
+    // measured JP-8000 50 % floor on pulse width + LFO.  See
+    // OscCore::setJpPwmClamp.  Applies to both units, as on the JP.
+    void setPwmLaw(int law)
+    {
+        const bool jp = (law == 1);
+        _u[0].core.setJpPwmClamp(jp);
+        _u[1].core.setJpPwmClamp(jp);
+    }
 
     // --- Phase 3: PWM LFO (control plane, block boundaries) ---
     // This block's net LFO offset onto pulse width, split into TWO lanes
@@ -186,6 +200,7 @@ private:
     struct Unit {
         OscCore      core;
         SupersawOsc  ss;
+        JpFeedbackOsc fbo;             // wave JFBK (2026-10-23)
         FeedbackComb comb;
 
         int   waveOption   = 1;        // table default: SAW
@@ -205,6 +220,14 @@ private:
         float pwmScale     = 1.0f;
 
         bool isSupersaw() const { return waveOption == (int)Wave::Supersaw; }
+        bool isJpFeedback() const { return waveOption == (int)Wave::JpFeedback; }
+        // Waves with their own oscillator class and no single phase-wrap
+        // export: excluded as sync master / X-MOD lock source, and JpXmod
+        // leaves them alone (as the JP does for SUPER SAW).
+        bool isOwnClass() const { return isSupersaw() || isJpFeedback(); }
+        // ONE place that applies a SHAPE value (knob base + LFO lanes): the
+        // OscCore width/morph, and JFBK's Harmonics (same 0..1 position).
+        void setShape01(float s) { core.setShape(s); fbo.setHarmonics(s); }
         // exp2f ONCE per actual pitch change, fanned to both cores so a
         // wave switch mid-note lands on the identical frequency.
         void applyPitchIfDirty();

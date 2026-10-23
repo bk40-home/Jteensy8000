@@ -46,6 +46,7 @@ void OscSection::Unit::applyPitchIfDirty()
     // supersaw's centre) never jumps frequency.
     core.setFrequency(hz);     // dirty-checked internally
     ss.setFrequency(hz);       // ditto (also retunes its pitch-tracked HPF)
+    fbo.setFrequency(hz);      // ditto (selects JFBK's pitch-interpolated law)
 }
 
 // -----------------------------------------------------------------------------
@@ -71,14 +72,20 @@ void OscSection::noteOn(float noteHz, uint32_t seedBase)
         // Distinct, deterministic randomness per unit and purpose.
         _u[u].core.seedNoise(seedBase * 2654435761u + (uint32_t)u);
         _u[u].ss.seedNoise(seedBase * 40503u + (uint32_t)u + 7u);
+        _u[u].fbo.seedNoise(seedBase * 2246822519u + (uint32_t)u + 13u);
 
         // Random start phases — the OscCore phase mirrors v1's supersaw
         // habit of randomising on trigger (kills 8-voice lockstep), and
         // the supersaw REQUIRES it (Szabó §3.4).
         _u[u].ss.noteOn();
     }
-    _u[0].core.resetPhase((float)((seedBase >> 4) & 1023u) * (1.0f / 1024.0f));
-    _u[1].core.resetPhase((float)((seedBase >> 14) & 1023u) * (1.0f / 1024.0f));
+    const float ph0 = (float)((seedBase >> 4) & 1023u) * (1.0f / 1024.0f);
+    const float ph1 = (float)((seedBase >> 14) & 1023u) * (1.0f / 1024.0f);
+    _u[0].core.resetPhase(ph0);
+    _u[1].core.resetPhase(ph1);
+    // JFBK starts every note fresh (as the JP), from the same random phase.
+    _u[0].fbo.noteOn(ph0);
+    _u[1].fbo.noteOn(ph1);
 
     // Sub: one octave below the NOTE — v1 fed the base note frequency in,
     // untouched by either unit's pitch offsets.
@@ -97,8 +104,9 @@ void OscSection::setWave(int unit, int waveOption)
 {
     _u[unit].waveOption = waveOption;
     _u[unit].core.setWave((Wave)waveOption);
-    // Measured JP morphs: attach their flash table set (nullptr for every
-    // other wave — harmless, the core only reads it for JpVarSaw/JpVarTri).
+    // Measured JP morph table: attach its flash set (nullptr for every other
+    // wave — harmless, the core only reads it for JpVarTri; JvSAW and JTRIM
+    // are closed forms since 2026-10-22).
     // Control plane only; the lookup is a two-case switch.
     _u[unit].core.setMorphSet(WavetableLib::jpMorphSet((Wave)waveOption));
 }
@@ -139,7 +147,7 @@ void OscSection::setShapeDc(int unit, float dc)
     // without losing this knob's own position; apply the base-only width
     // here so a patch with no PWM LFO wired needs no extra per-block work.
     _u[unit].shapeDcBase = dc;
-    _u[unit].core.setShape(0.5f + 0.5f * dc);
+    _u[unit].setShape01(0.5f + 0.5f * dc);
 }
 
 void OscSection::setSupersawDetune(int unit, float v01) { _u[unit].ss.setDetune(v01); }
@@ -147,6 +155,7 @@ void OscSection::setSupersawMix(int unit, float v01)    { _u[unit].ss.setMix(v01
 void OscSection::attachCombStorage(int unit, float* line) { _u[unit].comb.attachStorage(line); }
 void OscSection::setFeedbackAmount(int unit, float v01) { _u[unit].comb.setAmount(v01); }
 void OscSection::setFeedbackMix(int unit, float v01)    { _u[unit].comb.setMix(v01); }
+void OscSection::setJfbkFeedback(int unit, float v01)   { _u[unit].fbo.setFeedback(v01); }
 void OscSection::setRingMix(int unit, float v01)        { _u[unit].ringGain = v01; }
 
 void OscSection::setArbTable(int unit, const int16_t* data, uint16_t len)
@@ -187,10 +196,10 @@ void OscSection::render(float* out, size_t n)
     // the compares.
     const bool pwmLive = (_lfoPwm1 != 0.0f || _lfoPwmC != 0.0f);
     if (pwmLive || _pwmWasLive) {
-        _u[0].core.setShape(0.5f + 0.5f * (_u[0].shapeDcBase
+        _u[0].setShape01(0.5f + 0.5f * (_u[0].shapeDcBase
                                            + _lfoPwm1 * _u[0].pwmScale
                                            + _lfoPwmC));
-        _u[1].core.setShape(0.5f + 0.5f * (_u[1].shapeDcBase
+        _u[1].setShape01(0.5f + 0.5f * (_u[1].shapeDcBase
                                            + _lfoPwm1 * _u[1].pwmScale
                                            + _lfoPwmC));
     }
@@ -215,12 +224,13 @@ void OscSection::render(float* out, size_t n)
     // (manual p.59 note), so it is simply off — OSC2 is then not needed for
     // it either.  JtXmod keeps its existing behaviour (FMs the supersaw).
     const bool jpXmod   = (_xmodType == 1u);
-    const bool xmod     = (xd > 0.0f) && !(jpXmod && _u[0].isSupersaw());
+    // JFBK is treated like SUPER SAW here (own class; JP behaviour unmeasured).
+    const bool xmod     = (xd > 0.0f) && !(jpXmod && _u[0].isOwnClass());
     // Hard sync needs a real phase-wrapping master.  Per the JP-8000 panel
     // diagram (manual p.59) OSC1 is the sync MASTER and OSC2 the slave — the
     // reverse of the v1 port we started from (F2).  Supersaw can't be a
     // master (no single wrap point), so the guard is on OSC1 now.
-    const bool sync     = _sync && !_u[0].isSupersaw();
+    const bool sync     = _sync && !_u[0].isOwnClass();     // JFBK: no wrap export
     const bool need2    = (g2 > 0.0f) || (ringG > 0.0f) || xmod || sync;
     const bool need1    = (g1 > 0.0f) || (ringG > 0.0f);
     const bool needSub  = (_subLevel > 0.0f);
@@ -300,7 +310,7 @@ void OscSection::render(float* out, size_t n)
     // path — OSC1 is the sync MASTER there, so a reverse reset would be a
     // second circular dependency (flagged as untested against the JP).
     const bool xmodLock = (JT_XMOD_RESET != 0) && haveXmod && !sync && need1
-                       && !_u[1].isSupersaw();
+                       && !_u[1].isOwnClass();
 
     // ---- helper lambdas keep the two orderings from duplicating wave logic --
     // OSC2 (the modulator / slave).  syncIn is the master's wrap buffer when
@@ -312,6 +322,8 @@ void OscSection::render(float* out, size_t n)
                          : (pitchActive ? pitchRamp : nullptr);
         if (_u[1].isSupersaw()) {
             _u[1].ss.render(b2, n, fm2, 1.0f, nullptr);   // supersaw ignores sync
+        } else if (_u[1].isJpFeedback()) {
+            _u[1].fbo.render(b2, n, fm2, 1.0f);           // JFBK ignores sync
         } else {
             _u[1].core.render(b2, n, fm2, 1.0f, syncIn, syncOut);
         }
@@ -364,6 +376,8 @@ void OscSection::render(float* out, size_t n)
         }
         if (_u[0].isSupersaw()) {
             _u[0].ss.render(b1, n, fmBuf, fmOct, nullptr);   // supersaw: no sync-out
+        } else if (_u[0].isJpFeedback()) {
+            _u[0].fbo.render(b1, n, fmBuf, fmOct);           // JFBK: no sync-out
         } else {
             _u[0].core.render(b1, n, fmBuf, fmOct, syncIn, syncOut);
         }

@@ -39,7 +39,10 @@ retired_ids: []          # ParamIDs may enter this list; they never leave
 # Adding an option APPENDS (indices are stored in patches).
 # -----------------------------------------------------------------------------
 option_sets:
-  osc_wave: ["SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW", "vSAW", "BLvSAW", "vTRI", "BLvTRI", "JvSAW", "JvTRI"]
+  # 2026-10-22: "JTRIM" (JP-8000 TRIANGLE MOD, measured closed form) APPENDED
+  # at index 20 — append-only, the stored value is the option index.
+  # 2026-10-23: "JFBK" (JP-8000 FEEDBACK OSC, JpFeedbackOsc) APPENDED at 21.
+  osc_wave: ["SIN", "SAW", "SQR", "TRI", "ARB", "PLS", "rSAW", "S&H", "vTRI", "BLS", "rBLS", "BLSQ", "BLP", "SSAW", "vSAW", "BLvSAW", "vTRI", "BLvTRI", "JvSAW", "JvTRI", "JTRIM", "JFBK"]
   pitch_offset: ["-24", "-12", "0", "+12", "+24"]
   filter_engine: ["OBXa", "VA"]
   filter_mode: ["4-Pole", "2-Pole", "2P BP", "2P Push", "Xpander", "Xpander M"]
@@ -67,6 +70,7 @@ option_sets:
   reverb_algo: ["Plate", "Shimmer", "Hall"]
   pitch_mod_dest: ["OSC1+2", "OSC2", "X-MOD"]
   xmod_type: ["JtXmod", "JpXmod"]
+  pwm_law: ["JtPwm", "JpPwm"]
   l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
   # T2: dotted family APPENDED at indices 12..14, never inserted.  The stored
   # value of every select is its OPTION INDEX, and this set is shared by
@@ -82,9 +86,15 @@ option_sets:
   glide_mode: ["Cascade", "Parallel", "Positional"]
   # Canonical FX names — these come from the firmware FX design, not from v1 CC
   # buckets. The numeric placeholders they replace were a seed artefact.
+  # 3a (JP capture gap analysis 2026-10-22): the twelve JP-8000 Multi-FX
+  # modulation types APPENDED at indices 12..23 (FxChain types 11..22, same
+  # order as the JP dropdown).  0..11 stay frozen: a select stores its index.
   f_x_mod_effect: ["OFF", "Chorus 1", "Chorus 2", "Chorus 3", "Flanger 1", "Flanger 2",
                    "Flanger 3", "Phaser 1", "Phaser 2", "Phaser 3", "Phaser 4",
-                   "Super Chorus"]
+                   "Super Chorus",
+                   "SChorus SLW", "SChorus MID", "SChorus FST", "SChorus CLR",
+                   "Flanger SLW", "Flanger DEEP", "Flanger FST", "DeepPhs SLW",
+                   "Jet Phasing", "Twisting", "Freeze Ph 1", "Freeze Ph 2"]
   f_x_delay_effect: ["OFF", "Mono Short", "Mono Long", "Pan L>R", "Pan R>L", "Pan Stereo"]
   drive: ["OFF", "Soft", "Hard"]
   seq_dir: ["Fwd", "Rev", "Bounce", "Random"]
@@ -326,6 +336,21 @@ params:
     # Scales LFO1's PWM contribution for THIS osc only (default 1.0 = the
     # pre-split behaviour, so existing patches render byte-identically).
     # lfo1.pwm_depth stays the global master; LFO2/seq PWM are unscaled.
+  - id: 0x000E            # v2: JP-8000 OSC1 FEEDBACK OSC Control 2 (2026-10-23)
+    key: osc1.jfbk_feedback
+    name: "Osc1 JFBK Feedback"
+    label: "FBK AMT"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 0, group: 1}
+    # JP FEEDBACK OSC Ctrl2 = FEEDBACK AMOUNT (Ctrl1 HARMONICS rides
+    # osc1.shape_dc).  Drives JpFeedbackOsc only — independent of the
+    # FeedbackComb (osc1.feedback_amount/mix), which is unchanged.
+    visible_when: {param: osc1.wave, is: JFBK}
 
   # ---- [1] Oscillator 2 ----
   - id: 0x0080            # v1: CC::OSC2_WAVE (was CC 22)
@@ -495,6 +520,21 @@ params:
     # Scales LFO1's PWM contribution for THIS osc only (default 1.0 = the
     # pre-split behaviour, so existing patches render byte-identically).
     # lfo1.pwm_depth stays the global master; LFO2/seq PWM are unscaled.
+  - id: 0x008E            # v2: JP-8000 OSC2 FEEDBACK OSC Control 2 (2026-10-23)
+    key: osc2.jfbk_feedback
+    name: "Osc2 JFBK Feedback"
+    label: "FBK AMT"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 0
+    smooth_ms: 5
+    ui: {section: 1, group: 1}
+    # JP FEEDBACK OSC Ctrl2 = FEEDBACK AMOUNT (Ctrl1 HARMONICS rides
+    # osc2.shape_dc).  Drives JpFeedbackOsc only — independent of the
+    # FeedbackComb (osc2.feedback_amount/mix), which is unchanged.
+    visible_when: {param: osc2.wave, is: JFBK}
 
   # ---- [2] Mixer ----
   - id: 0x0100            # v1: CC::OSC_MIX_BALANCE (was CC 47)
@@ -600,6 +640,23 @@ params:
     # patches and the render baseline stay byte-identical.  JpXmod = the
     # JP-8000 law measured from JE-8086 captures: through-zero linear FM,
     # OSC1 rate x (1 + 33.6 x depth x OSC2), depth relative to OSC1 pitch.
+  - id: 0x0109            # v2: pulse-width modulation law select (2026-10-22)
+    key: mix.pwm_law
+    name: "PWM Law"
+    label: "PWM LAW"
+    type: select
+    scope: patch
+    options: pwm_law
+    default: 0
+    smooth_ms: 0
+    ui: {section: 2, group: 1}
+    # JtPwm (default) = the JT-8000 law, unchanged: pulse width = shape +
+    # LFO, clamped 5..95 %, so modulation swings THROUGH 50 % (existing
+    # patches and the render baseline byte-identical).  JpPwm = the JP-8000
+    # law measured from JE-8086 captures: width + LFO is clamped at 50 %
+    # (the JP's PW knob only narrows one way), so at low PW half of each LFO
+    # cycle sits flat at 50 % instead of folding back.  Pulse waves only —
+    # the SHAPE morphs already clamp to their 0..1 range like the JP.
 
   # ---- [3] Filter ----
   - id: 0x0180            # v1: CC::FILTER_CUTOFF (was CC 23)
@@ -1352,7 +1409,11 @@ params:
     scope: patch_shared
     range: {min: 0, max: 1, curve: lin}
     unit: "norm"
-    default: 0.5
+    # N1 (2026-10-22): default 0 = "use the preset's own rate".  It was 0.5,
+    # which SynthCore maps to setModRate(0.5 * 20) = a 10 Hz OVERRIDE, so every
+    # v1 chorus/flanger/phaser preset ran at 10 Hz unless the knob was moved.
+    # Saved patches keep their stored value.  The JP types ignore this knob.
+    default: 0
     smooth_ms: 5
     ui: {section: 9, group: 1}
   - id: 0x0486            # v1: CC::FX_MOD_FEEDBACK (was CC 106)
@@ -1440,7 +1501,12 @@ params:
     scope: patch_shared
     range: {min: 0, max: 1, curve: lin}
     unit: "norm"
-    default: 1
+    # 2a (JP capture gap analysis 2026-10-22): default 0 so a new patch runs
+    # the chain SERIALLY like the JP (the chain already passes the dry signal
+    # through every stage).  At 1 the bus dry ADDS to that pass-through, which
+    # is the +5.8 dB jump measured on engaging any FX stage.  Saved patches
+    # keep their stored value.
+    default: 0
     smooth_ms: 5
     ui: {section: 9, group: 4}
   - id: 0x048D            # v1: CC::FX_JPFX_MIX (was CC 76)
@@ -2544,6 +2610,24 @@ params:
     default: 0.8
     smooth_ms: 20
     cc: 7               # standard MIDI Channel Volume
+    ui: {section: 16, group: 0}
+  - id: 0x0801            # section 16, index 1
+    key: master.usb_return_level
+    name: "USB Return Level"
+    label: "USB RTN"
+    type: continuous
+    scope: global
+    # Level of the DAW/laptop audio arriving over USB (AudioInputUSB) mixed
+    # into the physical output (I2S DAC + USB-host sink) on return-mixer ch1.
+    # Monitor-only: never reaches the USB record path (gUsbOut), so no loop.
+    # Read by main.cpp loop() via ID::MASTER_USB_RETURN_LEVEL; 0 = muted.
+    # Not part of the synth engine (SynthCore ignores it).
+    # Restored 2026-10-22: main.cpp read 0x0801 since a0546ed but the entry
+    # was never in this file, so get() returned 0.0f and muted the return.
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
+    default: 1.0
+    smooth_ms: 20
     ui: {section: 16, group: 0}
 
   # ---------------------------------------------------------------------------

@@ -791,6 +791,9 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::OSC2_FEEDBACK_AMOUNT: oscs(1, [&](OscSection& sec, int u){ sec.setFeedbackAmount(u, eng); }); break;
         case ID::OSC1_FEEDBACK_MIX:    oscs(0, [&](OscSection& sec, int u){ sec.setFeedbackMix(u, eng); }); break;
         case ID::OSC2_FEEDBACK_MIX:    oscs(1, [&](OscSection& sec, int u){ sec.setFeedbackMix(u, eng); }); break;
+        // JP-8000 FEEDBACK OSC amount (wave JFBK) — separate from the comb.
+        case ID::OSC1_JFBK_FEEDBACK:   oscs(0, [&](OscSection& sec, int u){ sec.setJfbkFeedback(u, eng); }); break;
+        case ID::OSC2_JFBK_FEEDBACK:   oscs(1, [&](OscSection& sec, int u){ sec.setJfbkFeedback(u, eng); }); break;
         // Arbitrary wavetables (AKWF): the two knobs bucket per v1's laws
         // (bank across 10 banks, index against the CURRENT bank's count),
         // and either change re-resolves the table pointer for all voices.
@@ -822,6 +825,9 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         // X-MOD law: 0 JtXmod (exponential, the default), 1 JpXmod (measured
         // JP-8000 through-zero linear FM).  See OscSection::setXmodType.
         case ID::MIX_XMOD_TYPE: for (Voice& v : L.voices()) v.oscSection().setXmodType(opt); break;
+        // PWM law: 0 JtPwm (v1 5..95 % clamp, the default), 1 JpPwm (measured
+        // JP-8000: width + LFO floored at 50 %).  See OscSection::setPwmLaw.
+        case ID::MIX_PWM_LAW:   for (Voice& v : L.voices()) v.oscSection().setPwmLaw(opt); break;
         // G1: JP-8000 "LFO1 & ENV Destination" — the voice steers the
         // (LFO1-pitch + pitch-env) lane by this each block (Voice::render).
         case ID::MIX_PITCH_MOD_DEST:

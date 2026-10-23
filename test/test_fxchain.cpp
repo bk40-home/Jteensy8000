@@ -901,3 +901,315 @@ TEST_CASE("W3: a short delay clamps the drift instead of folding the pointer")
     const float tapSamples = 40.0f * 0.001f * 44100.0f;
     CHECK(r.fx.debugWowAmpSamples() <= tapSamples * FxChain::kDriftMaxFrac + 1.0f);
 }
+
+// =============================================================================
+// JP capture gap analysis 2026-10-22 — G1 / option 1a
+// =============================================================================
+// The mod tap used to clamp at 0 samples.  readInterp(writeIdx - 0) lands on
+// the slot that is only written AFTER the read, i.e. the sample from one full
+// buffer lap ago (kModLen = 50.04 ms).  PHASER1 (base 1 ms, depth 4 ms) sits in
+// that clamp for 42 % of its LFO cycle, so its wet path played a 50 ms slap.
+// With the 1-sample floor the tap can never reach the unwritten slot.
+TEST_CASE("fxchain mod: a clamped tap never reads the stale buffer-lap sample (1a)")
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setModEffect(6);              // PHASER1: 1 ms +/- 4 ms, 0.25 Hz sine
+    fx.setModMix(1.0f);
+    fx.setDryMix(0.0f);              // listen to the chain only
+
+    // Pre-roll silence to 2.6 s: at 0.25 Hz the sine is below -0.25 (tap
+    // clamped) from ~2.2 s to ~3.8 s, so impulse + 50 ms lands inside it.
+    constexpr size_t kBlk = 128;
+    float L[kBlk], R[kBlk];
+    const size_t preroll = (size_t)(2.6f * kSampleRate) / kBlk;
+    for (size_t b = 0; b < preroll; ++b) {
+        std::fill(L, L + kBlk, 0.0f); std::fill(R, R + kBlk, 0.0f);
+        fx.processBlock(L, R, kBlk);
+    }
+
+    // Impulse, then 4096 samples of silence; collect the left output.
+    std::vector<float> out;
+    for (size_t b = 0; b < 32; ++b) {
+        std::fill(L, L + kBlk, 0.0f); std::fill(R, R + kBlk, 0.0f);
+        if (b == 0) { L[0] = 1.0f; R[0] = 1.0f; }
+        fx.processBlock(L, R, kBlk);
+        out.insert(out.end(), L, L + kBlk);
+    }
+
+    // The window one buffer lap after the impulse must be silent.  The comb
+    // tail (fb 0.6, taps <= 5 ms) has decayed below 1e-9 by then.
+    const size_t lap = FxChain::kModLen - 2u;      // 2400 samples = 50 ms
+    float lapPeak = 0.0f;
+    for (size_t i = lap - 16; i < lap + 16; ++i) lapPeak = std::max(lapPeak, std::fabs(out[i]));
+    CHECK(lapPeak < 1.0e-4f);
+}
+
+// =============================================================================
+// JP capture gap analysis 2026-10-22 — G2 / option 2a
+// =============================================================================
+// The JP adds the chorus as a send: dry stays at unity, wet ~ Level^2.  So the
+// mod stage at Level 0 must be transparent, and the wet tap must scale as m^2.
+
+namespace {
+// Sum of |left output| over [from, to) for one impulse through a fresh chain.
+float modImpulseWetSum(int type, float mix, size_t from, size_t to)
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setModEffect(type);
+    fx.setModMix(mix);
+    fx.setDryMix(0.0f);
+    std::vector<float> out;
+    float L[128], R[128];
+    for (size_t b = 0; b < 8; ++b) {
+        std::fill(L, L + 128, 0.0f); std::fill(R, R + 128, 0.0f);
+        if (b == 0) { L[0] = 0.5f; R[0] = 0.5f; }
+        fx.processBlock(L, R, 128);
+        out.insert(out.end(), L, L + 128);
+    }
+    float acc = 0.0f;
+    for (size_t i = from; i < to; ++i) acc += std::fabs(out[i]);
+    return acc;
+}
+} // namespace
+
+TEST_CASE("fxchain mod 2a: Level 0 is transparent (send law, no crossfade)")
+{
+    // Chain-only output (dry bus 0) with CHORUS1 at Level 0 must equal the
+    // mono-summed input sample for sample: the stage adds 0 * wet.
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setModEffect(0);
+    fx.setModMix(0.0f);
+    fx.setDryMix(0.0f);
+    float L[128], R[128], ref[128];
+    for (size_t i = 0; i < 128; ++i) {
+        L[i] = 0.3f * std::sin(0.05f * (float)i);
+        R[i] = 0.1f * std::cos(0.07f * (float)i);
+        ref[i] = (L[i] + R[i]) * 0.5f;
+    }
+    fx.processBlock(L, R, 128);
+    for (size_t i = 0; i < 128; ++i) { CHECK(L[i] == ref[i]); CHECK(R[i] == ref[i]); }
+}
+
+TEST_CASE("fxchain mod 2a: wet tap scales with Level squared")
+{
+    // CHORUS1 taps sit between 3.5 and 6.5 ms (168..312 samples).  The dry
+    // impulse is at sample 0, outside the window, so the window holds only
+    // the wet tap: its sum at Level 0.5 must be a quarter of the Level-1 sum.
+    const float full = modImpulseWetSum(0, 1.0f, 100, 400);
+    const float half = modImpulseWetSum(0, 0.5f, 100, 400);
+    REQUIRE(full > 0.1f);
+    CHECK(half / full == doctest::Approx(0.25f).epsilon(1e-4));
+}
+
+TEST_CASE("fxchain 2a: engaging a mod type at Level 0 does not jump the level")
+{
+    // With the table defaults (fx.dry_mix now 0) the engaged chain replaces
+    // the bus instead of adding to it.  Before 2a this measured +5.8 dB.
+    Rig off;
+    Rig on;
+    on.setNorm(ID::FX_MOD_EFFECT, optNorm(ID::FX_MOD_EFFECT, 1));   // CHORUS1
+    on.setNorm(ID::FX_MOD_MIX, 0.0f);
+    const auto a = run(off, 60, -1);
+    const auto b = run(on, 60, -1);
+    const double ra = rms(a, a.size() / 2, a.size());
+    const double rb = rms(b, b.size() / 2, b.size());
+    REQUIRE(ra > 1e-3);
+    CHECK(20.0 * std::log10(rb / ra) == doctest::Approx(0.0).epsilon(0.01));
+}
+
+// =============================================================================
+// JP capture gap analysis 2026-10-22 — 3a / 4a: JP-8000 Multi-FX mod types
+// =============================================================================
+namespace {
+// Run a fresh chain on a 500 Hz sine (exactly 96 samples/period at 48 kHz)
+// for 'blocks' x 128 samples; return interleaved L/R output, chain only.
+std::vector<float> jpRender(int type, size_t blocks, float rateOverride = 0.0f)
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setModEffect(type);
+    fx.setModMix(1.0f);
+    fx.setDryMix(0.0f);
+    if (rateOverride > 0.0f) fx.setModRate(rateOverride);
+    std::vector<float> out;
+    float L[128], R[128];
+    size_t n = 0;
+    for (size_t b = 0; b < blocks; ++b) {
+        for (size_t i = 0; i < 128; ++i, ++n) {
+            // Phase from n % 96 so the input is EXACTLY periodic: a float
+            // phase that grows with n loses ~4 rad of precision by n = 12800.
+            L[i] = R[i] = 0.25f * std::sin(6.28318530f * (float)(n % 96u) / 96.0f);
+        }
+        fx.processBlock(L, R, 128);
+        for (size_t i = 0; i < 128; ++i) { out.push_back(L[i]); out.push_back(R[i]); }
+    }
+    return out;
+}
+constexpr int kJpFirst = FxChain::kNumModPresets;           // engine type 11
+constexpr int kJpDeepPhasing = kJpFirst + 7;                // 4c all-pass phaser
+} // namespace
+
+TEST_CASE("fxchain 3a: option list and engine type count agree")
+{
+    // fx.mod_effect option 0 is OFF, options 1..N map to engine types 0..N-1.
+    // If the YAML grows without the engine (or vice versa) this fails.
+    const auto& d = kParams[ParameterStore::indexOf(ID::FX_MOD_EFFECT)];
+    CHECK((int)d.optionCount == (int)FxChain::kNumModTypes + 1);
+}
+
+TEST_CASE("fxchain 3a: out-of-range mod type is OFF, not an array overrun")
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setModEffect((int)FxChain::kNumModTypes);   // one past the end
+    CHECK_FALSE(fx.modActive());
+    fx.setModEffect(kJpFirst);
+    CHECK(fx.modActive());
+}
+
+TEST_CASE("fxchain 4a: every JP type is finite, bounded and audible")
+{
+    const auto dry = jpRender(-1, 200);
+    for (int t = kJpFirst; t < (int)FxChain::kNumModTypes; ++t) {
+        CAPTURE(t);
+        const auto out = jpRender(t, 200);
+        CHECK(allFinite(out));
+        CHECK(peakAbs(out) <= 0.97f + 1e-4f);
+        double diff = 0.0;
+        for (size_t i = 0; i < out.size(); ++i) diff += std::fabs((double)out[i] - (double)dry[i]);
+        CHECK(diff > 1.0);                         // 4c: DEEP PHASING now audible too
+    }
+}
+
+TEST_CASE("fxchain 4a: FREEZE PHASE types are static (time-invariant)")
+{
+    // Static taps on a periodic input give a periodic output: once settled,
+    // sample n and n + 96 (one 500 Hz period) must match.  A moving LFO
+    // would break this within a few periods.
+    for (int t : { kJpFirst + 10, kJpFirst + 11 }) {
+        CAPTURE(t);
+        const auto out = jpRender(t, 100);
+        float worst = 0.0f;
+        for (size_t i = 2 * 4096; i + 2 * 96 < out.size(); ++i)
+            worst = std::max(worst, std::fabs(out[i] - out[i + 2 * 96]));
+        CHECK(worst < 1e-5f);
+    }
+    // Control: a moving type does NOT satisfy it.
+    const auto mov = jpRender(kJpFirst + 2, 100);           // SC FST, 4.1 Hz
+    float worst = 0.0f;
+    for (size_t i = 2 * 4096; i + 2 * 96 < mov.size(); ++i)
+        worst = std::max(worst, std::fabs(mov[i] - mov[i + 2 * 96]));
+    CHECK(worst > 1e-3f);
+}
+
+TEST_CASE("fxchain 4a: JP types ignore the fx.mod_rate override (flagged)")
+{
+    // The knob default maps to a 10 Hz override; the JP types keep their
+    // measured rates.  Output with a 20 Hz override must equal no override.
+    const auto a = jpRender(kJpFirst, 60);
+    const auto b = jpRender(kJpFirst, 60, 20.0f);
+    REQUIRE(a.size() == b.size());
+    for (size_t i = 0; i < a.size(); ++i) CHECK(a[i] == b[i]);
+}
+
+TEST_CASE("fxchain JP pair engine: wet is mono with R inverted, all 12 types")
+{
+    // Measured on the JE-8086 (noise capture 2026-10-23): L = dry + W and
+    // R = dry - W for every type.  So (L + R) / 2 must be the mono input
+    // exactly, and (L - R) / 2 = W must be present.
+    for (int t = kJpFirst; t < (int)FxChain::kNumModTypes; ++t) {
+        CAPTURE(t);
+        const auto out = jpRender(t, 200);
+        float worst = 0.0f; double side = 0.0;
+        for (size_t i = 0, n = 0; i + 1 < out.size(); i += 2, ++n) {
+            const float in = 0.25f * std::sin(6.28318530f * (float)(n % 96u) / 96.0f);
+            worst = std::max(worst, std::fabs(0.5f * (out[i] + out[i + 1]) - in));
+            side += std::fabs(0.5 * ((double)out[i] - (double)out[i + 1]));
+        }
+        CHECK(worst < 1e-6f);
+        CHECK(side > 1.0);
+    }
+}
+
+TEST_CASE("fxchain JP pair engine: FREEZE 1 taps sit at c +/- d with opposite sign")
+{
+    // Impulse in, W = (L - R) / 2 out.  FREEZE PHASE 1 is static: taps at
+    // c - d = 11.65 ms and c + d = 12.62 ms, opposite polarity (measured).
+    // The wet high-pass (1.5 kHz, one pole) smears each tap slightly, so the
+    // check is on the position of the two strongest opposite-sign peaks.
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setModEffect(kJpFirst + 10);
+    fx.setModMix(1.0f);
+    fx.setDryMix(0.0f);
+    std::vector<float> w;
+    float L[128], R[128];
+    for (size_t b = 0; b < 8; ++b) {
+        std::fill(L, L + 128, 0.0f); std::fill(R, R + 128, 0.0f);
+        if (b == 0) { L[0] = 1.0f; R[0] = 1.0f; }
+        fx.processBlock(L, R, 128);
+        for (size_t i = 0; i < 128; ++i) w.push_back(0.5f * (L[i] - R[i]));
+    }
+    size_t iMax = 0, iMin = 0;
+    for (size_t i = 0; i < w.size(); ++i) { if (w[i] > w[iMax]) iMax = i; if (w[i] < w[iMin]) iMin = i; }
+    const float msMax = 1000.0f * (float)iMax / kSampleRate;
+    const float msMin = 1000.0f * (float)iMin / kSampleRate;
+    const float lo = std::min(msMax, msMin), hi = std::max(msMax, msMin);
+    CHECK(lo == doctest::Approx(11.65f).epsilon(0.01));
+    CHECK(hi == doctest::Approx(12.62f).epsilon(0.01));
+    CHECK(w[iMax] > 0.2f);
+    CHECK(w[iMin] < -0.2f);
+}
+
+// =============================================================================
+// N1 / N2 (2026-10-22)
+// =============================================================================
+TEST_CASE("fxchain N1: the fx.mod_rate default means 'use the preset rate'")
+{
+    // The table default used to be norm 0.5 -> setModRate(10 Hz), overriding
+    // every v1 preset.  Default 0 must reach FxChain as "no override" (-1).
+    const auto& d = kParams[ParameterStore::indexOf(ID::FX_MOD_RATE)];
+    CHECK(d.def == 0.0f);
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setModEffect(0);
+    fx.setModRate(d.def * 20.0f);       // SynthCore's exact mapping
+    CHECK(fx.debugModRateHz() == -1.0f);
+}
+
+TEST_CASE("fxchain N2: long runs of every mod type stay inside the pool")
+{
+    // The pool is a std::vector of EXACTLY kPoolFloats, and the R mod buffer
+    // is its last region, so a read one past the R buffer is a read past the
+    // vector.  Under -fsanitize=address the pre-N2 v1 path fails here; a
+    // plain build just proves the output stays finite and bounded.
+    for (int t = 0; t < (int)FxChain::kNumModTypes; ++t) {
+        CAPTURE(t);
+        FxChain fx;
+        std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+        fx.begin(pool.data());
+        fx.setModEffect(t);
+        fx.setModMix(1.0f);
+        fx.setDryMix(0.0f);
+        float L[128], R[128];
+        bool finite = true;
+        for (size_t b = 0, n = 0; b < 4500; ++b) {          // 12 s
+            for (size_t i = 0; i < 128; ++i, ++n) {
+                L[i] = R[i] = 0.2f * std::sin(6.28318530f * (float)(n % 367u) / 367.0f);
+            }
+            fx.processBlock(L, R, 128);
+            for (size_t i = 0; i < 128; ++i) finite = finite && std::isfinite(L[i]) && std::isfinite(R[i]);
+        }
+        CHECK(finite);
+    }
+}

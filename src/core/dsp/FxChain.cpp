@@ -26,6 +26,42 @@ inline float clampf(float x, float lo, float hi)
 // mode sounds representative of its v1 region.
 constexpr float kSoftDrive = 0.25f;
 constexpr float kHardDrive = 0.75f;
+
+// 1a (JP capture gap analysis 2026-10-22, G1) — FLAGGED DEVIATION FROM v1.
+// Minimum modulation tap = 1 sample.  v1 clamped at 0: modReadTap(writeIdx-0)
+// then reads the slot that processModulation writes only AFTER the read — the
+// sample from one full buffer lap ago (kModLen = 50.04 ms).  PHASER1-4 sit in
+// that clamp for 39-45 % of each LFO cycle and played a 50 ms slap; FLANGER1-3
+// (base == depth) touched it at every trough.  1 sample = 20.8 us, inaudible as
+// a delay change, and the read can never reach the unwritten slot.
+constexpr float kMinModTapSamples = 1.0f;
+
+// ---- JP Multi-FX helpers (pair engine) ----------------------------------------
+// LFO shapes on a phase in CYCLES (0..1), output -1..+1.  Cycles rather than
+// radians so voice / L-R offsets are plain fractions (0.5 = anti-phase).
+// The sine is the shared FastMath::fastSin01 (also a 0..1 phase).
+inline float jpTri(float ph)
+{
+    return (ph < 0.5f) ? (-1.0f + 4.0f * ph) : (3.0f - 4.0f * ph);
+}
+
+// Linear-interpolated read 'delaySamples' behind writeIdx.  Shared by the v1
+// and JP paths (N2).  The JP pair engine writes before it reads, so for it a
+// delay of 0 (the sample just written) is valid too.  Callers guarantee
+// delaySamples >= kMinModTapSamples, so the unwritten slot is never read (1a).
+inline float modReadTap(const float* buf, uint32_t len, uint32_t writeIdx, float delaySamples)
+{
+    float readIdx = (float)writeIdx - delaySamples;
+    if (readIdx < 0.0f) readIdx += (float)len;
+    // A readIdx a hair below 0 (e.g. writeIdx 72, tap 72.000003) rounds to
+    // EXACTLY len after the wrap in float, which would read one past the end
+    // of the buffer (past the pool for the R side).  One compare closes it.
+    uint32_t i0 = (uint32_t)readIdx;
+    const float frac  = readIdx - (float)i0;       // taken BEFORE the fold
+    if (i0 >= len) i0 -= len;
+    const uint32_t i1 = (i0 + 1u == len) ? 0u : i0 + 1u;
+    return buf[i0] + (buf[i1] - buf[i0]) * frac;
+}
 } // namespace
 
 // ===========================================================================
@@ -46,6 +82,44 @@ const FxChain::ModParams FxChain::kModPresets[kNumModPresets] = {
     /* PHASER3      */ { 1.0f,  1.0f, 6.0f, 6.0f, 0.10f, 0.80f, 1.0f, 1, false },
     /* PHASER4      */ { 1.0f,  1.0f, 3.0f, 3.0f, 1.20f, 0.50f, 1.0f, 1, false },
     /* SUPER_CHORUS */ { 8.0f,  8.0f, 3.0f, 4.0f, 0.50f, 0.00f, 1.0f, 3, true  },
+};
+
+// ---------------------------------------------------------------------------
+// JP-8000 Multi-FX modulation types — MEASURED pair engine (2026-10-23).
+// Source: chorus-fx/jp-noise-capture-analysis-2026-10-23.md (JE-8086, JP-8000
+// keyboard ROM, mono noise in, Level 127).  Every type is
+//   W = g * [ x(t - c - d) - x(t - c + d) ] + g3 * x(t - 2c),  d = D * LFO
+//   L = dry + m^2 * W,  R = dry - m^2 * W
+// c, D, shape and rate are measured (tap tracking on the deconvolved wet;
+// c from the constant tap sum, +/-0.01 ms).  g / g3 / feedback / high-pass are
+// CALIBRATED: the JE's own recorded dry noise was rendered through this engine
+// and matched to the JE wet (sign-off 3a):
+//   * overall wet/dry rms   within +/-0.3 dB on all 12 types
+//   * octave-band shape     63 Hz..4 kHz: <= 1.1 dB rms on 9 types; FLANGER SLOW
+//                           2.0 dB, FLANGER FAST 2.3 dB, DEEP PHASING 1.5 dB
+// The JE high-passes its wet per type -- the column hpHz / hpPoles.
+// Rates seen for < 1 cycle (SLW, Jet, Deep Phasing) are estimates (5a).
+// SC CLR is provisional (4a): it did not resolve into one clean pair; level
+// and spectrum are matched, the tap motion is the SLW-like best guess.
+// Deep Phasing: c / D / feedback were fitted to the JE wet spectrum jointly;
+// the loop gain is feedback * g = 0.40 (stable well inside 1).
+// FORMAT: { c ms, D ms, shape, rate Hz, g, g3, feedback, hpHz, hpPoles }
+// ---------------------------------------------------------------------------
+// JT_FLASH_DATA: read only on a type change (control plane), so it stays in
+// flash instead of being copied into tight DTCM.
+const FxChain::JpModParams FxChain::kJpModTypes[kNumJpModTypes] JT_FLASH_DATA = {
+    /* SC SLW       taps 13.9-29.7, tri ~0.07 Hz            */ { 21.80f, 7.90f,  kJpLfoTri,    0.070f, 0.790f,  0.000f, 0.00f,   70.0f, 2 },
+    /* SC MID       taps 5.84-8.46, tri 0.42 Hz             */ {  7.15f, 1.31f,  kJpLfoTri,    0.420f, 0.793f,  0.000f, 0.00f,   70.0f, 2 },
+    /* SC FST       taps 14.59-14.99, sine 4.04 Hz          */ { 14.79f, 0.20f,  kJpLfoSine,   4.040f, 0.745f,  0.000f, 0.00f,  400.0f, 1 },
+    /* SC CLR       PROVISIONAL (4a): slow pair ~17-26 ms   */ { 21.90f, 4.40f,  kJpLfoTri,    0.140f, 0.872f,  0.000f, 0.00f, 1100.0f, 1 },
+    /* FLANGER SLOW taps 1.45-2.61, tri 0.315 Hz, 2c=4.06   */ {  2.03f, 0.58f,  kJpLfoTri,    0.315f, 1.163f,  0.823f, 0.00f, 1100.0f, 1 },
+    /* FLANGER DEEP taps 0.73-3.29, tri 0.357 Hz, 2c=4.02   */ {  2.01f, 1.28f,  kJpLfoTri,    0.357f, 1.037f,  0.923f, 0.00f,  100.0f, 1 },
+    /* FLANGER FAST taps ~1.55-2.05, sine 1.68 Hz, 2c=3.60  */ {  1.80f, 0.25f,  kJpLfoSine,   1.680f, 0.920f,  0.807f, 0.00f,  560.0f, 2 },
+    /* DEEP PHASING unipolar d 0..0.105, ~0.18 Hz, resonant */ {  0.30f, 0.105f, kJpLfoUni,    0.180f, 1.144f,  0.000f, 0.35f, 1000.0f, 1 },
+    /* JET PHASING  taps ~1.7-17.9, tri ~0.08 Hz, 2c=19.62  */ {  9.81f, 8.10f,  kJpLfoTri,    0.080f, 0.897f, -0.801f, 0.00f,  400.0f, 1 },
+    /* TWISTING     taps 17.42-17.90, tri 0.167 Hz, 2c=35.3 */ { 17.66f, 0.24f,  kJpLfoTri,    0.167f, 0.834f, -0.834f, 0.00f,  560.0f, 1 },
+    /* FREEZE PH 1  static taps 11.65 / 12.62               */ { 12.135f,0.485f, kJpLfoStatic, 0.000f, 0.755f,  0.000f, 0.00f, 1500.0f, 1 },
+    /* FREEZE PH 2  static taps 34.85 / 35.83               */ { 35.34f, 0.49f,  kJpLfoStatic, 0.000f, 0.718f,  0.000f, 0.00f, 1500.0f, 1 },
 };
 
 const FxChain::DelayParams FxChain::kDelayPresets[kNumDelayPresets] = {
@@ -173,15 +247,29 @@ void FxChain::computeTone()
 // ===========================================================================
 void FxChain::setModEffect(int v1Type)
 {
+    // Out-of-range = OFF.  Before 3a nothing guarded this and the index went
+    // straight into kModPresets[]; the table now has two halves.
+    if (v1Type < 0 || v1Type >= (int)kNumModTypes) v1Type = -1;
     if (v1Type != _modType) {
         _modType   = v1Type;
         _lfoPhaseL = 0.0f;
         _lfoPhaseR = 0.5f;
+        _jpPhase   = 0.0f;
         updateLfoIncrements();
     }
 }
 
-void FxChain::setModMix(float mix)   { _modMix = clampf(mix, 0.0f, 1.0f); }
+// 2a (JP capture gap analysis 2026-10-22, G2) — FLAGGED DEVIATION FROM v1.
+// The JE-8086 capture shows the JP adds the chorus as a SEND: the dry term
+// stays at unity through the whole Level sweep, and the wet gain follows
+// ~Level^2.16 on the static FREEZE PHASE types.  v1 crossfaded
+// ((1-m)*dry + m*wet) with a linear law.  The square is taken HERE, once per
+// knob move, so the per-sample path keeps a single multiply.
+void FxChain::setModMix(float mix)
+{
+    _modMix     = clampf(mix, 0.0f, 1.0f);
+    _modWetGain = _modMix * _modMix;      // square-law Level taper (JP ~ m^2.16)
+}
 
 void FxChain::setModRate(float rateHz)
 {
@@ -198,6 +286,7 @@ void FxChain::setModFeedback(float fb)
 void FxChain::updateLfoIncrements()
 {
     if (_modType < 0) { _lfoIncL = _lfoIncR = 0.0f; return; }
+    if (_modType >= (int)kNumModPresets) { prepareJpMod(); return; }   // 3a/4a
 
     float rateHz = kModPresets[_modType].rateHz;
     if (_modRateOverride > 0.0f) rateHz = _modRateOverride;
@@ -205,6 +294,38 @@ void FxChain::updateLfoIncrements()
     const float inc = kTwoPi * rateHz / kSampleRate;
     _lfoIncL = inc;
     _lfoIncR = inc * 1.01f;                 // 1 % stereo offset (v1 :620)
+}
+
+// ===========================================================================
+// prepareJpMod — resolve a JP Multi-FX type into the per-sample cache (3a/4a).
+// Runs only on a type change (via updateLfoIncrements), never per block.
+//
+// FLAGGED: the JP types IGNORE fx.mod_rate and fx.mod_feedback.  The JP has
+// no rate or feedback control for these types, and the measured rates are the
+// point of adding them; the knob's table default (norm 0.5) also maps to a
+// 10 Hz override, which would turn every slow type into a fast warble.
+// ===========================================================================
+JT_COLD void FxChain::prepareJpMod()      // control plane: type change only
+{
+    const JpModParams& t = kJpModTypes[_modType - (int)kNumModPresets];
+    const float msToSamp = 0.001f * kSampleRate;
+
+    _jpCentre   = t.centreMs * msToSamp;
+    _jpDepth    = t.depthMs  * msToSamp;
+    _jpShape    = t.shape;
+    _jpStaticD  = (t.shape == kJpLfoStatic) ? _jpDepth : 0.0f;   // fixed d, LFO skipped
+    _jpInc      = (t.shape == kJpLfoStatic) ? 0.0f : t.rateHz / kSampleRate;
+    _jpG        = t.g;
+    _jpG3       = t.g3;
+    _jpFeedback = t.feedback;
+    _jpLastW    = 0.0f;       // no stale feedback across a type change
+
+    // Wet high-pass: TPT one-pole, G = g / (1 + g), g = tan(pi fc / fs).
+    // One tanf per type change, never per sample.
+    _jpHpPoles  = (t.hpPoles > 2) ? 2 : t.hpPoles;
+    const float gHp = tanf(kPi * t.hpHz / kSampleRate);
+    _jpHpG      = gHp / (1.0f + gHp);
+    _jpHpS[0]   = _jpHpS[1] = 0.0f;
 }
 
 // ===========================================================================
@@ -469,13 +590,16 @@ inline void FxChain::processModulation(float inL, float inR,
                                        float& outL, float& outR)
 {
     if (_modType < 0 || !_modBufL || !_modBufR) { outL = inL; outR = inR; return; }
+    if (_modType >= (int)kNumModPresets) { processModulationJp(inL, inR, outL, outR); return; }
 
     const ModParams& p = kModPresets[_modType];
 
     const float feedback = (_modFeedbackOverride >= 0.0f) ? _modFeedbackOverride
                                                           : p.feedback;
-    const float wetMix = _modMix * p.mix;
-    const float dryMix = 1.0f - wetMix;
+    // 2a: additive send.  The input passes at unity; only the wet tap is
+    // scaled (square-law Level, cached in setModMix).  p.mix stays a per-preset
+    // wet trim (1.0 for every v1 preset).
+    const float wetMix = _modWetGain * p.mix;
 
     auto triangleLfo = [](float phase) -> float {
         const float norm = phase * (1.0f / kTwoPi);
@@ -499,16 +623,12 @@ inline void FxChain::processModulation(float inL, float inR,
     _lfoPhaseL += _lfoIncL; if (_lfoPhaseL >= kTwoPi) _lfoPhaseL -= kTwoPi;
     _lfoPhaseR += _lfoIncR; if (_lfoPhaseR >= kTwoPi) _lfoPhaseR -= kTwoPi;
 
-    auto readInterp = [](const float* buf, uint32_t bufSize,
-                         uint32_t writeIdx, float delaySamples) -> float
-    {
-        float readIdx = (float)writeIdx - delaySamples;
-        if (readIdx < 0.0f) readIdx += (float)bufSize;
-        const uint32_t i0 = (uint32_t)readIdx;
-        const uint32_t i1 = (i0 + 1) % bufSize;
-        const float frac  = readIdx - (float)i0;
-        return buf[i0] + (buf[i1] - buf[i0]) * frac;
-    };
+    // N2 (2026-10-22) — FLAGGED: the v1 lambda here read buf[bufSize] (one past
+    // the end; past the POOL on the R side) whenever writeIdx - delay was a
+    // hair below 0, because the wrap rounds to exactly bufSize in float.  The
+    // v1 path now calls modReadTap directly (inlined, no function pointer),
+    // which folds that case.  Every other read returns the identical value
+    // (same i0 / i1 / frac arithmetic).
 
     float delayedL, delayedR;
 
@@ -538,33 +658,86 @@ inline void FxChain::processModulation(float inL, float inR,
         float dR1 = (p.baseDelayMsR + p.depthMsR * 0.90f * lfo1R) * msToSamples;
         float dR2 = (p.baseDelayMsR + p.depthMsR * 1.10f * lfo2R) * msToSamples;
 
-        dL0 = clampf(dL0, 0.0f, maxIdx); dL1 = clampf(dL1, 0.0f, maxIdx); dL2 = clampf(dL2, 0.0f, maxIdx);
-        dR0 = clampf(dR0, 0.0f, maxIdx); dR1 = clampf(dR1, 0.0f, maxIdx); dR2 = clampf(dR2, 0.0f, maxIdx);
+        dL0 = clampf(dL0, kMinModTapSamples, maxIdx); dL1 = clampf(dL1, kMinModTapSamples, maxIdx); dL2 = clampf(dL2, kMinModTapSamples, maxIdx);
+        dR0 = clampf(dR0, kMinModTapSamples, maxIdx); dR1 = clampf(dR1, kMinModTapSamples, maxIdx); dR2 = clampf(dR2, kMinModTapSamples, maxIdx);
 
-        const float t0L = readInterp(_modBufL, kModLen, _modWriteIdx, dL0);
-        const float t1L = readInterp(_modBufL, kModLen, _modWriteIdx, dL1);
-        const float t2L = readInterp(_modBufL, kModLen, _modWriteIdx, dL2);
+        const float t0L = modReadTap(_modBufL, kModLen, _modWriteIdx, dL0);
+        const float t1L = modReadTap(_modBufL, kModLen, _modWriteIdx, dL1);
+        const float t2L = modReadTap(_modBufL, kModLen, _modWriteIdx, dL2);
         delayedL = (t0L + t1L + t2L) * (1.0f / 3.0f);
 
-        const float t0R = readInterp(_modBufR, kModLen, _modWriteIdx, dR0);
-        const float t1R = readInterp(_modBufR, kModLen, _modWriteIdx, dR1);
-        const float t2R = readInterp(_modBufR, kModLen, _modWriteIdx, dR2);
+        const float t0R = modReadTap(_modBufR, kModLen, _modWriteIdx, dR0);
+        const float t1R = modReadTap(_modBufR, kModLen, _modWriteIdx, dR1);
+        const float t2R = modReadTap(_modBufR, kModLen, _modWriteIdx, dR2);
         delayedR = (t0R + t1R + t2R) * (1.0f / 3.0f);
     } else {
         float dSampL = (p.baseDelayMsL + p.depthMsL * lfoL) * msToSamples;
         float dSampR = (p.baseDelayMsR + p.depthMsR * lfoR) * msToSamples;
-        dSampL = clampf(dSampL, 0.0f, maxIdx);
-        dSampR = clampf(dSampR, 0.0f, maxIdx);
-        delayedL = readInterp(_modBufL, kModLen, _modWriteIdx, dSampL);
-        delayedR = readInterp(_modBufR, kModLen, _modWriteIdx, dSampR);
+        dSampL = clampf(dSampL, kMinModTapSamples, maxIdx);   // 1a
+        dSampR = clampf(dSampR, kMinModTapSamples, maxIdx);   // 1a
+        delayedL = modReadTap(_modBufL, kModLen, _modWriteIdx, dSampL);
+        delayedR = modReadTap(_modBufR, kModLen, _modWriteIdx, dSampR);
     }
 
     _modBufL[_modWriteIdx] = inL + delayedL * feedback;
     _modBufR[_modWriteIdx] = inR + delayedR * feedback;
     _modWriteIdx = (_modWriteIdx + 1) % kModLen;
 
-    outL = dryMix * inL + wetMix * delayedL;
-    outR = dryMix * inR + wetMix * delayedR;
+    outL = inL + wetMix * delayedL;      // 2a: dry at unity (JP send)
+    outR = inR + wetMix * delayedR;
+}
+
+// ===========================================================================
+// processModulationJp — JP-8000 Multi-FX, measured pair engine (2026-10-23).
+// ONE mono wet path; the stereo is the polarity of W (R = -L), as measured.
+// Per sample: one phase add + shape (skipped when static), two interpolated
+// reads, a third only on the types with a 2c tap, then 1-2 high-pass stages.
+// ===========================================================================
+inline void FxChain::processModulationJp(float inL, float inR,
+                                         float& outL, float& outR)
+{
+    // The chain fans ONE mono signal to both sides before this stage, so
+    // inL == inR here; averaging keeps it exact if that ever changes.
+    const float x = 0.5f * (inL + inR);
+
+    // Write FIRST, with the previous sample's W as feedback (Deep Phasing's
+    // resonance; 0 elsewhere).  Writing before reading lets a tap sit anywhere
+    // down to 0 samples: Deep Phasing's near tap reaches ~0.005 ms, and a
+    // 0-sample read is then the current input, never the stale lap (cf. 1a).
+    _modBufL[_modWriteIdx] = x + _jpFeedback * _jpLastW;
+
+    float d = _jpStaticD;
+    if (_jpShape != kJpLfoStatic) {
+        _jpPhase += _jpInc;
+        if (_jpPhase >= 1.0f) _jpPhase -= 1.0f;
+        const float lfo = (_jpShape == kJpLfoSine) ? FastMath::fastSin01(_jpPhase)
+                                                   : jpTri(_jpPhase);
+        d = (_jpShape == kJpLfoUni) ? 0.5f * _jpDepth * (1.0f + lfo)   // 0..D, taps meet
+                                    : _jpDepth * lfo;                   // -D..+D, taps cross
+    }
+
+    const float maxIdx = (float)(kModLen - 2);
+    const float dA = clampf(_jpCentre + d, 0.0f, maxIdx);
+    const float dB = clampf(_jpCentre - d, 0.0f, maxIdx);
+    float w = _jpG * (modReadTap(_modBufL, kModLen, _modWriteIdx, dA)
+                    - modReadTap(_modBufL, kModLen, _modWriteIdx, dB));
+    if (_jpG3 != 0.0f)                                  // fixed tap at 2c
+        w += _jpG3 * modReadTap(_modBufL, kModLen, _modWriteIdx, 2.0f * _jpCentre);
+    _jpLastW = w;             // the loop (feedback) takes W BEFORE the high-pass
+
+    // Wet high-pass, 0..2 cascaded TPT one-poles: hp = x - lp.
+    for (uint8_t st = 0; st < _jpHpPoles; ++st) {
+        const float v  = (w - _jpHpS[st]) * _jpHpG;
+        const float lp = v + _jpHpS[st];
+        _jpHpS[st]     = lp + v;
+        w -= lp;
+    }
+
+    _modWriteIdx = (_modWriteIdx + 1) % kModLen;
+
+    const float wet = _modWetGain * w;                  // m^2 send law (2a)
+    outL = inL + wet;
+    outR = inR - wet;                                   // mono wet, R inverted
 }
 
 // ===========================================================================

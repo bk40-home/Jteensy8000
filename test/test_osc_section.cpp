@@ -338,7 +338,10 @@ TEST_CASE("supersaw on BOTH units renders and stays bounded")
     CHECK(rms(v) > 0.1f);
     for (float x : v) {
         REQUIRE(std::isfinite(x));
-        REQUIRE(std::fabs(x) < 2.0f);
+        // Structural bound: each SupersawOsc output is bounded by its kClip
+        // safety value (3.0 since the JP mix law, 2026-10-22 item 1b — was
+        // ±1 under v1), times the section gains 1.0 (OSC1) + 0.7 (OSC2).
+        REQUIRE(std::fabs(x) < 3.0f * (1.0f + 0.7f));
     }
 }
 

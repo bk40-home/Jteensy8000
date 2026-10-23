@@ -198,6 +198,7 @@ window.PARAMS = {
   "lfo2.pwm_depth",
   "lfo2.sync",
   "lfo2.waveform",
+  "master.usb_return_level",
   "master.volume",
   "mix.balance",
   "mix.cross_mod",
@@ -206,6 +207,7 @@ window.PARAMS = {
   "mix.osc2",
   "mix.osc_sync",
   "mix.pitch_mod_dest",
+  "mix.pwm_law",
   "mix.sub",
   "mix.xmod_type",
   "osc1.arb_bank",
@@ -215,6 +217,7 @@ window.PARAMS = {
   "osc1.feedback_mix",
   "osc1.fine_tune",
   "osc1.freq_dc",
+  "osc1.jfbk_feedback",
   "osc1.pitch_offset",
   "osc1.pwm_lfo1_depth",
   "osc1.ring_mix",
@@ -229,6 +232,7 @@ window.PARAMS = {
   "osc2.feedback_mix",
   "osc2.fine_tune",
   "osc2.freq_dc",
+  "osc2.jfbk_feedback",
   "osc2.pitch_offset",
   "osc2.pwm_lfo1_depth",
   "osc2.ring_mix",
@@ -327,6 +331,7 @@ window.PARAMS = {
   "osc1.arb_bank": "Osc1 Arb Bank",
   "osc1.arb_index": "Osc1 Arb Idx",
   "osc1.pwm_lfo1_depth": "Osc1 PWM Amt",
+  "osc1.jfbk_feedback": "Osc1 JFBK Feedback",
   "osc2.wave": "Osc2 Wave",
   "osc2.pitch_offset": "Osc2 Pitch",
   "osc2.fine_tune": "Osc2 Fine",
@@ -341,6 +346,7 @@ window.PARAMS = {
   "osc2.arb_bank": "Osc2 Arb Bank",
   "osc2.arb_index": "Osc2 Arb Idx",
   "osc2.pwm_lfo1_depth": "Osc2 PWM Amt",
+  "osc2.jfbk_feedback": "Osc2 JFBK Feedback",
   "mix.balance": "Osc Balance",
   "mix.osc1": "Osc1 Mix",
   "mix.osc2": "Osc2 Mix",
@@ -350,6 +356,7 @@ window.PARAMS = {
   "mix.osc_sync": "Osc Sync",
   "mix.pitch_mod_dest": "Pitch Mod Dest",
   "mix.xmod_type": "X-Mod Type",
+  "mix.pwm_law": "PWM Law",
   "filter.cutoff": "Cutoff",
   "filter.resonance": "Resonance",
   "filter.env_amount": "Filt Env Amt",
@@ -506,6 +513,7 @@ window.PARAMS = {
   "reverb.hipass": "Rev Hi Pass",
   "reverb.algorithm": "Reverb Algorithm",
   "master.volume": "Master Volume",
+  "master.usb_return_level": "USB Return Level",
   "arp.enable": "Arp Enable",
   "arp.mode": "Arp Mode",
   "arp.octaves": "Arp Octaves",
@@ -690,7 +698,19 @@ window.PARAMS = {
    "Phaser 2",
    "Phaser 3",
    "Phaser 4",
-   "Super Chorus"
+   "Super Chorus",
+   "SChorus SLW",
+   "SChorus MID",
+   "SChorus FST",
+   "SChorus CLR",
+   "Flanger SLW",
+   "Flanger DEEP",
+   "Flanger FST",
+   "DeepPhs SLW",
+   "Jet Phasing",
+   "Twisting",
+   "Freeze Ph 1",
+   "Freeze Ph 2"
   ],
   "filter_engine": [
    "OBXa",
@@ -766,7 +786,9 @@ window.PARAMS = {
    "vTRI",
    "BLvTRI",
    "JvSAW",
-   "JvTRI"
+   "JvTRI",
+   "JTRIM",
+   "JFBK"
   ],
   "perf_mode": [
    "Single",
@@ -789,6 +811,10 @@ window.PARAMS = {
    "Poly",
    "Mono",
    "Unison"
+  ],
+  "pwm_law": [
+   "JtPwm",
+   "JpPwm"
   ],
   "reverb_algo": [
    "Plate",

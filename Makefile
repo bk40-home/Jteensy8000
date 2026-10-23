@@ -36,6 +36,7 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/OBXaCore.cpp \
         src/core/dsp/OscCore.cpp \
         src/core/dsp/SupersawOsc.cpp \
+        src/core/dsp/JpFeedbackOsc.cpp \
         src/core/dsp/PlateReverb.cpp \
         src/core/dsp/FxChain.cpp \
         src/core/dsp/StepSequencer.cpp \
@@ -66,6 +67,7 @@ SRCS := $(CORE) \
         test/test_engine.cpp \
         test/test_osc.cpp \
         test/test_supersaw.cpp \
+        test/test_jp_feedback.cpp \
         test/test_osc_section.cpp \
         test/test_feedback.cpp \
         test/test_filter_section.cpp \
@@ -192,6 +194,7 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/OBXaCore.cpp \
         src/core/dsp/OscCore.cpp \
         src/core/dsp/SupersawOsc.cpp \
+        src/core/dsp/JpFeedbackOsc.cpp \
         src/core/dsp/PlateReverb.cpp \
         src/core/dsp/RoomReverb.cpp \
         src/core/dsp/HallReverb.cpp \
@@ -226,6 +229,7 @@ SRCS := $(CORE) \
         test/test_engine.cpp \
         test/test_osc.cpp \
         test/test_supersaw.cpp \
+        test/test_jp_feedback.cpp \
         test/test_osc_section.cpp \
         test/test_wavetable_reader.cpp \
         test/test_feedback.cpp \

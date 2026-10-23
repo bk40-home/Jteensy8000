@@ -9,12 +9,17 @@
 //   order below matches the generated option set EXACTLY — patches store
 //   the option index, so this ordering is frozen alongside the table:
 //     ["SIN","SAW","SQR","TRI","ARB","PLS","rSAW","S&H","vTRI",
-//      "BLS","rBLS","BLSQ","BLP","SSAW"]
+//      "BLS","rBLS","BLSQ","BLP","SSAW","vSAW","BLvSAW","vTRI","BLvTRI",
+//      "JvSAW","JvTRI","JTRIM","JFBK"]
 //
 // NAIVE vs BAND-LIMITED — BOTH ON PURPOSE
-//   v1 (like the JP-8000 itself) offers aliased naive waves alongside
-//   polyBLEP versions; the aliasing is part of the instrument's character
-//   and several factory sounds rely on it.  Do not "fix" the naive modes.
+//   v1 offers aliased naive waves alongside polyBLEP versions; v1 patches
+//   rely on the naive ones, so do not "fix" the naive modes.
+//   CORRECTION (2026-10-22, JE-8086 measurement): the JP-8000's OSC1 SAW,
+//   SQR and TRI are BAND-LIMITED (−42..−52 dB alias energy at C7, cleaner
+//   than our polyBLEP's −34..−38 dB) — only its SUPER SAW aliases like
+//   naive saws.  So the band-limited waves (BLS/BLSQ/BLP, JvSAW, JTRIM) are
+//   the JP-faithful targets; the JP importer maps to them.
 //
 // SYNC AND FM HOOKS (v1 CrossModSync semantics, confirmed from source)
 //   * Hard sync: the MASTER fills a per-sample wrap buffer (fraction of the
@@ -108,14 +113,24 @@ enum class Wave : uint8_t {
     BlVarSaw    = 15,   // polyBLEP saw morph
     VarTri      = 16,   // naive triangle fold
     BlVarTri    = 17,   // 2x-oversampled, base-triangle polyBLEP fold
-    // --- MEASURED JP-8000 SHAPE morphs (append-only; indices frozen) --------
-    // Single cycles captured from a JE-8086 (JP-8000 DSP emulation) SHAPE
-    // sweep, 17 frames min->max × 7 band-limited levels, played by the SAME
-    // table reader as ARB.  SHAPE covers every frame: shape_dc -1 -> frame 0
-    // (JP SHAPE min), 0 -> frame 8, +1 -> frame 16 (JP SHAPE max).  The
-    // formula morphs above stay untouched for existing patches.
-    JpVarSaw    = 18,   // "JvSAW" — data/akwf/JpMorph/JpMorph_VSaw.h
-    JpVarTri    = 19,   // "JvTRI" — data/akwf/JpMorph/JpMorph_VTri.h
+    // --- MEASURED JP-8000 OSC1 SHAPE waves (append-only; indices frozen) ---
+    // All three measured from calibrated JE-8086 (JP-8000 DSP emulation)
+    // Ctrl1 ramps, 2026-10-22 (project doc osc-shapes/jp-osc1-capture-
+    // analysis).  SHAPE: shape_dc -1 -> JP Ctrl1 min, +1 -> Ctrl1 max.  The
+    // formula morphs above (vSAW/vTRI) stay untouched for existing patches.
+    //   JvSAW  — CLOSED FORM since 2026-10-22 (sign-off item 2: replaces the
+    //            hand-swept 17-frame table in place): saw + β·B3, see .cpp.
+    //   JvTRI  — measured table, 33 frames × 7 levels, re-generated from the
+    //            calibrated ramp (item 3; the 2026-10 table was not the JP
+    //            triangle).  data/akwf/JpMorph/JpMorph_VTri.h.
+    //   JTRIM  — JP "TRIANGLE MOD", closed form wrap(g·tri) (item 4).
+    JpVarSaw    = 18,   // "JvSAW"
+    JpVarTri    = 19,   // "JvTRI"
+    JpTriMod    = 20,   // "JTRIM"
+    // --- JP-8000 FEEDBACK OSC (append-only; 2026-10-23, option 1) ----------
+    // Handled by JpFeedbackOsc (own state, like Supersaw) — never reaches this
+    // class's loops; OscCore renders silence if it ever does.
+    JpFeedback  = 21,   // "JFBK"
 };
 
 class OscCore {
@@ -128,6 +143,14 @@ public:
     // morph position keeps the FULL 0..1 range (clamped only to 0..1) so
     // the measured JP waves reach their end frames.
     void setShape(float s);
+    // PWM law (mix.pwm_law, sign-off 5b 2026-10-22).  false = JtPwm, the v1
+    // 5..95 % pulse clamp (default, byte-identical).  true = JpPwm, the
+    // JP-8000 law measured on a JE-8086: the pulse-width floor is 50 %, so
+    // width + LFO never passes through a square — the JP's PW knob narrows
+    // one way only and its PWM flattens at 50 % instead of folding back.
+    // Pulse/BlPulse only; the SHAPE morph position (_morph) is unaffected.
+    // Re-applies the last shape so a law switch takes effect immediately.
+    void setJpPwmClamp(bool on);
     // Arbitrary wavetable: any length ≥ 2 (AKWF uses 600), int16 samples.
     // Passing nullptr falls back to naive saw (matches v1's arbdata guard).
     // Wrapped internally as a 1-frame, 1-level WaveTableSet so ARB and the
@@ -203,7 +226,10 @@ private:
     float    _phase  = 0.0f;          // 0..1
     float    _inc    = 0.0f;          // per-sample increment
     float    _freq   = -1.0f;         // dirty check
-    float    _shape  = 0.5f;          // pulse width / triangle skew
+    float    _shape  = 0.5f;          // TriVar skew (always 5..95 %)
+    float    _pw     = 0.5f;          // Pulse/BlPulse width (floor per law)
+    float    _shapeIn = 0.5f;         // last raw setShape() value (law re-apply)
+    float    _pwFloor = 0.05f;        // 0.05 JtPwm (v1) / 0.5 JpPwm
     float    _shValue = 0.0f;         // current Sample & Hold level
 #if JT_SYNC_ANTIALIAS
     // F3: sub-sample position of a pending sync-reset step (<0 = none).
