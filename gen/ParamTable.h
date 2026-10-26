@@ -947,7 +947,7 @@ static constexpr const char* const kOpt_osc_wave[] JT_TABLE_FLASH = { "SIN", "SA
 static constexpr const char* const kOpt_pitch_offset[] JT_TABLE_FLASH = { "-24", "-12", "0", "+12", "+24" };
 static constexpr const char* const kOpt_filter_engine[] JT_TABLE_FLASH = { "OBXa", "VA" };
 static constexpr const char* const kOpt_filter_mode[] JT_TABLE_FLASH = { "4-Pole", "2-Pole", "2P BP", "2P Push", "Xpander", "Xpander M" };
-static constexpr const char* const kOpt_v_a_filter[] JT_TABLE_FLASH = { "SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP", "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4", "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP", "MoogDV LP4", "MoogDV LP2", "MoogDV HP4", "MoogDV BP" };
+static constexpr const char* const kOpt_v_a_filter[] JT_TABLE_FLASH = { "SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP", "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4", "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP", "MoogDV LP4", "MoogDV LP2", "MoogDV HP4", "MoogDV BP", "JP LPF-24", "JP LPF-12", "JP HPF-24", "JP HPF-12", "JP BPF-24", "JP BPF-12" };
 static constexpr const char* const kOpt_saturation[] JT_TABLE_FLASH = { "OFF", "SOFT", "WARM" };
 static constexpr const char* const kOpt_xpander_mode[] JT_TABLE_FLASH = { "LP4", "LP3", "LP2", "LP1", "HP3", "HP2", "HP1", "BP4", "BP2", "N2", "PH3", "HP2+LP1", "HP3+LP1", "N2+LP1", "PH3+LP1" };
 static constexpr const char* const kOpt_l_f_o_wave[] JT_TABLE_FLASH = { "SIN", "TRI", "SAW", "SQR", "S&H", "NOISE" };
@@ -1571,7 +1571,7 @@ static constexpr ParamDesc kParams[] JT_TABLE_FLASH = {
     { ID::FILTER_KEY_TRACK, Str::s118, Str::s119, Str::s120, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, -1.0f, 0.0f, 1.0f, 0.0f, Str::s10, true, 5, -1, 0, nullptr, 3, 0, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::FILTER_ENGINE, Str::s121, Str::s122, Str::s123, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s3, false, 0, -1, 2, kOpt_filter_engine, 3, 1, Control::Encoder, kNoVisDep, nullptr, 0 },
     { ID::FILTER_MODE, Str::s124, Str::s125, Str::s126, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 5.0f, 0.0f, Str::s3, false, 0, -1, 6, kOpt_filter_mode, 3, 1, Control::Encoder, ID::FILTER_ENGINE, kVis_FILTER_MODE, 1 },
-    { ID::FILTER_VA_TYPE, Str::s127, Str::s128, Str::s129, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 16.0f, 0.0f, Str::s3, false, 0, -1, 17, kOpt_v_a_filter, 3, 1, Control::Encoder, ID::FILTER_ENGINE, kVis_FILTER_VA_TYPE, 1 },
+    { ID::FILTER_VA_TYPE, Str::s127, Str::s128, Str::s129, Type::Select, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 22.0f, 0.0f, Str::s3, false, 0, -1, 23, kOpt_v_a_filter, 3, 1, Control::Encoder, ID::FILTER_ENGINE, kVis_FILTER_VA_TYPE, 1 },
     { ID::FILTER_OCTAVE_CONTROL, Str::s130, Str::s131, Str::s132, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.4f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, kNoVisDep, nullptr, 0 },
     { ID::FILTER_OBXA_RES_MOD_DEPTH, Str::s133, Str::s134, Str::s135, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_OBXA_RES_MOD_DEPTH, 1 },
     { ID::FILTER_OBXA_MULTIMODE, Str::s136, Str::s137, Str::s138, Type::Continuous, Scope::Patch, Widget::Knob, Curve::Lin, 0.0f, 0.0f, 1.0f, 0.0f, Str::s10, false, 5, -1, 0, nullptr, 3, 2, Control::Pot, ID::FILTER_ENGINE, kVis_FILTER_OBXA_MULTIMODE, 1 },

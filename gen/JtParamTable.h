@@ -303,6 +303,12 @@ static constexpr Option kOpt_v_a_filter[] = {
     { "MoogDV LP2" },
     { "MoogDV HP4" },
     { "MoogDV BP" },
+    { "JP LPF-24" },
+    { "JP LPF-12" },
+    { "JP HPF-24" },
+    { "JP HPF-12" },
+    { "JP BPF-24" },
+    { "JP BPF-12" },
 };
 static constexpr Option kOpt_voice_split[] = {
     { "1+7" },
@@ -387,7 +393,7 @@ static constexpr Param kParams[kNumParams] = {
     { 0x0183, "filter.key_track",        "filter.key_track",        "Key Track",             "KEY TRK",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, -1.0f,     1.0f,      0.0f,      0.0f,      "norm",  true,   nullptr,                0,  3 },
     { 0x0184, "filter.engine",           "filter.engine",           "Filt Engine",           "ENGINE",    Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  kOpt_filter_engine,     2,  3 },
     { 0x0185, "filter.mode",             "filter.mode",             "Filt Mode",             "MODE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      5.0f,      0.0f,      0.0f,      "",      false,  kOpt_filter_mode,       6,  3 },
-    { 0x0186, "filter.va_type",          "filter.va_type",          "VA Type",               "VA TYPE",   Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      16.0f,     0.0f,      0.0f,      "",      false,  kOpt_v_a_filter,       17,  3 },
+    { 0x0186, "filter.va_type",          "filter.va_type",          "VA Type",               "VA TYPE",   Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      22.0f,     0.0f,      0.0f,      "",      false,  kOpt_v_a_filter,       23,  3 },
     { 0x0187, "filter.octave_control",   "filter.octave_control",   "Oct Control",           "OCT CTRL",  Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.4f,      "norm",  false,  nullptr,                0,  3 },
     { 0x0188, "filter.obxa_res_mod_depth", "filter.obxa_res_mod_depth", "Res Mod",               "RES MOD",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0,  3 },
     { 0x0189, "filter.obxa_multimode",   "filter.obxa_multimode",   "Multimode",             "MULTI",     Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "norm",  false,  nullptr,                0,  3 },

@@ -43,6 +43,7 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/JpModLaw.cpp \
         src/core/dsp/JpLfoRate.cpp \
         src/core/dsp/JpXmodLaw.cpp \
+        src/core/dsp/JpFilter.cpp \
         src/core/dsp/SupersawOsc.cpp \
         src/core/dsp/JpFeedbackOsc.cpp \
         src/core/dsp/PlateReverb.cpp \
@@ -88,6 +89,7 @@ SRCS := $(CORE) \
         test/test_wavetable_reader.cpp \
         test/test_feedback.cpp \
         test/test_filter_section.cpp \
+        test/test_jp_filter.cpp \
         test/test_korg35.cpp \
         test/test_moog_ladder.cpp \
         test/test_moogdv.cpp \

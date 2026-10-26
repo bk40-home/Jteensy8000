@@ -20,7 +20,7 @@ namespace JT {
 // Korg35's in-loop tanh compresses audible resonance early, MoogDV shares
 // the Moog knee but its fcMax is pinned to the 1x-oversample ceiling.
 // -----------------------------------------------------------------------------
-const FilterSection::Shape FilterSection::kShape[17] JT_FLASH_DATA = {
+const FilterSection::Shape FilterSection::kShape[kJpFirstVaType] JT_FLASH_DATA = {
     /* SVF LP2    */ {   40.0f, 14000.0f, 0.70f, 1.000f, 0.0f },
     /* SVF HP2    */ {   30.0f,  6000.0f, 0.70f, 1.000f, 0.0f },
     /* SVF BP2    */ {   40.0f, 14000.0f, 0.70f, 1.000f, 0.0f },
@@ -96,7 +96,7 @@ void FilterSection::setEngine(int option)
 void FilterSection::setVaType(int option)
 {
     if (option < 0)  option = 0;
-    if (option > 16) option = 16;
+    if (option > kNumVaTypes - 1) option = kNumVaTypes - 1;
     if (option == _vaType) return;                   // v1: skip when unchanged
     _vaType = option;
     _dirty  = true;                                  // re-shape under new row
@@ -239,6 +239,7 @@ void FilterSection::reset()
     _k35lp.reset();
     _k35hp.reset();
     _moogdv.reset();
+    _jp.reset();
 
     // Fresh modulation state for the new note: no smeared env level, and a
     // sentinel that forces the coefficient fold on the next process() block.
@@ -265,6 +266,20 @@ void FilterSection::updateBaseIfDirty()
         // The cutoff tanf is mod-dependent, so it is derived in deriveCutoff.
         _obxa.setSampleRate(kSampleRate);      // cheap; keeps warp correct
         _obxa.setResonance(va_clamp(_resNorm, 0.0f, OBXaCore::kResMax));
+        return;
+    }
+
+    if (isJp()) {
+        // JP-8000 modes: the JE-fitted laws on the raw knob code.  The wire
+        // is 7-bit (v14 = v7*129), so an imported patch arrives as exactly
+        // byte/127 and norm*127 recovers the JP's own code; a gliding knob
+        // gives fractional codes, which the laws take as-is (smooth sweep).
+        // No kShape row, no gamma, no input staging: JpFilter is linear, so
+        // the only output gain is the JP's own resonance trim.
+        _fcHz    = JpFilter::cutoffHz(_cutNorm * 127.0f);
+        _k       = JpFilter::damping(_resNorm * 127.0f);    // R = 1/(2Q)
+        _inGain  = 1.0f;
+        _outGain = JpFilter::outputTrim(jpMode(), _k);
         return;
     }
 
@@ -341,10 +356,16 @@ void FilterSection::deriveCutoff(float modOct)
     }
 
     // Integrator gain for the TPT family.
-    const float fcClamped = va_clamp(_fcHz * modMul, 5.0f, 0.45f * kSampleRate);
+    // JP modes use their own ceiling (LP 0.49 fs = open at the top like the
+    // JE; HP/BP 12.35 kHz, where the JE's HPF saturates).  Every other type
+    // keeps the v1 0.45 fs clamp exactly.
+    const float fcHi = isJp() ? JpFilter::ceilingHz(jpMode(), kSampleRate)
+                              : 0.45f * kSampleRate;
+    const float fcClamped = va_clamp(_fcHz * modMul, 5.0f, fcHi);
     _g = va_compute_g(fcClamped, kSampleRate);
+    if (isJp()) _jp.setCoeffs(_g, _k);   // one divide, only when g or R moved
 
-    if (_vaType >= 13) {
+    if (_vaType >= 13 && _vaType < kJpFirstVaType) {   // MoogDV 13..16 only
         // MoogDV backstop (v1): clamp the MODULATED Hz to the model's own
         // ceiling — the paper's A coefficient zeros inside the audio band, so
         // exceeding it never brightens, it breaks.
@@ -459,6 +480,31 @@ void FilterSection::process(float* buf, size_t n)
         }
     };
 
+    // JP-mode tail (types 17..22): the same per-sample chain, but the output
+    // stage is LINEAR to kJpSatLinear (4) and shoulders into kJpSatKnee (8)
+    // only above it — see the header (H2, H2b).  A separate lambda, so the
+    // tail every other type runs is left exactly as it was (byte-identity).
+    // Cost: one fabsf + compare per sample; the tanhf runs only on overload,
+    // i.e. cheaper than the shared tail on every normal sample.
+    constexpr float kKnee     = kJpSatKnee;
+    constexpr float kLin      = kJpSatLinear;
+    constexpr float kSpan     = kJpSatKnee - kJpSatLinear;     // shoulder width
+    constexpr float kSpanInv  = 1.0f / kSpan;
+    auto runBlockJp = [&](auto evalFilter)
+    {
+        for (size_t i = 0; i < n; ++i) {
+            rng = rng * 1664525u + 1013904223u;
+            const float d = kDither * ((float)(int32_t)rng * (1.0f / 2147483648.0f));
+            float y = evalFilter((buf[i] + d) * dIn) * dOut;
+            const float a = fabsf(y);
+            if (a > kLin) {                                   // overload only
+                const float s = kLin + kSpan * va_tanh((a - kLin) * kSpanInv);
+                y = (y < 0.0f) ? -s : s;
+            }
+            buf[i] = va_clamp(y, -kKnee, kKnee);
+        }
+    };
+
 #if !JT_OPT_FILTER_SAT_DIODE
     // Diode-only tail with the saturator bypassed.  Drive still applies: it is
     // an input gain, independent of what the output stage does.
@@ -524,7 +570,18 @@ void FilterSection::process(float* buf, size_t n)
         case 13: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.lp4; }); break;
         case 14: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.lp2; }); break;
         case 15: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.hp4; }); break;
-        default: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.bp;  }); break;
+        case 16: runBlock([&](float x){ _moogdv.tick(x, k, false); return _moogdv.bp;  }); break;
+
+        // ── JP-8000 (JpFilter): two TPT SVF sections, -24 = cascade ──────────
+        // Mode is a template argument, so each case is its own tight loop.
+        // The resonance trim is already in dOut (_outGain), so it is free here.
+        // runBlockJp: linear to 4, shoulder to the x8 knee (header, H2/H2b).
+        case 17: runBlockJp([&](float x){ return _jp.tick<JpFilter::Mode::LP24>(x); }); break;
+        case 18: runBlockJp([&](float x){ return _jp.tick<JpFilter::Mode::LP12>(x); }); break;
+        case 19: runBlockJp([&](float x){ return _jp.tick<JpFilter::Mode::HP24>(x); }); break;
+        case 20: runBlockJp([&](float x){ return _jp.tick<JpFilter::Mode::HP12>(x); }); break;
+        case 21: runBlockJp([&](float x){ return _jp.tick<JpFilter::Mode::BP24>(x); }); break;
+        default: runBlockJp([&](float x){ return _jp.tick<JpFilter::Mode::BP12>(x); }); break;
     }
 
     // Carry the dither generator across blocks so it never repeats a short

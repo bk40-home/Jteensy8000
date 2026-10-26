@@ -46,7 +46,11 @@ option_sets:
   pitch_offset: ["-24", "-12", "0", "+12", "+24"]
   filter_engine: ["OBXa", "VA"]
   filter_mode: ["4-Pole", "2-Pole", "2P BP", "2P Push", "Xpander", "Xpander M"]
-  v_a_filter: ["SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP", "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4", "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP", "MoogDV LP4", "MoogDV LP2", "MoogDV HP4", "MoogDV BP"]
+  # 2026-10-26: six JP-8000 filter modes APPENDED at 17..22 (JpFilter: two
+  # cascaded TPT SVF sections fitted to the JE-8086, scene 14). Append-only:
+  # the stored value is the option index. NOTE the DAW-side value of a select
+  # is index/(n-1), so existing va_type AUTOMATION re-maps (signed off, F1).
+  v_a_filter: ["SVF LP2", "SVF HP2", "SVF BP2", "SVF NOTCH", "SVF AP", "Moog LP4", "Moog LP2", "Moog BP2", "Diode LP4", "Korg35 LP", "Korg35 HP", "TPT1 LP", "TPT1 HP", "MoogDV LP4", "MoogDV LP2", "MoogDV HP4", "MoogDV BP", "JP LPF-24", "JP LPF-12", "JP HPF-24", "JP HPF-12", "JP BPF-24", "JP BPF-12"]
   saturation: ["OFF", "SOFT", "WARM"]
   # OB-Xa Xpander pole-mix modes. Names are VERBATIM from the firmware's
   # kObxaPoleMix[15][5] table — each row mixes the five ladder taps into one
@@ -741,7 +745,7 @@ params:
     default: 0
     smooth_ms: 0
     ui: {section: 3, group: 1}
-    # The VA filter bank has 17 types; the OBXa ladder has none. Dead under OBXa.
+    # The VA filter bank has 23 types (17 VA + 6 JP-8000); the OBXa ladder has none. Dead under OBXa.
     visible_when: {param: filter.engine, is: VA}
   - id: 0x0187            # v1: CC::FILTER_OCTAVE_CONTROL (was CC 84)
     key: filter.octave_control

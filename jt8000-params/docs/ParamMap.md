@@ -80,7 +80,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0183` | 3 | Key Track | `filter.key_track` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0184` | 4 | Filt Engine | `filter.engine` | select | 0–1 (index) | 0 (OBXa) | 0 ms | — | patch |
 | `0x0185` | 5 | Filt Mode | `filter.mode` | select | 0–5 (index) | 0 (4-Pole) | 0 ms | — | patch |
-| `0x0186` | 6 | VA Type | `filter.va_type` | select | 0–16 (index) | 0 (SVF LP2) | 0 ms | — | patch |
+| `0x0186` | 6 | VA Type | `filter.va_type` | select | 0–22 (index) | 0 (SVF LP2) | 0 ms | — | patch |
 | `0x0187` | 7 | Oct Control | `filter.octave_control` | continuous | 0–1 norm (lin) | 0.4 norm | 5 ms | — | patch |
 | `0x0188` | 8 | Res Mod | `filter.obxa_res_mod_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0189` | 9 | Multimode | `filter.obxa_multimode` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
@@ -426,7 +426,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **pitch_offset**: `-24`, `-12`, `0`, `+12`, `+24`
 - **filter_engine**: `OBXa`, `VA`
 - **filter_mode**: `4-Pole`, `2-Pole`, `2P BP`, `2P Push`, `Xpander`, `Xpander M`
-- **v_a_filter**: `SVF LP2`, `SVF HP2`, `SVF BP2`, `SVF NOTCH`, `SVF AP`, `Moog LP4`, `Moog LP2`, `Moog BP2`, `Diode LP4`, `Korg35 LP`, `Korg35 HP`, `TPT1 LP`, `TPT1 HP`, `MoogDV LP4`, `MoogDV LP2`, `MoogDV HP4`, `MoogDV BP`
+- **v_a_filter**: `SVF LP2`, `SVF HP2`, `SVF BP2`, `SVF NOTCH`, `SVF AP`, `Moog LP4`, `Moog LP2`, `Moog BP2`, `Diode LP4`, `Korg35 LP`, `Korg35 HP`, `TPT1 LP`, `TPT1 HP`, `MoogDV LP4`, `MoogDV LP2`, `MoogDV HP4`, `MoogDV BP`, `JP LPF-24`, `JP LPF-12`, `JP HPF-24`, `JP HPF-12`, `JP BPF-24`, `JP BPF-12`
 - **saturation**: `OFF`, `SOFT`, `WARM`
 - **xpander_mode**: `LP4`, `LP3`, `LP2`, `LP1`, `HP3`, `HP2`, `HP1`, `BP4`, `BP2`, `N2`, `PH3`, `HP2+LP1`, `HP3+LP1`, `N2+LP1`, `PH3+LP1`
 - **l_f_o_wave**: `SIN`, `TRI`, `SAW`, `SQR`, `S&H`, `NOISE`

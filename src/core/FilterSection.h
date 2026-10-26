@@ -140,6 +140,7 @@
 #include "core/dsp/VAFilterCore.h"
 #include "core/dsp/MoogDVCore.h"
 #include "core/dsp/OBXaCore.h"
+#include "core/dsp/JpFilter.h"
 
 namespace JT {
 
@@ -148,9 +149,41 @@ public:
     // Option indices of the generated sets — frozen with the table.
     enum class Engine : uint8_t { OBXa = 0, VA = 1 };
 
+    // filter.va_type option count, and where the JP-8000 modes start.
+    //   0..16  the v1 VA bank (kShape rows, mapResonance)
+    //   17..22 JpFilter: JP LPF-24, LPF-12, HPF-24, HPF-12, BPF-24, BPF-12
+    // The JP modes bypass kShape and mapResonance entirely: their cutoff and
+    // resonance laws are the JE-8086 fit in JpFilter.cpp.
+    static constexpr int kNumVaTypes    = 23;
+    static constexpr int kJpFirstVaType = 17;
+
+    // Output-saturator knee for the JP modes (sign-off H2, 2026-10-26).
+    // The voice reaches the filter at FULL SCALE (oscillators and noise are
+    // +-1; kVoiceGain = 0.125 is applied after), so the shared tanh(y) tail
+    // compresses an ordinary signal by ~1.5 dB.  On an HPF that clipping's
+    // intermodulation filled the stopband with a flat floor ~18 dB down
+    // (scene 14 recapture, syx-import/jpfilter-ab-recapture-2026-10-26.md),
+    // where the JE-8086 is linear.  JP modes therefore saturate as
+    // K*tanh(y/K) with K = 1/kVoiceGain: the knee sits where ONE voice would
+    // reach full-scale OUTPUT, so the stage only acts on real overload
+    // (resonance peaks), never on a normal signal.  Types 0..16 keep tanh(y).
+    static constexpr float kJpSatKnee   = 1.0f / kVoiceGain;     // 8.0
+    //
+    // H2b (2026-10-26): K*tanh(y/K) still bent a NORMAL signal by its cubic
+    // term (~y^2/192), which left the HPF stopband ~-50 dB where the JE sits
+    // at -75..-90.  So the JP tail is now EXACTLY linear up to kJpSatLinear
+    // and only shoulders into K above it:
+    //     |y| <= T :  y
+    //     |y| >  T :  sign(y) * (T + (K-T) * tanh((|y|-T) / (K-T)))
+    // Value and slope (1) match at T, so the join is smooth; the output
+    // approaches K and the +-K clamp stays as the last line of defence.
+    // A full-scale voice (+-1) never reaches T = 4, so ordinary signals pay a
+    // compare instead of a tanhf.
+    static constexpr float kJpSatLinear = 0.5f * kJpSatKnee;     // 4.0
+
     // --- control plane (block boundaries) ---
     void setEngine(int option);          // REAL switch now: reset on change
-    void setVaType(int option);          // 17 types; state reset on change (v1)
+    void setVaType(int option);          // 23 types; state reset on change (v1)
     // Cutoff carries both views: VA shapes the NORM under its per-type row
     // (v1 knob feel); OBXa consumes the Hz directly on the global curve
     // (v1 cc_to_obxa_cutoff_hz), clamped to its own 0.24·fs ceiling.
@@ -247,7 +280,10 @@ private:
     //     Diode LP4   1.3000  1.0462  1.0250   DIODE_COMP_DC already handles it
     // So only the two ladders need it, which is exactly what the theory says.
     struct Shape { float fcMinHz, fcMaxHz, resGamma, inGain, resComp; };
-    static const Shape kShape[17];
+    static const Shape kShape[kJpFirstVaType];   // VA types 0..16 only
+
+    bool           isJp()   const { return _vaType >= kJpFirstVaType; }
+    JpFilter::Mode jpMode() const { return (JpFilter::Mode)(_vaType - kJpFirstVaType); }
 
     float mapResonance(float rShaped, int type) const;
     void  updateBaseIfDirty();           // shape → base cutoff/res, on _dirty
@@ -312,6 +348,7 @@ private:
     Korg35LP     _k35lp;
     Korg35HP     _k35hp;
     MoogDV4      _moogdv;
+    JpFilter     _jp;              // va_type 17..22
 
     // --- OBXa engine state ---
     OBXaCore _obxa;

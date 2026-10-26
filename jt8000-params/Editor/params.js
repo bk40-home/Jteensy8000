@@ -879,7 +879,13 @@ window.PARAMS = {
    "MoogDV LP4",
    "MoogDV LP2",
    "MoogDV HP4",
-   "MoogDV BP"
+   "MoogDV BP",
+   "JP LPF-24",
+   "JP LPF-12",
+   "JP HPF-24",
+   "JP HPF-12",
+   "JP BPF-24",
+   "JP BPF-12"
   ],
   "voice_split": [
    "1+7",
