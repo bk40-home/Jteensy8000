@@ -96,6 +96,15 @@ struct LfoState {
     int   syncMode = TempoClock::kFree;
     float freeHz   = 0.03f;
 
+    // Free-rate LAW (lfo1.rate_law / lfo2.rate_law, 2026-10-25).  The FREQ
+    // knob's normalised position and its JT-law Hz are
+    // both kept, so switching the law re-resolves freeHz from the SAME knob
+    // position whichever of the two params arrives first.  jpRate false =
+    // JtRate: freeHz == freeHzJt, exactly the pre-law behaviour.
+    bool  jpRate   = false;
+    float freeNorm = 0.0f;    // LFO*_FREQ knob position 0..1 (default 0.03 Hz = 0)
+    float freeHzJt = 0.03f;   // the same knob through the JT law (engineering Hz)
+
     // "Engaged" (spec §4): any destination depth > 0.  Gates whether this
     // block bothers to tick the oscillator at all.
     // Total pitch depth actually applied, clamped so wheel-plus-knob cannot
@@ -682,7 +691,8 @@ private:
     float _fxDelayFreeMs   = 750.0f;   // fx.delay_time default, used while Free
     void recomputeFxEngaged()
     {
-        _fxEngaged = _fx.driveActive() || _fx.modActive() || _fx.delayActive();
+        _fxEngaged = _fx.driveActive() || _fx.toneActive()
+                  || _fx.modActive()   || _fx.delayActive();
     }
 
     // Phase 7 step sequencer (PHASE7_SEQUENCER_SPEC.md).  Control-plane: ticks

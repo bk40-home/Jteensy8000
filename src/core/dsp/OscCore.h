@@ -136,7 +136,7 @@ enum class Wave : uint8_t {
 class OscCore {
 public:
     // --- control plane (block boundaries) ---
-    void setWave(Wave w)              { _wave = w; }
+    void setWave(Wave w)              { _wave = w; updatePulseDc(); }
     void setFrequency(float hz);      // dirty-checked
     // Shape 0..1: pulse width for Pulse/BlPulse, rise-fraction for TriVar.
     // Clamped to 0.05..0.95 so pulse never degenerates to DC.  The table
@@ -161,6 +161,18 @@ public:
     void setMorphSet(const WaveTableSet* set) { _morphSet = (set && set->valid()) ? set : nullptr; }
 
     void resetPhase(float phase01);   // caller-supplied randomisation
+    // Read-only views for OscSection's JpXmod sync clock (2026-10-25): the
+    // clock mirrors this core's unmodulated phase and increment exactly, so
+    // with X-MOD at 0 the slave resets land where this core's wraps did.
+    float increment() const { return _inc; }    // per-sample, pre-FM
+    // DC the rendered output still carries: a Pulse/BlPulse at width w sits
+    // at mean 2w-1; under JpPwm render() removes it (JP pulses are AC-coupled,
+    // 2026-10-25), so this returns 0 there.  0 for every other wave.
+    // Lets JpXmod strip the modulator DC with no per-sample work.
+    float outputDc()  const { return _pulseDcRaw - _dcOut; }
+    // Width the pulse is actually playing (after the law's clamp).
+    float pulseWidth() const { return _pw; }
+    float phase()     const { return _phase; }  // 0..1
     // Sample & Hold needs a noise source; seeding keeps voices decorrelated
     // yet the whole engine deterministic for tests and renders.
     void seedNoise(uint32_t seed)     { _rng = seed | 1u; }
@@ -230,6 +242,13 @@ private:
     float    _pw     = 0.5f;          // Pulse/BlPulse width (floor per law)
     float    _shapeIn = 0.5f;         // last raw setShape() value (law re-apply)
     float    _pwFloor = 0.05f;        // 0.05 JtPwm (v1) / 0.5 JpPwm
+    // Pulse DC (2026-10-25, sign-off 2a).  _pulseDcRaw = 2·_pw - 1 for the
+    // pulse waves, else 0.  _dcOut is the part render() subtracts: equal to
+    // _pulseDcRaw under JpPwm (the JP pulse is DC-free), 0 under JtPwm — so
+    // JtPwm output is byte-identical (the subtract loop never runs).
+    float    _pulseDcRaw = 0.0f;
+    float    _dcOut      = 0.0f;
+    void     updatePulseDc();
     float    _shValue = 0.0f;         // current Sample & Hold level
 #if JT_SYNC_ANTIALIAS
     // F3: sub-sample position of a pending sync-reset step (<0 = none).

@@ -62,6 +62,11 @@ JT_COLD void MidiParamTransport::applyNrpn(float norm)
     const uint8_t  layer = (raw & kLayerBit) ? 1u : 0u;
     const uint16_t id    = raw & kIdMask;
 
+    // Centre detent for symmetric bipolar params (Curves::snapWireCentre).
+    const size_t sidx = ParameterStore::indexOf(id);
+    if (sidx != ParameterStore::kInvalidIndex)
+        norm = Curves::snapWireCentre(Params::kParams[sidx], norm);
+
     if (!_store.set(id, norm, _origin, layer)) {
         // Unknown ParamID: a controller mapped to newer firmware, or a
         // typo in a DAW template.  Count it for the bring-up console and
@@ -145,7 +150,9 @@ JT_COLD bool MidiParamTransport::handleControlChange(uint8_t cc, uint8_t value,
         // from the receive channel.  The router is consulted HERE and not
         // earlier, so NRPN traffic — the overwhelming majority — never pays
         // for a routing decision it does not use.
-        const float norm = Curves::normFrom7bit(value);
+        // Centre detent for symmetric bipolar params (Curves::snapWireCentre).
+        const float norm = Curves::snapWireCentre(Params::kParams[(size_t)idx],
+                                                  Curves::normFrom7bit(value));
         const LayerMask dest = (_router != nullptr) ? _router->forChannel(channel1to16)
                                                     : LayerMask::A;
 

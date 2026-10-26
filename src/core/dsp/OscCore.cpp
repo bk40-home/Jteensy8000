@@ -143,6 +143,16 @@ void OscCore::setShape(float s)
     // Pulse width: same clamp under JtPwm (byte-identical), 50 % floor under
     // JpPwm.  Kept apart from _shape so the law never touches TriVar.
     _pw = (s < _pwFloor) ? _pwFloor : s;
+    updatePulseDc();
+}
+
+void OscCore::updatePulseDc()
+{
+    // Control plane: called from setWave / setShape / setJpPwmClamp only.
+    const bool pulse = (_wave == Wave::Pulse) || (_wave == Wave::BlPulse);
+    _pulseDcRaw = pulse ? (2.0f * _pw - 1.0f) : 0.0f;
+    // JpPwm <=> the 50 % floor (setJpPwmClamp): remove the DC there only.
+    _dcOut      = (_pwFloor >= 0.5f) ? _pulseDcRaw : 0.0f;
 }
 
 void OscCore::setJpPwmClamp(bool on)
@@ -702,6 +712,13 @@ void OscCore::render(float* out, size_t n,
     if (fmBuf == nullptr)  renderSyncVariant<kFmNone >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
     else if (!fmIsRatio)   renderSyncVariant<kFmExp2 >(out, n, fmBuf, fmOctaves, syncIn, syncOut);
     else                   renderSyncVariant<kFmRatio>(out, n, fmBuf, fmOctaves, syncIn, syncOut);
+
+    // JpPwm pulse: AC-couple (subtract the width's mean, 2w-1).  Exact for the
+    // block's width; PWM moves it per block with setShape.  Skipped entirely
+    // (no loop) whenever there is nothing to remove — JtPwm, non-pulse waves,
+    // a 50 % square.
+    if (_dcOut != 0.0f)
+        for (size_t i = 0; i < n; ++i) out[i] -= _dcOut;
 }
 
 } // namespace JT

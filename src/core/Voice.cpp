@@ -5,6 +5,8 @@
 
 #include "core/Voice.h"
 
+#include "core/dsp/JpModLaw.h"   // JpXmod X-MOD routing factors (sign-off 4b)
+
 #include <cmath>   // exp2f
 
 namespace JT {
@@ -222,9 +224,10 @@ void Voice::render(float* mixL, float* mixR, size_t n)
     // (already netted across both LFOs by SynthCore, spec Decision #3) is
     // summed in here rather than inside OscSection, which still receives
     // ONE total and stays a plain overwrite — no accumulator, no reset bugs.
-    const float envTerm = (_pitchDepthSemis != 0.0f)
-                              ? _pitchEnv.tickBlock() * _pitchDepthSemis
-                              : 0.0f;
+    // The env LEVEL is kept separately so JtXmod's X-MOD routing can apply
+    // the pre-5b linear depth to the same tick (see case 2 below).
+    const float envLevel = (_pitchDepthSemis != 0.0f) ? _pitchEnv.tickBlock() : 0.0f;
+    const float envTerm  = envLevel * _pitchDepthSemis;
 
     // Glide slew (v1 OscillatorBlock::update(), spec §4.1).  Advanced ONCE PER
     // BLOCK — this block-rate application is v1's documented ~128× "quirk",
@@ -285,9 +288,21 @@ void Voice::render(float* mixL, float* mixR, size_t n)
         case 2:                                   // X-MOD depth
             _oscs.setPitchModSemis(commonSemis);
             _oscs.setOsc2ExtraPitchSemis(0.0f);
-            // Semitones → knob-normalised: full LFO1 pitch depth (±7 st, see
-            // kLfoPitchMaxSemis) maps to ±1.0 = the whole cross-mod range.
-            _oscs.setXmodOffsetNorm(routedSemis * (1.0f / kLfoPitchMaxSemis));
+            if (_oscs.xmodType() == 1) {
+                // JpXmod (sign-off 4b): the JP adds D(d)/18 knob steps to the
+                // X-MOD knob for both LFO1 and the env (measured 2026-10-24).
+                // The pitch lanes already carry the JP curve in semitones —
+                // LFO1 = D/100, env = 2·D/100 — so each gets its own factor.
+                _oscs.setXmodOffsetNorm(_routedLfoSemis * JpModLaw::kXmodNormPerLfoSemi
+                                      + envTerm * JpModLaw::kXmodNormPerEnvSemi);
+            } else {
+                // JtXmod, unchanged: semitones of the PRE-5b linear laws ->
+                // knob-normalised, full LFO1 depth (±7 st, kLfoPitchMaxSemis)
+                // = ±1.0 = the whole cross-mod range.  Same operands and order
+                // as before 5b, so these patches render bit-identically.
+                const float linSemis = envLevel * _pitchDepthLinSemis + _routedLfoLinSemis;
+                _oscs.setXmodOffsetNorm(linSemis * (1.0f / kLfoPitchMaxSemis));
+            }
             break;
     }
 

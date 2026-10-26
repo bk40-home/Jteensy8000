@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 308 parameters.**
+**Schema version 1 — 310 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -138,6 +138,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0387` | 7 | LFO1 Amp | `lfo1.amp_depth` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x0388` | 8 | LFO1 Dest | `lfo1.destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch |
 | `0x0389` | 9 | LFO1 Delay | `lfo1.delay` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 78 | patch |
+| `0x038A` | 10 | LFO1 Rate Law | `lfo1.rate_law` | select | 0–1 (index) | 0 (JtRate) | 0 ms | — | patch |
 
 ## [8] LFO 2  *(NRPN MSB 8)*
 
@@ -154,14 +155,15 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0408` | 8 | LFO2 Dest | `lfo2.destination` | select | 0–4 (index) | 0 (None) | 0 ms | — | patch |
 | `0x0409` | 9 | LFO2 Delay | `lfo2.delay` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch |
 | `0x040A` | 10 | LFO2 ModWhl | `lfo2.mod_wheel` | toggle | off / on | on | 0 ms | — | patch |
+| `0x040B` | 11 | LFO2 Rate Law | `lfo2.rate_law` | select | 0–1 (index) | 0 (JtRate) | 0 ms | — | patch |
 
 ## [9] Effects  *(NRPN MSB 9)*
 
 | ParamID | LSB | Name | Key | Type | Range | Default | Smooth | CC | Scope |
 |---|---|---|---|---|---|---|---|---|---|
-| `0x0480` | 0 | Bass | `fx.bass_gain` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
-| `0x0481` | 1 | Treble | `fx.treble_gain` | continuous | -1–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
-| `0x0482` | 2 | Drive | `fx.drive` | select | 0–2 (index) | 0 (OFF) | 0 ms | — | patch_shared |
+| `0x0480` | 0 | Bass | `fx.bass_gain` | int | -64–63  (lin) | 0 | 5 ms | — | patch_shared |
+| `0x0481` | 1 | Treble | `fx.treble_gain` | int | -64–63  (lin) | 0 | 5 ms | — | patch_shared |
+| `0x0482` | 2 | Drive | `fx.drive` | continuous | 0–1 norm (lin) | 0 norm | 20 ms | — | patch_shared |
 | `0x0483` | 3 | Mod FX | `fx.mod_effect` | select | 0–23 (index) | 0 (OFF) | 0 ms | — | patch_shared |
 | `0x0484` | 4 | Mod Mix | `fx.mod_mix` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | 93 | patch_shared |
 | `0x0485` | 5 | Mod Rate | `fx.mod_rate` | continuous | 0–1 norm (lin) | 0 norm | 5 ms | — | patch_shared |
@@ -433,6 +435,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **pitch_mod_dest**: `OSC1+2`, `OSC2`, `X-MOD`
 - **xmod_type**: `JtXmod`, `JpXmod`
 - **pwm_law**: `JtPwm`, `JpPwm`
+- **lfo_rate_law**: `JtRate`, `JpRate`
 - **l_f_o_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
 - **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`, `1/4D`, `1/8D`, `1/16D`
 - **poly_mode**: `Poly`, `Mono`, `Unison`

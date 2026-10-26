@@ -185,6 +185,7 @@ window.PARAMS = {
   "lfo1.freq",
   "lfo1.pitch_depth",
   "lfo1.pwm_depth",
+  "lfo1.rate_law",
   "lfo1.sync",
   "lfo1.waveform",
   "lfo2.amp_depth",
@@ -196,6 +197,7 @@ window.PARAMS = {
   "lfo2.mod_wheel",
   "lfo2.pitch_depth",
   "lfo2.pwm_depth",
+  "lfo2.rate_law",
   "lfo2.sync",
   "lfo2.waveform",
   "master.usb_return_level",
@@ -401,6 +403,7 @@ window.PARAMS = {
   "lfo1.amp_depth": "LFO1 Amp",
   "lfo1.destination": "LFO1 Dest",
   "lfo1.delay": "LFO1 Delay",
+  "lfo1.rate_law": "LFO1 Rate Law",
   "lfo2.waveform": "LFO2 Wave",
   "lfo2.freq": "LFO2 Rate",
   "lfo2.depth": "LFO2 Depth",
@@ -412,6 +415,7 @@ window.PARAMS = {
   "lfo2.destination": "LFO2 Dest",
   "lfo2.delay": "LFO2 Delay",
   "lfo2.mod_wheel": "LFO2 ModWhl",
+  "lfo2.rate_law": "LFO2 Rate Law",
   "fx.bass_gain": "Bass",
   "fx.treble_gain": "Treble",
   "fx.drive": "Drive",
@@ -668,11 +672,6 @@ window.PARAMS = {
    "Digital",
    "Tape"
   ],
-  "drive": [
-   "OFF",
-   "Soft",
-   "Hard"
-  ],
   "edit_target": [
    "A",
    "B",
@@ -743,6 +742,10 @@ window.PARAMS = {
    "SQR",
    "S&H",
    "NOISE"
+  ],
+  "lfo_rate_law": [
+   "JtRate",
+   "JpRate"
   ],
   "midi_channel": [
    "Ch 1",

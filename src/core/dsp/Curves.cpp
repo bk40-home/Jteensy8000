@@ -136,6 +136,19 @@ uint8_t normTo7bit(float norm)
     return (uint8_t)lroundf(clamp01(norm) * 127.0f);
 }
 
+float snapWireCentre(const Params::ParamDesc& d, float norm)
+{
+    // 64/127 == 8256/16383 exactly; the tolerance is far below one 14-bit
+    // step (6.1e-5), so no neighbouring code can be caught.
+    constexpr float kWire7Centre = 64.0f / 127.0f;
+    constexpr float kTol         = 1.0e-6f;
+    const bool centred = (d.type == Params::Type::Continuous)
+                      && (d.curve == Params::Curve::Lin)
+                      && (d.min == -d.max);
+    if (centred && fabsf(norm - kWire7Centre) < kTol) return 0.5f;
+    return norm;
+}
+
 float normFrom7bit(uint8_t v)
 {
     if (v > 127u) v = 127u;

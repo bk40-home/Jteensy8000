@@ -38,8 +38,10 @@
 import os
 import sys
 
-# gen/JtParamTable.h — sibling of the ESP ParamTable.h.
-JUCE_PATH = os.path.join("gen", "JtParamTable.h")
+# gen/JtParamTable.h — sibling of the ESP ParamTable.h.  Anchored to the repo
+# root (parent of tools/) so it lands correctly from any CWD (was CWD-relative).
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+JUCE_PATH = os.path.join(_ROOT, "gen", "JtParamTable.h")
 
 
 # --- C++ literal helpers (match gen_params.py conventions) -------------------
@@ -223,9 +225,9 @@ if __name__ == "__main__":
     if check:
         existing = ""
         if os.path.exists(JUCE_PATH):
-            with open(JUCE_PATH, encoding="utf-8") as f:
-                existing = f.read()
-        if existing != out.replace("\n", "\r\n"):
+            with open(JUCE_PATH, encoding="utf-8", newline="") as f:
+                existing = f.read().replace("\r\n", "\n")
+        if existing != out:   # line-ending blind, as gen_params.py --check
             print(f"{JUCE_PATH}: OUT OF DATE — rerun emit_juce.py", file=sys.stderr)
             sys.exit(1)
         print(f"{JUCE_PATH}: up to date ({len(doc['params'])} params)")

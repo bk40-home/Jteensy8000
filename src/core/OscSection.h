@@ -16,10 +16,14 @@
 //   * Cross-mod, two selectable laws (mix.xmod_type, see setXmodType):
 //     JtXmod — OSC2 output exponentially FMs OSC1 at depth × 10 octaves
 //     full scale (v1 routed the same signal into the ±10-octave FM mixer);
-//     JpXmod — through-zero linear FM, OSC1 rate × (1 + 33.6·depth·OSC2),
-//     fitted to JE-8086 captures: k = 0.2645 per knob step (0..127), six
-//     steps over three OSC2 pitches, waveform fit error 0.07–0.31.
-//     PLUS (JT_XMOD_RESET, below) OSC1's phase restarts on every OSC2 wrap,
+//     JpXmod — the JP-8000 law, measured on a JE-8086 (2026-10-24 capture,
+//     xmod/xmod-sync-capture-analysis): through-zero linear FM by a FIXED
+//     frequency deviation, OSC1 Hz = f1 + 69.0 Hz × knob(0..127) × OSC2,
+//     independent of OSC1's and OSC2's pitch; free-running (no phase lock —
+//     non-octave intervals are inharmonic on the JP).  With sync on, the JP
+//     clocks the slave from OSC1's UNMODULATED pitch and scales X-MOD by
+//     0.623 (see render()).
+//     JtXmod only (JT_XMOD_RESET, below): OSC1's phase restarts on every OSC2 wrap,
 //     which v1 did not do.  Measured against a JE-8086 (JP-8000 DSP
 //     emulation), 2026-09-30: the reference stays ~99 % harmonic of OSC2's
 //     period through a full PWM sweep; free-running exp-FM measured ~1 %
@@ -63,12 +67,16 @@
 #include "core/dsp/FeedbackComb.h"
 
 // -----------------------------------------------------------------------------
-// X-MOD phase lock (compile-time option, DEFAULT ON).
-//   1 = JP-8000 behaviour: while X-MOD depth > 0 (and SYNC is off), OSC1
+// X-MOD phase lock (compile-time option, DEFAULT ON) — JtXmod ONLY.
+//   1 = the JT-8000 lock: while X-MOD depth > 0 (and SYNC is off), OSC1
 //       resets its phase at each OSC2 wrap, so the cross-modulated tone is
 //       periodic at OSC2's pitch — harmonic, "sync-like", formant moves
 //       with OSC2 pulse width.  Costs one extra wrap-buffer write in OSC2's
 //       render and one compare per sample in OSC1's — only while X-MOD is on.
+//       NOTE (2026-10-24 JE-8086 capture): the JP itself does NOT lock — its
+//       X-MOD is inharmonic at non-octave intervals; the earlier "harmonic"
+//       readings were all octave intervals.  JpXmod therefore never locks;
+//       JtXmod keeps this lock as its own (signed-off) character.
 //   0 = v1 behaviour: free-running exponential FM (inharmonic).  Kept for
 //       A/B only — define -DJT_XMOD_RESET=0 in platformio.ini build_flags.
 //   Not applied when: SYNC is on (OSC1 is then the sync master — existing
@@ -127,12 +135,14 @@ public:
     void setCrossMod(float depth01) { _xmodDepth = depth01; }
     // X-MOD law (mix.xmod_type).  0 = JtXmod: the JT-8000 exponential law,
     // OSC1 rate × 2^(depth × 10 oct × OSC2) — unchanged, the default.
-    // 1 = JpXmod: the JP-8000 law measured from JE-8086 captures (2026-10-18):
-    // through-zero LINEAR FM, OSC1 rate × (1 + kJpXmodDepth × depth × OSC2),
-    // negative rate runs OSC1 backwards; depth is relative to OSC1's own
-    // pitch (independent of OSC2's, verified at 0/+12/+24 st); no effect on
-    // a SUPER SAW OSC1 (JP manual).  Both keep the OSC2-wrap phase lock.
+    // 1 = JpXmod: the JP-8000 law measured from JE-8086 captures (2026-10-24):
+    // through-zero LINEAR FM by a fixed deviation, OSC1 Hz = f1 + 69.0 Hz ×
+    // knob × OSC2 (independent of both oscillators' pitch); negative rate
+    // runs OSC1 backwards; free-running (no lock); with sync on, the slave is
+    // clocked by OSC1's unmodulated pitch and the depth × 0.623; no effect
+    // on a SUPER SAW OSC1 (JP manual).  JtXmod keeps the OSC2-wrap lock.
     void setXmodType(int type)      { _xmodType = (type == 1) ? 1u : 0u; }
+    int  xmodType() const           { return (int)_xmodType; }   // Voice routing law
     void setSyncEnabled(bool on)    { _sync = on; }
     // PWM law (mix.pwm_law): 0 = JtPwm (v1, default), 1 = JpPwm — the
     // measured JP-8000 50 % floor on pulse width + LFO.  See
@@ -285,6 +295,15 @@ private:
     // beyond the memcpy that keeps the buffer warm for the next synced block.
     float _xmodPrev[kBlockSize] = { 0.0f };
     float _xmodTail = 0.0f;
+
+    // --- JpXmod sync clock (2026-10-25, sign-off 3a) ---
+    // The JP resets OSC2 from OSC1's UNMODULATED pitch, so X-MOD never feeds
+    // back into the sync.  A bare phase accumulator (one add + compare per
+    // sample) mirrors OSC1's core phase/increment incl. the pitch ramp.  It
+    // is re-seeded from the core when the JpXmod-sync path is entered, so it
+    // costs nothing while unused.
+    float _clkPhase = 0.0f;
+    bool  _clkLive  = false;            // was the clock path used last block?
 
     // Sub oscillator: one phase + FastMath sine — too simple to justify a
     // third OscCore per voice.

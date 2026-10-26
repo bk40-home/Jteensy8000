@@ -77,5 +77,20 @@ float    normFrom7bit(uint8_t v);          // 0..127 -> 0..1
 // Clamp helper shared by the store; public because transports need it too.
 float clamp01(float v);
 
+// -----------------------------------------------------------------------------
+// Wire centre detent (2026-10-25, sign-off 1a).
+//
+// A 7-bit wire cannot express the centre of a symmetric bipolar range: 0.5
+// lies between codes 63 and 64, so senders round to 64 and the engine used
+// to receive 64/127 = 0.50394 — e.g. +9.4 c on OSC DETUNE (±12 st), +18.9 c
+// on FREQ DC (±24 st), together +29 c on every patch through the JUCE
+// plugin.  This snaps EXACTLY code 64 (and its 14-bit expansion 64·129 =
+// 8256, which is how the plugin sends 7-bit values) to 0.5 = engineering 0,
+// for Continuous + Lin params with min == -max only.  Every other code, and
+// every other parameter, passes through unchanged.  Called by the wire
+// transports, never by patch loads (stored values are full-precision).
+// -----------------------------------------------------------------------------
+float snapWireCentre(const Params::ParamDesc& d, float norm);
+
 } // namespace Curves
 } // namespace JT

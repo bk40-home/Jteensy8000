@@ -96,9 +96,13 @@ public:
     EnvGen&        ampEnv()     { return _ampEnv; }
     EnvGen&        filterEnv()  { return _filterEnv; }
     EnvGen&        pitchEnv()   { return _pitchEnv; }
-    // Pitch-env depth in semitones (ENV_PITCH_DEPTH × 24); multiplies the
+    // Pitch-env depth in semitones — the JP-8000 curve since 2026-10-25
+    // (sign-off 5b, JpModLaw::envPitchSemis: +63 ≈ +47.6 st); multiplies the
     // unipolar 0..1 env each block before it reaches the oscillators.
     void setPitchEnvDepthSemis(float s) { _pitchDepthSemis = s; }
+    // The PRE-5b linear depth (ENV_PITCH_DEPTH × 24).  Used ONLY by JtXmod's
+    // X-MOD routing (sign-off 4b keeps JtXmod's routing exactly as it was).
+    void setPitchEnvDepthLinSemis(float s) { _pitchDepthLinSemis = s; }
 
     // Phase 3 / G1: this block's LFO pitch contribution, in semitones, now in
     // TWO lanes (SynthCore computes both; see docs/PHASE3_LFO_SPEC.md §4):
@@ -110,6 +114,9 @@ public:
     // accumulator, no reset bugs (spec Decision #3 unchanged).
     void setLfoPitchSemis(float semis)       { _lfoPitchSemis = semis; }
     void setRoutedLfoPitchSemis(float semis) { _routedLfoSemis = semis; }
+    // LFO1 lane at the PRE-5b linear law (× kLfoPitchMaxSemis) — JtXmod's
+    // X-MOD routing only, as for setPitchEnvDepthLinSemis.
+    void setRoutedLfoLinSemis(float semis)   { _routedLfoLinSemis = semis; }
 
     // G1: JP-8000 "LFO1 & ENV Destination" — 0 OSC1+2 (default, the
     // pre-routing behaviour), 1 OSC2 only, 2 X-MOD depth.  Option index from
@@ -187,7 +194,9 @@ private:
     uint8_t _pendNote       = 0;
     uint8_t _pendVel        = 0;
     float   _pendPhase01    = 0.0f;
-    float   _pitchDepthSemis = 0.0f;  // ENV_PITCH_DEPTH × 24, ±24 st full scale
+    float   _pitchDepthSemis = 0.0f;  // JP curve: 2·D(63·depth)/100 st (JpModLaw)
+    float   _pitchDepthLinSemis = 0.0f; // pre-5b: ENV_PITCH_DEPTH × 24 (JtXmod routing)
+    float   _routedLfoLinSemis  = 0.0f; // pre-5b LFO1 lane (JtXmod routing)
     float   _lfoPitchSemis  = 0.0f;   // Phase 3: common lane (LFO2 + seq)
     float   _routedLfoSemis = 0.0f;   // G1: LFO1 lane, steered by _pitchDest
     uint8_t _pitchDest      = 0;      // G1: 0 OSC1+2, 1 OSC2, 2 X-MOD

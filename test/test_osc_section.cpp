@@ -7,6 +7,7 @@
 // =============================================================================
 #include "doctest.h"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -231,23 +232,6 @@ TEST_CASE("JpXmod: default type is JtXmod; Jp output differs and stays bounded")
     for (float x : b) { REQUIRE(std::isfinite(x)); REQUIRE(std::fabs(x) < 2.0f); }
 }
 
-#if JT_XMOD_RESET
-TEST_CASE("JpXmod: output repeats at OSC2's period (lock kept, harmonic)")
-{
-    // Same set-up as the JtXmod lock test.  JE-8086 measured 99.7–100 %
-    // harmonic of OSC2 under X-MOD; the reset makes it exact here.
-    OscSection s;
-    s.noteOn(kSampleRate / 100.0f, 7);
-    s.setPitchOffset(1, 1);                     // OSC2 -12 st -> 200 samples
-    s.setDetuneSemis(0, 0.37f);
-    s.setMixOsc2(0.0f);
-    s.setXmodType(1);
-    s.setCrossMod(0.39f);
-    const auto fm = renderSec(s, 44160);
-    CHECK(periodicity(fm, 200) < 0.01);
-    for (float x : fm) REQUIRE(std::isfinite(x));
-}
-#endif
 
 TEST_CASE("JpXmod: depth 0 is the dry oscillator (no law change at zero)")
 {
@@ -276,13 +260,93 @@ TEST_CASE("JpXmod: a SUPER SAW OSC1 is not cross-modulated (JP manual)")
     for (size_t i = 0; i < a.size(); ++i) REQUIRE(a[i] == b[i]);
 }
 
-TEST_CASE("JpXmod: works with hard sync on (delayed-feed path)")
+// ---- JpXmod 2026-10-25 (sign-off 1a, 2a, 3a): measured JE-8086 behaviour ---
+// Instantaneous OSC1 increment from a NAIVE saw: each sample steps by 2·inc
+// (or wraps).  With a SQUARE modulator OSC1 alternates between exactly two
+// increments, f1 ± Δf, half the time each — the 25th / 75th percentiles of
+// the per-sample steps are those two values (a wrap is one rare outlier).
+// A TRIANGLE modulator sweeps between them instead, so its extremes are read
+// from the 0.5th / 99.5th percentiles (pct) — within ~2 % of ±Δf.
+static float jpDeviationHz(float noteHz, float depth, bool sync,
+                           Wave mod = Wave::Square, float pct = 0.25f)
 {
-    // Sync on main follows the JP panel: OSC1 = master, OSC2 = slave.  X-MOD
-    // then drives the MASTER from a one-sample-delayed OSC2 feed, so the
-    // slave's timbre must change with depth — and stay finite and bounded
-    // (linear FM here can push the master's rate negative: backward wraps
-    // must still produce valid sync fractions).
+    OscSection s;
+    s.noteOn(noteHz, 11);
+    s.setWave(0, (int)Wave::Saw);
+    s.setWave(1, (int)mod);
+    s.setPitchOffset(1, 4);                     // OSC2 +24 st: 4 square cycles
+    s.setSyncEnabled(sync);                     //   per OSC1 cycle (sync-safe)
+    s.setBalance(-1.0f);                        // OSC1 only
+    s.setXmodType(1);
+    s.setCrossMod(depth);
+    const auto v = renderSec(s, 48 * kBlockSize);
+    std::vector<float> d;
+    for (size_t i = 1001; i < v.size(); ++i) d.push_back(v[i] - v[i - 1]);
+    std::sort(d.begin(), d.end());
+    const float lo = d[(size_t)(pct * (float)d.size())];
+    const float hi = d[(size_t)((1.0f - pct) * (float)d.size())];
+    // step = 2·inc / mixGain; the gain cancels in the ratio to the dry step
+    OscSection dryS; dryS.noteOn(noteHz, 11); dryS.setWave(0, (int)Wave::Saw);
+    dryS.setBalance(-1.0f);
+    const auto w = renderSec(dryS, 8 * kBlockSize);
+    std::vector<float> e;
+    for (size_t i = 101; i < w.size(); ++i) e.push_back(w[i] - w[i - 1]);
+    std::sort(e.begin(), e.end());
+    const float dryStep = e[e.size() / 2];      // = 2·f1/fs × gain
+    return 0.5f * (hi - lo) / dryStep * noteHz; // Δf in Hz
+}
+
+TEST_CASE("JpXmod: depth is a FIXED deviation in Hz (69 Hz/knob), not relative to pitch")
+{
+    // JE-8086 (2026-10-24): 69.1 Hz/step at C3, 69.2 at C4 (triangle-
+    // calibrated).  This probe uses a SQUARE modulator, which the JP runs at
+    // 0.296 of that (2026-10-25 grid, JpXmodLaw): depth 0.02 = 2.54 knob
+    // steps -> 51.9 Hz at ANY note.  The pre-1a law (relative, 0.2645·f1 per
+    // step) would scale with the note instead.
+    const float expect = 69.0f * 127.0f * 0.02f * 0.296f;
+    const float lo = jpDeviationHz(110.0f, 0.02f, false);
+    const float hi = jpDeviationHz(440.0f, 0.02f, false);
+    INFO("deviation at 110 Hz ", lo, " Hz, at 440 Hz ", hi, " Hz");
+    CHECK(lo == doctest::Approx(expect).epsilon(0.01));
+    CHECK(hi == doctest::Approx(expect).epsilon(0.01));
+}
+
+TEST_CASE("JpXmod: with sync on the depth is x0.623 for a triangle, x1 for a pulse (JE-8086)")
+{
+    // Triangle (the calibrated wave): sync scales by 0.623 (2026-10-24).
+    const float triOff = jpDeviationHz(220.0f, 0.02f, false, Wave::Triangle, 0.005f);
+    const float triOn  = jpDeviationHz(220.0f, 0.02f, true,  Wave::Triangle, 0.005f);
+    INFO("triangle: off ", triOff, " Hz, on ", triOn, " Hz");
+    CHECK(triOff == doctest::Approx(69.0f * 127.0f * 0.02f).epsilon(0.03));
+    CHECK(triOn / triOff == doctest::Approx(0.623f).epsilon(0.02));
+    // Square: full depth either way (2026-10-25 grid: 20.4 Hz/step both).
+    const float sqOff = jpDeviationHz(220.0f, 0.02f, false);
+    const float sqOn  = jpDeviationHz(220.0f, 0.02f, true);
+    CHECK(sqOn / sqOff == doctest::Approx(1.0f).epsilon(0.01));
+}
+
+#if JT_XMOD_RESET
+TEST_CASE("JpXmod: NO phase lock — JtXmod's lock does not apply (JE-8086)")
+{
+    // Same set-up as the JtXmod lock test above.  The JP's X-MOD is
+    // free-running: with OSC1 detuned off OSC2's ratio the output does NOT
+    // repeat at OSC2's period (the JtXmod lock makes it < 0.01).
+    OscSection s;
+    s.noteOn(kSampleRate / 100.0f, 7);
+    s.setPitchOffset(1, 1);                     // OSC2 -12 st -> 200 samples
+    s.setDetuneSemis(0, 0.37f);
+    s.setMixOsc2(0.0f);
+    s.setXmodType(1);
+    s.setCrossMod(0.39f);
+    const auto fm = renderSec(s, 44160);
+    CHECK(periodicity(fm, 200) > 0.05);
+    for (float x : fm) REQUIRE(std::isfinite(x));
+}
+#endif
+
+TEST_CASE("JpXmod + sync: the slave ignores X-MOD (clocked by OSC1's unmodulated pitch)")
+{
+    // JE-8086: with sync on, OSC2 is identical at every X-MOD setting.
     auto run = [](float depth) {
         OscSection s;
         s.noteOn(kSampleRate / 100.0f, 5);
@@ -296,14 +360,38 @@ TEST_CASE("JpXmod: works with hard sync on (delayed-feed path)")
     const auto dry = run(0.0f);
     for (float d : { 0.2f, 0.6f, 1.0f }) {
         const auto v = run(d);
-        double diff = 0.0;
-        for (size_t i = 0; i < v.size(); ++i) {
-            REQUIRE(std::isfinite(v[i]));
-            REQUIRE(std::fabs(v[i]) < 2.0f);
-            diff += std::fabs((double)v[i] - (double)dry[i]);
-        }
         INFO("depth ", d);
-        CHECK(diff / (double)v.size() > 0.02);  // X-MOD reached the master
+        for (size_t i = 0; i < v.size(); ++i) REQUIRE(v[i] == dry[i]);
+    }
+}
+
+TEST_CASE("JpXmod + sync: OSC1 never latches into running backwards")
+{
+    // The pre-3a path fed the X-MOD'd OSC1's wraps to the slave, which then
+    // modulated OSC1: at high depth OSC1 locked running backwards.  The JP
+    // has no such loop.  Net OSC1 cycles = forward wraps - backward wraps
+    // must track f1 x time (the triangle modulator averages to ~0).
+    for (float d : { 0.3f, 0.6f, 1.0f }) {
+        OscSection s;
+        const float f1 = 130.8128f;
+        s.noteOn(f1, 9);
+        s.setWave(0, (int)Wave::Saw);
+        s.setWave(1, (int)Wave::Triangle);
+        s.setSyncEnabled(true);
+        s.setBalance(-1.0f);
+        s.setXmodType(1);
+        s.setCrossMod(d);
+        const auto v = renderSec(s, 375 * kBlockSize);   // 1.0 s
+        long net = 0;
+        for (size_t i = 1; i < v.size(); ++i) {
+            const float st = v[i] - v[i - 1];
+            if (st < -0.5f) ++net;                       // forward wrap
+            else if (st > 0.5f) --net;                   // backward wrap
+        }
+        const float expect = f1 * (float)v.size() / kSampleRate;
+        INFO("depth ", d, " net cycles ", net, " expected ~", expect);
+        CHECK((float)net > 0.8f * expect);
+        CHECK((float)net < 1.2f * expect);
     }
 }
 

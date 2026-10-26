@@ -4,8 +4,10 @@
 //
 // ROLE
 //   Pure math: holds the current internal BPM and converts a musical
-//   division (the same 12-entry TimingMode set v1 used) into a rate in Hz
-//   for a synced LFO.  One instance lives on SynthCore (control-plane
+//   division into a rate in Hz for a synced LFO / arp / sequencer / delay.
+//   Entries 0..11 are v1's TimingMode set; 12..14 are the dotted family
+//   (1/4D, 1/8D, 1/16D), appended to match params.yaml timing_mode (T2).
+//   One instance lives on SynthCore (control-plane
 //   member only — never touched from the audio inner loop, see the
 //   SynthCore.h note on _clock).
 //
@@ -40,7 +42,14 @@ public:
     // BPMClockManager.h) — do not reorder without a patch-compat pass.
     enum Mode : int {
         kFree = 0, k4Bars, k2Bars, k1Bar, k1_2, k1_4,
-        k1_8, k1_16, k1_32, k1_4T, k1_8T, k1_16T, kNumModes
+        k1_8, k1_16, k1_32, k1_4T, k1_8T, k1_16T,
+        // Dotted family, APPENDED (2026-10-24 fix).  params.yaml timing_mode
+        // has offered these since T2, but the clock stopped at 1/16T, so
+        // freqForMode() rejected them and every synced user (LFO 1/2, arp,
+        // step and bass sequencer, FX delay) silently fell back to its free
+        // rate.  Appending keeps 0..11 — the stored option indices — frozen.
+        k1_4D, k1_8D, k1_16D,
+        kNumModes
     };
 
     // Clock-source option order matches kOpt_clock_source.  kExtMidi is
@@ -76,8 +85,14 @@ private:
         0.0f,                          // kFree — unused, freqForMode short-circuits
         16.0f, 8.0f, 4.0f, 2.0f, 1.0f, // 4 Bars, 2 Bars, 1 Bar, 1/2, 1/4
         0.5f, 0.25f, 0.125f,           // 1/8, 1/16, 1/32
-        0.6667f, 0.3333f, 0.1667f      // 1/4T, 1/8T, 1/16T (v1's rounded decimals)
+        0.6667f, 0.3333f, 0.1667f,     // 1/4T, 1/8T, 1/16T (v1's rounded decimals)
+        1.5f, 0.75f, 0.375f            // 1/4D, 1/8D, 1/16D: exactly 1.5x the plain
+                                       // note (exact in binary float, no rounding)
     };
+    // Guard: the table length must track the enum, or freqForMode() reads past
+    // the end for the last mode.  Catches a future append made in one place only.
+    static_assert(sizeof(kMult) / sizeof(kMult[0]) == kNumModes,
+                  "kMult must have one entry per TempoClock::Mode");
 };
 
 } // namespace JT

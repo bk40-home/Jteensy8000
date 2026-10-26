@@ -25,6 +25,9 @@
 # USAGE
 #   python3 tools/gen_params.py            # regenerate outputs in place
 #   python3 tools/gen_params.py --check    # CI gate: exit 1 if outputs stale
+#   Also emits gen/JtParamTable.h (emit_juce) and Editor/params.js
+#   (emit_editor), then copies every artefact to its consumers in the
+#   firmware, JUCE and ESP32 repos — see tools/targets.py for the list.
 #
 # VALIDATION (all hard errors — the generator refuses to emit a bad table)
 #   * ParamID unique, ≤ 0x3FFF (14-bit), and consistent with (section<<7)|index
@@ -914,11 +917,30 @@ def main():
     except PresetError as e:
         sys.exit(f"params.yaml INVALID (pattern_presets): {e}")
 
+    # JUCE APVTS table and the layout editor's catalogue: emitted in the same
+    # run (2026-10-25) so one command regenerates every artefact.
+    from emit_juce import emit_juce, JUCE_PATH
+    from emit_editor import emit_editor, EDITOR_PATH
+    juce_h = emit_juce(doc)
+    editor_js = emit_editor(doc)
+
     ok = True
     header = pool_strings(header)
-    ok &= write_if_changed(HEADER_PATH, header, args.check)
-    ok &= write_if_changed(DOC_PATH, docmd, args.check)
-    ok &= write_if_changed(PRESETS_PATH, presets_h, args.check)
+    outputs = [(HEADER_PATH, header), (DOC_PATH, docmd), (PRESETS_PATH, presets_h),
+               (JUCE_PATH, juce_h), (EDITOR_PATH, editor_js)]
+    for path, content in outputs:
+        ok &= write_if_changed(path, content, args.check)
+
+    # Mirror each artefact to its consumers (tools/targets.py).  Same compare
+    # as above, so --check also catches a consumer copy that has drifted.
+    from targets import MIRRORS
+    by_rel = {os.path.relpath(p, ROOT): c for p, c in outputs}
+    for rel, dests in MIRRORS.items():
+        for repo, dest in dests:
+            if not os.path.isdir(repo):
+                print(f"skip: {dest} (repo {repo} not present)")
+                continue
+            ok &= write_if_changed(dest, by_rel[rel], args.check)
     if not ok:
         sys.exit(1)
     print(f"validated {len(doc['params'])} parameters, "

@@ -8,15 +8,16 @@
 //   docs/PHASE6_FXCHAIN_SPEC.md for the file:line diagnosis this port follows.
 //
 // SIGNAL CHAIN (per sample, identical to v1 AudioEffectJPFX::update)
-//   mono in → Saturation → Tone EQ → Modulation → Delay → Limiter → stereo out
+//   mono in → Drive → Tone EQ → Modulation → Delay → Limiter → stereo out
 //   where "mono in" is the summed voice bus (L+R)*0.5 (v1 JPFX has one mono
 //   input), and the stereo out is blended back against the dry bus by the
 //   caller-visible dry/jpfx mix (spec §1.4).
 //
 // WHAT CHANGED vs v1 (flagged deviations — CLAUDE.md rule 2, spec §8)
-//   D-1  FX_DRIVE is a 3-way Select {OFF,Soft,Hard} (v2 ParamTable), not v1's
-//        continuous 0..1 knob.  Soft/Hard resolve to fixed band-midpoint drives
-//        (0.25 / 0.75) so each is representative of its v1 region.
+//   D-1  (superseded 2026-10-24) FX_DRIVE was a 3-way Select {OFF,Soft,Hard}.
+//        It is now a continuous Amount 0..1 again, driving a redesigned stage
+//        (anti-aliased asymmetric soft clip + voicing filters + auto makeup) —
+//        see drive-fx/drive-design-proposal-2026-10-24.md and applyDrive().
 //   D-3  v1's per-layer full-chain bypass has no v2 home (no layers).  Replaced
 //        by SynthCore's engaged-gate: the whole processBlock is skipped unless a
 //        stage is active.  This class exposes driveActive/modActive/delayActive
@@ -31,7 +32,7 @@
 //        heap.  Same buffer lengths, same carve-up.
 //
 // WHY THE INNER-LOOP HELPERS ARE HEADER-INLINE (CLAUDE.md rule 4)
-//   applySaturation / applyTone / processModulation / processDelay are the
+//   applyDrive / applyTone / processModulation / processDelay are the
 //   per-sample inner loop; they MUST inline into processBlock or every sample
 //   pays a call.  Same rationale as PlateReverb.h / VAFilterCore.h.  The preset
 //   tables (mod/delay) are `static const` here, DEFINED once in the .cpp so a
@@ -39,7 +40,7 @@
 //
 // CPU DISCIPLINE ("do not calculate if not required")
 //   - SynthCore skips processBlock entirely when the chain is disengaged.
-//   - Saturation early-exits when drive == OFF.
+//   - Drive early-exits when Amount == 0.
 //   - Tone EQ early-exits when both gain deltas are ~0 (unity → transparent).
 //   - Modulation early-exits when mod effect == OFF.
 //   - Delay early-exits when delay effect == OFF.
@@ -213,12 +214,15 @@ public:
     // norm→engineering conversion in applyParam.
     // -------------------------------------------------------------------------
 
-    // Drive: 0 = OFF, 1 = Soft (tanh), 2 = Hard (asymmetric clip).  (D-1)
-    void setDriveMode(int mode);
+    // Drive Amount 0..1 (clamped).  0 = stage bypassed at zero cost; above 0
+    // the stage runs and the Amount sets gain, asymmetry and voicing together.
+    void setDriveAmount(float amount);
 
-    // Tone EQ: ±12 dB, 0 dB = flat.
-    void setBassGain(float dB);
-    void setTrebleGain(float dB);
+    // Tone EQ in JP panel steps: -64..+63, 0 = flat (out-of-range is clamped).
+    // The step -> shelf law is the measured JP one (docs: tone-ctrl/
+    // jp-tone-capture-analysis-2026-10-23.md); see computeTone().
+    void setBassStep(int step);
+    void setTrebleStep(int step);
 
     // Modulation: type -1 = OFF, 0..10 = v1 preset (v1 ModEffectType),
     // 11..22 = JP-8000 Multi-FX type (kJpModTypes order).  Out of range = OFF.
@@ -265,8 +269,8 @@ public:
     void setToneTiltMod(float bipolar);
     // Drive-amount mod: scales the saturator's INPUT gain by 2^(mod * 1.5),
     // i.e. about +/-9 dB into the shaper at full depth.  Inaudible while
-    // fx.drive is OFF, because applySaturation bypasses in that mode — the
-    // aux lane cannot conjure a saturator that is not running.
+    // fx.drive is 0, because applyDrive bypasses then — the aux lane cannot
+    // conjure a drive stage that is not running.
     void setDriveAmountMod(float bipolar);
     // Delay-send mod: additive offset onto the FX_DELAY_MIX knob value, the sum
     // clamped 0..1 (Q19).  Only audible when a delay effect is selected.
@@ -278,12 +282,17 @@ public:
 
     // Engaged-gate queries for SynthCore (D-3).  "Active" == this stage would
     // do audible work.  If none are active SynthCore skips processBlock.
-    bool driveActive() const { return _driveMode != 0; }
+    bool driveActive() const { return _driveAmount > 0.0f; }
     // The tone TILT colours the signal whatever the drive mode is, so it must
     // be able to engage the chain on its own — otherwise selecting the aux
     // Tone destination on an all-OFF chain does nothing at all.  Includes
     // _tiltCur so the chain stays engaged while the tilt smooths back to flat.
     bool toneTiltActive() const { return _tiltTarget != 0.0f || _tiltCur != 0.0f; }
+    // Tone knobs off-centre must engage the chain on their own (2026-10-24
+    // sign-off a): on the JP, Bass/Treble work whatever the FX are doing.
+    // Uses the knob STEPS, not _toneActive — that flag is only refreshed by
+    // computeTone() inside processBlock, which never runs while disengaged.
+    bool toneActive() const { return _bassStep != 0 || _trebleStep != 0; }
     bool modActive()   const { return _modType >= 0; }
     bool delayActive() const { return _delayType >= 0; }
 
@@ -293,9 +302,17 @@ public:
 
 #ifdef JT_TESTING
     // Test-only probes for the mapping unit tests (spec §7).  Firmware-free.
-    float debugBassDb()   const { return _targetBassDb;   }
-    float debugTrebleDb() const { return _targetTrebleDb; }
-    int   debugDriveMode()const { return _driveMode;      }
+    int   debugBassStep()   const { return _bassStep;   }
+    int   debugTrebleStep() const { return _trebleStep; }
+    // Effective plateau gains / one-pole coefficients after the last
+    // recompute (base x tilt).  Used by the tone-law tests.
+    float debugBassGain()   const { return _toneBassDelta + 1.0f; }
+    float debugTrebleGain() const { return _toneTrebDelta + 1.0f; }
+    float debugBassAlpha()  const { return _toneBassAlpha; }
+    float debugTrebAlpha()  const { return _toneTrebAlpha; }
+    bool  debugToneActive() const { return _toneActive; }
+    float debugDriveAmount() const { return _driveAmount; }
+    float debugDriveMakeup() const { return _driveMakeup; }
     int   debugModType()  const { return _modType;        }
     int   debugDelayType()const { return _delayType;      }
     float debugModRateHz()const { return _modRateOverride;}
@@ -350,8 +367,8 @@ private:
     }
 
     // ---- D4: feedback-path soft clip ----
-    // Deliberately NOT applySaturation() below: that one belongs to the JPFX
-    // drive STAGE and carries its own mode, gain staging and DC blocker.  The
+    // Deliberately NOT applyDrive() below: that one belongs to the JPFX
+    // drive STAGE and carries its own gain staging, filters and DC blocker.  The
     // tape loop wants something cheaper and gentler that runs on every repeat.
     //
     // Cubic soft clip, x - x^3/3, saturating to +/-2/3 outside |x| <= 1.  No
@@ -367,45 +384,73 @@ private:
         return c * comp;
     }
 
-    // ---- Saturation (v1 AudioEffectJPFX.cpp:437-457) ----
-    // Early-exits when OFF.  Soft = tanh; Hard = asymmetric clip through a
-    // DC-block HP.  Gain staging computed block-rate in computeSat().
-    inline float applySaturation(float x)
+    // ---- Drive (redesigned 2026-10-24, sign-off 1a-5a) ----
+    // Continuous Amount 0..1, 0 = bypass at zero cost.  Mono, per sample:
+    //   1. pre low-shelf cut   xp = x - depth*LP140(x)   (stops chords mudding)
+    //   2. shaper input        u  = gain*xp + bias       (bias -> even harmonics)
+    //   3. ADAA1 of f(u) = u/sqrt(1+u^2), whose antiderivative is
+    //      F(u) = sqrt(1+u^2).  (F(u)-F(u1))/(u-u1) simplifies EXACTLY to
+    //          y = (u + u1) / (F(u) + F(u1))
+    //      so there is no divide by a tiny difference and no special case.
+    //   4. minus f(bias)       removes the static offset of the biased curve
+    //   5. post top-cut blend  y += postMix*(LP7k(y) - y)  (tames fizz)
+    //   6. DC blocker AFTER the shaper (the old Hard mode had it before, so
+    //      the clip's own DC was never removed)
+    //   7. automatic makeup gain (loudness held roughly constant)
+    // Gains, bias, depths and makeup are all block-rate (computeDrive() and
+    // processBlock); per sample this is ~1 sqrt + 1 divide + a few MACs.
+    inline float applyDrive(float x)
     {
-        if (_driveMode == 0) return x;                 // OFF: bypass, zero cost
+        if (_driveAmount <= 0.0f) return x;            // OFF: bypass, zero cost
 
-        const float driven = x * _satInputEff;
-        float shaped;
-        if (_satIsSoft) {
-            shaped = tanhf(driven);                    // FPU-accelerated on M7
-        } else {
-            // Asymmetric hard clip: +0.7 / -1.0, pre-emphasis HP removes the
-            // DC offset the asymmetry introduces (v1 hpAlpha 0.9997).
-            const float hpAlpha = 0.9997f;
-            const float hpOut   = driven - _hpState;
-            _hpState = _hpState * hpAlpha + driven * (1.0f - hpAlpha);
-            if      (hpOut >  0.7f) shaped =  0.7f;
-            else if (hpOut < -1.0f) shaped = -1.0f;
-            else                    shaped =  hpOut;
-        }
-        return shaped * _satOutputGain;
+        // 1. Pre-shaper low shelf (TPT one-pole LP at a fixed corner).
+        const float vp = (x - _drvPreS) * _drvPreG;
+        const float lp = _drvPreS + vp;   _drvPreS = lp + vp;
+        const float xp = x - _drivePreDepth * lp;
+
+        // 2-4. Biased algebraic sigmoid, first-order ADAA (closed form above).
+        const float u  = xp * _driveGainEff + _driveBias;
+        const float Fu = sqrtf(1.0f + u * u);           // VSQRT on the M7 FPU
+        float y = (u + _drvU1) / (Fu + _drvF1) - _driveBiasOut;
+        _drvU1 = u;   _drvF1 = Fu;
+
+        // 5. Post top-cut, blended in with Amount (transparent as Amount -> 0).
+        const float vq = (y - _drvPostS) * _drvPostG;
+        const float lq = _drvPostS + vq;  _drvPostS = lq + vq;
+        y += _drivePostMix * (lq - y);
+
+        // 6. DC blocker: out = y - y[n-1] + R*out[n-1].
+        const float dc = y - _drvDcX1 + _drvDcR * _drvDcY1;
+        _drvDcX1 = y;   _drvDcY1 = dc;
+
+        return dc * _driveMakeup;                        // 7.
     }
 
-    // ---- Tone EQ (v1 AudioEffectJPFX.cpp:351-371) ----
-    // Two-band crossover: bass = LP(200 Hz), treble = input - LP(3 kHz).
-    // out = in + (bassGain-1)*bass + (trebleGain-1)*treble.  Both deltas 0 at
-    // unity → exactly transparent, so we early-exit.
+    // ---- Tone EQ (JP-measured 1st-order shelves) ----
+    // out = in + (Gb-1)*LP_b(in) + (Gt-1)*(in - LP_t(in))
+    // 4 one-poles per sample as v1 (TPT form: +1 add each).  JP shape comes from
+    // the block-rate coefficient rule in setToneCoeffs(): the LP corner moves
+    // with the gain so the shelf always STARTS at 445 Hz (bass) / 951 Hz
+    // (treble) and boost/cut are mirror images.  Both deltas 0 at flat →
+    // exactly transparent, so we early-exit.
     inline void applyTone(float& sl, float& sr)
     {
         if (!_toneActive) return;
-        _toneBassLpL += _toneBassAlpha * (sl - _toneBassLpL);
-        _toneBassLpR += _toneBassAlpha * (sr - _toneBassLpR);
-        _toneTrebLpL += _toneTrebAlpha * (sl - _toneTrebLpL);
-        _toneTrebLpR += _toneTrebAlpha * (sr - _toneTrebLpR);
-        const float trebL = sl - _toneTrebLpL;
-        const float trebR = sr - _toneTrebLpR;
-        sl += _toneBassDelta * _toneBassLpL + _toneTrebDelta * trebL;
-        sr += _toneBassDelta * _toneBassLpR + _toneTrebDelta * trebR;
+        // TPT (trapezoidal / Zavalishin) one-pole LPs: v = (x - s)*G,
+        // lp = s + v, s = lp + v.  The zero at Nyquist makes HP = x - LP
+        // reach its full plateau, which the treble shelf needs (a plain
+        // one-pole leaves the treble ~2 dB short at 10 kHz).  The _tone*Lp*
+        // members hold the integrator states.
+        const float vbL = (sl - _toneBassLpL) * _toneBassAlpha;
+        const float vbR = (sr - _toneBassLpR) * _toneBassAlpha;
+        const float vtL = (sl - _toneTrebLpL) * _toneTrebAlpha;
+        const float vtR = (sr - _toneTrebLpR) * _toneTrebAlpha;
+        const float bassL = _toneBassLpL + vbL;   _toneBassLpL = bassL + vbL;
+        const float bassR = _toneBassLpR + vbR;   _toneBassLpR = bassR + vbR;
+        const float lpTL  = _toneTrebLpL + vtL;   _toneTrebLpL = lpTL  + vtL;
+        const float lpTR  = _toneTrebLpR + vtR;   _toneTrebLpR = lpTR  + vtR;
+        sl += _toneBassDelta * bassL + _toneTrebDelta * (sl - lpTL);
+        sr += _toneBassDelta * bassR + _toneTrebDelta * (sr - lpTR);
     }
 
     // ---- Modulation (v1 AudioEffectJPFX.cpp:625-763) ----
@@ -431,8 +476,13 @@ private:
     void prepareTape(float dSampL, float dSampR);
 
     // Block-rate recompute helpers (only run when the matching dirty flag set).
-    void computeSat();
+    void computeDrive();                       // Amount -> gain/bias/voicing
+    float computeDriveMakeup(float gain) const; // loudness match at `gain`
+    void resetDriveState();                    // clear filter/ADAA state
     void computeTone();
+    // Tone coefficients from EFFECTIVE plateau gains (base x tilt).  Block rate
+    // only: called from computeTone() (dirty) and the tilt step (while active).
+    void setToneCoeffs(float gBass, float gTreb);
     void updateLfoIncrements();
     void prepareDelay();
 
@@ -447,9 +497,22 @@ private:
     uint32_t _delayWriteIdx = 0;
     uint32_t _modWriteIdx   = 0;
 
-    // -- Saturation --
-    int   _driveMode    = 0;        // 0=OFF 1=Soft 2=Hard (D-1)
-    float _satInputGain = 1.0f;
+    // -- Drive -- (Amount -> coefficients at block rate, see computeDrive())
+    float _driveAmount   = 0.0f;   // 0..1, 0 = bypass
+    float _driveGainBase = 1.0f;   // kDriveGain0 * 2^(Amount * kDriveOct)
+    float _driveBias     = 0.0f;   // shaper-input offset (even harmonics)
+    float _driveBiasOut  = 0.0f;   // f(bias), removed after the shaper
+    float _drivePreDepth = 0.0f;   // pre low-shelf depth, 0..kDrivePreDepth
+    float _drivePostMix  = 0.0f;   // post top-cut blend, 0..1
+    float _driveMakeup   = 1.0f;   // output makeup gain
+    float _driveMakeupAt = -1.0f;  // _driveGainEff the makeup was computed for
+    bool  _driveDirty    = false;
+    // Fixed coefficients (set in begin(); depend only on the sample rate).
+    float _drvPreG = 0.0f, _drvPostG = 0.0f, _drvDcR = 0.0f;
+    // Per-sample state.
+    float _drvPreS = 0.0f, _drvPostS = 0.0f;   // TPT integrator states
+    float _drvU1   = 0.0f, _drvF1    = 1.0f;   // ADAA previous u and F(u)
+    float _drvDcX1 = 0.0f, _drvDcY1  = 0.0f;   // DC blocker history
 
     // Stage D aux-lane mods (block-rate).  Aux 'Drive' modulates a bass↔treble
     // TILT around the Tone EQ (level-neutral colour), NOT the saturator input
@@ -461,30 +524,25 @@ private:
     float _tiltTarget = 0.0f;     // -1..+1 (raw aux value)
     float _tiltCur    = 0.0f;     // smoothed, 0 = flat
 
-    // Drive-amount mod, same smoothing idiom as the tilt.  _satInputEff is
-    // _satInputGain folded with the smoothed mod ONCE PER BLOCK, so the
-    // per-sample saturator keeps its single multiply.
+    // Drive-amount mod, same smoothing idiom as the tilt.  _driveGainEff is
+    // _driveGainBase folded with the smoothed mod ONCE PER BLOCK, so the
+    // per-sample drive keeps a single gain multiply.
     float _driveModTarget = 0.0f; // -1..+1 (raw aux value)
     float _driveModCur    = 0.0f; // smoothed, 0 = no change
-    float _satInputEff    = 1.0f; // _satInputGain * 2^(_driveModCur * 1.5)
+    float _driveGainEff   = 1.0f; // _driveGainBase * 2^(_driveModCur * 1.5)
     float _delayMixMod  = 0.0f;   // additive offset onto _delayMix (Q19)
-    float _satOutputGain= 1.0f;
-    bool  _satIsSoft    = true;
-    bool  _satDirty     = false;
-    float _hpState      = 0.0f;
 
-    // -- Tone EQ -- (coeffs fixed at begin(); depends only on sample rate)
-    float _toneBassAlpha = 0.0f;
-    float _toneTrebAlpha = 0.0f;
+    // -- Tone EQ -- (coeffs recomputed at block rate when gain/tilt changes)
+    float _toneBassAlpha = 0.0f;   // TPT one-pole G, bass LP
+    float _toneTrebAlpha = 0.0f;   // TPT one-pole G, treble LP (HP = in - LP)
     float _toneBassLpL = 0.0f, _toneBassLpR = 0.0f;
     float _toneTrebLpL = 0.0f, _toneTrebLpR = 0.0f;
-    float _toneBassDelta = 0.0f, _toneTrebDelta = 0.0f;
-    // Base deltas from the tone knobs (set by computeTone).  The effective
-    // deltas above = base + tilt, recomputed every block so the aux tilt never
-    // accumulates on itself.
-    float _toneBassBase  = 0.0f, _toneTrebBase  = 0.0f;
-    float _targetBassDb   = 0.0f;
-    float _targetTrebleDb = 0.0f;
+    float _toneBassDelta = 0.0f, _toneTrebDelta = 0.0f;   // effective G - 1
+    // Base plateau gains from the tone knobs (set by computeTone).  The tilt
+    // step multiplies these each block, so the aux tilt never accumulates.
+    float _toneBassGain = 1.0f, _toneTrebGain = 1.0f;
+    int   _bassStep   = 0;         // JP panel step -64..+63
+    int   _trebleStep = 0;
     bool  _toneActive = false;
     bool  _toneDirty  = false;
 

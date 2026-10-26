@@ -9,6 +9,7 @@
 #include <string.h>  // memset
 
 #include "core/dsp/FastMath.h"
+#include "core/dsp/JpXmodLaw.h"  // JpXmod depth by OSC2 wave (2026-10-25 grid)
 #include "core/WavetableLib.h"   // jpMorphSet (thin firewall header, no data)
 
 namespace JT {
@@ -19,10 +20,16 @@ namespace {
 constexpr float kSubHeadroom = 0.9f;
 // v1 FM full scale: ±1.0 modulator = ±10 octaves (FM_OCTAVE_RANGE).
 constexpr float kXmodOctaveRange = 10.0f;
-// JpXmod full scale: OSC1 rate swing per unit OSC2 at depth 1.0.  Measured
-// from JE-8086 captures (2026-10-18): k = 0.2645 × knob (0..127) -> 33.6 at
-// 127, linear in the knob, relative to OSC1's own pitch.
-constexpr float kJpXmodDepth = 33.6f;
+// JpXmod full scale (sign-off 1a, 2026-10-25): a FIXED frequency deviation,
+// 69.0 Hz per knob step × 127 steps at depth 1.0, per unit of OSC2 output.
+// Measured on a JE-8086: 69.1 Hz/step at C3 (2026-10-24) and 69.2 at C4
+// (2026-10-18) — the depth does not follow OSC1's pitch, nor OSC2's (68.7–
+// 69.2 Hz/step at −12…+19 st).  Pre-divided by the sample rate so render()
+// turns it into a per-sample increment with one multiply.
+constexpr float kJpXmodHzFull     = 69.0f * 127.0f;
+constexpr float kJpXmodIncFull    = kJpXmodHzFull / kSampleRate;
+// The SYNC factor (0.623) and the per-OSC2-wave depth (saw 0.50, pulse
+// ~0.29, sync-independent) live in JpXmodLaw (2026-10-25 X-MOD grid).
 // osc pitch-offset option set {-24,-12,0,+12,+24}, indexed by the select.
 constexpr float kPitchOffsetSemis[5] = { -24.0f, -12.0f, 0.0f, 12.0f, 24.0f };
 } // namespace
@@ -83,6 +90,7 @@ void OscSection::noteOn(float noteHz, uint32_t seedBase)
     const float ph1 = (float)((seedBase >> 14) & 1023u) * (1.0f / 1024.0f);
     _u[0].core.resetPhase(ph0);
     _u[1].core.resetPhase(ph1);
+    _clkLive = false;   // JpXmod sync clock re-seeds from OSC1 on next use
     // JFBK starts every note fresh (as the JP), from the same random phase.
     _u[0].fbo.noteOn(ph0);
     _u[1].fbo.noteOn(ph1);
@@ -309,8 +317,9 @@ void OscSection::render(float* out, size_t n)
     // audible OSC1 (nothing to lock otherwise).  Sync-on keeps the existing
     // path — OSC1 is the sync MASTER there, so a reverse reset would be a
     // second circular dependency (flagged as untested against the JP).
-    const bool xmodLock = (JT_XMOD_RESET != 0) && haveXmod && !sync && need1
-                       && !_u[1].isOwnClass();
+    // JtXmod only: the JP does not lock (sign-off 2a, 2026-10-25).
+    const bool xmodLock = (JT_XMOD_RESET != 0) && !jpXmod && haveXmod && !sync
+                       && need1 && !_u[1].isOwnClass();
 
     // ---- helper lambdas keep the two orderings from duplicating wave logic --
     // OSC2 (the modulator / slave).  syncIn is the master's wrap buffer when
@@ -339,16 +348,35 @@ void OscSection::render(float* out, size_t n)
         const float* fmBuf;
         float        fmOct;
         if (jpXmod && haveXmod) {
-            // JpXmod: through-zero LINEAR FM.  fm1 carries the signed
-            // increment RATIO per sample; the pitch envelope (exponential)
-            // multiplies in when live.  OscCore's ratio mode lets a negative
-            // ratio run OSC1 backwards — the measured JP behaviour.
-            const float k = kJpXmodDepth * xd;
+            // JpXmod: through-zero LINEAR FM by a fixed deviation in Hz.
+            // OscCore's ratio mode multiplies its base increment by fm1[i],
+            // so the deviation is expressed against that base:
+            //   inc = inc1·2^ramp + Δinc·m  ->  ratio = 2^ramp + (Δinc/inc1)·m
+            // The pitch ramp moves OSC1's centre only; the deviation stays in
+            // Hz (the JP's depth does not track pitch).  A negative ratio runs
+            // OSC1 backwards — the measured JP behaviour.  One divide per
+            // block; a 0 Hz OSC1 (no base increment) gets no X-MOD.
+            //
+            // Depth by OSC2's wave (JpXmodLaw, 2026-10-25 grid): the triangle
+            // calibration × 0.50 for saws, ~0.29 for pulses; SYNC scales the
+            // non-pulse waves only.  The JP modulator is AC-coupled, so any
+            // DC still in OSC2's output (a JtPwm pulse) is folded into the
+            // constant term: k·(m - dc) = k·m - k·dc — no per-sample cost.
+            // Supersaw / JFBK as modulator keep the calibrated scale.
+            const OscCore& c2  = _u[1].core;
+            const bool     own2 = _u[1].isOwnClass();
+            const float scale = own2 ? (sync ? JpXmodLaw::depthScale(Wave::Triangle, 0.5f, true) : 1.0f)
+                                     : JpXmodLaw::depthScale((Wave)_u[1].waveOption, c2.pulseWidth(), sync);
+            const float dc2   = own2 ? 0.0f : c2.outputDc();
+            const float inc1 = _u[0].core.increment();
+            const float dInc = kJpXmodIncFull * xd * scale;
+            const float k    = (inc1 > 0.0f) ? dInc / inc1 : 0.0f;
+            const float base = 1.0f - k * dc2;
             if (pitchActive) {
                 for (size_t i = 0; i < n; ++i)
-                    fm1[i] = FastMath::fastPow2(pitchRamp[i]) * (1.0f + k * xmodSrc[i]);
+                    fm1[i] = FastMath::fastPow2(pitchRamp[i]) - k * dc2 + k * xmodSrc[i];
             } else {
-                for (size_t i = 0; i < n; ++i) fm1[i] = 1.0f + k * xmodSrc[i];
+                for (size_t i = 0; i < n; ++i) fm1[i] = base + k * xmodSrc[i];
             }
             // Supersaw is excluded upstream (xmod false), so this is OscCore.
             _u[0].core.render(b1, n, fm1, 0.0f, syncIn, syncOut, /*fmIsRatio=*/true);
@@ -384,7 +412,44 @@ void OscSection::render(float* out, size_t n)
         if (_u[0].comb.isActive()) _u[0].comb.process(b1, n);
     };
 
-    if (sync) {
+    if (sync && jpXmod) {
+        // --- JpXmod + SYNC (sign-off 3a, 2026-10-25) ------------------------
+        // Measured on a JE-8086 (2026-10-24): with sync on, OSC2 is identical
+        // at every X-MOD setting, so the JP resets the slave from OSC1's
+        // UNMODULATED pitch, and X-MOD only bends OSC1's audible phase.  No
+        // feedback loop -> no one-block-delayed feed, and OSC1 can never latch
+        // into running backwards.  Order: clock -> OSC2 (slave) -> OSC1 (FM'd
+        // by OSC2's same-block output).
+        //
+        // The clock mirrors OscCore's own step exactly (same increment, same
+        // 2^ramp pitch factor, same wrap fraction), so with X-MOD at 0 the
+        // slave resets are bit-identical to the OSC1-core wraps they replace.
+        if (!_clkLive) _clkPhase = _u[0].core.phase();   // enter: re-seed
+        _clkLive = true;
+        {
+            const float inc0 = _u[0].core.increment();
+            float ph = _clkPhase;
+            for (size_t i = 0; i < n; ++i) {
+                const float inc = pitchActive ? inc0 * FastMath::fastPow2(pitchRamp[i]) : inc0;
+                ph += inc;
+                if (ph >= 1.0f) {
+                    ph -= 1.0f;
+                    syncBuf[i] = (inc > 0.0f) ? (1.0f - ph / inc) : 0.0f;
+                } else {
+                    syncBuf[i] = -1.0f;
+                }
+            }
+            _clkPhase = ph;
+        }
+        // need2 is always true with sync on (see the gating above).
+        renderOsc2(syncBuf, nullptr);
+        // OSC1 renders only when heard: the clock already carries the sync,
+        // so a muted OSC1 costs nothing here (its phase simply pauses).
+        if (need1) renderOsc1(haveXmod ? b2 : nullptr, nullptr, nullptr);
+        _xmodTail = b2[n - 1];
+        memcpy(_xmodPrev, b2, n * sizeof(float));           // keep path switches clean
+    } else if (sync) {
+        _clkLive = false;
         // --- OSC1 master FIRST -------------------------------------------
         // X-MOD needs OSC2's output, but OSC2 (slave) needs OSC1's syncBuf,
         // which OSC1 hasn't produced yet.  Break the loop with a true
@@ -417,6 +482,7 @@ void OscSection::render(float* out, size_t n)
             memcpy(_xmodPrev, b2, n * sizeof(float));       // seed next block
         }
     } else {
+        _clkLive = false;
         // --- No sync: OSC2 (modulator) first, then OSC1 (carrier) ---------
         // v1's order; X-MOD reads OSC2's fresh same-block output (no delay).
         // With X-MOD phase lock, syncBuf (unused on this path otherwise)

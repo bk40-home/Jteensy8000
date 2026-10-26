@@ -71,6 +71,7 @@ option_sets:
   pitch_mod_dest: ["OSC1+2", "OSC2", "X-MOD"]
   xmod_type: ["JtXmod", "JpXmod"]
   pwm_law: ["JtPwm", "JpPwm"]
+  lfo_rate_law: ["JtRate", "JpRate"]
   l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
   # T2: dotted family APPENDED at indices 12..14, never inserted.  The stored
   # value of every select is its OPTION INDEX, and this set is shared by
@@ -1225,6 +1226,26 @@ params:
     cc: 78              # curated performance CC (standard Vibrato Delay (Sound Ctrl 9))
     smooth_ms: 5
     ui: {section: 7, group: 2}
+  - id: 0x038A            # v2: LFO1 rate law select (2026-10-25)
+    key: lfo1.rate_law
+    name: "LFO1 Rate Law"
+    label: "RATE LAW"
+    type: select
+    scope: patch
+    options: lfo_rate_law
+    default: 0
+    smooth_ms: 0
+    ui: {section: 7, group: 0}
+    # JtRate (default) = the JT-8000 law, unchanged: LFO1 RATE is a log
+    # sweep 0.03..39 Hz (existing patches and the render baseline stay
+    # byte-identical).  JpRate = the JP-8000 law measured from JE-8086
+    # captures (lfo/lfo1-rate-capture-analysis-2026-10-25.md): the same
+    # knob position read through the JP curve, 0.049 Hz at 0, 3.23 Hz at
+    # 64, ~25 Hz at 127 (two log segments, knee at 64).  Free rate only:
+    # LFO1 SYNC divisions are unaffected; lfo2.rate_law is the LFO2 twin.
+    # lfo1.freq still stores and
+    # displays the JT-law Hz; with JpRate the engine reinterprets its knob
+    # position.
 
   # ---- [8] LFO 2 ----
   - id: 0x0400            # v1: CC::LFO2_WAVEFORM (was CC 63)
@@ -1343,41 +1364,63 @@ params:
     default: true         # ON = JP-8000 behaviour: wheel scales LFO2 depth
     smooth_ms: 0          # a switch never smooths
     ui: {section: 8, group: 2}
+  - id: 0x040B            # v2: LFO2 rate law select (2026-10-25)
+    key: lfo2.rate_law
+    name: "LFO2 Rate Law"
+    label: "RATE LAW"
+    type: select
+    scope: patch
+    options: lfo_rate_law
+    default: 0
+    smooth_ms: 0
+    ui: {section: 8, group: 0}
+    # Twin of lfo1.rate_law.  JpRate uses the JE-8086 LFO1 curve: the JP-8000
+    # LFO2 rate has NOT been captured yet and is assumed to share it (confirm
+    # with an LFO2 capture; the table lives in JpLfoRate).  Free rate only.
 
   # ---- [9] Effects ----
   - id: 0x0480            # v1: CC::FX_BASS_GAIN (was CC 99)
     key: fx.bass_gain
     name: "Bass"
     label: "BASS"
-    type: continuous
+    # JP panel steps -64..+63, 0 = flat (sign-off 2026-10-23, 5a).  The engine
+    # derives the step from norm on the same lattice as the int display;
+    # the measured JP shelf law lives in FxChain::computeTone().
+    type: int
     scope: patch_shared
-    range: {min: -1, max: 1, curve: lin}
-    unit: "norm"
+    range: {min: -64, max: 63, curve: lin}
+    unit: ""
     bipolar_display: true
     default: 0
     smooth_ms: 5
-    ui: {section: 9, group: 0}
+    ui: {section: 9, group: 0, control: pot}
   - id: 0x0481            # v1: CC::FX_TREBLE_GAIN (was CC 100)
     key: fx.treble_gain
     name: "Treble"
     label: "TREBLE"
-    type: continuous
+    # JP panel steps -64..+63, 0 = flat (sign-off 2026-10-23, 5a).  The engine
+    # derives the step from norm on the same lattice as the int display;
+    # the measured JP shelf law lives in FxChain::computeTone().
+    type: int
     scope: patch_shared
-    range: {min: -1, max: 1, curve: lin}
-    unit: "norm"
+    range: {min: -64, max: 63, curve: lin}
+    unit: ""
     bipolar_display: true
     default: 0
     smooth_ms: 5
-    ui: {section: 9, group: 0}
+    ui: {section: 9, group: 0, control: pot}
   - id: 0x0482            # v1: CC::FX_DRIVE (was CC 16)
     key: fx.drive
     name: "Drive"
     label: "DRIVE"
-    type: select
+    # Drive AMOUNT 0..1, 0 = off (sign-off 2026-10-24, was Select OFF/Soft/Hard).
+    # Old patches keep their norm: Off -> 0, Soft -> 0.5, Hard -> 1.0.
+    type: continuous
     scope: patch_shared
-    options: drive
+    range: {min: 0, max: 1, curve: lin}
+    unit: "norm"
     default: 0
-    smooth_ms: 0
+    smooth_ms: 20
     ui: {section: 9, group: 0}
   - id: 0x0483            # v1: CC::FX_MOD_EFFECT (was CC 103)
     key: fx.mod_effect

@@ -9,6 +9,8 @@
 #include <cmath>      // exp2f, fabsf, sinf/cosf (glide map now needs no powf)
 
 #include "core/dsp/Curves.h"
+#include "core/dsp/JpModLaw.h"   // JP LFO1 / pitch-env depth curve (sign-off 5b)
+#include "core/dsp/JpLfoRate.h"  // JP LFO RATE law (lfo1/lfo2.rate_law = JpRate)
 #include "gen/ParamTable.h"
 #include "core/WavetableLib.h"
 
@@ -723,12 +725,18 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         // ------------- pitch envelope (Pass 7) -----------------------------
         // Third EnvGen per voice; destination is oscillator pitch, applied as a
         // per-sample ramp through the FM input (non-zipped — see Voice/OscSection).
-        // Depth is the table's bipolar -1..+1 knob scaled to ±24 semitones: v1
-        // constrained the pitch-env depth to ±24 st (2 octaves) and summed it
-        // into the FM mixer at unity gain.
-        case ID::ENV_PITCH_DEPTH:
-            for (Voice& v : L.voices()) v.setPitchEnvDepthSemis(eng * 24.0f);
+        // Depth is the table's bipolar -1..+1 knob.  Since 2026-10-25 (sign-off
+        // 5b) it follows the JP-8000 curve measured on a JE-8086: full depth
+        // = +47.6 st at note-on (JpModLaw::envPitchSemis).  The pre-5b linear
+        // ±24 st value is still handed over for JtXmod's X-MOD routing only.
+        case ID::ENV_PITCH_DEPTH: {
+            const float jpSemis = JpModLaw::envPitchSemis(eng);
+            for (Voice& v : L.voices()) {
+                v.setPitchEnvDepthSemis(jpSemis);
+                v.setPitchEnvDepthLinSemis(eng * 24.0f);
+            }
             break;
+        }
         case ID::ENV_PITCH_ATTACK:
             for (Voice& v : L.voices()) v.pitchEnv().setAttackMs(eng);
             break;
@@ -847,8 +855,20 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         // (Decision #6).  SYNC picks the branch via applyLfoRate.
         case ID::LFO1_WAVEFORM:     L.lfo1.osc.setWave(opt); break;
         case ID::LFO1_FREQ:
-            L.lfo1.freeHz = eng;
-            if (L.lfo1.syncMode == TempoClock::kFree) L.lfo1.osc.setRateHz(eng);
+            // JtRate: freeHz = eng, as before (byte-identical).  JpRate: the
+            // same knob position read through the measured JP curve.
+            L.lfo1.freeNorm = norm;
+            L.lfo1.freeHzJt = eng;
+            L.lfo1.freeHz   = L.lfo1.jpRate ? JpLfoRate::hzFromNorm(norm) : eng;
+            if (L.lfo1.syncMode == TempoClock::kFree) L.lfo1.osc.setRateHz(L.lfo1.freeHz);
+            break;
+        case ID::LFO1_RATE_LAW:
+            // Re-resolve the free rate from the stored knob position; a
+            // synced LFO keeps its division (applyLfoRate picks the branch).
+            L.lfo1.jpRate = (opt == 1);
+            L.lfo1.freeHz = L.lfo1.jpRate ? JpLfoRate::hzFromNorm(L.lfo1.freeNorm)
+                                          : L.lfo1.freeHzJt;
+            applyLfoRate(L.lfo1);
             break;
         case ID::LFO1_SYNC:
             L.lfo1.syncMode = opt;
@@ -862,8 +882,17 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
 
         case ID::LFO2_WAVEFORM:     L.lfo2.osc.setWave(opt); break;
         case ID::LFO2_FREQ:
-            L.lfo2.freeHz = eng;
-            if (L.lfo2.syncMode == TempoClock::kFree) L.lfo2.osc.setRateHz(eng);
+            // Same law handling as LFO1_FREQ (lfo2.rate_law).
+            L.lfo2.freeNorm = norm;
+            L.lfo2.freeHzJt = eng;
+            L.lfo2.freeHz   = L.lfo2.jpRate ? JpLfoRate::hzFromNorm(norm) : eng;
+            if (L.lfo2.syncMode == TempoClock::kFree) L.lfo2.osc.setRateHz(L.lfo2.freeHz);
+            break;
+        case ID::LFO2_RATE_LAW:
+            L.lfo2.jpRate = (opt == 1);
+            L.lfo2.freeHz = L.lfo2.jpRate ? JpLfoRate::hzFromNorm(L.lfo2.freeNorm)
+                                          : L.lfo2.freeHzJt;
+            applyLfoRate(L.lfo2);
             break;
         case ID::LFO2_SYNC:
             L.lfo2.syncMode = opt;
@@ -1002,18 +1031,20 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         // effect) also recompute the engaged-gate so renderBlock knows whether
         // to run the chain at all (Q6).
         //
-        // D-4 (flagged): the ParamTable defaults FX_BASS/TREBLE to norm 0.0,
-        // which maps to -12 dB here (not v1's flat 0 dB default).  This is inert
-        // at boot — tone only runs once the chain is engaged AND a gain delta is
-        // non-zero — but is a real v1→v2 default difference when the chain is
-        // engaged with tone untouched.  Honouring the frozen table by sign-off
-        // (Q1/OQ-2); a flat-by-default table is a separate optional regen.
+        // Tone (JP law, 2026-10-23 sign-off 1a-5a): JP panel steps -64..+63,
+        // default 0 = flat.  The step is taken from NORM, not eng, using the
+        // same lattice the generator's int display uses (min + round(norm *
+        // (max-min))), so it is correct whether the table range is the new
+        // -64..+63 or the old -1..+1 (norm 0.5 -> step 0 either way).
+        // Tone off-centre engages the chain by itself, so re-gate (sign-off a).
         case ID::FX_BASS_GAIN:
-            _fx.setBassGain(norm * 24.0f - 12.0f);   break;   // 0..1 -> -12..+12 dB
+            _fx.setBassStep((int)floorf(norm * 127.0f + 0.5f) - 64);
+            recomputeFxEngaged(); break;
         case ID::FX_TREBLE_GAIN:
-            _fx.setTrebleGain(norm * 24.0f - 12.0f); break;
-        case ID::FX_DRIVE:                                     // D-1: Select {OFF,Soft,Hard}
-            _fx.setDriveMode(opt); recomputeFxEngaged(); break;
+            _fx.setTrebleStep((int)floorf(norm * 127.0f + 0.5f) - 64);
+            recomputeFxEngaged(); break;
+        case ID::FX_DRIVE:          // Amount 0..1 (2026-10-24, was Select D-1)
+            _fx.setDriveAmount(eng); recomputeFxEngaged(); break;
         case ID::FX_MOD_EFFECT:                               // Q3: opt-1 = v1 ModEffectType
             _fx.setModEffect(opt - 1); recomputeFxEngaged(); break;
         case ID::FX_MOD_MIX:
@@ -1614,7 +1645,13 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         // so the wheel scales LFO2 only and never the sequencer.
         const float u2g = u2 * lz.lfo2.outputGain();
 
-        float pitchSemisLfo1   = u1 * lz.lfo1.pitchDepthTotal() * kLfoPitchMaxSemis;
+        // LFO1 → pitch follows the JP-8000 depth curve (sign-off 5b,
+        // JpModLaw: full depth ±23.8 st).  LFO2 and the sequencer keep the
+        // linear ±7 st (not measured on the JP).  The pre-5b LFO1 value is
+        // kept for JtXmod's X-MOD routing only (one multiply).
+        const float lfo1Depth      = lz.lfo1.pitchDepthTotal();
+        float pitchSemisLfo1       = u1 * JpModLaw::lfoPitchSemis(lfo1Depth);
+        const float pitchLfo1Lin   = u1 * lfo1Depth * kLfoPitchMaxSemis;
         float pitchSemisCommon = u2g * lz.lfo2.depthPitch * kLfoPitchMaxSemis;
         float filterCutInput   = u1 * lz.lfo1.depthFilter + u2g * lz.lfo2.depthFilter;
         float pwmLfo1          = u1 * lz.lfo1.depthPwm;
@@ -1668,6 +1705,7 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
             if (!v.isActive()) continue;
             v.setLfoPitchSemis(pitchSemisCommon);
             v.setRoutedLfoPitchSemis(pitchSemisLfo1);
+            v.setRoutedLfoLinSemis(pitchLfo1Lin);
             v.filter().setLfoCutoff(filterCutInput);
             v.oscSection().setLfoPwm(pwmLfo1, pwmCommon);
         }

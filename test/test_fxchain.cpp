@@ -106,19 +106,137 @@ float optNorm(uint16_t id, int optIndex)
 // =============================================================================
 // LAYER 1 — mapping unit tests on FxChain directly (debug probes)
 // =============================================================================
-TEST_CASE("fxchain: tone dB mapping — norm 0/0.5/1 -> -12/0/+12 dB")
+// ---- JP tone law (tone-ctrl/jp-tone-capture-analysis-2026-10-23.md) --------
+// Run one silent block so the dirty tone recompute happens.
+void settleTone(FxChain& fx)
 {
-    // Reproduce SynthCore's applyParam maths: dB = norm*24 - 12.
+    float L[kBlockSize] = {}, R[kBlockSize] = {};
+    fx.processBlock(L, R, kBlockSize);
+}
+
+double toDb(double g) { return 20.0 * std::log10(g); }
+
+TEST_CASE("fxchain: tone step clamp and norm lattice (-64..+63, 0 = flat)")
+{
     FxChain fx;
     std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
     fx.begin(pool.data());
 
-    fx.setBassGain(0.0f * 24.0f - 12.0f);
-    CHECK(fx.debugBassDb() == doctest::Approx(-12.0f));
-    fx.setBassGain(0.5f * 24.0f - 12.0f);
-    CHECK(fx.debugBassDb() == doctest::Approx(0.0f));
-    fx.setTrebleGain(1.0f * 24.0f - 12.0f);
-    CHECK(fx.debugTrebleDb() == doctest::Approx(12.0f));
+    fx.setBassStep(-100);  CHECK(fx.debugBassStep()   == -64);
+    fx.setTrebleStep(100); CHECK(fx.debugTrebleStep() ==  63);
+
+    // SynthCore's norm -> step formula (same lattice as the int display).
+    auto step = [](float n) { return (int)std::floor(n * 127.0f + 0.5f) - 64; };
+    CHECK(step(0.0f) == -64);
+    CHECK(step(1.0f) ==  63);
+    CHECK(step(0.5f) ==   0);                  // old -1..+1 table centre
+    CHECK(step(64.0f / 127.0f) == 0);          // new -64..+63 table default
+}
+
+TEST_CASE("fxchain: tone plateau gains match the JP capture")
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+
+    // Flat -> exactly unity and the stage stays off.
+    settleTone(fx);
+    CHECK_FALSE(fx.debugToneActive());
+
+    // Measured plateaus (joint fit): bass -inf / -6.8 / +5.6 / +26.9 dB,
+    // treble -14.7 / -9.8 / +9.6 / +14.7 dB.  Law tolerance ~1 dB.
+    struct Pt { int step; double bassDb; double trebDb; };
+    const Pt pts[] = { {-32, -6.8, -9.8}, {32, 5.6, 9.6}, {63, 26.9, 14.7} };
+    for (const Pt& p : pts) {
+        fx.setBassStep(p.step); fx.setTrebleStep(p.step); settleTone(fx);
+        CHECK(std::fabs(toDb(fx.debugBassGain())   - p.bassDb) < 1.0);
+        CHECK(std::fabs(toDb(fx.debugTrebleGain()) - p.trebDb) < 1.0);
+    }
+    // Bass full cut is a pure HPF (G = 0); treble full cut mirrors full boost.
+    fx.setBassStep(-64); fx.setTrebleStep(-64); settleTone(fx);
+    CHECK(fx.debugBassGain() == 0.0f);
+    CHECK(std::fabs(toDb(fx.debugTrebleGain()) + 14.7) < 0.3);
+    CHECK(fx.debugToneActive());
+}
+
+// Steady-state sine gain through the whole chain with only the tone stage
+// running (drive / mod / delay OFF, dry 0, jpfx 1).  Small amplitude so the
+// block limiter never acts.
+double toneGainDb(int bassStep, int trebStep, double hz)
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setDryMix(0.0f);
+    fx.setJpfxMix(1.0f);
+    fx.setBassStep(bassStep);
+    fx.setTrebleStep(trebStep);
+
+    const double amp = 0.005;
+    const int    blocks = (int)(1.5 * (double)kSampleRate / (double)kBlockSize);   // 1.5 s
+    const int    measureFrom = blocks / 2;                         // settled
+    double accIn = 0.0, accOut = 0.0;
+    size_t n = 0;
+    float L[kBlockSize], R[kBlockSize];
+    for (int b = 0; b < blocks; ++b) {
+        for (size_t k = 0; k < kBlockSize; ++k) {
+            const double t = (double)n++ / (double)kSampleRate;
+            L[k] = R[k] = (float)(amp * std::sin(2.0 * 3.14159265358979 * hz * t));
+        }
+        float inCopy[kBlockSize];
+        for (size_t k = 0; k < kBlockSize; ++k) inCopy[k] = L[k];
+        fx.processBlock(L, R, kBlockSize);
+        if (b >= measureFrom)
+            for (size_t k = 0; k < kBlockSize; ++k) {
+                accIn  += (double)inCopy[k] * (double)inCopy[k];
+                accOut += (double)L[k] * (double)L[k];
+            }
+    }
+    return 10.0 * std::log10(accOut / accIn);
+}
+
+TEST_CASE("fxchain: tone frequency response matches the JP shelf model")
+{
+    // Analog model values (analysis doc, section 4 table); the TPT
+    // one-pole is within ~0.5 dB of them across this range at 48 kHz.
+    struct Pt { int b, t; double hz, db; };
+    const Pt pts[] = {
+        {  63,   0,    50.0,  18.4 }, {  63,   0,   445.0,   3.0 },
+        { -64,   0,    50.0, -19.0 }, { -64,   0,   200.0,  -7.7 },
+        {   0,  63,  2000.0,   6.7 }, {   0,  63, 10000.0,  13.7 },
+        {   0, -64,  2000.0,  -6.7 }, {   0, -64, 10000.0, -13.7 },
+        {   0,   0,  1000.0,   0.0 },
+    };
+    for (const Pt& p : pts) {
+        const double g = toneGainDb(p.b, p.t, p.hz);
+        INFO("bass ", p.b, " treble ", p.t, " @ ", p.hz, " Hz: ", g, " dB (want ", p.db, ")");
+        CHECK(std::fabs(g - p.db) < 0.5);
+    }
+}
+
+TEST_CASE("fxchain: aux tilt moves the JP shelves and settles back exactly")
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setBassStep(32);
+    fx.setTrebleStep(-16);
+    settleTone(fx);
+    const float gB = fx.debugBassGain(),  gT = fx.debugTrebleGain();
+    const float aB = fx.debugBassAlpha(), aT = fx.debugTrebAlpha();
+
+    fx.setToneTiltMod(1.0f);                       // treble up, bass down
+    for (int i = 0; i < 64; ++i) settleTone(fx);
+    CHECK(fx.debugTrebleGain() > gT);
+    CHECK(fx.debugBassGain()   < gB);
+    CHECK(fx.debugBassAlpha()  != aB);             // corner follows the gain
+
+    fx.setToneTiltMod(0.0f);
+    for (int i = 0; i < 2000; ++i) settleTone(fx); // smoother decays below 1e-4
+    CHECK(fx.debugBassGain()   == gB);
+    CHECK(fx.debugTrebleGain() == gT);
+    CHECK(fx.debugBassAlpha()  == aB);
+    CHECK(fx.debugTrebAlpha()  == aT);
 }
 
 TEST_CASE("fxchain: mod rate & delay time endpoints")
@@ -237,15 +355,139 @@ TEST_CASE("fxchain: Select off-by-one decode (Q3) — opt-1 = v1 type")
     CHECK(fx.delayActive() == true);
 }
 
-TEST_CASE("fxchain: drive mode Select (D-1) — 0/1/2 = OFF/Soft/Hard")
+TEST_CASE("fxchain: drive Amount — clamp, 0 = inactive, >0 = active")
 {
     FxChain fx;
     std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
     fx.begin(pool.data());
 
-    fx.setDriveMode(0); CHECK(fx.debugDriveMode() == 0); CHECK(fx.driveActive() == false);
-    fx.setDriveMode(1); CHECK(fx.debugDriveMode() == 1); CHECK(fx.driveActive() == true);
-    fx.setDriveMode(2); CHECK(fx.debugDriveMode() == 2); CHECK(fx.driveActive() == true);
+    fx.setDriveAmount(0.0f);  CHECK(fx.debugDriveAmount() == 0.0f); CHECK(fx.driveActive() == false);
+    fx.setDriveAmount(0.5f);  CHECK(fx.debugDriveAmount() == 0.5f); CHECK(fx.driveActive() == true);
+    fx.setDriveAmount(2.0f);  CHECK(fx.debugDriveAmount() == 1.0f);
+    fx.setDriveAmount(-1.0f); CHECK(fx.debugDriveAmount() == 0.0f); CHECK(fx.driveActive() == false);
+}
+
+// ---- Drive redesign proofs (drive-fx/drive-design-proposal-2026-10-24.md) ----
+// Sine through FxChain with only the drive stage running (dry 0, jpfx 1, tone
+// flat, mod/delay OFF).  Returns the mono output after a settle period.
+std::vector<float> driveRender(float amount, double hz, float amp, int blocks = 600)
+{
+    FxChain fx;
+    std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
+    fx.begin(pool.data());
+    fx.setDryMix(0.0f);
+    fx.setJpfxMix(1.0f);
+    fx.setDriveAmount(amount);
+    std::vector<float> out;
+    float L[kBlockSize], R[kBlockSize];
+    size_t n = 0;
+    for (int b = 0; b < blocks; ++b) {
+        for (size_t k = 0; k < kBlockSize; ++k, ++n) {
+            const double t = (double)n / (double)kSampleRate;
+            L[k] = R[k] = (float)((double)amp * std::sin(2.0 * 3.14159265358979 * hz * t));
+        }
+        fx.processBlock(L, R, kBlockSize);
+        if (b >= blocks / 2) for (size_t k = 0; k < kBlockSize; ++k) out.push_back(L[k]);
+    }
+    return out;
+}
+
+// Goertzel magnitude (linear amplitude) of one frequency over the buffer.
+double tone(const std::vector<float>& v, double hz)
+{
+    const double w = 2.0 * 3.14159265358979 * hz / (double)kSampleRate;
+    double re = 0.0, im = 0.0;
+    for (size_t i = 0; i < v.size(); ++i) {
+        re += (double)v[i] * std::cos(w * (double)i);
+        im -= (double)v[i] * std::sin(w * (double)i);
+    }
+    return 2.0 * std::sqrt(re * re + im * im) / (double)v.size();
+}
+
+TEST_CASE("fxchain: tone alone engages the chain (drive/mod/delay all off)")
+{
+    // Low note so the bass shelf (starts at 445 Hz) has content to act on.
+    // Default patch: drive 0, mod OFF, delay OFF, dry mix 0 (serial chain).
+    auto level = [](float bassStep, float trebStep) {
+        Rig rig;
+        rig.setE(ID::FX_BASS_GAIN, bassStep);
+        rig.setE(ID::FX_TREBLE_GAIN, trebStep);
+        const auto v = run(rig, 200, -1, 45);
+        return 20.0 * std::log10(rms(v, v.size() / 2, v.size()) + 1e-12);
+    };
+    const double flat = level(0.0f, 0.0f);
+    CHECK(level( 63.0f, 0.0f) > flat + 3.0);   // bass boost heard
+    CHECK(level(-64.0f, 0.0f) < flat - 3.0);   // bass cut heard
+    CHECK(level(0.0f, 63.0f) != flat);         // treble alone engages too
+}
+
+TEST_CASE("fxchain: tone at 0 keeps the chain disengaged (byte-identical)")
+{
+    Rig a, b;
+    b.setE(ID::FX_BASS_GAIN, 20.0f);           // engage ...
+    b.setE(ID::FX_BASS_GAIN, 0.0f);            // ... and return to flat
+    const auto x = run(a, 40, -1, 45);
+    const auto y = run(b, 40, -1, 45);
+    REQUIRE(x.size() == y.size());
+    bool same = true;
+    for (size_t i = 0; i < x.size(); ++i) if (x[i] != y[i]) { same = false; break; }
+    CHECK(same);
+}
+
+TEST_CASE("drive: no DC at the output at any Amount (DC blocker after the shaper)")
+{
+    for (float a : {0.25f, 0.5f, 1.0f}) {
+        const auto y = driveRender(a, 1000.0, 0.3f);
+        double mean = 0.0;
+        for (float s : y) mean += (double)s;
+        mean /= (double)y.size();
+        INFO("Amount ", a, " mean ", mean);
+        CHECK(std::fabs(mean) < 1e-3);
+    }
+}
+
+TEST_CASE("drive: loudness held within +/-2 dB across Amount (auto makeup)")
+{
+    const double rmsIn = 0.3 * 0.70710678;
+    for (float a : {0.05f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+        const auto y = driveRender(a, 1000.0, 0.3f);
+        double acc = 0.0;
+        for (float s : y) acc += (double)s * (double)s;
+        const double db = 20.0 * std::log10(std::sqrt(acc / (double)y.size()) / rmsIn);
+        INFO("Amount ", a, ": ", db, " dB");
+        CHECK(std::fabs(db) < 2.0);
+    }
+}
+
+TEST_CASE("drive: harmonics grow with Amount, with even harmonics from the bias")
+{
+    auto h = [](float a, int k) {
+        const auto y = driveRender(a, 500.0, 0.3f);
+        return tone(y, 500.0 * k) / tone(y, 500.0);
+    };
+    // Near-clean just above 0, clearly driven at the top.
+    CHECK(h(0.05f, 3) < 0.01);                 // 3rd < -40 dBc at 5 %
+    CHECK(h(1.0f, 3)  > 0.05);                 // 3rd > -26 dBc at 100 %
+    CHECK(h(1.0f, 3)  > h(0.5f, 3));
+    CHECK(h(1.0f, 2)  > 0.01);                 // 2nd present: asymmetry works
+}
+
+TEST_CASE("drive: aliasing of a 5 kHz sine at full Amount stays low (ADAA1)")
+{
+    // Harmonics of 5 kHz above Nyquist fold to 3 kHz (9th), 8 kHz (8th) and
+    // 13 kHz (7th).  None is a harmonic of 5 kHz, so energy there is aliasing.
+    // Measured 2026-10-24 at 100 % (+30 dB drive): -51 / -47 / -36.5 dBc.
+    // For reference the old fixed Hard mode (+15.6 dB) measured -37 / -36 /
+    // -45 dBc.  Limits sit ~3 dB above the measurement to catch regressions.
+    const auto y = driveRender(1.0f, 5000.0, 0.3f);
+    const double f  = tone(y, 5000.0);
+    const double a3 = 20.0 * std::log10(tone(y, 3000.0)  / f);
+    const double a8 = 20.0 * std::log10(tone(y, 8000.0)  / f);
+    const double a13= 20.0 * std::log10(tone(y, 13000.0) / f);
+    INFO("alias 3 kHz ", a3, " dBc, 8 kHz ", a8, " dBc, 13 kHz ", a13, " dBc");
+    CHECK(a3  < -48.0);
+    CHECK(a8  < -44.0);
+    CHECK(a13 < -33.0);
 }
 
 // =============================================================================
@@ -259,9 +501,12 @@ TEST_CASE("fxchain: default patch is byte-identical to never touching FX params"
     auto render = [](bool writeFx) {
         Rig rig;
         if (writeFx) {
-            rig.setNorm(ID::FX_BASS_GAIN, 0.0f);
-            rig.setNorm(ID::FX_TREBLE_GAIN, 0.0f);
-            rig.setNorm(ID::FX_DRIVE, optNorm(ID::FX_DRIVE, 0));        // OFF
+            // Table defaults (0 = flat), whichever range the table carries.
+            rig.setE(ID::FX_BASS_GAIN,
+                     kParams[ParameterStore::indexOf(ID::FX_BASS_GAIN)].def);
+            rig.setE(ID::FX_TREBLE_GAIN,
+                     kParams[ParameterStore::indexOf(ID::FX_TREBLE_GAIN)].def);
+            rig.setNorm(ID::FX_DRIVE, 0.0f);                            // Amount 0 = off
             rig.setNorm(ID::FX_MOD_EFFECT, optNorm(ID::FX_MOD_EFFECT, 0));   // OFF
             rig.setNorm(ID::FX_MOD_MIX, 0.0f);
             rig.setNorm(ID::FX_MOD_RATE, 0.5f);
@@ -285,11 +530,11 @@ TEST_CASE("fxchain: default patch is byte-identical to never touching FX params"
 // =============================================================================
 // LAYER 2 — audible-effect + stability proofs through SynthCore
 // =============================================================================
-TEST_CASE("fxchain: hard drive alters the signal and stays within the limiter ceiling")
+TEST_CASE("fxchain: full drive alters the signal and stays within the limiter ceiling")
 {
     Rig dry;                       // chain disengaged
     Rig wet;
-    wet.setNorm(ID::FX_DRIVE, optNorm(ID::FX_DRIVE, 2));   // Hard
+    wet.setNorm(ID::FX_DRIVE, 1.0f);                       // Amount 100 %
 
     const auto a = run(dry, 40, -1);
     const auto b = run(wet, 40, -1);
@@ -373,10 +618,10 @@ TEST_CASE("fxchain: jpfx mix 0 with delay engaged returns the dry bus (scaled by
     CHECK(diff == doctest::Approx(0.0).epsilon(1e-6));
 }
 
-TEST_CASE("fxchain: worst case (hard drive + max-fb delay + chorus) stays finite")
+TEST_CASE("fxchain: worst case (full drive + max-fb delay + chorus) stays finite")
 {
     Rig rig;
-    rig.setNorm(ID::FX_DRIVE, optNorm(ID::FX_DRIVE, 2));                  // Hard
+    rig.setNorm(ID::FX_DRIVE, 1.0f);                                      // Amount 100 %
     rig.setNorm(ID::FX_MOD_EFFECT, optNorm(ID::FX_MOD_EFFECT, 11));       // Super Chorus
     rig.setNorm(ID::FX_MOD_MIX, 1.0f);
     rig.setNorm(ID::FX_DELAY_EFFECT, optNorm(ID::FX_DELAY_EFFECT, 2));    // MONO_LONG
@@ -416,11 +661,11 @@ TEST_CASE("fx: tone tilt engages the chain on its own and colours the signal")
 
 TEST_CASE("fx: tone tilt changes the output, drive mod does not without drive")
 {
-    auto render = [](float tilt, float driveMod, int driveMode) {
+    auto render = [](float tilt, float driveMod, float driveAmount) {
         FxChain fx;
         std::vector<float> pool((size_t)FxChain::kPoolFloats, 0.0f);
         fx.begin(pool.data());
-        fx.setDriveMode(driveMode);
+        fx.setDriveAmount(driveAmount);
         fx.setToneTiltMod(tilt);
         fx.setDriveAmountMod(driveMod);
 
@@ -444,19 +689,19 @@ TEST_CASE("fx: tone tilt changes the output, drive mod does not without drive")
         return d;
     };
 
-    const auto flat = render(0.0f, 0.0f, 0);
+    const auto flat = render(0.0f, 0.0f, 0.0f);
 
     // Tone tilt colours the signal whatever the drive mode is — drive OFF here.
-    CHECK(diff(flat, render(1.0f, 0.0f, 0)) > 0.0);
+    CHECK(diff(flat, render(1.0f, 0.0f, 0.0f)) > 0.0);
 
-    // Drive mod with drive OFF is inaudible: applySaturation bypasses entirely
-    // in that mode, so the aux lane cannot conjure a saturator that is not
-    // running.  This is a documented limitation, asserted so it stays honest.
-    CHECK(diff(flat, render(0.0f, 1.0f, 0)) == doctest::Approx(0.0));
+    // Drive mod with drive at 0 is inaudible: applyDrive bypasses entirely,
+    // so the aux lane cannot conjure a drive stage that is not running.  This
+    // is a documented limitation, asserted so it stays honest.
+    CHECK(diff(flat, render(0.0f, 1.0f, 0.0f)) == doctest::Approx(0.0));
 
-    // With a drive mode selected, the SAME mod is clearly audible.
-    const auto driven = render(0.0f, 0.0f, 1);
-    CHECK(diff(driven, render(0.0f, 1.0f, 1)) > 0.0);
+    // With some drive dialled in, the SAME mod is clearly audible.
+    const auto driven = render(0.0f, 0.0f, 0.5f);
+    CHECK(diff(driven, render(0.0f, 1.0f, 0.5f)) > 0.0);
 }
 
 // =============================================================================

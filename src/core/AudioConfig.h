@@ -119,9 +119,9 @@ constexpr uint32_t primeAtRate(uint32_t refSamples)
 inline constexpr float  kBlockMs      = 1000.0f * (float)kBlockSize / kSampleRate;
 inline constexpr float  kBlocksPerSec = kSampleRate / (float)kBlockSize;
 
-// LFO pitch-depth ceiling (semitones at depth 1.0).  Was private to
-// SynthCore; shared here since G1 routing needs the same constant in Voice
-// to convert the routed lane back to the knob-normalised X-MOD range.
+// LFO pitch-depth ceiling (semitones at depth 1.0) for the LINEAR laws:
+// LFO2 pitch, sequencer pitch, and JtXmod's X-MOD routing.  LFO1 pitch and
+// the pitch env follow the measured JP curve since 2026-10-25 (JpModLaw).
 inline constexpr float  kLfoPitchMaxSemis = 7.0f;
 
 // Mod wheel (CC 1) -> LFO1 pitch depth, as a FRACTION of the knob's full

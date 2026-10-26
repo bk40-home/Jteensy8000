@@ -21,11 +21,31 @@ inline float clampf(float x, float lo, float hi)
     return x < lo ? lo : (x > hi ? hi : x);
 }
 
-// D-1: fixed representative drive per Select mode (spec §5).  Soft/Hard are the
-// midpoints of v1's continuous soft (0..0.5) and hard (0.5..1) bands, so each
-// mode sounds representative of its v1 region.
-constexpr float kSoftDrive = 0.25f;
-constexpr float kHardDrive = 0.75f;
+// Drive stage (redesigned 2026-10-24, drive-fx/drive-design-proposal-2026-10-24.md).
+// Amount a = 0..1 maps at block rate (computeDrive) to:
+//   shaper gain  kDriveGain0 * 2^(a*kDriveOct)   -6 dB .. +30 dB re unity
+//   bias         kDriveBiasMax * a               even-harmonic asymmetry
+//   pre shelf    kDrivePreDepth * a              low-shelf cut depth (-6 dB max)
+//   post blend   a                               top-cut LP blended in
+// kDriveGain0 < 1 keeps the curve almost linear just above 0, so leaving the
+// bypass point is not an audible step.
+constexpr float kDriveGain0    = 0.5f;
+constexpr float kDriveOct      = 6.0f;
+constexpr float kDriveBiasMax  = 0.35f;
+constexpr float kDrivePreDepth = 0.5f;
+constexpr float kDrivePreHz    = 140.0f;
+constexpr float kDrivePostHz   = 7000.0f;
+constexpr float kDriveDcHz     = 8.0f;
+// Loudness-match reference: sine peak at about -10 dBFS (typical bus level).
+constexpr float kDriveRefPeak  = 0.3f;
+
+// TPT (trapezoidal) one-pole gain G = g/(1+g), g = tan(pi*fc/fs).  Shared by
+// the drive voicing filters and the tone shelves.  Block rate only.
+inline float tptOnePoleG(float fcHz)
+{
+    const float g = tanf(kPi * fcHz / kSampleRate);
+    return g / (1.0f + g);
+}
 
 // 1a (JP capture gap analysis 2026-10-22, G1) — FLAGGED DEVIATION FROM v1.
 // Minimum modulation tap = 1 sample.  v1 clamped at 0: modReadTap(writeIdx-0)
@@ -160,86 +180,169 @@ void FxChain::begin(float* pool)
     _tapeActive = false;
     _modWriteIdx   = 0;
 
-    // Tone crossover LP coeffs — fixed, depend only on sample rate (v1 ctor
-    // AudioEffectJPFX.cpp:117-118): alpha = 2π·fc / (2π·fc + fs).
-    const float fs = kSampleRate;
-    _toneBassAlpha = kTwoPi * 200.0f  / (kTwoPi * 200.0f  + fs);
-    _toneTrebAlpha = kTwoPi * 3000.0f / (kTwoPi * 3000.0f + fs);
+    // Tone coeffs for flat (corners at the JP turnover frequencies, deltas 0,
+    // stage inactive).  Recomputed at block rate from here on.
+    setToneCoeffs(1.0f, 1.0f);
+
+    // Drive voicing / DC-blocker coefficients — fixed, sample-rate only.
+    _drvPreG  = tptOnePoleG(kDrivePreHz);
+    _drvPostG = tptOnePoleG(kDrivePostHz);
+    _drvDcR   = 1.0f - kTwoPi * kDriveDcHz / kSampleRate;
+    resetDriveState();
 }
 
 // ===========================================================================
-// Saturation setters + block-rate recompute (v1 :406-435)
+// Drive setter + block-rate recompute
 // ===========================================================================
-void FxChain::setDriveMode(int mode)
+void FxChain::setDriveAmount(float amount)
 {
-    mode = (int)clampf((float)mode, 0.0f, 2.0f);
-    if (mode != _driveMode) {
-        _driveMode = mode;
-        _satDirty  = true;
+    amount = clampf(amount, 0.0f, 1.0f);
+    if (amount == _driveAmount) return;
+    // Off -> on: start from clean state so stale filter/ADAA history from the
+    // last time the stage ran cannot click.  (On -> on keeps state: smooth.)
+    if (_driveAmount <= 0.0f && amount > 0.0f) {
+        _driveAmount = amount;
+        resetDriveState();
     }
+    _driveAmount = amount;
+    _driveDirty  = true;
 }
 
-void FxChain::computeSat()
+void FxChain::resetDriveState()
 {
-    _satDirty = false;
+    const float b = kDriveBiasMax * _driveAmount;   // ADAA history at rest = bias
+    _drvPreS  = 0.0f;
+    _drvPostS = 0.0f;
+    _drvU1    = b;
+    _drvF1    = sqrtf(1.0f + b * b);
+    _drvDcX1  = 0.0f;
+    _drvDcY1  = 0.0f;
+}
 
-    if (_driveMode == 0) {                  // OFF: unity, applySaturation bypasses
-        _satInputGain = 1.0f; _satOutputGain = 1.0f;
-        return;
-    }
+void FxChain::computeDrive()
+{
+    _driveDirty = false;
+    const float a  = _driveAmount;
+    _driveGainBase = kDriveGain0 * exp2f(a * kDriveOct);
+    _driveBias     = kDriveBiasMax * a;
+    _driveBiasOut  = _driveBias / sqrtf(1.0f + _driveBias * _driveBias);
+    _drivePreDepth = kDrivePreDepth * a;
+    _drivePostMix  = a;
+    _driveMakeupAt = -1.0f;                // bias moved: force a makeup refresh
+}
 
-    // D-1: resolve the Select mode to v1's fixed representative drive, then run
-    // v1's exact gain-staging maths (:415-433).
-    if (_driveMode == 1) {                  // Soft (tanh)
-        const float drive = kSoftDrive;
-        _satIsSoft    = true;
-        _satInputGain = 1.0f + (drive / 0.5f) * 3.0f;              // 1..4×
-        const float testOut = tanhf(_satInputGain * 0.5f);
-        _satOutputGain = (testOut > 0.0f) ? (0.5f / testOut) : 1.0f;
-    } else {                                // Hard (asymmetric clip)
-        const float drive = kHardDrive;
-        _satIsSoft    = false;
-        _satInputGain = 4.0f + ((drive - 0.5f) / 0.5f) * 4.0f;     // 4..8×
-        _satOutputGain = 1.0f / 0.7f;
+// Makeup = rms(reference sine) / rms(static curve output for that sine, DC
+// removed).  32 points on a rotating phasor (no sinf per point).  Runs only
+// when the effective gain changes (knob slew or aux drive mod moving), ~1k
+// cycles each time.  Ignores the voicing filters: at the reference tone they
+// are close to transparent, and the test holds the result to +/-2 dB.
+float FxChain::computeDriveMakeup(float gain) const
+{
+    constexpr int   kN  = 32;
+    constexpr float kC  = 0.98078528f;      // cos(2*pi/32)
+    constexpr float kS  = 0.19509032f;      // sin(2*pi/32)
+    float c = 1.0f, sn = 0.0f, sum = 0.0f, sum2 = 0.0f;
+    for (int i = 0; i < kN; ++i) {
+        const float u = gain * kDriveRefPeak * sn + _driveBias;
+        const float y = u / sqrtf(1.0f + u * u) - _driveBiasOut;
+        sum += y;  sum2 += y * y;
+        const float c2 = c * kC - sn * kS;  // rotate the phasor
+        sn = sn * kC + c * kS;
+        c  = c2;
     }
+    const float mean = sum * (1.0f / kN);
+    const float var  = sum2 * (1.0f / kN) - mean * mean;
+    const float rmsIn = kDriveRefPeak * 0.70710678f;
+    return (var > 1e-12f) ? rmsIn / sqrtf(var) : 1.0f;
 }
 
 // ===========================================================================
-// Tone setters + block-rate recompute (v1 :325-347)
+// Tone setters + block-rate recompute
+// ---------------------------------------------------------------------------
+// Measured from the JE-8086 (JP-8000 ROM), noise capture 2026-10-23
+// (tone-ctrl/jp-tone-capture-analysis-2026-10-23.md).  Both controls are
+// 1st-order shelves with a FIXED inner corner and a moving outer corner:
+//
+//   bass   boost  H = (s+wb)/(s+wb/G)        cut  H = (s+G*wb)/(s+wb)
+//   treble boost  H = G(s+wt)/(s+G*wt)       cut  H = (G*s+wt)/(s+wt)
+//
+// Implemented as  in + (G-1)*LP(fc)  (bass) and  in + (G-1)*HP(fc)  (treble)
+// with   bass fc = wb / max(G,1)   and   treble fc = wt * max(G,1).
+//
+// Step -> plateau gain G (m = step/64; provisional, fitted to 5 points/side,
+// all 8 measured plateaus reproduced within ~1 dB):
+//   bass   cut   G = 1 - |m|                 (-64 -> G = 0: pure 445 Hz HPF)
+//   bass   boost G = 1 / (1 - kBassBoostA*m) (+63 -> +26.9 dB)
+//   treble boost G = 1 + kTrebK*|m|          (+63 -> +14.7 dB)
+//   treble cut   G = 1 / (1 + kTrebK*|m|)    (mirror of boost)
 // ===========================================================================
-void FxChain::setBassGain(float dB)
+namespace {
+constexpr float kToneBassHz  = 445.0f;   // bass fixed (inner) corner
+constexpr float kToneTrebHz  = 951.0f;   // treble fixed (inner) corner
+constexpr float kBassBoostA  = 0.970f;   // feedback amount at m = 1
+constexpr float kTrebK       = 4.50f;    // treble linear-amplitude slope
+constexpr int   kToneStepMin = -64;
+constexpr int   kToneStepMax =  63;
+
+inline int clampStep(int s)
 {
-    dB = clampf(dB, -12.0f, 12.0f);
-    if (dB != _targetBassDb) { _targetBassDb = dB; _toneDirty = true; }
+    return s < kToneStepMin ? kToneStepMin : (s > kToneStepMax ? kToneStepMax : s);
 }
 
-void FxChain::setTrebleGain(float dB)
+// TPT one-pole gain G = g/(1+g), g = tan(pi*fc/fs) (bilinear, prewarped so
+// the corner lands exactly).  The old w/(w+fs) form read a 5.1 kHz corner
+// as 3.9 kHz.  Block rate only.  fc is kept well below Nyquist by the law
+// (max treble corner 951 * 5.43 = 5.2 kHz).
+inline float onePoleAlpha(float fcHz)
 {
-    dB = clampf(dB, -12.0f, 12.0f);
-    if (dB != _targetTrebleDb) { _targetTrebleDb = dB; _toneDirty = true; }
+    return tptOnePoleG(fcHz);
+}
+
+inline float bassGainFromStep(int step)
+{
+    const float m = (float)step * (1.0f / 64.0f);
+    return (step < 0) ? (1.0f + m)                       // 1 - |m|
+                      : 1.0f / (1.0f - kBassBoostA * m);
+}
+
+inline float trebGainFromStep(int step)
+{
+    const float g = 1.0f + kTrebK * fabsf((float)step) * (1.0f / 64.0f);
+    return (step < 0) ? 1.0f / g : g;
+}
+} // namespace
+
+void FxChain::setBassStep(int step)
+{
+    step = clampStep(step);
+    if (step != _bassStep) { _bassStep = step; _toneDirty = true; }
+}
+
+void FxChain::setTrebleStep(int step)
+{
+    step = clampStep(step);
+    if (step != _trebleStep) { _trebleStep = step; _toneDirty = true; }
+}
+
+void FxChain::setToneCoeffs(float gBass, float gTreb)
+{
+    // Corner moves outward only on boost; on cut it stays at the inner corner.
+    _toneBassAlpha = onePoleAlpha(kToneBassHz / (gBass > 1.0f ? gBass : 1.0f));
+    _toneTrebAlpha = onePoleAlpha(kToneTrebHz * (gTreb > 1.0f ? gTreb : 1.0f));
+    _toneBassDelta = gBass - 1.0f;
+    _toneTrebDelta = gTreb - 1.0f;
+    // Integer steps make step 0 exactly G = 1, so no dB snap is needed.
+    _toneActive = (_toneBassDelta != 0.0f || _toneTrebDelta != 0.0f);
 }
 
 void FxChain::computeTone()
 {
     _toneDirty = false;
-
-    float bassLin = powf(10.0f, _targetBassDb   / 20.0f);
-    float trebLin = powf(10.0f, _targetTrebleDb / 20.0f);
-
-    // Snap to unity within ±0.1 dB (v1 :335-336) — CC midpoints that land at
-    // ~0.094 dB shouldn't leave a residual filter running.
-    if (fabsf(_targetBassDb)   < 0.1f) bassLin = 1.0f;
-    if (fabsf(_targetTrebleDb) < 0.1f) trebLin = 1.0f;
-
-    _toneBassBase = bassLin - 1.0f;
-    _toneTrebBase = trebLin - 1.0f;
-
-    // Effective deltas default to base; the per-block tilt step adds to these.
-    _toneBassDelta = _toneBassBase;
-    _toneTrebDelta = _toneTrebBase;
-
-    _toneActive = (fabsf(_toneBassDelta) > 0.0001f ||
-                   fabsf(_toneTrebDelta) > 0.0001f);
+    _toneBassGain = bassGainFromStep(_bassStep);
+    _toneTrebGain = trebGainFromStep(_trebleStep);
+    // Effective = base; the per-block tilt step re-applies itself on top
+    // while it is active (processBlock).
+    setToneCoeffs(_toneBassGain, _toneTrebGain);
 }
 
 // ===========================================================================
@@ -864,14 +967,16 @@ void FxChain::processBlock(float* left, float* right, size_t n)
     if (!_pool) return;                     // inert without a pool
 
     // Block-rate parameter recompute (only when dirty) + delay cache.
-    if (_satDirty)  computeSat();
+    if (_driveDirty) computeDrive();
     if (_toneDirty) computeTone();
 
     // Stage D: aux 'Drive' → bass↔treble TILT on the Tone EQ (level-neutral
     // colour).  Smooth the tilt once per block (no zipper), convert ±kTiltMaxDb
-    // to linear shelf deltas, and add treble-up / bass-down (see-saw) on top of
-    // whatever the tone knobs set.  Independent of drive mode — it's a tone
-    // colour.  Skipped (and tone left exactly as computeTone left it) when the
+    // to linear gain factors, and multiply treble-up / bass-down (see-saw)
+    // onto whatever the tone knobs set.  The JP shelf corners follow the gain,
+    // so the coefficients are rebuilt each block while the tilt is non-flat
+    // (2 exp2f + 2 tanf per block; per-sample cost unchanged).  Independent
+    // of drive mode — it's a tone colour.  Skipped (and tone left exactly as computeTone left it) when the
     // tilt is flat and already settled, so an unmodulated chain is byte-identical.
     {
         constexpr float kTiltMaxDb  = 6.0f;                    // +/-6 dB at full depth
@@ -884,35 +989,38 @@ void FxChain::processBlock(float* left, float* right, size_t n)
             _tiltCur += (_tiltTarget - _tiltCur) * kTiltSmooth;
 
         if (fabsf(_tiltCur) > 0.0001f) {
-            // Effective = base + tilt, rebuilt from base each block so it can
+            // Effective = base x tilt, rebuilt from base each block so it can
             // never accumulate.  Treble up / bass down see-saw.
             const float db = _tiltCur * kTiltMaxDb;
-            _toneTrebDelta = _toneTrebBase + (exp2f( db * kDbToLog2) - 1.0f);
-            _toneBassDelta = _toneBassBase + (exp2f(-db * kDbToLog2) - 1.0f);
+            setToneCoeffs(_toneBassGain * exp2f(-db * kDbToLog2),
+                          _toneTrebGain * exp2f( db * kDbToLog2));
             _toneActive = true;                                // force the stage on
-        } else if (_toneBassDelta != _toneBassBase || _toneTrebDelta != _toneTrebBase) {
-            // Tilt just settled to flat — restore the pure base deltas and
-            // re-evaluate whether the tone stage is needed at all.
-            _toneBassDelta = _toneBassBase;
-            _toneTrebDelta = _toneTrebBase;
-            _toneActive = (fabsf(_toneBassBase) > 0.0001f ||
-                           fabsf(_toneTrebBase) > 0.0001f);
+        } else if (_toneBassDelta != _toneBassGain - 1.0f ||
+                   _toneTrebDelta != _toneTrebGain - 1.0f) {
+            // Tilt just settled to flat — restore the pure base coefficients
+            // (setToneCoeffs re-evaluates whether the stage is needed at all).
+            setToneCoeffs(_toneBassGain, _toneTrebGain);
         }
     }
 
-    // Aux 'Drive' -> saturator INPUT gain.  Smoothed on the same one-pole as
-    // the tilt, then folded into _satInputGain ONCE here so applySaturation
-    // keeps its single per-sample multiply.  At rest this is exactly
-    // _satInputGain, so an unmodulated chain is bit-identical.
+    // Aux 'Drive' -> drive-stage INPUT gain.  Smoothed on the same one-pole as
+    // the tilt, then folded into _driveGainBase ONCE here so applyDrive keeps
+    // a single per-sample gain multiply.  At rest this is exactly
+    // _driveGainBase, so an unmodulated chain is bit-identical.  The makeup
+    // gain follows the effective gain, recomputed only when that changes.
     {
         constexpr float kDriveSmooth   = 0.25f;   // ~4-block one-pole
         constexpr float kDriveModOct   = 1.5f;    // +/-1.5 octaves ~ +/-9 dB
         if (_driveModCur != _driveModTarget)
             _driveModCur += (_driveModTarget - _driveModCur) * kDriveSmooth;
 
-        _satInputEff = (fabsf(_driveModCur) > 0.0001f)
-                     ? _satInputGain * exp2f(_driveModCur * kDriveModOct)
-                     : _satInputGain;
+        _driveGainEff = (fabsf(_driveModCur) > 0.0001f)
+                      ? _driveGainBase * exp2f(_driveModCur * kDriveModOct)
+                      : _driveGainBase;
+        if (_driveAmount > 0.0f && _driveGainEff != _driveMakeupAt) {
+            _driveMakeup   = computeDriveMakeup(_driveGainEff);
+            _driveMakeupAt = _driveGainEff;
+        }
     }
 
     prepareDelay();
@@ -929,8 +1037,8 @@ void FxChain::processBlock(float* left, float* right, size_t n)
         // v1 JPFX mono input = the summed voice bus.
         float s = (dryL + dryR) * 0.5f;
 
-        // Stage 1: Saturation (mono).
-        s = applySaturation(s);
+        // Stage 1: Drive (mono).
+        s = applyDrive(s);
 
         // Fan mono → stereo for the remaining stages (v1 :939).
         float sl = s, sr = s;

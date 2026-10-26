@@ -37,7 +37,7 @@ import sys
 # is written straight into it: no hand-copy, and the editor can never fall out of
 # step with params.yaml. Anchored to the repo root (parent of tools/).
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EDITOR_PATH = os.path.join(_ROOT, "editor", "params.js")
+EDITOR_PATH = os.path.join(_ROOT, "Editor", "params.js")   # folder is "Editor" in git
 
 
 def emit_editor(doc):
@@ -83,9 +83,9 @@ if __name__ == "__main__":
     if check:
         existing = ""
         if os.path.exists(EDITOR_PATH):
-            with open(EDITOR_PATH, encoding="utf-8") as f:
-                existing = f.read()
-        if existing != out.replace("\n", "\r\n"):
+            with open(EDITOR_PATH, encoding="utf-8", newline="") as f:
+                existing = f.read().replace("\r\n", "\n")
+        if existing != out:   # line-ending blind, as gen_params.py --check
             print(f"{EDITOR_PATH}: OUT OF DATE — rerun emit_editor.py", file=sys.stderr)
             sys.exit(1)
         print(f"{EDITOR_PATH}: up to date ({len(doc['params'])} params)")
