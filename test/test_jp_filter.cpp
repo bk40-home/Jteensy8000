@@ -56,7 +56,7 @@ double modelDb(Mode m, float code, float reso, double fHz)
         default:                          sec = s / D;     break;
     }
     if (JpFilter::isCascade(m)) sec = sec * sec;
-    const double mag = std::abs(sec) * (double)JpFilter::outputTrim(m, (float)R);
+    const double mag = std::abs(sec) * (double)JpFilter::outputTrim(m, reso);
     return 20.0 * std::log10(mag + 1e-12);
 }
 
@@ -122,19 +122,27 @@ TEST_CASE("jp filter: the table carries 23 VA types and 17..22 are the JP modes"
 // 2 ---------------------------------------------------------------------------
 TEST_CASE("jp filter: laws reproduce the fitted constants")
 {
-    CHECK(JpFilter::cutoffHz(64.0f) == doctest::Approx(565.3909f).epsilon(1e-5));
-    CHECK(JpFilter::cutoffHz(64.0f + 11.74617f) / JpFilter::cutoffHz(64.0f)
+    CHECK(JpFilter::cutoffHz(64.0f) == doctest::Approx(549.6588f).epsilon(1e-5));   // C1
+    CHECK(JpFilter::cutoffHz(64.0f + 11.95908f) / JpFilter::cutoffHz(64.0f)
           == doctest::Approx(2.0f).epsilon(1e-5));
-    const float knots[5][2] = { {0, 0.5f}, {32, 0.341832f}, {64, 0.157627f},
-                                {96, 0.040869f}, {127, 0.003517f} };
+    // Damping knots: spectral fit to 96, the JE's decay rate above (R4).
+    const float knots[10][2] = { {0, 0.480235f}, {32, 0.329704f}, {64, 0.150345f},
+                                 {96, 0.038446f}, {104, 0.019382f}, {112, 0.008747f},
+                                 {116, 0.006568f}, {120, 0.003328f}, {124, 0.00148f},
+                                 {127, 0.000852f} };
     for (auto& k : knots)
         CHECK(JpFilter::damping(k[0]) == doctest::Approx(k[1]).epsilon(1e-4));
     for (int c = 1; c <= 127; ++c)                       // Q only ever rises
         CHECK(JpFilter::damping((float)c) < JpFilter::damping((float)(c - 1)));
+    // Trim = the damping ratio: unity at reso 0, R/R0 for -24, (R/R0)^0.1
+    // for -12 (one table; checked against the JE's level up to 127).
     for (Mode m : kModes)
-        CHECK(JpFilter::outputTrim(m, 0.5f) == doctest::Approx(1.0f));
-    CHECK(JpFilter::outputTrim(Mode::LP24, 0.05f) == doctest::Approx(0.1f));
-    CHECK(JpFilter::outputTrim(Mode::LP12, 0.05f) == doctest::Approx(powf(0.1f, 0.1f)));
+        CHECK(JpFilter::outputTrim(m, 0.0f) == doctest::Approx(1.0f));
+    for (float c : { 64.0f, 96.0f, 120.0f, 127.0f }) {
+        const float r = JpFilter::damping(c) / JpFilter::damping(0.0f);
+        CHECK(JpFilter::outputTrim(Mode::LP24, c) == doctest::Approx(r));
+        CHECK(JpFilter::outputTrim(Mode::LP12, c) == doctest::Approx(powf(r, 0.1f)));
+    }
 }
 
 // 3 ---------------------------------------------------------------------------
@@ -172,8 +180,13 @@ TEST_CASE("jp filter: -3 dB points land on the JE-8086 (scene 14, reso 0)")
     };
     const float codes[5] = { 48, 64, 80, 96, 112 };
     double worst = 0.0;
+    // Code 112 is excluded (C1): there the JE's reso-0 LP/BP edges sit up to
+    // 0.5 oct above what its own pole implies - its ring line at code 112 is
+    // 8915 Hz and the law gives 8878 Hz - i.e. the JE's near-top lift (open
+    // to 20 kHz from code 120, +9.6 dB HP lift from 112), not a law error.
+    // The pole itself is checked directly in the ring-pitch test below.
     for (int mi = 0; mi < 6; ++mi)
-        for (int ci = 0; ci < 5; ++ci) {
+        for (int ci = 0; ci < 4; ++ci) {
             const double oct = std::log2(modelEdgeHz(kModes[mi], codes[ci]) / je[mi][ci]);
             if (std::fabs(oct) > worst) worst = std::fabs(oct);
             // The JE values come from 1/6-octave-smoothed noise; their own
@@ -190,7 +203,7 @@ TEST_CASE("jp filter: -24 resonance trims the passband like the JE; -12 barely")
     const float f = JpFilter::cutoffHz(64.0f) / 8.0f;
     const double d24 = measureDb(Mode::LP24, 64, 96, f) - measureDb(Mode::LP24, 64, 0, f);
     const double d12 = measureDb(Mode::LP12, 64, 96, f) - measureDb(Mode::LP12, 64, 0, f);
-    CHECK(d24 == doctest::Approx(20.0 * std::log10(2.0 * 0.040869)).epsilon(0.02));
+    CHECK(d24 == doctest::Approx(20.0 * std::log10((double)(JpFilter::damping(96.0f) / JpFilter::damping(0.0f)))).epsilon(0.02));
     CHECK(std::fabs(d24 - (-21.7)) < 1.0);
     CHECK(d12 < -1.5); CHECK(d12 > -3.5);
     // HPF -24 loses the same in ITS passband (8x fc) — the ladder could not.
@@ -239,6 +252,209 @@ TEST_CASE("jp filter: linear at full-scale voice level (H2/H2b: linear to 4, kne
         const double distDb = 10.0 * std::log10(err / sig + 1e-30);
         CHECK(distDb < -70.0);
         MESSAGE("mode " << (int)m << " distortion " << distDb << " dB");
+    }
+}
+
+TEST_CASE("jp filter: D2 key follow - JP law, pivot 60, independent of octave control")
+{
+    // Knob as the wire delivers it: engineering = -1 + 2b/127, and byte 64
+    // arrives as exactly 0 (centre detent).
+    auto eng = [](int b) { return b == 64 ? 0.0f : -1.0f + 2.0f * (float)b / 127.0f; };
+    auto octAt = [&](int b, uint8_t note, float octaveCtrl) {
+        FilterSection f; f.setEngine(1);
+        f.setVaType(FilterSection::kJpFirstVaType + (int)Mode::LP24);
+        f.setCutoff(64.0f / 127.0f, 0.0f);
+        f.setOctaveControl(octaveCtrl);
+        f.setKeyTrackAmount(eng(b));
+        f.noteOn(note);
+        float buf[128] = {};
+        f.process(buf, 128);
+        return f.debugModOctaves();
+    };
+    // Pivot: note 60 is untouched at every setting.
+    for (int b : { 0, 64, 96, 127 }) CHECK(octAt(b, 60, 5.0f) == doctest::Approx(0.0f).epsilon(1e-6));
+    // Depths, one octave up from the pivot:
+    CHECK(octAt(64,  72, 5.0f) == doctest::Approx(0.0f));            // centre: off
+    CHECK(octAt(96,  72, 5.0f) == doctest::Approx(1.0f));            // +32: 1:1
+    CHECK(octAt(127, 72, 5.0f) == doctest::Approx(63.0f / 32.0f));   // +63: ~2:1
+    CHECK(octAt(0,   72, 5.0f) == doctest::Approx(-1.0f));           // -64: -1:1
+    // Independent of octave control (the generic path is silent at 0).
+    CHECK(octAt(96, 84, 0.0f) == doctest::Approx(2.0f));
+    // Against the JE (scene 14 block C, -3 dB Hz): model edge = JE edge at the
+    // pivot x 2^(oct).  Within 0.2 oct over notes 36..84 (n24 at -64 is a JE
+    // outlier; 96 at +63 runs past 20 kHz).  JE edges above 10 kHz are left
+    // out: that is the top-of-range region where the cutoff law itself is
+    // still off (open item; +63 n84 reads 13.4 kHz against 9.6 predicted).
+    const double je[4][7] = {
+        { 1390, 2462, 1297, 660, 325, 160,  83 },   // -64
+        {  684,  696,  672, 649, 627, 638, 649 },   //   0
+        {   83,  165,  330, 649,1297,2549,5183 },   // +32
+        {    0,   43,  165, 627,2505,13431,20000 }, // +63
+    };
+    const int bytes[4] = { 0, 64, 96, 127 };
+    for (int k = 0; k < 4; ++k)
+        for (int n = 1; n <= 5; ++n) {
+            const uint8_t note = (uint8_t)(24 + 12 * n);
+            if (je[k][n] > 10000.0) continue;
+            const double pred = je[k][3] * std::pow(2.0, (double)octAt(bytes[k], note, 5.0f));
+            CHECK(std::fabs(std::log2(pred / je[k][n])) < 0.2);
+        }
+}
+
+TEST_CASE("jp filter: R4 ring-down matches the JE's decay at reso 120..127")
+{
+    // Scene 15: at high reso the JE is a LINEAR high-Q resonator.  Emulate
+    // its capture exactly - 1.5 s noise (the noise cell), 0.27 s silence
+    // (gap + analysis offset), then the silent cell - and fit the decay in
+    // dB/s over the cell, as the JE was measured.  The JE line sits at
+    // 548.4 Hz, ours at the law cutoff (549.7 Hz, C1); at fixed Q the decay rate
+    // scales with f, so ours is rescaled before comparing.
+    // JE (LPF/HPF/BPF -24 mean): -90.2, -36.9, -19.7 dB/s.
+    const float  resos[3] = { 120.0f, 124.0f, 127.0f };
+    const double je[3]    = { -90.2, -36.9, -19.7 };
+    // Input per reso: big enough that the ring stays well above the 1e-7
+    // dither for the fit, small enough that the resonant gain (Q^2 x trim,
+    // ~2400 at 127) keeps the H2b tail linear (|y| < 4) - a ring that starts
+    // in the shoulder decays flatter and would bias the slope.
+    const float  amp[3]   = { 1.0e-2f, 3.0e-3f, 3.0e-4f };
+    for (int k = 0; k < 3; ++k) {
+        FilterSection f; f.setEngine(1);
+        f.setVaType(FilterSection::kJpFirstVaType + (int)Mode::LP24);
+        f.setCutoff(64.0f / 127.0f, 0.0f);
+        f.setResonanceNorm(resos[k] / 127.0f);
+        float buf[128]; uint32_t rng = 5u;
+        for (int bl = 0; bl < 562; ++bl) {                 // 1.5 s of noise
+            for (float& x : buf) { rng = rng * 1664525u + 1013904223u;
+                                   x = amp[k] * (float)(int32_t)rng * (1.0f / 2147483648.0f); }
+            f.process(buf, 128);
+        }
+        for (int bl = 0; bl < 101; ++bl) { for (float& x : buf) x = 0.0f; f.process(buf, 128); }
+        double db[13];                                      // 13 x ~0.1 s windows
+        for (int wdw = 0; wdw < 13; ++wdw) {
+            double acc = 0.0;
+            for (int bl = 0; bl < 37; ++bl) {
+                for (float& x : buf) x = 0.0f;
+                f.process(buf, 128);
+                for (float x : buf) acc += (double)x * (double)x;
+            }
+            db[wdw] = 10.0 * std::log10(acc + 1e-30);
+        }
+        // Fit only the windows >= 15 dB above the floor, as the JE fit did; a
+        // fast ring reaches the floor within the cell.  The floor is the
+        // filter's own 1e-7 uniform dither: window energy 4736 * 1e-14 / 3
+        // = -108 dB.  (Not the quietest window - for a slow ring that is just
+        // the end of the decay, which would fit only the early, t*e^-at
+        // flattened part.)
+        const double floorDb = 10.0 * std::log10(4736.0 * 1.0e-14 / 3.0);
+        int n = 0;
+        while (n < 13 && db[n] > floorDb + 15.0) ++n;
+        REQUIRE(n >= 3);
+        double sx = 0, sy = 0, sxx = 0, sxy = 0;
+        for (int i = 0; i < n; ++i) { const double t = 0.0987 * i;
+            sx += t; sy += db[i]; sxx += t * t; sxy += t * db[i]; }
+        const double slope = (n * sxy - sx * sy) / (n * sxx - sx * sx)
+                           * 548.4 / (double)JpFilter::cutoffHz(64.0f);
+        MESSAGE("reso " << resos[k] << ": decay " << slope << " dB/s (JE " << je[k] << ")");
+        CHECK(std::fabs(slope / je[k] - 1.0) < 0.15);
+    }
+}
+
+TEST_CASE("jp filter: N1 retrigger keeps the JP ring; other types reset as before")
+{
+    // Ring a filter at high reso, then retrigger (what Voice does at a fresh
+    // note-on) and feed silence: a JP type keeps ringing (JE carries its ring
+    // into the next note); a v1 VA type is cleared exactly as reset() did.
+    auto ringAfterRetrigger = [](int vaType) {
+        FilterSection f; f.setEngine(1); f.setVaType(vaType);
+        f.setCutoff(64.0f / 127.0f, 0.0f); f.setResonanceNorm(124.0f / 127.0f);
+        float buf[128]; uint32_t rng = 3u;
+        for (int bl = 0; bl < 100; ++bl) {
+            for (float& x : buf) { rng = rng * 1664525u + 1013904223u;
+                                   x = 1.0e-3f * (float)(int32_t)rng * (1.0f / 2147483648.0f); }
+            f.process(buf, 128);
+        }
+        f.retrigger();
+        double acc = 0.0;
+        for (float& x : buf) x = 0.0f;
+        f.process(buf, 128);
+        for (float x : buf) acc += (double)x * (double)x;
+        return std::sqrt(acc / 128.0);
+    };
+    CHECK(ringAfterRetrigger(FilterSection::kJpFirstVaType) > 1.0e-4);  // still ringing (~4.4e-4)
+    CHECK(ringAfterRetrigger(0) < 1.0e-6);                               // SVF LP2: cleared (dither only)
+    CHECK(ringAfterRetrigger(5) < 1.0e-6);                               // Moog LP4: cleared
+}
+
+TEST_CASE("jp filter: R5a level compensation at high reso / high cutoff")
+{
+    auto dB = [](float g) { return 20.0 * std::log10((double)g); };
+    // 1.0 (and not computed) where the JE needs nothing.
+    CHECK(JpFilter::levelComp(Mode::LP24, 127.0f, 64.0f) == 1.0f);
+    CHECK(JpFilter::levelComp(Mode::LP24, 116.0f, 112.0f) == 1.0f);
+    CHECK(JpFilter::levelComp(Mode::LP12, 127.0f, 112.0f) == 1.0f);      // -12 untouched
+    // The fitted slopes at cut 112 (one full 64->112 step).
+    CHECK(dB(JpFilter::levelComp(Mode::LP24, 120.0f, 112.0f)) == doctest::Approx(-8.17).epsilon(1e-3));
+    CHECK(dB(JpFilter::levelComp(Mode::HP24, 124.0f, 112.0f)) == doctest::Approx(-9.17).epsilon(1e-3));
+    CHECK(dB(JpFilter::levelComp(Mode::BP24, 127.0f, 112.0f)) == doctest::Approx(-9.95).epsilon(1e-3));
+    // Cut 96 (2/3 of the step): -6.1 / -6.6 dB - the HPF/BPF-24 spot check
+    // measured the JT +5.3..+7.9 dB over the JE there.
+    CHECK(dB(JpFilter::levelComp(Mode::HP24, 124.0f, 96.0f)) == doctest::Approx(-6.113).epsilon(1e-3));
+    // Monotonic: deeper with cutoff and with reso.
+    CHECK(JpFilter::levelComp(Mode::LP24, 124.0f, 112.0f) < JpFilter::levelComp(Mode::LP24, 124.0f, 96.0f));
+    CHECK(JpFilter::levelComp(Mode::LP24, 127.0f, 112.0f) < JpFilter::levelComp(Mode::LP24, 120.0f, 112.0f));
+    // Wired into FilterSection: same filter, same sine, reso 124, the level
+    // at cut 112 drops by exactly levelComp vs the uncompensated law.
+    FilterSection f; f.setEngine(1); f.setVaType(FilterSection::kJpFirstVaType);
+    f.setCutoff(112.0f / 127.0f, 0.0f); f.setResonanceNorm(124.0f / 127.0f);
+    // DC through the LP; averaged over 100 blocks, because the filter's own
+    // 1e-7 dither, amplified by the high-Q resonance, rides on the DC level.
+    float buf[128]; double acc = 0.0;
+    for (int bl = 0; bl < 500; ++bl) {
+        for (float& x : buf) x = 1.0e-3f;
+        f.process(buf, 128);
+        if (bl >= 400) for (float x : buf) acc += (double)x;
+    }
+    const double got = 20.0 * std::log10(acc / (100.0 * 128.0) / 1.0e-3);
+    const double want = dB(JpFilter::outputTrim(Mode::LP24, 124.0f) * JpFilter::levelComp(Mode::LP24, 124.0f, 112.0f));
+    CHECK(got == doctest::Approx(want).epsilon(1e-3));
+}
+
+TEST_CASE("jp filter: C1 ring pitch matches the JE's lines, codes 48..112")
+{
+    // At high resonance the filter rings at its pole frequency - the most
+    // precise cutoff measure there is.  JE line frequencies (scene 16, reso
+    // 124/127, mean of runs): the law must land within 25 cents.
+    const float  codes[5] = { 48, 64, 80, 96, 112 };
+    const double je[5]    = { 219.3, 547.6, 1371.0, 3517.0, 8916.6 };
+    for (int k = 0; k < 5; ++k) {
+        FilterSection f; f.setEngine(1); f.setVaType(FilterSection::kJpFirstVaType);
+        f.setCutoff(codes[k] / 127.0f, 0.0f); f.setResonanceNorm(1.0f);
+        float buf[128]; uint32_t rng = 9u;
+        for (int bl = 0; bl < 40; ++bl) {                    // ring it up
+            for (float& x : buf) { rng = rng * 1664525u + 1013904223u;
+                                   x = 1.0e-3f * (float)(int32_t)rng * (1.0f / 2147483648.0f); }
+            f.process(buf, 128);
+        }
+        // Free ring: count rising zero crossings over 375 blocks (~1 s),
+        // interpolating the first and last for sub-sample timing.
+        double tFirst = -1.0, tLast = 0.0; int crossings = 0; float prev = 0.0f;
+        long n = 0;
+        for (int bl = 0; bl < 375; ++bl) {
+            for (float& x : buf) x = 0.0f;
+            f.process(buf, 128);
+            for (float x : buf) {
+                if (prev < 0.0f && x >= 0.0f) {
+                    const double t = (double)n - 1.0 + (double)(-prev / (x - prev));
+                    if (tFirst < 0.0) tFirst = t; else ++crossings;
+                    tLast = t;
+                }
+                prev = x; ++n;
+            }
+        }
+        const double hz    = (double)crossings * (double)kSampleRate / (tLast - tFirst);
+        const double cents = 1200.0 * std::log2(hz / je[k]);
+        MESSAGE("code " << codes[k] << ": ring " << hz << " Hz, JE " << je[k] << " (" << cents << " cents)");
+        CHECK(std::fabs(cents) < 25.0);
     }
 }
 

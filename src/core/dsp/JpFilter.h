@@ -24,10 +24,17 @@
 //       LP = 1/D,  HP = s^2/D,  BP = s/D,   D = s^2 + 2Rs + 1
 //   -12 = section 1,                 output x (R/R0)^0.1
 //   -24 = section 1 -> section 2,    output x (R/R0)
-//   fc  = 565.39 Hz * 2^((code - 64) / 11.746),  code = knob * 127
-//         ceiling: LP 0.49 fs (open at the top, as the JE); HP/BP 12.35 kHz
-//   R   = log-linear between knots at reso 0/32/64/96/127:
-//         0.5, 0.3418, 0.1576, 0.04087, 0.003517   (Q 1.0 ... 142)
+//   fc  = 549.66 Hz * 2^((code - 64) / 11.959),  code = knob * 127
+//         (C1: fitted to the JE's high-resonance ring lines = pole frequency)
+//         ceiling: LP 0.49 fs (open at the top, as the JE); HP/BP 12.40 kHz
+//   R   = log-linear between knots at reso 0/32/64/96 (0.4802, 0.3297, 0.1503,
+//         0.03845; C1 refit) and, calibrated to the JE's decay (R4), 104/112/116/120/
+//         124/127 (0.01938, 0.00875, 0.00657, 0.00333, 0.00148, 0.000852):
+//         Q 1 ... 587
+//   trim: -24 x R/R0 (also checked against the JE's level at 104..127)
+//         x levelComp (R5a): at reso 120..127 the JE's resonance does not
+//         get louder with cutoff the way a fixed-trim linear filter does;
+//         -8.2 / -9.2 / -9.9 dB from cutoff 64 to 112 (scene 16).
 //   Fit error against the JE: 1.75 dB RMS at reso 0 (about the noise
 //   estimate's own scatter), 1.87 dB at reso 32..96.
 //
@@ -65,8 +72,15 @@ public:
     // Section damping R = 1/(2Q) for a resonance code 0..127.
     static float damping(float resoCode);
 
-    // Output trim for mode m at damping R (the JP's resonance level law).
-    static float outputTrim(Mode m, float R);
+    // Output trim for mode m at resonance code 0..127 (the JP's level law):
+    // -24 x R/R0, -12 x (R/R0)^0.1, R = damping(resoCode).
+    static float outputTrim(Mode m, float resoCode);
+
+    // R5a: extra level reduction of the -24 modes at HIGH resonance and HIGH
+    // cutoff (linear gain, 1.0 = none).  Uses the cutoff KNOB code, not the
+    // modulated cutoff, so it is control-rate only.  1.0 for the -12 modes,
+    // at reso <= 116 and at cutoff <= 64.
+    static float levelComp(Mode m, float resoCode, float cutCode);
 
     static bool isCascade(Mode m)
     {

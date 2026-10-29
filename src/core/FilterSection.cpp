@@ -166,6 +166,19 @@ void FilterSection::setEnvAmount(float amt)
 void FilterSection::setKeyTrackAmount(float amt)
 {
     _keyTrackAmt = va_clamp(amt, -1.0f, 1.0f);
+
+    // D2 — JP-8000 key follow (scene 14 block C, JE-8086, LPF-24 cut 64):
+    //     byte   0 (-64): -0.98 oct/oct      byte  96 (+32): +0.99 oct/oct
+    //     byte  64 (  0): -0.02 oct/oct      byte 127 (+63): +2.05 oct/oct
+    // i.e. ASYMMETRIC: (b-64)/32 above centre, (b-64)/64 below, pivot note
+    // 60 (all four settings give the same ~650 Hz there).  The knob arrives
+    // as engineering -1..+1 = -1 + 2b/127 (7-bit wire), so b = (amt+1)*63.5;
+    // the wire's centre detent delivers byte 64 as EXACTLY 0, which must map
+    // to 64, not 63.5.  Computed here (control rate) so the per-block cost
+    // is one multiply.  Used only when a JP type is selected.
+    const float b = (_keyTrackAmt == 0.0f) ? 64.0f : (_keyTrackAmt + 1.0f) * 63.5f;
+    _jpKeyDepth = (b >= 64.0f) ? (b - 64.0f) * (1.0f / 32.0f)
+                               : (b - 64.0f) * (1.0f / 64.0f);
 }
 
 void FilterSection::setOctaveControl(float octaves)
@@ -229,6 +242,16 @@ void FilterSection::noteOn(uint8_t midiNote)
     _note = midiNote;      // keytrack pivot is A4 (note 69), computed per block
 }
 
+void FilterSection::retrigger()
+{
+    if (!isJp()) { reset(); return; }        // types 0..16 / OBXa: unchanged
+
+    // JP: keep the section states (the ring carries over), but start the
+    // note's modulation clean — the same two lines reset() ends with.
+    _envLevel   = 0.0f;
+    _lastModOct = 1.0e30f;
+}
+
 void FilterSection::reset()
 {
     _obxa.reset();
@@ -279,7 +302,9 @@ void FilterSection::updateBaseIfDirty()
         _fcHz    = JpFilter::cutoffHz(_cutNorm * 127.0f);
         _k       = JpFilter::damping(_resNorm * 127.0f);    // R = 1/(2Q)
         _inGain  = 1.0f;
-        _outGain = JpFilter::outputTrim(jpMode(), _k);
+        _outGain = JpFilter::outputTrim(jpMode(), _resNorm * 127.0f)    // R/R0 law (R4)
+                 * JpFilter::levelComp(jpMode(), _resNorm * 127.0f,     // R5a: knob cutoff
+                                       _cutNorm * 127.0f);
         return;
     }
 
@@ -325,6 +350,16 @@ void FilterSection::updateBaseIfDirty()
 // -----------------------------------------------------------------------------
 float FilterSection::computeModOctaves() const
 {
+    if (isJp()) {
+        // D2: JP key follow replaces the v1 key term.  It is pivoted at note
+        // 60 and sits OUTSIDE the x octaveCtrl multiply, so it works at any
+        // octave-control setting (the JP has no such control).  Env and LFO
+        // keep the existing bus unchanged.
+        const float envDC = _envAmount * _envLevel * _velEnvScale;
+        const float keyJp = _jpKeyDepth * ((float)_note - 60.0f) * (1.0f / 12.0f);
+        return (envDC + _lfoCutoff) * _octaveCtrl + _velCutoffOct + keyJp;
+    }
+
     float keyDC = 0.0f;
     if (_octaveCtrl > 0.0f) {
         const float keyOct = ((float)_note - 69.0f) * (1.0f / 12.0f);

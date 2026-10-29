@@ -230,6 +230,15 @@ public:
     void noteOn(uint8_t midiNote);       // captured for key tracking (pivot A4)
     void reset();                        // clear ALL topology states
 
+    // Fresh-note reset (Voice::startNote).  N1 (2026-10-27): for the JP types
+    // the resonator state is KEPT, because the JE-8086 does not reset its
+    // filter at note-on — at high resonance its ring (Q up to ~590) carries
+    // into the next note and retunes to the new cutoff (scene 15,
+    // syx-import/scene15-reso127-analysis-2026-10-27.md).  The per-note
+    // modulation state (env level, the fold sentinel) is reset either way.
+    // Every other type: exactly reset(), so their behaviour is unchanged.
+    void retrigger();
+
     // --- audio plane ---
     // setEnvLevel: this block's filter-envelope output (0..1), pushed by the
     // voice BEFORE process().  Sign/depth come from filter.env_amount, so the
@@ -324,6 +333,10 @@ private:
     // --- Pass 6 cutoff modulation state ---
     float _envAmount   = 0.0f;           // FILTER_ENV_AMOUNT, -1..+1 (signed depth)
     float _keyTrackAmt = 0.0f;           // FILTER_KEY_TRACK,  -1..+1
+    // D2 (2026-10-26/27): the JP-8000 key-follow law, JP types only.  Depth
+    // in octaves of cutoff per octave of keyboard, derived from the same
+    // knob at control rate (setKeyTrackAmount); see computeModOctaves.
+    float _jpKeyDepth  = 0.0f;
     float _octaveCtrl  = 0.0f;           // FILTER_OCTAVE_CONTROL, octaves (norm×10)
     float _envLevel    = 0.0f;           // this block's filter-env output, 0..1
     // --- Pass 8 velocity → filter (per-note DC set at note-on) ---

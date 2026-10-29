@@ -108,7 +108,10 @@ void Voice::startNote(uint8_t note, uint8_t velocity, float phaseRandom01)
     // Fresh filter state per note: a stolen voice must not smear the
     // previous note's resonance tail into the new one.  The note number
     // also feeds key tracking (wired in Pass 6).
-    _filter.reset();
+    // N1: retrigger() == reset() for every type except the JP-8000 modes,
+    // which keep their resonator ringing across notes as the JE does.  Panic
+    // / mode switch (hardKill) still clears everything.
+    _filter.retrigger();
     _filter.noteOn(note);
 
     // (2) filter cutoff: v1 cutoffOct = sens·(velNorm−0.5)·3 (±1.5 oct bipolar,
