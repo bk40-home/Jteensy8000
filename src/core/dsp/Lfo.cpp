@@ -4,6 +4,7 @@
 // =============================================================================
 
 #include "core/dsp/Lfo.h"
+#include "core/dsp/JpEnvLaw.h"   // JP fade: attack target (env_law = JpEnv)
 
 #include <cmath>   // fabsf only — float-suffixed per project rules
 
@@ -29,7 +30,13 @@ float Lfo::tickBlock()
     // Delay-ramp advance (spec §3 decision #7): kBlockMs per block, no
     // millis() in core/ — the block period is the only clock this needs.
     if (_ramping) {
-        _delayGain += kBlockMs / _delayMs;
+        if (_jpFade) {
+            // JP fade: the envelope attack generator (JpEnvLaw::kAttackTarget).
+            _delayGain = JpEnvLaw::kAttackTarget
+                       - (JpEnvLaw::kAttackTarget - _delayGain) * _jpFadeCoef;
+        } else {
+            _delayGain += kBlockMs / _delayMs;
+        }
         if (_delayGain >= 1.0f) { _delayGain = 1.0f; _ramping = false; }
     }
 
@@ -54,6 +61,7 @@ float Lfo::tickBlock()
             break;
     }
 
+    _lastUnit = value;
     return value * _delayGain;
 }
 

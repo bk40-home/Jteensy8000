@@ -7,6 +7,8 @@
 
 #include <cmath>   // powf only — float-suffixed per project rules
 
+#include "core/dsp/JpEnvLaw.h"
+
 namespace JT {
 
 void EnvGen::noteOn()
@@ -43,8 +45,14 @@ void EnvGen::quickFade()
     _stage = Stage::FadeOut;
 }
 
+// JP-law coefficient setters: control plane only (a parameter edit).
+void EnvGen::setJpAttackNorm(float n)  { _jpA = JpEnvLaw::blockCoef(JpEnvLaw::tauFromNorm(n)); }
+void EnvGen::setJpDecayNorm(float n)   { _jpD = JpEnvLaw::blockCoef(JpEnvLaw::tauFromNorm(n)); }
+void EnvGen::setJpReleaseNorm(float n) { _jpR = JpEnvLaw::blockCoef(JpEnvLaw::tauFromNorm(n)); }
+
 float EnvGen::tickBlock()
 {
+    if (_jp) return tickBlockJp();     // one branch; the JT path below is unchanged
     switch (_stage) {
         case Stage::Idle:
             return 0.0f;                       // free: no math at all
@@ -114,6 +122,47 @@ float EnvGen::tickBlock()
             _level = _stageStart * shaped;
             return _level;
         }
+    }
+    return 0.0f;   // unreachable; keeps -Werror=return-type honest
+}
+
+// JP-law stage model (header §JP LAW).  Idle / FadeOut / Sustain behave as in
+// the JT model; the three timed stages are one multiply-add each.
+float EnvGen::tickBlockJp()
+{
+    switch (_stage) {
+        case Stage::Idle:
+            return 0.0f;
+        case Stage::FadeOut:
+            hardKill();
+            return 0.0f;
+        case Stage::Sustain:
+            _level = _sustain;
+            return _level;
+        case Stage::Attack:
+            // Charge toward 1.25 from the current level; land EXACTLY on 1.0.
+            _level = JpEnvLaw::kAttackTarget - (JpEnvLaw::kAttackTarget - _level) * _jpA;
+            if (_level >= 1.0f) {
+                _level = 1.0f;
+                _stage = Stage::Decay;
+            }
+            return _level;
+        case Stage::Decay: {
+            _level = _sustain + (_level - _sustain) * _jpD;
+            const float gap = _level - _sustain;
+            if (gap < kJpSettle && gap > -kJpSettle) {
+                _level = _sustain;
+                _stage = Stage::Sustain;
+            }
+            return _level;
+        }
+        case Stage::Release:
+            _level *= _jpR;
+            if (_level < JpEnvLaw::kOffLevel) {
+                hardKill();                    // −60 dB: done, voice stealable
+                return 0.0f;
+            }
+            return _level;
     }
     return 0.0f;   // unreachable; keeps -Werror=return-type honest
 }

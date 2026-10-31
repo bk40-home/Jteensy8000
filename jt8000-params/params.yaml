@@ -76,6 +76,7 @@ option_sets:
   xmod_type: ["JtXmod", "JpXmod"]
   pwm_law: ["JtPwm", "JpPwm"]
   lfo_rate_law: ["JtRate", "JpRate"]
+  env_law: ["JtEnv", "JpEnv"]
   l_f_o_dest: ["None", "Pitch", "Filter", "PWM", "Amp"]
   # T2: dotted family APPENDED at indices 12..14, never inserted.  The stored
   # value of every select is its OPTION INDEX, and this set is shared by
@@ -1749,7 +1750,7 @@ params:
     cc: 18              # curated performance CC (General Purpose 3 - unison detune (perf-based))
     smooth_ms: 5
     ui: {section: 11, group: 1}
-  - id: 0x0584            # v1: CC::PITCH_BEND_RANGE (was CC 127)
+  - id: 0x0584            # v1: CC::PITCH_BEND_RANGE (was CC 127) — the UP range since 2026-10-31 (down: 0x0588)
     key: voice.bend_range
     name: "Bend Range"
     label: "BEND"
@@ -1799,6 +1800,41 @@ params:
     default: false
     smooth_ms: 0
     ui: {section: 11, group: 1}
+  - id: 0x0588            # section 11, index 8 (2026-10-31)
+    key: voice.bend_range_down
+    name: "Bend Range Down"
+    label: "BEND DN"
+    type: continuous
+    scope: patch
+    range: {min: 0, max: 24, curve: lin}
+    unit: "st"
+    # The JP-8000 has independent up/down bend ranges (JE-8086 scene 19:
+    # up and down measured independently, 0..24 st).  voice.bend_range is the
+    # UP range; this is the DOWN range.  Default 2.0 = the up default, so a
+    # default patch bends exactly as before.  A patch saved with a custom up
+    # range now bends DOWN by this value (2 st) until it is set.
+    default: 2.0
+    smooth_ms: 0
+    ui: {section: 11, group: 2}
+  - id: 0x0589            # section 11, index 9 (2026-10-31, sign-off 1a)
+    key: voice.env_law
+    name: "Envelope Law"
+    label: "ENV LAW"
+    type: select
+    scope: patch
+    options: env_law
+    default: 0
+    smooth_ms: 0
+    ui: {section: 11, group: 2}
+    # JtEnv (default) = the JT-8000 envelopes, unchanged: times in ms, shaped
+    # by the *_curve slopes (existing patches and the render baseline stay
+    # byte-identical).  JpEnv = the JP-8000 law measured on the JE-8086
+    # (fm1-port scenes 17/18/19): every envelope TIME knob position (byte/127)
+    # is read through one measured tau table (JpEnvLaw); decay/release are
+    # exponential, attack charges toward 1.25 x full and stops at full, and
+    # LFO1 DELAY becomes the JP's LFO1 FADE (the same attack generator on the
+    # LFO1 depth).  Applies to the amp, filter and pitch envelopes together;
+    # the *_curve slopes are ignored under JpEnv.  JP imports select JpEnv.
   # ---- [12] BPM Clock ----
   - id: 0x0600            # v1: CC::BPM_CLOCK_SOURCE (was CC 118)
     key: clock.clock_source

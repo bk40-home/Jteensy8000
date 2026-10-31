@@ -353,11 +353,17 @@ float FilterSection::computeModOctaves() const
     if (isJp()) {
         // D2: JP key follow replaces the v1 key term.  It is pivoted at note
         // 60 and sits OUTSIDE the x octaveCtrl multiply, so it works at any
-        // octave-control setting (the JP has no such control).  Env and LFO
-        // keep the existing bus unchanged.
+        // octave-control setting (the JP has no such control).  The env keeps
+        // the existing bus.
+        // LFO (2026-10-31, scene 19 recapture): the JP's LFO -> cutoff depth
+        // follows the same depth curve as LFO -> pitch (JE +32: +-7.9 cutoff
+        // codes = +-0.66 oct; JpModLaw D(32) = 0.60 oct), so it arrives in
+        // octaves and sits OUTSIDE x octaveCtrl too — through octaveCtrl it
+        // swept several octaves (scene 19: >= 109 codes).  The sequencer's
+        // filter lane keeps the octaveCtrl bus.
         const float envDC = _envAmount * _envLevel * _velEnvScale;
         const float keyJp = _jpKeyDepth * ((float)_note - 60.0f) * (1.0f / 12.0f);
-        return (envDC + _lfoCutoff) * _octaveCtrl + _velCutoffOct + keyJp;
+        return (envDC + _lfoSeqOnly) * _octaveCtrl + _lfoJpOct + _velCutoffOct + keyJp;
     }
 
     float keyDC = 0.0f;

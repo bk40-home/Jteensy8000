@@ -11,6 +11,7 @@
 #include "core/dsp/Curves.h"
 #include "core/dsp/JpModLaw.h"   // JP LFO1 / pitch-env depth curve (sign-off 5b)
 #include "core/dsp/JpLfoRate.h"  // JP LFO RATE law (lfo1/lfo2.rate_law = JpRate)
+#include "core/dsp/JpEnvLaw.h"   // JP envelope time law (voice.env_law = JpEnv, sign-off 1a)
 #include "gen/ParamTable.h"
 #include "core/WavetableLib.h"
 
@@ -380,9 +381,12 @@ void SynthCore::drainNoteEvents()
                 // there about the recurring "centre plays sharp" bug.  The maths
                 // below is numerically identical to v1's normalised=value/8192
                 // applied to the centred value; it is NOT a behaviour change.
+                //
+                // Up and down use their own ranges (JP-8000 behaviour, 2026-10-31);
+                // the position is stored so a later range change can re-apply it.
                 const uint16_t value14 = (uint16_t)(((uint16_t)e.a << 7) | e.b);
-                const float normalised = ((float)value14 - 8192.0f) / 8192.0f;  // -1..+1
-                const float semis      = normalised * L.bendRange;
+                L.bendNorm = ((float)value14 - 8192.0f) / 8192.0f;   // -1..+1
+                const float semis = L.bendSemis();
                 for (Voice& v : L.voices()) v.setBendSemis(semis);
             } break;
             default:                                        break;
@@ -661,16 +665,25 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         // FILTER_OBXA_RES_MOD_DEPTH: resonance mod-bus depth (LFO/seq -> res),
         // consumed by the later mod wiring.
         case ID::ENV_AMP_ATTACK:
-            for (Voice& v : L.voices()) v.ampEnv().setAttackMs(eng);
+            for (Voice& v : L.voices()) {
+                v.ampEnv().setAttackMs(eng);
+                v.ampEnv().setJpAttackNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_AMP_DECAY:
-            for (Voice& v : L.voices()) v.ampEnv().setDecayMs(eng);
+            for (Voice& v : L.voices()) {
+                v.ampEnv().setDecayMs(eng);
+                v.ampEnv().setJpDecayNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_AMP_SUSTAIN:
             for (Voice& v : L.voices()) v.ampEnv().setSustain(eng);
             break;
         case ID::ENV_AMP_RELEASE:
-            for (Voice& v : L.voices()) v.ampEnv().setReleaseMs(eng);
+            for (Voice& v : L.voices()) {
+                v.ampEnv().setReleaseMs(eng);
+                v.ampEnv().setJpReleaseNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_AMP_ATTACK_CURVE:
             for (Voice& v : L.voices()) v.ampEnv().setAttackSlope(eng);
@@ -701,16 +714,25 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         // ------------- filter envelope (Pass 6) ----------------------------
         // Same EnvGen class as the amp env; destination is cutoff, not gain.
         case ID::ENV_FILTER_ATTACK:
-            for (Voice& v : L.voices()) v.filterEnv().setAttackMs(eng);
+            for (Voice& v : L.voices()) {
+                v.filterEnv().setAttackMs(eng);
+                v.filterEnv().setJpAttackNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_FILTER_DECAY:
-            for (Voice& v : L.voices()) v.filterEnv().setDecayMs(eng);
+            for (Voice& v : L.voices()) {
+                v.filterEnv().setDecayMs(eng);
+                v.filterEnv().setJpDecayNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_FILTER_SUSTAIN:
             for (Voice& v : L.voices()) v.filterEnv().setSustain(eng);
             break;
         case ID::ENV_FILTER_RELEASE:
-            for (Voice& v : L.voices()) v.filterEnv().setReleaseMs(eng);
+            for (Voice& v : L.voices()) {
+                v.filterEnv().setReleaseMs(eng);
+                v.filterEnv().setJpReleaseNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_FILTER_ATTACK_CURVE:
             for (Voice& v : L.voices()) v.filterEnv().setAttackSlope(eng);
@@ -738,16 +760,25 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             break;
         }
         case ID::ENV_PITCH_ATTACK:
-            for (Voice& v : L.voices()) v.pitchEnv().setAttackMs(eng);
+            for (Voice& v : L.voices()) {
+                v.pitchEnv().setAttackMs(eng);
+                v.pitchEnv().setJpAttackNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_PITCH_DECAY:
-            for (Voice& v : L.voices()) v.pitchEnv().setDecayMs(eng);
+            for (Voice& v : L.voices()) {
+                v.pitchEnv().setDecayMs(eng);
+                v.pitchEnv().setJpDecayNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_PITCH_SUSTAIN:
             for (Voice& v : L.voices()) v.pitchEnv().setSustain(eng);
             break;
         case ID::ENV_PITCH_RELEASE:
-            for (Voice& v : L.voices()) v.pitchEnv().setReleaseMs(eng);
+            for (Voice& v : L.voices()) {
+                v.pitchEnv().setReleaseMs(eng);
+                v.pitchEnv().setJpReleaseNorm(norm);   // JpEnv: same knob through the JP table
+            }
             break;
         case ID::ENV_PITCH_ATTACK_CURVE:
             for (Voice& v : L.voices()) v.pitchEnv().setAttackSlope(eng);
@@ -874,7 +905,13 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             L.lfo1.syncMode = opt;
             applyLfoRate(L.lfo1);
             break;
-        case ID::LFO1_DELAY:       L.lfo1.osc.setDelayMs(eng * 4000.0f); break;
+        case ID::LFO1_DELAY:
+            // JtEnv: linear delay ramp over 0..4 s.  JpEnv: the same knob position
+            // is the JP LFO1 FADE time through the JP envelope table (both kept,
+            // so switching voice.env_law is lossless).
+            L.lfo1.osc.setDelayMs(eng * 4000.0f);
+            L.lfo1.osc.setJpFadeCoef(JpEnvLaw::blockCoef(JpEnvLaw::tauFromNorm(norm)));
+            break;
         case ID::LFO1_PITCH_DEPTH:  L.lfo1.depthPitch  = eng; break;
         case ID::LFO1_FILTER_DEPTH: L.lfo1.depthFilter = eng; break;
         case ID::LFO1_PWM_DEPTH:    L.lfo1.depthPwm    = eng; break;
@@ -885,12 +922,12 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
             // Same law handling as LFO1_FREQ (lfo2.rate_law).
             L.lfo2.freeNorm = norm;
             L.lfo2.freeHzJt = eng;
-            L.lfo2.freeHz   = L.lfo2.jpRate ? JpLfoRate::hzFromNorm(norm) : eng;
+            L.lfo2.freeHz   = L.lfo2.jpRate ? JpLfoRate::lfo2HzFromNorm(norm) : eng;
             if (L.lfo2.syncMode == TempoClock::kFree) L.lfo2.osc.setRateHz(L.lfo2.freeHz);
             break;
         case ID::LFO2_RATE_LAW:
             L.lfo2.jpRate = (opt == 1);
-            L.lfo2.freeHz = L.lfo2.jpRate ? JpLfoRate::hzFromNorm(L.lfo2.freeNorm)
+            L.lfo2.freeHz = L.lfo2.jpRate ? JpLfoRate::lfo2HzFromNorm(L.lfo2.freeNorm)
                                           : L.lfo2.freeHzJt;
             applyLfoRate(L.lfo2);
             break;
@@ -985,11 +1022,35 @@ void SynthCore::applyParam(size_t index, float norm, uint8_t layer)
         case ID::VOICE_UNISON_DETUNE:
             L.alloc.setUnisonDetune(eng);            // 0..1; re-spreads if Unison
             break;
+        case ID::VOICE_ENV_LAW: {
+            // JtEnv (0) / JpEnv (1), sign-off 1a.  One switch for the amp, filter
+            // and pitch envelopes and the LFO1 fade, as the JP has one table for
+            // all of them.  Each envelope already holds both laws' settings, so
+            // this only flips the model; a note in flight continues from its
+            // current level under the new law.
+            const bool jp = (opt == 1);
+            for (Voice& v : L.voices()) {
+                v.ampEnv().setJpLaw(jp);
+                v.filterEnv().setJpLaw(jp);
+                v.pitchEnv().setJpLaw(jp);
+            }
+            L.lfo1.osc.setJpFade(jp);
+        } break;
         case ID::VOICE_BEND_RANGE:
+        case ID::VOICE_BEND_RANGE_DOWN:
+        {
             // eng arrives already in 0..24 st (table range) — v1 clamped to
             // PITCH_BEND_MAX_SEMITONES(24); the table bounds guarantee it.
-            L.bendRange = eng;
-            break;
+            // BEND_RANGE is the UP range, BEND_RANGE_DOWN the DOWN range.
+            if (d.id == ID::VOICE_BEND_RANGE) L.bendRange     = eng;
+            else                              L.bendRangeDown = eng;
+            // Re-apply the HELD bend with the new range.  Before 2026-10-31 the
+            // range was only read when the next bend message arrived, so a
+            // range edit under a held wheel kept the old pitch (scene 19).
+            // One multiply + one store per voice, on a parameter edit only.
+            const float semis = L.bendSemis();
+            for (Voice& v : L.voices()) v.setBendSemis(semis);
+        } break;
         case ID::VOICE_AMP_LEVEL:
             // v1 AMP_MOD_FIXED_LEVEL: the DC BASE of the VCA-mod signal (spec
             // §1.4).  Replaces the hardcoded 1.0 base in renderBlock's
@@ -1646,14 +1707,30 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         const float u2g = u2 * lz.lfo2.outputGain();
 
         // LFO1 → pitch follows the JP-8000 depth curve (sign-off 5b,
-        // JpModLaw: full depth ±23.8 st).  LFO2 and the sequencer keep the
-        // linear ±7 st (not measured on the JP).  The pre-5b LFO1 value is
-        // kept for JtXmod's X-MOD routing only (one multiply).
+        // JpModLaw: full depth ±23.8 st).  LFO2 → pitch follows the SAME curve
+        // since 2026-10-31: scene 19 measured the JE's LFO2 +32 at 13.6 st p-p
+        // (curve: 14.3) where the old linear ±7 st gave half (6.6).  The
+        // sequencer keeps the linear ±7 st.  The pre-5b LFO1 value is kept for
+        // JtXmod's X-MOD routing only (one multiply).  Both curves are one
+        // cubic per block — control rate, never per sample.
         const float lfo1Depth      = lz.lfo1.pitchDepthTotal();
-        float pitchSemisLfo1       = u1 * JpModLaw::lfoPitchSemis(lfo1Depth);
+        // JP fade (env_law = JpEnv): the JP ramps the depth CONTROL in and the
+        // law shapes it, so the curve takes depth x fade gain (scene 18: the
+        // accelerating fade-in).  JT: the linear delay gain scales the output.
+        float pitchSemisLfo1       = lz.lfo1.osc.jpFade()
+            ? lz.lfo1.osc.lastUnit() * JpModLaw::lfoPitchSemis(lfo1Depth * lz.lfo1.osc.delayGain())
+            : u1 * JpModLaw::lfoPitchSemis(lfo1Depth);
         const float pitchLfo1Lin   = u1 * lfo1Depth * kLfoPitchMaxSemis;
-        float pitchSemisCommon = u2g * lz.lfo2.depthPitch * kLfoPitchMaxSemis;
+        float pitchSemisCommon = u2g * JpModLaw::lfoPitchSemis(lz.lfo2.depthPitch);
         float filterCutInput   = u1 * lz.lfo1.depthFilter + u2g * lz.lfo2.depthFilter;
+        // JP filter path: the same LFOs in OCTAVES through the JP depth curve
+        // (FilterSection::setLfoCutoffJp).  Sequencer filter lanes are summed
+        // separately below so the JP path can keep them on the octaveCtrl bus.
+        const float filterLfoJpOct = (u1  * JpModLaw::depthCents(lz.lfo1.depthFilter)
+                                    + u2g * JpModLaw::depthCents(lz.lfo2.depthFilter)) * (2.0f / 1200.0f);
+        // x2 (2 x D, like the pitch envelope's reach): scene 19 v19 measured the
+        // JT at exactly half the JE's sweep with 1 x D (7.8 vs 15.8 cutoff codes p-p).
+        float filterSeqOnly = 0.0f;
         float pwmLfo1          = u1 * lz.lfo1.depthPwm;
         float pwmCommon        = u2g * lz.lfo2.depthPwm;
 
@@ -1661,13 +1738,13 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         // modulating the whole instrument is what "global sequencer" means.
         switch (_seq.destination()) {
             case SeqDest::Pitch:  pitchSemisCommon += seqVal * kLfoPitchMaxSemis; break;
-            case SeqDest::Filter: filterCutInput   += seqVal;                     break;
+            case SeqDest::Filter: filterCutInput   += seqVal; filterSeqOnly += seqVal; break;
             case SeqDest::Pwm:    pwmCommon        += seqVal;                     break;
             case SeqDest::Amp:                                                    break; // global stage
             case SeqDest::None:
             default:                                                              break;
         }
-        if (_seq.auxDestination() == SeqAuxDest::Filter) filterCutInput += auxVal;
+        if (_seq.auxDestination() == SeqAuxDest::Filter) { filterCutInput += auxVal; filterSeqOnly += auxVal; }
 
         // VCA mod, PER LAYER (v1 topology): base = v1 AMP_MOD_FIXED_LEVEL
         // (voice.amp_level, default 1.0) with the two LFO tremolo terms adding
@@ -1682,8 +1759,14 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         //
         // At the default patch this is exactly 1.0 + 0 + 0, so the gain stays
         // unity, the mixing stage stays inert, and the render is unchanged.
-        float ampMul = lz.ampFixedLevel + u1 * lz.lfo1.depthAmp
-                                        + u2g * lz.lfo2.depthAmp;
+        //
+        // Tremolo depth law (2026-10-31): the JP's LFO → amp knob sets a
+        // modulation index of about depth² (JE: +32 -> 4.8 dB p-p, +48 ->
+        // 10.9 dB; depth² gives 4.5 / 11.5 dB).  The old linear index made the
+        // JT's tremolo ~2x deeper (scene 19: 41 dB vs 10.5 dB with filter).
+        // One law for both LFOs, as on the JP.  Two extra multiplies per block.
+        float ampMul = lz.ampFixedLevel + u1  * JpModLaw::ampIndex(lz.lfo1.depthAmp)
+                                        + u2g * JpModLaw::ampIndex(lz.lfo2.depthAmp);
         if (_seq.destination() == SeqDest::Amp) ampMul += seqVal;
         gainTarget[li] *= ampMul;
 
@@ -1707,6 +1790,7 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
             v.setRoutedLfoPitchSemis(pitchSemisLfo1);
             v.setRoutedLfoLinSemis(pitchLfo1Lin);
             v.filter().setLfoCutoff(filterCutInput);
+            v.filter().setLfoCutoffJp(filterSeqOnly, filterLfoJpOct);
             v.oscSection().setLfoPwm(pwmLfo1, pwmCommon);
         }
 

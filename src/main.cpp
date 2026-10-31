@@ -126,10 +126,23 @@ static constexpr uint32_t kCrashReportSettleMs = 500u;
 // have no destructor; dynamic graphs crash — v1 lesson, now a hard rule).
 // -----------------------------------------------------------------------------
 // Rate + block come from AudioConfig.h so the F32 graph and the engine can
-// never disagree.  Changing JT::kSampleRate there retunes both.  NB: the I2S
-// hardware honours this via AudioOutputI2S_F32's SAI dividers — verify the
-// actual output pitch on the bench, since the stock library's compile-time
-// AUDIO_SAMPLE_RATE_EXACT is independent of this setting (see port audit).
+// never disagree.  Changing JT::kSampleRate there retunes both.  The I2S
+// hardware honours this via AudioOutputI2S_F32's SAI dividers.
+//
+// The Teensy core, the stock Audio library and the USB-audio core overlay take
+// their rate from the AUDIO_* build flags in platformio.ini instead, so those
+// MUST match the engine.  These checks turn a mismatch — the cause of the
+// garbled laptop audio fixed on 2026-10-30 — into a compile error.
+#if !defined(AUDIO_SAMPLE_RATE_I)
+#error "AUDIO_SAMPLE_RATE_I not defined: add the AUDIO_* flags from platformio.ini"
+#endif
+#if !defined(USB_AUDIO_NO_CHANNELS_480)
+#error "Stock Teensy core in use: the USB-audio core overlay did not run (see platformio.ini extra_scripts)"
+#endif
+static_assert(AUDIO_SAMPLE_RATE_I == static_cast<int>(JT::kSampleRate),
+              "platformio.ini AUDIO_SAMPLE_RATE_I must equal JT::kSampleRate");
+static_assert(AUDIO_BLOCK_SAMPLES == static_cast<int>(JT::kBlockSize),
+              "platformio.ini AUDIO_BLOCK_SAMPLES must equal JT::kBlockSize");
 static AudioSettings_F32       audioSettings(JT::kSampleRate, (int)JT::kBlockSize);
 static JT::ParameterStore      gStore;
 // Feedback-comb delay lines (14.1 KB): OCRAM via DMAMEM — sequential
@@ -247,6 +260,10 @@ static AudioControlSGTL5000    gCodec;
 // -- record path (unchanged behaviour): synth -> DAW --------------------------
 // F32 -> int16 at the very edge.  This path is intentionally independent of the
 // return mixer so the recorded stream is the pure synth output.
+// AudioOutputUSB / AudioInputUSB below are the USB-audio overlay's versions
+// (third_party/teensy4-usb-audio): same class names and wiring as stock, but
+// UAC2 at the engine's 48 kHz with rate feedback to the host, so the laptop
+// sends exactly as many samples as the graph consumes.
 static AudioConvert_F32toI16   gUsbConvL;
 static AudioConvert_F32toI16   gUsbConvR;
 static AudioOutputUSB          gUsbOut;
@@ -255,7 +272,7 @@ static AudioConnection_F32     cUsbConvR(gSynth, 1, gUsbConvR, 0);
 static AudioConnection         cUsbL(gUsbConvL, 0, gUsbOut, 0);
 static AudioConnection         cUsbR(gUsbConvR, 0, gUsbOut, 1);
 
-// -- monitor path: DAW -> Teensy.  Stock AudioInputUSB is int16 stereo; convert
+// -- monitor path: DAW -> Teensy.  AudioInputUSB is int16 stereo; convert
 //    to F32 so it can enter the F32 return mixer.  Mirrors the outbound convert.
 static AudioInputUSB           gUsbIn;
 static AudioConvert_I16toF32   gUsbInConvL;
@@ -601,8 +618,14 @@ void setup()
 #endif
 
     // Two pools: F32 blocks for the synth path, a small int16 pool for the
-    // stock USB output object.  Sizes per brief §10 — edges only.
-    AudioMemory(16);   // +4: AudioInputUSB (int16 stereo) needs its own blocks
+    // USB device audio edges.  Sizes per brief §10 — edges only.
+    // int16 pool 16 -> 32 (2026-10-30, USB-audio overlay): the overlay's USB
+    // objects HOLD blocks in their own rings — at 48 kHz/128 that is 3 rx +
+    // 5 tx blocks per channel = 16, plus ~6 in flight through the converters.
+    // ~22 needed; 32 leaves headroom.  Cost ~4 KB of DMAMEM (RAM2).  Watch
+    // i16Blk on the status line (JT_DEBUG_USBAUDIO) and memUr: if memUr ever
+    // rises, the pool ran dry.
+    AudioMemory(32);
     // F32 pool.  Back to the original 20 after measurement: peak usage with
     // the USB host sink connected and a chord held was well inside it.  It was
     // briefly raised to 28 while chasing a suspected block shortage; that
@@ -1026,6 +1049,39 @@ void loop()
         Serial.print(gSynth.core().debugFilterEngineIsVa() ? 1 : 0);
         Serial.print(" vaType=");
         Serial.print(gSynth.core().debugFilterVaType());
+#endif
+
+        // --- USB device audio (laptop <-> Teensy) bring-up --------------------
+        // Turn JT_DEBUG_USBAUDIO on in platformio.ini.  All counters are
+        // cumulative since boot; a healthy link shows them FLAT while audio
+        // plays (a few at the moment playback starts or stops are normal).
+        //   rx=1        -> the laptop is streaming to the Teensy right now
+        //   inUr rising -> laptop sends too slowly: return path drops out
+        //   inOr rising -> laptop sends too fast:  return path drops samples
+        //   memUr rising-> int16 pool ran dry: raise AudioMemory(N) in setup()
+        //   outUr/outOr -> same for the record path (Teensy -> DAW)
+        //   i16Blk      -> int16 pool now/worst; must stay below the pool size
+#ifdef JT_DEBUG_USBAUDIO
+        {
+            const auto in  = gUsbIn.getStatus();
+            const auto out = gUsbOut.getStatus();
+            Serial.print(" | usbIn rx=");
+            Serial.print(in.receivingData ? 1 : 0);
+            Serial.print(" inUr=");
+            Serial.print(in.usb_audio_underrun_count);
+            Serial.print(" inOr=");
+            Serial.print(in.usb_audio_overrun_count);
+            Serial.print(" memUr=");
+            Serial.print(in.audio_memory_underrun_count);
+            Serial.print(" outUr=");
+            Serial.print(out.usb_audio_underrun_count);
+            Serial.print(" outOr=");
+            Serial.print(out.usb_audio_overrun_count);
+            Serial.print(" i16Blk=");
+            Serial.print(AudioMemoryUsage());
+            Serial.print("/");
+            Serial.print(AudioMemoryUsageMax());
+        }
 #endif
         Serial.println();
 

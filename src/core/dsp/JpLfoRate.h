@@ -5,8 +5,9 @@
 // ROLE
 //   Maps an LFO RATE knob position to Hz the way the JP-8000 does, for the
 //   lfo1.rate_law / lfo2.rate_law = JpRate options (sign-off 2026-10-25,
-//   option b; both LFOs per Kris).  Measured on LFO1; LFO2 is ASSUMED to share
-//   the curve until an LFO2 capture confirms it.  The JT law
+//   option b; both LFOs per Kris).  Measured on LFO1.  LFO2 was assumed to
+//   share the curve; scenes 18/19 (2026-10-31) showed it does not, so LFO2
+//   now has its own table (lfo2HzFromNorm).  The JT law
 //   (JtRate, unchanged) is a single log sweep 0.03 · 1300^t Hz; the JP's is
 //   two log segments with the knee at RATE 64:
 //
@@ -35,9 +36,13 @@
 namespace JT {
 namespace JpLfoRate {
 
-// JP-8000 LFO free-running rate (Hz) for a normalised knob position.
+// JP-8000 LFO1 free-running rate (Hz) for a normalised knob position.
 // Out-of-range input is clamped to 0..1.
 float hzFromNorm(float norm01);
+
+// JP-8000 LFO2 free-running rate (Hz): its OWN law (measured 2026-10-31,
+// scenes 18/19 — see JpLfoRate.cpp kTable2).  Same clamping.
+float lfo2HzFromNorm(float norm01);
 
 } // namespace JpLfoRate
 } // namespace JT

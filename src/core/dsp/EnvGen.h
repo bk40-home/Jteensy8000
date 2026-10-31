@@ -48,8 +48,23 @@
 //   audible note before restarting, so the osc-phase / filter resets in a
 //   steal happen at zero gain and cannot click.
 //
+// JP LAW (voice.env_law = JpEnv, sign-off 1a, 2026-10-31)
+//   A second, independent stage model measured on the JE-8086 (JpEnvLaw.h):
+//     attack : level' = 1.25 - (1.25 - level)·cA, stopped at exactly 1.0
+//     decay  : level' = sus  + (level - sus)·cD,  parks in Sustain when within
+//              kJpSettle of the sustain level
+//     release: level' = level·cR, ends (Idle) below JpEnvLaw::kOffLevel
+//   c = e^(−blockSeconds/τ), τ from the knob POSITION through the JP table —
+//   precomputed on a parameter edit (setJp*Norm), so a JP stage costs ONE
+//   multiply-add per block (no powf).  The *_curve slopes are not used.
+//   Gates (noteOn from current level, noteOff from current level, quickFade,
+//   hardKill) are shared, so the click-free behaviour is identical.  The JT
+//   model's times and slopes are kept alongside, so switching law back and
+//   forth is lossless.
+//
 // CPU
-//   Cost per active envelope per block: one powf (~30 cycles) + arithmetic.
+//   Cost per active envelope per block: one powf (~30 cycles) + arithmetic
+//   (JT law), or one multiply-add (JP law).
 //   Idle and sustain-hold states return immediately — nothing is computed
 //   that isn't required.
 //
@@ -74,6 +89,15 @@ public:
     void setAttackSlope(float s)  { _attackSlope  = s; }    // 0.15..5, 1=linear
     void setDecaySlope(float s)   { _decaySlope   = s; }
     void setReleaseSlope(float s) { _releaseSlope = s; }
+
+    // --- JP law (control plane) -------------------------------------------
+    // Knob POSITIONS (0..1 = byte/127) for the JP table; converted to
+    // per-block coefficients here, once, so tickBlock stays cheap.
+    void setJpLaw(bool on)          { _jp = on; }
+    void setJpAttackNorm(float n);
+    void setJpDecayNorm(float n);
+    void setJpReleaseNorm(float n);
+    bool jpLaw() const              { return _jp; }
 
     // --- gate ---
     void noteOn();
@@ -110,6 +134,12 @@ private:
         return (blocks <= 1.0f) ? 1.0f : (1.0f / blocks);
     }
 
+    // Decay is "arrived" when within this of the sustain level (−80 dB of
+    // full scale): the stage then parks in Sustain, which tracks edits live.
+    static constexpr float kJpSettle = 1.0e-4f;
+
+    float tickBlockJp();          // JP-law stage model (see header)
+
     Stage _stage = Stage::Idle;
     float _phase = 0.0f;          // 0..1 through the current stage
     float _level = 0.0f;          // last returned output level
@@ -118,6 +148,11 @@ private:
     float _attackMs  = 1.0f,  _decayMs = 100.0f;
     float _sustain   = 1.0f,  _releaseMs = 5.0f;
     float _attackSlope = 1.0f, _decaySlope = 1.0f, _releaseSlope = 1.0f;
+
+    // JP law state.  Coefficients default to "complete in one block" until
+    // the first parameter push — the same instant default as the JT times.
+    bool  _jp  = false;
+    float _jpA = 0.0f, _jpD = 0.0f, _jpR = 0.0f;   // per-block multipliers
 };
 
 } // namespace JT

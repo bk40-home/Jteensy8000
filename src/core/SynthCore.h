@@ -544,7 +544,19 @@ private:
         // Patch state that fans to this layer's voices.  Defaults are the
         // no-op values, identical to the pre-layer single-instance members
         // they replace, so a Single-mode patch is arithmetically unchanged.
-        float bendRange     = 2.0f;   // VOICE_BEND_RANGE, 0..24 st (v1 default 2)
+        float bendRange     = 2.0f;   // VOICE_BEND_RANGE: UP range, 0..24 st (v1 default 2)
+        float bendRangeDown = 2.0f;   // VOICE_BEND_RANGE_DOWN: DOWN range, 0..24 st (JP: independent)
+        float bendNorm      = 0.0f;   // last bend, -1..+1 (0 = centre).  Kept so a range
+                                      // change re-scales a HELD bend at once instead of
+                                      // waiting for the next bend message (scene 19).
+
+        // Bend in semitones from the stored position and the range for its
+        // direction.  Pure function of three floats; called only on a bend
+        // event or a range change, never per sample.
+        float bendSemis() const
+        {
+            return bendNorm * (bendNorm >= 0.0f ? bendRange : bendRangeDown);
+        }
         float ampFixedLevel = 1.0f;   // VOICE_AMP_LEVEL (v1 AMP_MOD_FIXED_LEVEL)
 
         // Arbitrary-wavetable selection is PATCH-level state (every voice in

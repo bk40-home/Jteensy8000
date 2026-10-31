@@ -100,6 +100,10 @@ static constexpr Option kOpt_edit_target[] = {
     { "B" },
     { "Both" },
 };
+static constexpr Option kOpt_env_law[] = {
+    { "JtEnv" },
+    { "JpEnv" },
+};
 static constexpr Option kOpt_f_x_delay_effect[] = {
     { "OFF" },
     { "Mono Short" },
@@ -342,9 +346,9 @@ static constexpr Option kOpt_xpander_mode[] = {
 };
 
 // ---------------------------------------------------------------------------
-// Parameters (310)
+// Parameters (312)
 // ---------------------------------------------------------------------------
-static constexpr int kNumParams = 310;
+static constexpr int kNumParams = 312;
 
 static constexpr Param kParams[kNumParams] = {
     { 0x0000, "osc1.wave",               "osc1.wave",               "Osc1 Wave",             "WAVE",      Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      21.0f,     0.0f,      0.0f,      "",      false,  kOpt_osc_wave,         22,  0 },
@@ -475,6 +479,8 @@ static constexpr Param kParams[kNumParams] = {
     { 0x0585, "voice.amp_level",         "voice.amp_level",         "Amp Level",             "AMP LVL",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      1.0f,      "norm",  false,  nullptr,                0, 11 },
     { 0x0586, "glide.mode",              "glide.mode",              "Glide Mode",            "GLIDE",     Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      2.0f,      0.0f,      0.0f,      "",      false,  kOpt_glide_mode,        3, 11 },
     { 0x0587, "voice.legato",            "voice.legato",            "Legato",                "LEGATO",    Widget::Toggle, Type::Toggle,      Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  nullptr,                0, 11 },
+    { 0x0588, "voice.bend_range_down",   "voice.bend_range_down",   "Bend Range Down",       "BEND DN",   Widget::Knob,  Type::Continuous,  Scope::Patch,        Curve::Lin, 0.0f,      24.0f,     0.0f,      2.0f,      "st",    false,  nullptr,                0, 11 },
+    { 0x0589, "voice.env_law",           "voice.env_law",           "Envelope Law",          "ENV LAW",   Widget::Combo, Type::Select,      Scope::Patch,        Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  kOpt_env_law,           2, 11 },
     { 0x0600, "clock.clock_source",      "clock.clock_source",      "Clock Src",             "SRC",       Widget::Combo, Type::Select,      Scope::Performance,  Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  kOpt_clock_source,      2, 12 },
     { 0x0601, "clock.tempo",             "clock.tempo",             "BPM",                   "BPM",       Widget::Knob,  Type::Continuous,  Scope::Performance,  Curve::Lin, 40.0f,     300.0f,    0.0f,      170.0f,    "BPM",   false,  nullptr,                0, 12 },
     { 0x0680, "seq.enable",              "seq.enable",              "Seq Enable",            "ON",        Widget::Toggle, Type::Toggle,      Scope::PatchShared,  Curve::Lin, 0.0f,      1.0f,      0.0f,      0.0f,      "",      false,  nullptr,                0, 13 },

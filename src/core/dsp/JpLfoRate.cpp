@@ -45,21 +45,55 @@ constexpr Point kTable[] = {
 constexpr size_t kCount = sizeof(kTable) / sizeof(kTable[0]);
 constexpr float  kRateMax = 127.0f;
 
-} // namespace
+// JE-8086 LFO2 free rate (2026-10-31: scene 18 C + scene 19 L, CC1 = 127,
+// pitch tracker <= 112, FM demodulation above).  LFO2 does NOT share LFO1's
+// law: one log segment, x1.542 per 16 bytes (0.78 Hz at 0 .. 16.2 Hz at 112,
+// every point within 0.2 %), flattening to ~x1.11 per 4 bytes above 112, and
+// a single top step to 50 Hz at 127.  (LFO1's law gives 5.42 Hz at byte 80
+// where the JE's LFO2 runs at 6.81 Hz — the gap scene 19 exposed.)
+constexpr Point kTable2[] = {
+    {   0.0f, -0.246924f },   // 0.7812 Hz
+    {  16.0f, +0.184985f },   // 1.203 Hz
+    {  32.0f, +0.618531f },   // 1.856 Hz
+    {  48.0f, +1.052254f },   // 2.864 Hz
+    {  64.0f, +1.485393f },   // 4.417 Hz
+    {  80.0f, +1.918612f },   // 6.811 Hz
+    {  96.0f, +2.351842f },   // 10.5 Hz
+    { 112.0f, +2.785166f },   // 16.2 Hz
+    { 116.0f, +2.899937f },   // 18.17 Hz
+    { 120.0f, +2.995232f },   // 19.99 Hz
+    { 124.0f, +3.120910f },   // 22.67 Hz
+    { 126.0f, +3.183749f },   // 24.14 Hz   (extrapolated: 120-124 slope; 125/126 not measured)
+    { 127.0f, +3.911563f },   // 49.98 Hz    (measured: the JP's top step, FM demod)
+};
+constexpr size_t kCount2 = sizeof(kTable2) / sizeof(kTable2[0]);
 
-JT_COLD float hzFromNorm(float norm01)
+// Log-linear interpolation over a byte -> ln(Hz) table (shared by both LFOs).
+float interp(const Point* tab, size_t count, float norm01)
 {
     const float n = (norm01 < 0.0f) ? 0.0f : (norm01 > 1.0f) ? 1.0f : norm01;
     const float r = n * kRateMax;
 
     // Segment [i, i+1] holding r; the last segment also takes r == 127.
     size_t i = 0;
-    while (i + 2 < kCount && r > kTable[i + 1].rate) ++i;
+    while (i + 2 < count && r > tab[i + 1].rate) ++i;
 
-    const Point& a = kTable[i];
-    const Point& b = kTable[i + 1];
+    const Point& a = tab[i];
+    const Point& b = tab[i + 1];
     const float  t = (r - a.rate) / (b.rate - a.rate);
     return expf(a.lnHz + t * (b.lnHz - a.lnHz));
+}
+
+} // namespace
+
+JT_COLD float hzFromNorm(float norm01)
+{
+    return interp(kTable, kCount, norm01);
+}
+
+JT_COLD float lfo2HzFromNorm(float norm01)
+{
+    return interp(kTable2, kCount2, norm01);
 }
 
 } // namespace JpLfoRate

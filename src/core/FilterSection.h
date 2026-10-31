@@ -213,6 +213,13 @@ public:
     // ×octaveCtrl term in computeModOctaves(), mirroring v1's mod-mixer path
     // — silent at octaveCtrl == 0 (v1-faithful, same as key/env).
     void setLfoCutoff(float x);
+    // JP filter path (isJp()): the LFO -> cutoff term in OCTAVES from the JP
+    // depth curve (JpModLaw, 2026-10-31) — added OUTSIDE x octaveCtrl, like
+    // the JP key follow — plus the sequencer's filter lane on its own, which
+    // keeps the octaveCtrl bus.  Non-JP types ignore both and keep using
+    // setLfoCutoff()'s combined term, unchanged.
+    void setLfoCutoffJp(float seqOnly, float lfoOctaves)
+    { _lfoSeqOnly = seqOnly; _lfoJpOct = lfoOctaves; }
 
     // --- input drive (VA engine only, as the demo bank was) -----------------
     // Scales the signal INTO the topology so it meets the output saturator
@@ -344,6 +351,8 @@ private:
     float _velEnvScale  = 1.0f;          // VELOCITY_ENV_SENS: factor on envDC (1=off)
     // --- Phase 3 LFO -> cutoff (block rate, pushed each block by SynthCore) ---
     float _lfoCutoff   = 0.0f;           // net LFO term, inside the ×octaveCtrl sum
+    float _lfoSeqOnly  = 0.0f;           // JP path: sequencer lane only (×octaveCtrl)
+    float _lfoJpOct    = 0.0f;           // JP path: LFO term in octaves (JpModLaw)
     // Cached total modulation (octaves) from the last derive.  A sentinel that
     // no real modOct can equal forces the first fold; thereafter the fold is
     // skipped whenever the modulation is static (env idle/held, knobs still).

@@ -314,6 +314,8 @@ window.PARAMS = {
   "velocity.filter_sens",
   "voice.amp_level",
   "voice.bend_range",
+  "voice.bend_range_down",
+  "voice.env_law",
   "voice.legato",
   "voice.poly_mode",
   "voice.unison_detune"
@@ -447,6 +449,8 @@ window.PARAMS = {
   "voice.amp_level": "Amp Level",
   "glide.mode": "Glide Mode",
   "voice.legato": "Legato",
+  "voice.bend_range_down": "Bend Range Down",
+  "voice.env_law": "Envelope Law",
   "clock.clock_source": "Clock Src",
   "clock.tempo": "BPM",
   "seq.enable": "Seq Enable",
@@ -676,6 +680,10 @@ window.PARAMS = {
    "A",
    "B",
    "Both"
+  ],
+  "env_law": [
+   "JtEnv",
+   "JpEnv"
   ],
   "f_x_delay_effect": [
    "OFF",

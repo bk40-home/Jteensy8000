@@ -59,13 +59,29 @@ public:
     void setRateHz(float hz)  { _rateHz = hz; }
     void setDelayMs(float ms) { _delayMs = ms; }
 
+    // JP FADE (voice.env_law = JpEnv, 2026-10-31): the delay ramp becomes the
+    // JP-8000's LFO1 FADE — the envelope ATTACK generator (charge toward 1.25,
+    // stop at 1.0) with the per-block coefficient from the JP τ table
+    // (JpEnvLaw).  Off = the linear delay ramp above, unchanged.
+    void setJpFade(bool on)        { _jpFade = on; }
+    void setJpFadeCoef(float c)    { _jpFadeCoef = c; }
+    bool jpFade() const            { return _jpFade; }
+
     void retrigger()
     {
-        if (_delayMs > 0.0f) { _delayGain = 0.0f; _ramping = true; }
+        // The JP fade always restarts: a near-zero fade time completes in one
+        // block (coef ~0), exactly like an instant attack.
+        if (_jpFade || _delayMs > 0.0f) { _delayGain = 0.0f; _ramping = true; }
     }
 
     // Advance one block; returns unit waveform (bipolar, ~-1..1) x delayGain.
     float tickBlock();
+
+    // The last block's waveform WITHOUT the delay/fade gain, and that gain.
+    // Under the JP fade SynthCore applies the depth law to depth x gain (the
+    // JP fades the depth CONTROL in, then the law shapes it), so it needs both.
+    float lastUnit() const   { return _lastUnit; }
+    float delayGain() const  { return _delayGain; }
 
 #ifdef JT_TESTING
     // Test-only: the rate SynthCore last pushed via setRateHz.  Lets the BPM
@@ -85,6 +101,9 @@ private:
     float    _phase     = 0.0f;
     float    _delayGain = 1.0f;   // 1.0 = no delay pending (default: instant)
     bool     _ramping   = false;
+    bool     _jpFade     = false;  // JP fade law (see setJpFade)
+    float    _jpFadeCoef = 0.0f;   // per-block attack multiplier
+    float    _lastUnit   = 0.0f;   // last waveform value before the gain
     uint32_t _rng;
     float    _shValue   = 0.0f;   // S&H: held across a cycle, redrawn at wrap
 };

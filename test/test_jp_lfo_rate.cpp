@@ -119,7 +119,9 @@ TEST_CASE("lfo2.rate_law: JpRate on LFO2, either order, sync unaffected")
         store.set(ID::LFO1_FREQ, 64.0f / 127.0f, Origin::Ui);
         if (!lawFirst) { drain(core); store.set(ID::LFO2_RATE_LAW, optNorm(ID::LFO2_RATE_LAW, 1.0f), Origin::Ui); }
         drain(core);
-        CHECK(core.debugLfoRateHz(1) == doctest::Approx(3.2258f).epsilon(0.001)); // LFO2: JP law
+        // LFO2's JP law is its OWN table since 2026-10-31 (scenes 18/19):
+        // 4.4167 Hz at 64, where LFO1's law gives 3.2258 Hz.
+        CHECK(core.debugLfoRateHz(1) == doctest::Approx(4.4167f).epsilon(0.001)); // LFO2: JP LFO2 law
         CHECK(core.debugLfoRateHz(0) == doctest::Approx(jtHz(64.0f)));            // LFO1 untouched
 
         store.set(ID::LFO2_SYNC, optNorm(ID::LFO2_SYNC, (float)TempoClock::k1_8), Origin::Ui);
@@ -165,4 +167,28 @@ TEST_CASE("lfo1/lfo2.rate_law: JtRate (default) renders byte-identically")
     size_t diff = 0;
     for (size_t i = 0; i < a.size(); ++i) diff += (a[i] != b[i]);
     CHECK(diff == 0);
+}
+
+TEST_CASE("JpLfoRate: LFO2 has its own measured law (JE-8086, scenes 18/19)")
+{
+    // Every measured knot is reproduced exactly (log-linear table).
+    const struct { float byte; float hz; } k[] = {
+        {   0.0f,  0.7812f }, {  16.0f,  1.2032f }, {  32.0f,  1.8562f },
+        {  48.0f,  2.8641f }, {  64.0f,  4.4167f }, {  80.0f,  6.8115f },
+        {  96.0f, 10.5049f }, { 112.0f, 16.2025f }, { 116.0f, 18.173f  },
+        { 120.0f, 19.990f  }, { 124.0f, 22.667f  }, { 127.0f, 49.977f  },
+    };
+    for (const auto& p : k) {
+        INFO("byte ", p.byte);
+        CHECK(JpLfoRate::lfo2HzFromNorm(p.byte / 127.0f) == doctest::Approx(p.hz).epsilon(0.001));
+    }
+    // Monotonic across the whole knob, top step included.
+    float prev = 0.0f;
+    for (int b = 0; b <= 127; ++b) {
+        const float hz = JpLfoRate::lfo2HzFromNorm((float)b / 127.0f);
+        CHECK(hz > prev);
+        prev = hz;
+    }
+    // LFO1's law is untouched.
+    CHECK(JpLfoRate::hzFromNorm(80.0f / 127.0f) == doctest::Approx(5.4247f).epsilon(0.001));
 }

@@ -13,7 +13,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 1 mod wheel, 5/65 portamento, 7 volume, 11 expression, 64 sustain,
 98/99/6/38/96/97/100/101 (N)RPN machinery, 120–127 channel mode.
 
-**Schema version 1 — 310 parameters.**
+**Schema version 1 — 312 parameters.**
 
 ## [0] Oscillator 1  *(NRPN MSB 0)*
 
@@ -202,6 +202,8 @@ A curated set of standard CCs mirrors key performance parameters (the
 | `0x0585` | 5 | Amp Level | `voice.amp_level` | continuous | 0–1 norm (lin) | 1 norm | 5 ms | — | patch |
 | `0x0586` | 6 | Glide Mode | `glide.mode` | select | 0–2 (index) | 0 (Cascade) | 0 ms | — | patch |
 | `0x0587` | 7 | Legato | `voice.legato` | toggle | off / on | off | 0 ms | — | patch |
+| `0x0588` | 8 | Bend Range Down | `voice.bend_range_down` | continuous | 0–24 st (lin) | 2 st | 0 ms | — | patch |
+| `0x0589` | 9 | Envelope Law | `voice.env_law` | select | 0–1 (index) | 0 (JtEnv) | 0 ms | — | patch |
 
 ## [12] BPM Clock  *(NRPN MSB 12)*
 
@@ -436,6 +438,7 @@ A curated set of standard CCs mirrors key performance parameters (the
 - **xmod_type**: `JtXmod`, `JpXmod`
 - **pwm_law**: `JtPwm`, `JpPwm`
 - **lfo_rate_law**: `JtRate`, `JpRate`
+- **env_law**: `JtEnv`, `JpEnv`
 - **l_f_o_dest**: `None`, `Pitch`, `Filter`, `PWM`, `Amp`
 - **timing_mode**: `Free`, `4 Bars`, `2 Bars`, `1 Bar`, `1/2`, `1/4`, `1/8`, `1/16`, `1/32`, `1/4T`, `1/8T`, `1/16T`, `1/4D`, `1/8D`, `1/16D`
 - **poly_mode**: `Poly`, `Mono`, `Unison`

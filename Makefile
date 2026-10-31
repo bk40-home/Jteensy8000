@@ -42,6 +42,7 @@ CORE := src/core/dsp/Curves.cpp \
         src/core/dsp/OscCore.cpp \
         src/core/dsp/JpModLaw.cpp \
         src/core/dsp/JpLfoRate.cpp \
+        src/core/dsp/JpEnvLaw.cpp \
         src/core/dsp/JpXmodLaw.cpp \
         src/core/dsp/JpFilter.cpp \
         src/core/dsp/SupersawOsc.cpp \
@@ -105,7 +106,9 @@ SRCS := $(CORE) \
         test/test_reverb.cpp \
         test/test_fxchain.cpp \
         test/test_sequencer.cpp \
-        test/test_arpeggiator.cpp
+        test/test_arpeggiator.cpp \
+        test/test_bend_wheel.cpp \
+        test/test_jp_env.cpp
 
 OBJS := $(SRCS:%.cpp=$(BUILD)/%.o)
 

@@ -505,3 +505,26 @@ TEST_CASE("jp filter: finite at full resonance across a cutoff sweep, then quiet
         CHECK(std::fabs(buf[127]) < 1e-3f);
     }
 }
+
+TEST_CASE("jp filter: LFO -> cutoff in octaves through the JP depth curve, independent of octave control")
+{
+    // Scene 19 recapture (2026-10-31): JE LFO2 -> filter +32 swept +-7.9 cutoff
+    // codes (+-0.66 oct); JpModLaw D(32) = 717 cents = 0.60 oct.  The JP path
+    // takes the LFO term in octaves OUTSIDE octaveCtrl (it used to multiply it
+    // and sweep several octaves).  The legacy combined term is ignored there.
+    auto octWith = [](float lfoOct, float legacy, float seqOnly, float octaveCtrl) {
+        FilterSection f; f.setEngine(1);
+        f.setVaType(FilterSection::kJpFirstVaType + (int)Mode::LP24);
+        f.setCutoff(64.0f / 127.0f, 0.0f);
+        f.setOctaveControl(octaveCtrl);
+        f.setLfoCutoff(legacy);
+        f.setLfoCutoffJp(seqOnly, lfoOct);
+        f.noteOn(60);                                  // key follow pivot: 0
+        float buf[128] = {};
+        f.process(buf, 128);
+        return f.debugModOctaves();
+    };
+    CHECK(octWith( 0.60f, 0.5f, 0.0f, 5.0f) == doctest::Approx( 0.60f));
+    CHECK(octWith(-0.60f, 0.5f, 0.0f, 9.0f) == doctest::Approx(-0.60f));   // octaveCtrl irrelevant
+    CHECK(octWith( 0.00f, 0.0f, 0.2f, 5.0f) == doctest::Approx( 1.00f));   // sequencer keeps the bus
+}

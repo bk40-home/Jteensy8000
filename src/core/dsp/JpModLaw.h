@@ -40,6 +40,13 @@ float lfoPitchSemis(float depth01);
 // Pitch env → pitch, full-scale semitones for a normalised depth (= 2·D/100).
 float envPitchSemis(float depth01);
 
+// LFO → amp (tremolo): modulation index for a normalised depth, sign kept.
+//   index(d) = d·|d|          (gain swings 1 ± index·lfo)
+// Measured 2026-10-31 on the JE (LFO1 → amp, scene 17 pan block): +32 ->
+// 4.8 dB p-p, +48 -> 10.9 dB p-p; d² gives 4.5 / 11.5 dB.  Confirmed on LFO2
+// (scene 18 D: +32 -> 4.4 dB with filter).  Inline: two multiplies, per block.
+inline float ampIndex(float depth01) { return depth01 * (depth01 < 0.0f ? -depth01 : depth01); }
+
 // LFO1 / env → X-MOD.  The JP adds knob steps (0..127) to the X-MOD knob:
 //   env  : D/18     (JE +32: +39 / +41; −32: −39; +63: 133 -> clamps)
 //   LFO1 : D/16.25  (peak; JE fits 11.5 / 12.0 at 16, 46.0 / 42.8 at 32 —
