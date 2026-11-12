@@ -348,3 +348,60 @@ TEST_CASE("performance: default patch is byte-identical to before the perf wirin
     REQUIRE(a.size() == b.size());
     for (size_t i = 0; i < a.size(); ++i) CHECK(a[i] == b[i]);
 }
+
+TEST_CASE("performance: Mono — releasing an older, silent key does not retrigger (C1)")
+{
+    // Hold C4, play E4 (a retrigger with LEGATO off, as measured on the JE),
+    // let the amp env decay, then release C4.  E4 is still the sounding key, so
+    // nothing may change: the level keeps falling.  Before C1 the release
+    // re-struck E4 and the envelope jumped back to its peak.
+    Rig r;
+    settle(r);
+    r.core.allSoundOff();
+    r.setOpt(ID::VOICE_POLY_MODE, (float)(int)PolyMode::Mono);
+    r.setE(ID::ENV_AMP_ATTACK, 0.0f);
+    r.setE(ID::ENV_AMP_DECAY, 400.0f);          // ms: clearly falling over the test
+    r.setE(ID::ENV_AMP_SUSTAIN, 0.1f);
+    r.block();
+
+    r.core.noteOn(60, 100);                     // C4
+    for (int i = 0; i < 8; ++i) r.block();
+    r.core.noteOn(64, 100);                     // E4: the sounding key
+    for (int i = 0; i < 60; ++i) r.block();     // into the decay
+    auto before = grab(r, 8);
+    r.core.noteOff(60);                         // the older, silent key
+    for (int i = 0; i < 2; ++i) r.block();
+    auto after = grab(r, 8);
+    CHECK(rms(after, 0, after.size()) <= rms(before, 0, before.size()) * 1.02f);
+    CHECK(r.core.activeVoices() == 1);          // E4 still sounding
+
+    r.core.noteOff(64);                         // now the last key: release
+    for (int i = 0; i < 400; ++i) r.block();
+    CHECK(r.core.activeVoices() == 0);
+}
+
+TEST_CASE("performance: the layer VCA never goes negative (C3)")
+{
+    // AMP LEVEL 0.2 with a full-depth square LFO on amp: the gain swings
+    // 0.2 +/- 1.0.  The low half must be SILENCE, not the note phase-inverted
+    // at 0.8.  Before C3 no block was ever quiet.
+    Rig r;
+    settle(r);
+    r.core.allSoundOff();
+    r.setE(ID::VOICE_AMP_LEVEL, 0.2f);
+    r.setOpt(ID::LFO1_WAVEFORM, 3.0f);          // SQR
+    r.setE(ID::LFO1_FREQ, 2.0f);                // Hz: several half-cycles below
+    r.setE(ID::LFO1_DEPTH, 1.0f);
+    r.setE(ID::LFO1_AMP_DEPTH, 1.0f);
+    r.block();
+    r.core.noteOn(69, 100);
+    for (int i = 0; i < 8; ++i) r.block();
+    int quiet = 0, loud = 0;
+    for (int b = 0; b < 400; ++b) {             // about 1 s
+        auto v = grab(r, 1);
+        const float e = rms(v, 0, v.size());
+        if (e < 1e-4f) ++quiet; else ++loud;
+    }
+    CHECK(quiet > 100);                         // the clamped half is silent
+    CHECK(loud > 100);                          // and the upper half still plays
+}

@@ -209,7 +209,12 @@ public:
     // (0..16383, centre 8192); the platform's onPitchBend handler forwards it
     // here (mirrors v1 jt8000.cpp onPitchBend -> LayerManager::handlePitchBend).
     // Queued like note events so it can never mutate voice pitch mid-render.
-    void pitchBend(uint16_t value14);
+    //
+    // J4 (Kris 5 Nov): routed by channel like sustain and the mod wheel, so in
+    // Layer / Split mode it reaches every layer that answers to that channel
+    // (it used to reach layer A only, so the B half of a split never bent).
+    // Channel 0 = "no channel" = layer A, the old behaviour (tests, consoles).
+    void pitchBend(uint16_t value14, uint8_t channel1to16 = 0);
 
     // Mod wheel (CC 1).  Until the mod matrix lands this has ONE fixed
     // destination — LFO1 pitch depth, i.e. vibrato — which is what the wheel

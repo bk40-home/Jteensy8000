@@ -207,3 +207,32 @@ TEST_CASE("tremolo depth law: index = depth^2 (JE LFO -> amp +32: 4.8 dB p-p)")
     // The old linear index gave ~9.6 dB.
     CHECK(ppDb == doctest::Approx(4.6f).epsilon(0.12));
 }
+
+TEST_CASE("pitch bend reaches layer B in a split (J4)")
+{
+    // Split with both layers on channel 1 (B defaults to channel 2, so it is
+    // set here), split note 60 (default): A5 (note 81) sounds on layer B only.
+    // Before J4 the bend went to layer A alone, so this note did not move.
+    Rig r;
+    for (uint8_t layer = 0; layer < 2; ++layer) {   // same sine voice on both
+        r.store.setEngineering(ID::MIX_OSC2, 0.0f, Origin::Ui, layer);
+        r.store.setEngineering(ID::MIX_SUB, 0.0f, Origin::Ui, layer);
+        r.store.setEngineering(ID::MIX_NOISE, 0.0f, Origin::Ui, layer);
+        r.store.set(ID::OSC1_WAVE,
+                    Curves::toNorm(kParams[ParameterStore::indexOf(ID::OSC1_WAVE)],
+                                   (float)(int)Wave::Sine), Origin::Ui, layer);
+        r.store.setEngineering(ID::ENV_AMP_ATTACK, 0.0f, Origin::Ui, layer);
+        r.store.setEngineering(ID::ENV_AMP_SUSTAIN, 1.0f, Origin::Ui, layer);
+        r.store.setEngineering(ID::VOICE_BEND_RANGE, 2.0f, Origin::Ui, layer);
+    }
+    r.setOpt(ID::PERF_MIDI_CHANNEL_B, 0.0f);       // option 0 = Ch 1
+    r.setOpt(ID::PERF_MODE, (float)PerfRouter::kModeSplit);
+    for (int i = 0; i < 20; ++i) r.block();
+    constexpr float kA5 = 880.0f;
+    r.core.noteOn(81, 100, 1);
+    CHECK(r.semisAfterSettle(kA5) == doctest::Approx(0.0f).epsilon(0.15));
+    r.core.pitchBend(kBendUp, 1);
+    CHECK(r.semisAfterSettle(kA5) == doctest::Approx(2.0f).epsilon(0.05));
+    r.core.pitchBend(kBendCentre, 1);
+    CHECK(std::fabs(r.semisAfterSettle(kA5)) < 0.15f);
+}

@@ -231,9 +231,14 @@ void SynthCore::drainExternalClock()
 // Pitch bend: split the 14-bit value across the event's two payload bytes
 // (a = high 7 bits, b = low 7 bits) so it rides the existing 3-byte ring
 // unchanged, then recombine in the drain (spec §4.3).
-void SynthCore::pitchBend(uint16_t value14)
+void SynthCore::pitchBend(uint16_t value14, uint8_t channel1to16)
 {
-    pushEvent(kEvBend, (uint8_t)((value14 >> 7) & 0x7F), (uint8_t)(value14 & 0x7F));
+    // J4: routed on the control plane like every other channel event; the
+    // drain then applies it to each receiving layer with THAT layer's own
+    // up / down ranges (L.bendSemis()).  Single mode routes to A only, which
+    // is the only layer sounding there, so Single is unchanged.
+    pushRouted(kEvBend, (uint8_t)((value14 >> 7) & 0x7F), (uint8_t)(value14 & 0x7F),
+               routeOrDefaultA(_router, 0, channel1to16, false));
 }
 
 void SynthCore::modWheel(uint8_t value7, uint8_t channel1to16)
@@ -1768,6 +1773,11 @@ void SynthCore::renderBlock(float* left, float* right, size_t n)
         float ampMul = lz.ampFixedLevel + u1  * JpModLaw::ampIndex(lz.lfo1.depthAmp)
                                         + u2g * JpModLaw::ampIndex(lz.lfo2.depthAmp);
         if (_seq.destination() == SeqDest::Amp) ampMul += seqVal;
+        // C3 (Kris 5 Nov): a VCA cannot go below zero.  With AMP LEVEL under
+        // 1.0, a sequencer rest or the low half of a deep tremolo drove ampMul
+        // negative, which played the layer PHASE-INVERTED instead of silent.
+        // One compare per layer per block; unity patches never reach it.
+        if (ampMul < 0.0f) ampMul = 0.0f;
         gainTarget[li] *= ampMul;
 
         // Arpeggiator (Phase 9): one block-rate tick, driving THIS layer's

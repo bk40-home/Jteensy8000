@@ -163,8 +163,15 @@ void VoiceAllocator::noteOff(uint8_t note)
 {
     // ---- MONO: legato note-stack return (v1 §1.2) ----
     if (_polyMode == PolyMode::Mono) {
+        // C1 (Kris 5 Nov, M-vance fix of 2 Nov ported): only the SOUNDING key —
+        // the top of the stack — may move the voice.  Releasing an older,
+        // silent key (hold C, play E, release C) just takes it off the stack;
+        // before, the return below re-struck E and retriggered every envelope.
+        // A note-off for a key that is not held at all is ignored the same way.
+        const bool wasTop = !_monoStack.empty() && _monoStack.top() == note;
         _monoStack.remove(note);
         Voice& v = _voices[0];
+        if (!wasTop && !_monoStack.empty()) return;   // the held note carries on
         if (!_monoStack.empty()) {
             // Return to the most-recent key still held.  v1 RETRIGGERS the
             // envelopes here (Decision #2 — kept): a full noteOn at the return

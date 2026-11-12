@@ -408,9 +408,10 @@ static void onNoteOff(byte ch, byte note, byte /*vel*/)
 // FortySevenEffects deliver the centred form natively; the USB host port
 // carries the RAW form on the wire and UsbHostPort subtracts 8192 in its
 // adapter so that this one convention still holds everywhere.
-static void onPitchBend(byte /*ch*/, int value)
+static void onPitchBend(byte ch, int value)
 {
-    gSynth.core().pitchBend((uint16_t)(value + 8192));
+    // J4: the channel now routes the bend (Layer / Split) — see SynthCore.h.
+    gSynth.core().pitchBend((uint16_t)(value + 8192), (uint8_t)ch);
 }
 
 // Shared CC routing, parameterised by the receiving port's transport —
